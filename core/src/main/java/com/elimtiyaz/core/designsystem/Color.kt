@@ -43,3 +43,5 @@ object ElImtiyazColors {
     val Transparent = Color(0x00000000)
     val Scrim = Color(0x88000000)
 }
+
+typealias ElimtiyazColors = ElImtiyazColors

@@ -24,7 +24,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** Mock delay range (200-500ms) — simulates network latency for realism. */
-private fun mockDelay() = delay((200L..500L).random())
+private suspend fun mockDelay() = delay((200L..500L).random())
 
 /**
  * Mock [ParentRepository] — fully in-memory, seeded from [MockData.parents].
@@ -117,7 +117,9 @@ class MockParentRepository @Inject constructor() : ParentRepository {
  * Joins the parent via the shared [MockData.parents] list.
  */
 @Singleton
-class MockStudentRepository @Inject constructor() : StudentRepository {
+class MockStudentRepository @Inject constructor(
+    private val parentRepository: MockParentRepository,
+) : StudentRepository {
 
     private val log = Logger.withTag("Mock.Student")
     private val state = MutableStateFlow(MockData.students)
@@ -212,7 +214,7 @@ class MockStudentRepository @Inject constructor() : StudentRepository {
     /** Atomically register a parent + N children. */
     override suspend fun batchRegister(input: BatchRegistrationInput): Result<BatchRegistrationResult> {
         mockDelay()
-        val parentResult = createParent(input.parent)
+        val parentResult = parentRepository.createParent(input.parent)
         val parent = parentResult.getOrNull() ?: return parentResult as Result<BatchRegistrationResult>
         val students = input.students.map { input ->
             createStudent(input.copy(parentId = parent.id)).getOrNull()!!

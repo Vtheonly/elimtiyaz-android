@@ -25,7 +25,7 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private fun mockDelay() = delay((200L..500L).random())
+private suspend fun mockDelay() = delay((200L..500L).random())
 
 /** Mock [PaymentRepository]. */
 @Singleton

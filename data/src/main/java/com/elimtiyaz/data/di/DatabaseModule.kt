@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.room.Room
 import com.elimtiyaz.data.local.ElImtiyazDatabase
 import com.elimtiyaz.data.local.dao.AcademicClassDao
-import com.elimtiyaz.data.local.dao.AppNotificationDao
 import com.elimtiyaz.data.local.dao.AssessmentDao
 import com.elimtiyaz.data.local.dao.AttendanceRecordDao
 import com.elimtiyaz.data.local.dao.AuditDao
@@ -12,6 +11,7 @@ import com.elimtiyaz.data.local.dao.ClassSubjectDao
 import com.elimtiyaz.data.local.dao.ExpenseDao
 import com.elimtiyaz.data.local.dao.HomeworkDao
 import com.elimtiyaz.data.local.dao.InstallmentDao
+import com.elimtiyaz.data.local.dao.NotificationDao
 import com.elimtiyaz.data.local.dao.ParentDao
 import com.elimtiyaz.data.local.dao.PaymentDao
 import com.elimtiyaz.data.local.dao.PersonnelDao
@@ -89,7 +89,7 @@ object DatabaseModule {
     @Provides fun provideAuditDao(db: ElImtiyazDatabase): AuditDao = db.auditDao()
 
     /** Provide the notification DAO. */
-    @Provides fun provideNotificationDao(db: ElImtiyazDatabase): AppNotificationDao = db.notificationDao()
+    @Provides fun provideNotificationDao(db: ElImtiyazDatabase): NotificationDao = db.notificationDao()
 
     /** Provide the routing stop DAO. */
     @Provides fun provideRoutingStopDao(db: ElImtiyazDatabase): RoutingStopDao = db.routingStopDao()

@@ -2,30 +2,17 @@ package com.elimtiyaz.feature.routing
 
 import co.touchlab.kermit.Logger
 import com.elimtiyaz.domain.model.GeoPoint
-import io.ktor.client.HttpClient
-import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.net.HttpURLConnection
+import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Minimal client for the public OSRM router (`router.project-osrm.org`).
- *
- * The Routing feature calls [route] to fetch a real road-network polyline
- * between an ordered list of stops. When OSRM is unreachable (offline,
- * rate-limited, HTTP error, malformed response, or no Ktor engine registered)
- * [route] returns null and the caller falls back to straight-line Haversine
- * polylines from [TspSolver].
- *
- * The client uses Ktor's [HttpClient] default constructor — the engine is
- * resolved by Java's `ServiceLoader` (CIO is on the runtime classpath via
- * `:data`). All network I/O is offloaded to [Dispatchers.IO].
- *
- * Geometry is requested as **polyline6** (1e-6 precision) per the task spec.
  */
 @Singleton
 class OsrmClient @Inject constructor(
@@ -35,32 +22,27 @@ class OsrmClient @Inject constructor(
     private val log = Logger.withTag("OsrmClient")
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
-    /** Lazily-constructed HttpClient — defaults to whatever engine ServiceLoader finds. */
-    private val clientHolder: HttpClient? by lazy {
-        runCatching { HttpClient() }.getOrElse {
-            log.w { "No Ktor engine available — OSRM calls will fall back to Haversine. Cause: ${it.message}" }
-            null
-        }
-    }
-
     /**
      * Fetch a driving route through every point in [points] (in order). Returns
      * null on any failure — callers must treat null as "use the fallback".
-     *
-     * @param points At least 2 geo points (start, …, end).
-     * @return decoded geometry + total distance (metres) + total duration (sec).
      */
     suspend fun route(points: List<GeoPoint>): OsrmRoute? = withContext(Dispatchers.IO) {
-        val client = clientHolder ?: return@withContext null
         if (points.size < 2) return@withContext null
         val coords = points.joinToString(";") { "${it.lng},${it.lat}" }
-        val url = "$baseUrl/route/v1/driving/$coords?overview=full&geometries=polyline6"
+        val urlString = "$baseUrl/route/v1/driving/$coords?overview=full&geometries=polyline6"
         val response = runCatching {
-            client.get(url).bodyAsText()
+            val conn = URL(urlString).openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            if (conn.responseCode == 200) {
+                conn.inputStream.bufferedReader().use { it.readText() }
+            } else null
         }.getOrElse {
             log.w { "OSRM request failed: ${it.message}" }
             return@withContext null
-        }
+        } ?: return@withContext null
+
         val parsed = runCatching { json.decodeFromString<OsrmResponse>(response) }.getOrElse {
             log.w { "OSRM response parse failed: ${it.message}" }
             return@withContext null

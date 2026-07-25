@@ -26,12 +26,12 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -85,7 +85,7 @@ fun AuditLogScreen(
             TopAppBar(
                 title = { Text("Journal d'audit", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
-                    IconButton(onClick = nav::popBackStack) {
+                    IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Retour")
                     }
                 },
@@ -164,20 +164,15 @@ private fun AuditFilterBar(
             horizontalArrangement = Arrangement.spacedBy(ElimtiyazSpacing.x2),
         ) {
             // Action dropdown
-            ExposedDropdownMenuBox(
-                expanded = actionExpanded,
-                onExpandedChange = { actionExpanded = it },
-                modifier = Modifier.weight(1f),
-            ) {
+            Box(modifier = Modifier.weight(1f)) {
                 OutlinedTextField(
                     value = state.actionFilter ?: "Toutes actions",
                     onValueChange = { },
                     readOnly = true,
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(actionExpanded) },
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                androidx.compose.material3.ExposedDropdownMenu(
+                DropdownMenu(
                     expanded = actionExpanded,
                     onDismissRequest = { actionExpanded = false },
                 ) {
@@ -194,20 +189,15 @@ private fun AuditFilterBar(
                 }
             }
             // Entity dropdown
-            ExposedDropdownMenuBox(
-                expanded = entityExpanded,
-                onExpandedChange = { entityExpanded = it },
-                modifier = Modifier.weight(1f),
-            ) {
+            Box(modifier = Modifier.weight(1f)) {
                 OutlinedTextField(
                     value = state.entityFilter ?: "Toutes entités",
                     onValueChange = { },
                     readOnly = true,
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(entityExpanded) },
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                androidx.compose.material3.ExposedDropdownMenu(
+                DropdownMenu(
                     expanded = entityExpanded,
                     onDismissRequest = { entityExpanded = false },
                 ) {

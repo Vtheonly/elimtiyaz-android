@@ -47,6 +47,9 @@ import com.elimtiyaz.core.ui.StatusChip
 import com.elimtiyaz.domain.model.Installment
 
 /** Installment schedule screen — header totals + per-row "Encaisser" action. */
+import androidx.compose.material3.ExperimentalMaterial3Api
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InstallmentScheduleScreen(
     nav: NavController,
@@ -59,7 +62,7 @@ fun InstallmentScheduleScreen(
             TopAppBar(
                 title = { Text("Tranches — ${state.parentName}", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
-                    IconButton(onClick = nav::popBackStack) {
+                    IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Retour")
                     }
                 },

@@ -16,8 +16,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.elimtiyaz.core.designsystem.ElimtiyazSpacing
-import com.elimtiyaz.core.designsystem.LocalElimtiyazStatusColors
+import com.elimtiyaz.core.designsystem.ElImtiyazSpacing
+import com.elimtiyaz.core.designsystem.LocalElImtiyazStatusColors
 
 /**
  * A small rounded pill used to display a status (Payment, Attendance, Expense…).
@@ -30,13 +30,15 @@ fun StatusChip(
     modifier: Modifier = Modifier,
 ) {
     val status = LocalElImtiyazStatusColors.current
-    val (bg, fg) = when (tone) {
+    val colorPair = when (tone) {
         StatusTone.Success -> status.success to Color.Black
         StatusTone.Warning -> status.warning to Color.Black
         StatusTone.Danger  -> status.danger  to Color.White
         StatusTone.Info    -> status.info    to Color.Black
         StatusTone.Neutral -> status.neutral to Color.White
     }
+    val bg = colorPair.first
+    val fg = colorPair.second
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(999.dp))

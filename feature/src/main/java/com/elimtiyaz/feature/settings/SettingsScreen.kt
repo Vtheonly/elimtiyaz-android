@@ -26,7 +26,7 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Fingerprint
-import androidx.compose.material.icons.outlined.InfoOutlined
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockClock
 import androidx.compose.material.icons.outlined.Mail
@@ -531,7 +531,7 @@ private fun AboutSection() {
     ElImtiyazCard {
         Column(modifier = Modifier.padding(ElimtiyazSpacing.x4)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.InfoOutlined, contentDescription = null)
+                Icon(Icons.Outlined.Info, contentDescription = null)
                 Spacer(Modifier.width(ElimtiyazSpacing.x3))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("El-Imtiyaz", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)

@@ -171,7 +171,7 @@ class RoutingMapViewModel @Inject constructor(
                         _uiState.update {
                             it.copy(isLoading = false, error = AppError.NotFound("Véhicule $vehicleId"))
                         }
-                        return
+                        return@collect
                     }
                     _uiState.update { it.copy(vehicle = vehicle) }
                     // Trigger optimisation once we know the vehicle.

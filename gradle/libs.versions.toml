@@ -26,6 +26,7 @@ splashscreen = "1.0.1"
 workmanager = "2.10.0"
 hiltWork = "1.2.0"
 firebaseBom = "33.5.1"
+googleServices = "4.4.2"
 
 # Testing
 junit = "4.13.2"
@@ -148,4 +149,4 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
-google-services = { id = "com.google.gms.google-services", version.ref = "agp" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }

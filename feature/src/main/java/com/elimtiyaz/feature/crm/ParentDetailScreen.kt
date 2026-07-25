@@ -20,13 +20,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Mail
 import androidx.compose.material.icons.outlined.Payments
-import androidx.compose.material.icons.outlined.WhatsApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -329,7 +329,7 @@ private fun QuickActionsRow(
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
         QuickAction(Icons.Outlined.Call, "Appeler", onCall)
-        QuickAction(Icons.Outlined.WhatsApp, "WhatsApp", onWhatsApp)
+        QuickAction(Icons.AutoMirrored.Outlined.Chat, "WhatsApp", onWhatsApp)
         QuickAction(Icons.Outlined.Mail, "E-mail", onEmail)
         QuickAction(Icons.Outlined.Payments, "Profil financier", onFinancialProfile)
     }

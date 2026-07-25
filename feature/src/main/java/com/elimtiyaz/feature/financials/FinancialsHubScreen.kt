@@ -63,6 +63,9 @@ import com.elimtiyaz.domain.model.Expense
 import com.elimtiyaz.domain.model.Payment
 
 /** Financials hub — the root of the Finances tab. KPI cards + 3-tab content. */
+import androidx.compose.material3.ExperimentalMaterial3Api
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FinancialsHubScreen(
     nav: NavController,

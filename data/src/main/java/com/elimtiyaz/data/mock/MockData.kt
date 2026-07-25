@@ -37,7 +37,10 @@ import com.elimtiyaz.domain.model.Subject
 import com.elimtiyaz.domain.model.TripLog
 import com.elimtiyaz.domain.model.Vehicle
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.minus
 import kotlinx.datetime.toLocalDateTime
 import java.util.UUID
 
@@ -64,7 +67,7 @@ object MockData {
     /** Helper: returns a date N days ago (or in the future if [days] is negative) as an ISO string. */
     fun daysAgoIso(days: Int): String {
         val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
-        val shifted = today.minus(kotlinx.datetime.DatePeriod(days = days))
+        val shifted = today.minus(DatePeriod(days = days))
         return shifted.atStartOfDayIn(TimeZone.currentSystemDefault()).toString()
     }
 

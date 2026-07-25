@@ -12,12 +12,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -93,18 +93,17 @@ fun ExpenseSubmitScreen(
 
             // Category dropdown
             var expanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+            Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = labelForExpenseCategory(state.category),
                     onValueChange = { },
                     readOnly = true,
                     label = { Text("Catégorie") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                androidx.compose.material3.ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    ExpenseCategory.values().forEach { c ->
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    ExpenseCategory.entries.forEach { c ->
                         DropdownMenuItem(text = { Text(labelForExpenseCategory(c)) }, onClick = { vm.categoryChanged(c); expanded = false })
                     }
                 }
@@ -123,7 +122,7 @@ fun ExpenseSubmitScreen(
             }
 
             Button(
-                onClick = { vm.submit(onSuccess = { _, _ -> nav.popBackStack() }) },
+                onClick = { vm.submit { ok, _ -> if (ok) nav.popBackStack() } },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 enabled = state.canSubmit && !state.isSubmitting,
             ) {

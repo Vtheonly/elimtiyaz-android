@@ -43,7 +43,6 @@ object SupabaseClientFactory {
         supabaseUrl = supabaseUrl,
         supabaseKey = supabaseKey,
     ) {
-        http = httpClient
         install(Postgrest)
         install(Auth)
         install(Realtime)

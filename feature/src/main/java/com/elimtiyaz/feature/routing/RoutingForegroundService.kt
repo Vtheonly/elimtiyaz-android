@@ -1,5 +1,6 @@
 package com.elimtiyaz.feature.routing
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -94,7 +95,7 @@ class RoutingForegroundService : Service() {
     }
 
     /** Start receiving high-accuracy location updates (~5s interval). */
-    @androidx.annotation.SuppressLint("MissingPermission")
+    @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
         // Permission is checked by RoutingMapScreen before startService() is called.
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5_000L)

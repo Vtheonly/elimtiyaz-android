@@ -24,7 +24,7 @@ import kotlin.math.hypot
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-private fun mockDelay() = delay((200L..500L).random())
+private suspend fun mockDelay() = delay((200L..500L).random())
 
 /** Mock [RoutingRepository] — driver mode with a nearest-neighbour optimiser. */
 @Singleton

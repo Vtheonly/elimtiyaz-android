@@ -4,6 +4,8 @@ import com.elimtiyaz.data.BuildConfig
 import com.elimtiyaz.data.remote.SupabaseClientFactory
 import dagger.Module
 import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
 import io.github.jan.supabase.SupabaseClient
 import io.ktor.client.HttpClient
 import kotlinx.serialization.json.Json
@@ -25,6 +27,7 @@ import javax.inject.Singleton
  * mock seed data.
  */
 @Module
+@InstallIn(SingletonComponent::class)
 @Suppress("unused")
 object NetworkModule {
 

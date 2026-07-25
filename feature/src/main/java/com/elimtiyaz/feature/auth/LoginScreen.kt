@@ -61,11 +61,11 @@ fun LoginScreen(
         if (s.role == Role.Parent || s.role == Role.Student) {
             // Parent/student should use the Web Portal
             nav.navigate(Route.WebPortalRedirect.route) {
-                popUpTo(Route.Login.route) { inclusive = true }
+                popUpTo(Route.Login.route) { this@popUpTo.inclusive = true }
             }
         } else {
             nav.navigate(Route.Dashboard.route) {
-                popUpTo(Route.Login.route) { inclusive = true }
+                popUpTo(Route.Login.route) { this@popUpTo.inclusive = true }
             }
         }
     }

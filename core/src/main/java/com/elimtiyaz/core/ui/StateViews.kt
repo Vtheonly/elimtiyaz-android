@@ -32,7 +32,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.elimtiyaz.core.common.AppError
-import com.elimtiyaz.core.designsystem.ElimtiyazSpacing
+import com.elimtiyaz.core.designsystem.ElImtiyazSpacing
 
 /**
  * Full-screen centered spinner — used on initial loads.
@@ -53,7 +53,7 @@ fun LoadingState(
             modifier = Modifier.size(48.dp),
         )
         if (message != null) {
-            Spacer(Modifier.height(ElimtiyazSpacing.x3))
+            Spacer(Modifier.height(ElImtiyazSpacing.x3))
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
@@ -77,7 +77,7 @@ fun ErrorState(
         else -> Icons.Outlined.ErrorOutline
     }
     Column(
-        modifier = modifier.fillMaxSize().padding(ElimtiyazSpacing.x6),
+        modifier = modifier.fillMaxSize().padding(ElImtiyazSpacing.x6),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -87,7 +87,7 @@ fun ErrorState(
             tint = MaterialTheme.colorScheme.error,
             modifier = Modifier.size(56.dp),
         )
-        Spacer(Modifier.height(ElimtiyazSpacing.x4))
+        Spacer(Modifier.height(ElImtiyazSpacing.x4))
         Text(
             text = error.userMessage,
             style = MaterialTheme.typography.titleMedium,
@@ -95,7 +95,7 @@ fun ErrorState(
             color = MaterialTheme.colorScheme.onSurface,
         )
         if (onRetry != null) {
-            Spacer(Modifier.height(ElimtiyazSpacing.x4))
+            Spacer(Modifier.height(ElImtiyazSpacing.x4))
             Button(onClick = onRetry) { Text("Réessayer") }
         }
     }
@@ -114,7 +114,7 @@ fun EmptyState(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.fillMaxSize().padding(ElimtiyazSpacing.x6),
+        modifier = modifier.fillMaxSize().padding(ElImtiyazSpacing.x6),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -131,14 +131,14 @@ fun EmptyState(
                 modifier = Modifier.size(36.dp),
             )
         }
-        Spacer(Modifier.height(ElimtiyazSpacing.x4))
+        Spacer(Modifier.height(ElImtiyazSpacing.x4))
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
         if (description != null) {
-            Spacer(Modifier.height(ElimtiyazSpacing.x2))
+            Spacer(Modifier.height(ElImtiyazSpacing.x2))
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodyMedium,
@@ -147,7 +147,7 @@ fun EmptyState(
             )
         }
         if (actionLabel != null && onAction != null) {
-            Spacer(Modifier.height(ElimtiyazSpacing.x4))
+            Spacer(Modifier.height(ElImtiyazSpacing.x4))
             TextButton(onClick = onAction) { Text(actionLabel) }
         }
     }
@@ -166,13 +166,13 @@ fun OfflineBanner(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f))
-            .padding(horizontal = ElimtiyazSpacing.x4, vertical = ElimtiyazSpacing.x2),
+            .padding(horizontal = ElImtiyazSpacing.x4, vertical = ElImtiyazSpacing.x2),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.CloudOff, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(ElimtiyazSpacing.x2))
+            Spacer(Modifier.width(ElImtiyazSpacing.x2))
             Text(
                 text = if (pendingCount > 0) "Hors ligne — $pendingCount en attente" else "Hors ligne",
                 style = MaterialTheme.typography.labelLarge,
@@ -201,5 +201,5 @@ fun <T> AsyncContent(
     }
 }
 
-@Suppress("unused") val DefaultContentPadding = PaddingValues(ElimtiyazSpacing.x4)
+@Suppress("unused") val DefaultContentPadding = PaddingValues(ElImtiyazSpacing.x4)
 @Suppress("unused") private val unused: Color = Color.Transparent  // keeps imports tidy

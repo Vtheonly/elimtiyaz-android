@@ -1,6 +1,7 @@
 package com.elimtiyaz.feature.academics
 
 import androidx.compose.foundation.background
+import com.elimtiyaz.core.designsystem.ElimtiyazSpacing
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues

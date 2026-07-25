@@ -13,10 +13,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.Mail
 import androidx.compose.material.icons.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.WhatsApp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -117,7 +117,7 @@ fun ParentProfileBottomSheet(
                     val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${parent.phone}"))
                     context.startActivity(intent)
                 }
-                ContactAction(Icons.Outlined.WhatsApp, "WhatsApp") {
+                ContactAction(Icons.AutoMirrored.Outlined.Chat, "WhatsApp") {
                     val phone = parent.whatsapp ?: parent.phone
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$phone"))
                     context.startActivity(intent)

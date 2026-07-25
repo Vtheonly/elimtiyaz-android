@@ -19,7 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.Share
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.AttachMoney
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.PictureAsPdf
@@ -64,6 +64,9 @@ import com.elimtiyaz.core.ui.StatusChip
 import com.elimtiyaz.core.ui.StatusTone
 
 /** Payment detail screen — receipt + proof + refund action. */
+import androidx.compose.material3.ExperimentalMaterial3Api
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentDetailScreen(
     nav: NavController,
@@ -83,7 +86,7 @@ fun PaymentDetailScreen(
             TopAppBar(
                 title = { Text("Paiement", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
-                    IconButton(onClick = nav::popBackStack) {
+                    IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Retour")
                     }
                 },
@@ -182,7 +185,7 @@ fun PaymentDetailScreen(
                                 onClick = { shareReceipt(context, state.receipt?.receiptNumber ?: p.receiptNumber, state.receipt?.pdfUrl.orEmpty()) },
                                 modifier = Modifier.weight(1f).height(48.dp),
                             ) {
-                                Icon(Icons.AutoMirrored.Outlined.Share, contentDescription = null)
+                                Icon(Icons.Outlined.Share, contentDescription = null)
                                 Spacer(Modifier.width(ElimtiyazSpacing.x2))
                                 Text("Partager")
                             }

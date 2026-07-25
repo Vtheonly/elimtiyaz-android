@@ -15,12 +15,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -158,21 +158,20 @@ fun ReleveScreen(
 
             // Activity dropdown.
             var activityExpanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(expanded = activityExpanded, onExpandedChange = { activityExpanded = it }) {
+            Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = state.activity.label,
                     onValueChange = { },
                     readOnly = true,
                     label = { Text("Activité") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(activityExpanded) },
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                androidx.compose.material3.ExposedDropdownMenu(
+                DropdownMenu(
                     expanded = activityExpanded,
                     onDismissRequest = { activityExpanded = false },
                 ) {
-                    ReleveActivity.values().forEach { a ->
+                    ReleveActivity.entries.forEach { a ->
                         DropdownMenuItem(
                             text = { Text(a.label) },
                             onClick = { vm.activityChanged(a); activityExpanded = false },

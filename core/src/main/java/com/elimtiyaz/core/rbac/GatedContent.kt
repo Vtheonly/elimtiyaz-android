@@ -24,8 +24,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.elimtiyaz.core.designsystem.ElimtiyazColors
-import com.elimtiyaz.core.designsystem.ElimtiyazSpacing
+import com.elimtiyaz.core.designsystem.ElImtiyazColors
+import com.elimtiyaz.core.designsystem.ElImtiyazSpacing
 
 /**
  * The visual treatment applied to any disabled UI node.
@@ -72,10 +72,10 @@ fun DisabledOverlay(
         Row(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(ElimtiyazSpacing.x2)
+                .padding(ElImtiyazSpacing.x2)
                 .clip(RoundedCornerShape(999.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.92f))
-                .padding(horizontal = ElimtiyazSpacing.x2, vertical = ElimtiyazSpacing.x1),
+                .padding(horizontal = ElImtiyazSpacing.x2, vertical = ElImtiyazSpacing.x1),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -84,7 +84,7 @@ fun DisabledOverlay(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(14.dp),
             )
-            Spacer(Modifier.size(ElimtiyazSpacing.x1))
+            Spacer(Modifier.size(ElImtiyazSpacing.x1))
             Text(
                 text = "Verrouillé",
                 style = MaterialTheme.typography.labelSmall,
@@ -100,7 +100,7 @@ fun DisabledOverlay(
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(ElimtiyazSpacing.x4),
+                    .padding(ElImtiyazSpacing.x4),
             )
         }
     }
@@ -120,7 +120,7 @@ fun DisabledInline(
     Row(
         modifier = modifier.alpha(DISABLED_ALPHA),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(ElimtiyazSpacing.x1),
+        horizontalArrangement = Arrangement.spacedBy(ElImtiyazSpacing.x1),
     ) {
         content()
         if (showLock) {
@@ -146,7 +146,7 @@ fun DisabledPlaceholder(
     onBack: (() -> Unit)? = null,
 ) {
     Column(
-        modifier = modifier.fillMaxSize().padding(ElimtiyazSpacing.x8),
+        modifier = modifier.fillMaxSize().padding(ElImtiyazSpacing.x8),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -164,13 +164,13 @@ fun DisabledPlaceholder(
                 modifier = Modifier.size(36.dp),
             )
         }
-        Spacer(Modifier.size(ElimtiyazSpacing.x4))
+        Spacer(Modifier.size(ElImtiyazSpacing.x4))
         Text(
             text = "Fonctionnalité verrouillée",
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Spacer(Modifier.size(ElimtiyazSpacing.x2))
+        Spacer(Modifier.size(ElImtiyazSpacing.x2))
         Text(
             text = reason.displayFr,
             style = MaterialTheme.typography.bodyMedium,
@@ -178,7 +178,7 @@ fun DisabledPlaceholder(
             textAlign = TextAlign.Center,
         )
         if (onBack != null) {
-            Spacer(Modifier.size(ElimtiyazSpacing.x6))
+            Spacer(Modifier.size(ElImtiyazSpacing.x6))
             androidx.compose.material3.TextButton(onClick = onBack) { Text("Retour") }
         }
     }

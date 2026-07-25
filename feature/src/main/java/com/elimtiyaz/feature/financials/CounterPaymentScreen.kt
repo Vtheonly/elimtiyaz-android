@@ -23,7 +23,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.Share
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.PhotoLibrary
@@ -403,6 +403,7 @@ private fun ProofCaptureBlock(
 }
 
 /** Success-state receipt preview overlay with a Share button. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReceiptPreviewScaffold(
     receiptNumber: String,
@@ -445,7 +446,7 @@ private fun ReceiptPreviewScaffold(
             Text(Formatters.dateTime(collectedAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(ElimtiyazSpacing.x6))
             Button(onClick = onShare, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                Icon(Icons.AutoMirrored.Outlined.Share, contentDescription = null)
+                Icon(Icons.Outlined.Share, contentDescription = null)
                 Spacer(Modifier.width(ElimtiyazSpacing.x2))
                 Text("Partager le reçu")
             }

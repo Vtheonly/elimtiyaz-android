@@ -97,7 +97,7 @@ class SupabaseRoutingRepository @Inject constructor(
                 polyline = optimized.map { GeoPoint(it.lat, it.lng) },
             )
         }.onFailure {
-            log.w { "optimizeRoute failed: ${it.message}" }
+            log.w { "optimizeRoute failed: ${it.userMessage}" }
         }
 
     /** Stream recent trip logs. */

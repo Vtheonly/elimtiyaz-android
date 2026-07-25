@@ -1,6 +1,7 @@
 package com.elimtiyaz.core.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,7 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.elimtiyaz.core.designsystem.ElimtiyazSpacing
+import com.elimtiyaz.core.designsystem.ElImtiyazSpacing
 
 /**
  * Standard surface card. Dark theme uses a 1dp outline instead of elevation
@@ -88,11 +89,11 @@ fun ListRow(
     trailing: @Composable () -> Unit = {},
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(ElimtiyazSpacing.x4),
+        modifier = Modifier.fillMaxWidth().padding(ElImtiyazSpacing.x4),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         leading()
-        Spacer(Modifier.size(ElimtiyazSpacing.x3))
+        Spacer(Modifier.size(ElImtiyazSpacing.x3))
         Column(Modifier.weight(1f)) {
             androidx.compose.material3.Text(
                 text = title,

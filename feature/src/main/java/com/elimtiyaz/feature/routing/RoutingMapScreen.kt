@@ -321,7 +321,7 @@ private fun MapContent(
                         snippet = stop.address
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                         icon = makeNumberedMarker(
-                            context = ctx,
+                            context = map.context,
                             number = idx + 1,
                             label = stop.studentName.firstOrNull()?.toString() ?: "?",
                             done = idx < state.currentStopIndex,
@@ -336,7 +336,7 @@ private fun MapContent(
                         position = OsmGeoPoint(loc.lat, loc.lng)
                         title = "Bus — ${state.vehicle?.plate ?: ""}"
                         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-                        icon = makeBusMarker(ctx)
+                        icon = makeBusMarker(map.context)
                     }
                     map.overlays.add(bus)
                     // Centre the map on the vehicle the first time we have a fix.
@@ -559,6 +559,8 @@ private fun StopReorderRow(
     onDragTo: (Int) -> Unit,
 ) {
     var dragOffsetY by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val rowHeightPx = with(density) { 64.dp.toPx() }
     val containerColor = when {
         isCurrent -> MaterialTheme.colorScheme.primaryContainer
         isDone -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -575,7 +577,6 @@ private fun StopReorderRow(
                 ) { _, drag ->
                     dragOffsetY += drag.y
                     // Each row is ~64dp tall — when drag exceeds half, swap.
-                    val rowHeightPx = with(androidx.compose.ui.platform.LocalDensity.current) { 64.dp.toPx() }
                     val moves = (dragOffsetY / rowHeightPx).toInt()
                     if (moves != 0) {
                         onDragTo((index + moves).coerceIn(0, Int.MAX_VALUE))

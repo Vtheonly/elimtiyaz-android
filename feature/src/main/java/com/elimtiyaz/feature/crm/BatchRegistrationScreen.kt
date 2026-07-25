@@ -142,7 +142,7 @@ fun BatchRegistrationScreen(
                     vm.submit { ok, msg, parentId ->
                         if (ok && parentId != null) {
                             nav.navigate(Route.ParentDetail.build(parentId)) {
-                                popUpTo(Route.Roster.route) { inclusive = false }
+                                popUpTo(Route.Roster.route) { this@popUpTo.inclusive = false }
                             }
                         }
                         // On failure the error is surfaced via state.formError, picked up by SubmitStep.

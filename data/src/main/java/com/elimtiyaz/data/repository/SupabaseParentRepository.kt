@@ -76,9 +76,7 @@ class SupabaseParentRepository @Inject constructor(
     override fun parent(id: String): Flow<Result<Parent>> = RepositoryHelpers.cacheThenFetchOne(
         dispatchers = dispatchers,
         loadCache = {
-            parentDao.all().firstOrNull { it.id == id }?.toDomain(
-                students = studentDao.all().filter { it.parentId == id }.map { it.toDomain() },
-            )
+            parentDao.all().firstOrNull { it.id == id }?.toDomain()
         },
         fetch = {
             val dto = supabase.from(PARENTS_TABLE).select {
@@ -134,7 +132,7 @@ class SupabaseParentRepository @Inject constructor(
                 nowIso = Formatters.nowIso(),
             )
             sync.enqueueRaw(PARENTS_TABLE, "insert", sync.encode(payload))
-            log.w { "createParent failed — queued for sync: ${it.message}" }
+            log.w { "createParent failed — queued for sync: ${it.userMessage}" }
         }
 
     /** Update a parent's mutable fields. */
@@ -152,7 +150,7 @@ class SupabaseParentRepository @Inject constructor(
         }.onFailure {
             val payload = UpdateParentDto.fromInput(input, nowIso())
             sync.enqueueRaw(PARENTS_TABLE, "update", sync.encode(payload))
-            log.w { "updateParent failed — queued: ${it.message}" }
+            log.w { "updateParent failed — queued: ${it.userMessage}" }
         }
 
     /** Delete a parent. */
@@ -238,7 +236,8 @@ class SupabaseStudentRepository @Inject constructor(
         dispatchers = dispatchers,
         loadCache = {
             val parents = parentDao.all().associateBy { it.id }
-            studentDao.all().firstOrNull { it.id == id }?.toDomain(parent = parents[it.parentId]?.toDomain())
+            val studentEntity = studentDao.all().firstOrNull { it.id == id }
+            studentEntity?.toDomain(parent = parents[studentEntity.parentId]?.toDomain())
         },
         fetch = {
             val dto = supabase.from(STUDENTS_TABLE).select { filter { eq("id", id) } }
@@ -287,7 +286,7 @@ class SupabaseStudentRepository @Inject constructor(
                 tenantId = DEFAULT_TENANT, code = "ELV-PENDING", nowIso = Formatters.nowIso(),
             )
             sync.enqueueRaw(STUDENTS_TABLE, "insert", sync.encode(payload))
-            log.w { "createStudent failed — queued: ${it.message}" }
+            log.w { "createStudent failed — queued: ${it.userMessage}" }
         }
 
     /** Update a student's mutable fields. */
@@ -359,7 +358,7 @@ class SupabaseStudentRepository @Inject constructor(
             log.i { "Batch-registered parent $parentCode with ${studentDtos.size} children" }
             BatchRegistrationResult(parentDomain, studentDomains)
         }.onFailure {
-            log.w { "batchRegister failed: ${it.message}" }
+            log.w { "batchRegister failed: ${it.userMessage}" }
         }
 
     /** Promote the given students to the next academic year. */
@@ -381,7 +380,7 @@ class SupabaseStudentRepository @Inject constructor(
             log.i { "Promoted ${updated.size} students to $academicYear" }
             updated
         }.onFailure {
-            log.w { "promote failed: ${it.message}" }
+            log.w { "promote failed: ${it.userMessage}" }
         }
 }
 

@@ -25,7 +25,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.roundToInt
 
-private fun mockDelay() = delay((200L..500L).random())
+private suspend fun mockDelay() = delay((200L..500L).random())
 
 /** Mock [ClassRepository]. */
 @Singleton

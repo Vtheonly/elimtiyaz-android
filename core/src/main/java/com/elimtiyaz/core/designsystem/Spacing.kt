@@ -51,3 +51,8 @@ val ElImtiyazShapes = Shapes(
     large = RoundedCornerShape(ElImtiyazRadius.lg),
     extraLarge = RoundedCornerShape(ElImtiyazRadius.xl),
 )
+
+typealias ElimtiyazSpacing = ElImtiyazSpacing
+typealias ElimtiyazRadius = ElImtiyazRadius
+typealias ElimtiyazElevation = ElImtiyazElevation
+

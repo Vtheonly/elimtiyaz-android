@@ -4,7 +4,6 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.elimtiyaz.data.local.dao.AcademicClassDao
-import com.elimtiyaz.data.local.dao.AppNotificationDao
 import com.elimtiyaz.data.local.dao.AssessmentDao
 import com.elimtiyaz.data.local.dao.AttendanceRecordDao
 import com.elimtiyaz.data.local.dao.AuditDao
@@ -12,6 +11,7 @@ import com.elimtiyaz.data.local.dao.ClassSubjectDao
 import com.elimtiyaz.data.local.dao.ExpenseDao
 import com.elimtiyaz.data.local.dao.HomeworkDao
 import com.elimtiyaz.data.local.dao.InstallmentDao
+import com.elimtiyaz.data.local.dao.NotificationDao
 import com.elimtiyaz.data.local.dao.ParentDao
 import com.elimtiyaz.data.local.dao.PaymentDao
 import com.elimtiyaz.data.local.dao.PersonnelDao
@@ -107,7 +107,7 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
     /** Audit DAO. */
     abstract fun auditDao(): AuditDao
     /** Notification DAO. */
-    abstract fun notificationDao(): AppNotificationDao
+    abstract fun notificationDao(): NotificationDao
     /** Routing stop DAO. */
     abstract fun routingStopDao(): RoutingStopDao
     /** Vehicle DAO. */

@@ -58,6 +58,9 @@ import com.elimtiyaz.domain.model.DebtSummary
 import kotlinx.coroutines.launch
 
 /** Debt dashboard — aging chart + filter + debtors list with reminder action. */
+import androidx.compose.material3.ExperimentalMaterial3Api
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DebtDashboardScreen(
     nav: NavController,
@@ -76,7 +79,7 @@ fun DebtDashboardScreen(
             TopAppBar(
                 title = { Text("Créances & Retards", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
-                    IconButton(onClick = nav::popBackStack) {
+                    IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Retour")
                     }
                 },

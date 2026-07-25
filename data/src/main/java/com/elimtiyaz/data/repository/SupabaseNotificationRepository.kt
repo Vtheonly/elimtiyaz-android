@@ -54,7 +54,7 @@ class SupabaseNotificationRepository @Inject constructor(
     /** Mark all notifications as read. */
     override suspend fun markAllRead(): Result<Unit> = Result.runCatching {
         supabase.from(NOTIFICATIONS_TABLE).update(mapOf("read_at" to nowIso())) {
-            filter { eq("read_at", null) }
+            filter { exact("read_at", null) }
         }
         val all = notificationDao.observeAll().first()
         notificationDao.upsertAll(all.map { it.copy(readAt = nowIso()) })

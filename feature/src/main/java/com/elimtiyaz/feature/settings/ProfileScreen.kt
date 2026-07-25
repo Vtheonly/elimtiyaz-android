@@ -510,7 +510,6 @@ private fun estimateGridHeight(count: Int): androidx.compose.ui.unit.Dp {
     val rows = (count + 2) / 3 // ~3 chips per row on average
     val rowHeight = 40.dp
     val spacing = 8.dp
-    return (rows * rowHeight + (rows - 1).coerceAtLeast(0) * spacing)
-        .coerceAtLeast(40.dp)
-        .coerceAtMost(240.dp)
+    val total = rowHeight * rows + spacing * (rows - 1).coerceAtLeast(0)
+    return total.coerceAtLeast(40.dp).coerceAtMost(240.dp)
 }

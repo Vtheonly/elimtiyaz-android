@@ -11,6 +11,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
@@ -29,7 +30,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * a small lock overlay; clicks are ignored.
  */
 @Composable
-fun GatedNavigationBarItem(
+fun RowScope.GatedNavigationBarItem(
     requirement: AccessRequirement,
     selected: Boolean,
     onClick: () -> Unit,
@@ -55,9 +56,6 @@ fun GatedNavigationBarItem(
         enabled = state is AccessState.Enabled,
     )
 }
-
-private fun Modifier.alpha(value: Float): Modifier =
-    this.then(androidx.compose.ui.draw.alpha(value))
 
 /**
  * FAB. When disabled, rendered with reduced alpha and a lock icon; clicks ignored.

@@ -35,9 +35,7 @@ import com.elimtiyaz.data.repository.SupabaseReleveRepository
 import com.elimtiyaz.data.repository.SupabaseRoutingRepository
 import com.elimtiyaz.data.repository.SupabaseStudentRepository
 import com.elimtiyaz.data.repository.SupabaseSubjectRepository
-import com.elimtiyaz.data.mock.MockNotificationRepository
 import com.elimtiyaz.data.mock.MockAuthRepository
-import com.elimtiyaz.domain.repository.NotificationRepository
 import com.elimtiyaz.domain.repository.AttendanceRepository
 import com.elimtiyaz.domain.repository.AuditRepository
 import com.elimtiyaz.domain.repository.AuthRepository

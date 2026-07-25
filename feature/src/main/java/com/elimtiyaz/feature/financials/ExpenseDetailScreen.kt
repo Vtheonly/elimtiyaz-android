@@ -64,6 +64,9 @@ import com.elimtiyaz.domain.model.Expense
 import java.io.File
 
 /** Expense detail screen — card, timeline, anomaly badge, status-gated actions. */
+import androidx.compose.material3.ExperimentalMaterial3Api
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpenseDetailScreen(
     nav: NavController,
@@ -104,7 +107,7 @@ fun ExpenseDetailScreen(
             TopAppBar(
                 title = { Text("Dépense", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
-                    IconButton(onClick = nav::popBackStack) {
+                    IconButton(onClick = { nav.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Retour")
                     }
                 },
@@ -238,8 +241,11 @@ fun ExpenseDetailScreen(
                             Button(
                                 onClick = { cameraPermission.launch(android.Manifest.permission.CAMERA) },
                                 modifier = Modifier.fillMaxWidth().height(48.dp),
-                                leadingIcon = { Icon(Icons.Outlined.CameraAlt, contentDescription = null) },
-                            ) { Text("Téléverser justificatif") }
+                            ) {
+                                Icon(Icons.Outlined.CameraAlt, contentDescription = null)
+                                Spacer(Modifier.width(ElimtiyazSpacing.x2))
+                                Text("Téléverser justificatif")
+                            }
                         }
                     }
                     Spacer(Modifier.height(ElimtiyazSpacing.x4))
@@ -333,7 +339,7 @@ private fun DetailRow(label: String, value: String) {
 }
 
 /** French label for an expense category. */
-private fun labelForExpenseCategory(c: com.elimtiyaz.domain.model.ExpenseCategory): String = when (c) {
+fun labelForExpenseCategory(c: com.elimtiyaz.domain.model.ExpenseCategory): String = when (c) {
     com.elimtiyaz.domain.model.ExpenseCategory.Utilities    -> "Factures (eau/élec/gaz)"
     com.elimtiyaz.domain.model.ExpenseCategory.Supplies     -> "Fournitures"
     com.elimtiyaz.domain.model.ExpenseCategory.Maintenance  -> "Maintenance"

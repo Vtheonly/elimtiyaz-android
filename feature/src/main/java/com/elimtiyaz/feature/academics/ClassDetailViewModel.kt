@@ -27,6 +27,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import javax.inject.Inject
 
 /**
@@ -113,7 +116,7 @@ class ClassDetailViewModel @Inject constructor(
     private suspend fun collectWeekAttendance(classId: String) {
         // This-week window — used by the "Présences" tab summary.
         val today = Formatters.today()
-        val monday = today.minus(kotlinx.datetime.DatePeriod(days = today.dayOfWeek.value - 1))
+        val monday = today.minus(DatePeriod(days = today.dayOfWeek.value - 1))
         // recordsByClass returns records for a single date; the summary uses a 7-day loop.
         val weekRecords = mutableListOf<AttendanceRecord>()
         var cursor = monday
@@ -121,7 +124,7 @@ class ClassDetailViewModel @Inject constructor(
             val iso = Formatters.isoFromLocal(cursor)
             val r = attendance.recordsByClass(classId, iso).first()
             if (r is Result.Success) weekRecords += r.data
-            cursor = cursor.plus(kotlinx.datetime.DatePeriod(days = 1))
+            cursor = cursor.plus(DatePeriod(days = 1))
         }
         _uiState.update {
             it.copy(weekAttendance = weekRecords.sortedByDescending { r -> r.date })

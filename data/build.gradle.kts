@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
@@ -14,16 +16,18 @@ android {
         minSdk = 26
         testOptions.targetSdk = 35
 
-        // Read Supabase credentials from root `local.properties` (git-ignored)
-        // and expose them as BuildConfig fields. When absent, both are empty
-        // strings and `DataModule.isMockMode` returns true so the UI runs
-        // fully offline with realistic seed data.
-        val localProps = java.util.Properties().apply {
-            val f = rootProject.file("local.properties")
-            if (f.exists()) f.inputStream().use { load(it) }
+        // Read Supabase credentials from `.env` or `local.properties` if present,
+        // otherwise default to empty strings (DataModule runs in mock mode with offline seed data).
+        val localProps = Properties()
+        val envFile = rootProject.file(".env")
+        val localFile = rootProject.file("local.properties")
+        if (envFile.exists()) {
+            envFile.inputStream().use { localProps.load(it) }
+        } else if (localFile.exists()) {
+            localFile.inputStream().use { localProps.load(it) }
         }
-        val supabaseUrl = localProps.getProperty("SUPABASE_URL", "").trim()
-        val supabaseAnonKey = localProps.getProperty("SUPABASE_ANON_KEY", "").trim()
+        val supabaseUrl = localProps.getProperty("SUPABASE_URL", System.getenv("SUPABASE_URL") ?: "").trim()
+        val supabaseAnonKey = localProps.getProperty("SUPABASE_ANON_KEY", System.getenv("SUPABASE_ANON_KEY") ?: "").trim()
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
     }
