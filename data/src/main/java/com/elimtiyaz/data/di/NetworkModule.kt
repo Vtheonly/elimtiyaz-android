@@ -31,12 +31,11 @@ import javax.inject.Singleton
 @Suppress("unused")
 object NetworkModule {
 
-    /** True when Supabase credentials are present in `local.properties`. */
+    /** Forced to true to run in offline/mock mode with preset credentials, skipping the database. */
     @Provides
     @Named("isMockMode")
     @Singleton
-    fun provideIsMockMode(): Boolean =
-        BuildConfig.SUPABASE_URL.isBlank() || BuildConfig.SUPABASE_ANON_KEY.isBlank()
+    fun provideIsMockMode(): Boolean = true
 
     /** Build the shared [Json] parser used by DTOs and the sync queue. */
     @Provides

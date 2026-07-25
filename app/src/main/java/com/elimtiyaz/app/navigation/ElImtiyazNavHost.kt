@@ -18,7 +18,7 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.elimtiyaz.app.R
+import com.elimtiyaz.core.R
 import com.elimtiyaz.core.rbac.AccessRequirement
 import com.elimtiyaz.core.rbac.FeatureRegistry
 import com.elimtiyaz.core.rbac.GatedNavigationBarItem

@@ -6,7 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.elimtiyaz.app.navigation.ElImtiyazNavHost
-import com.elimtiyaz.core.designsystem.ElimtiyazTheme
+import com.elimtiyaz.core.designsystem.ElImtiyazTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            ElimtiyazTheme {
+            ElImtiyazTheme {
                 SessionProvider {
                     ElImtiyazNavHost()
                 }

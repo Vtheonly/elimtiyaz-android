@@ -27,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -103,7 +104,11 @@ fun LoginScreen(
             onValueChange = vm::emailChanged,
             label = { Text("Adresse e-mail") },
             leadingIcon = { Icon(Icons.Outlined.Mail, contentDescription = null) },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Email,
+                capitalization = KeyboardCapitalization.None,
+                autoCorrectEnabled = false
+            ),
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -114,7 +119,11 @@ fun LoginScreen(
             label = { Text("Mot de passe") },
             leadingIcon = { Icon(Icons.Outlined.Lock, contentDescription = null) },
             visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                capitalization = KeyboardCapitalization.None,
+                autoCorrectEnabled = false
+            ),
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -151,6 +160,82 @@ fun LoginScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+
+        Spacer(Modifier.height(ElimtiyazSpacing.x4))
+
+        Text(
+            "Connexion rapide",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(bottom = ElimtiyazSpacing.x2)
+        )
+
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val modifier = Modifier.weight(1f)
+            Button(
+                onClick = {
+                    vm.emailChanged("admin@elimtiyaz.dz")
+                    vm.passwordChanged("admin123")
+                },
+                modifier = modifier,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Text("Admin", style = MaterialTheme.typography.bodyMedium)
+            }
+            Button(
+                onClick = {
+                    vm.emailChanged("financial@elimtiyaz.dz")
+                    vm.passwordChanged("fin123")
+                },
+                modifier = modifier,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Text("Finance", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val modifier = Modifier.weight(1f)
+            Button(
+                onClick = {
+                    vm.emailChanged("teacher@elimtiyaz.dz")
+                    vm.passwordChanged("teach123")
+                },
+                modifier = modifier,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Text("Prof", style = MaterialTheme.typography.bodyMedium)
+            }
+            Button(
+                onClick = {
+                    vm.emailChanged("driver@elimtiyaz.dz")
+                    vm.passwordChanged("drive123")
+                },
+                modifier = modifier,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            ) {
+                Text("Chauffeur", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
     }
 }
 

@@ -15,9 +15,9 @@ import javax.inject.Singleton
  * Minimal client for the public OSRM router (`router.project-osrm.org`).
  */
 @Singleton
-class OsrmClient @Inject constructor(
-    private val baseUrl: String = DEFAULT_OSRM_BASE_URL,
-) {
+class OsrmClient @Inject constructor() {
+
+    private val baseUrl: String = DEFAULT_OSRM_BASE_URL
 
     private val log = Logger.withTag("OsrmClient")
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
