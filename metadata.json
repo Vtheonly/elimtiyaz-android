@@ -1,8 +1,6 @@
 {
-  "name": "El-Imtiyaz",
-  "description": "School Management Platform - El-Imtiyaz",
+  "name": "El-Imtiyaz Staff",
+  "description": "Staff Android Mobile Application of the El-Imtiyaz Educational & Operational Management Platform",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

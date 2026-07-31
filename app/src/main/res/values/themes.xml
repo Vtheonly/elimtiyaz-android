@@ -1,14 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.ElImtiyaz.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/elimtiyaz_dark</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
-        <item name="postSplashScreenTheme">@style/Theme.ElImtiyaz</item>
-    </style>
 
-    <style name="Theme.ElImtiyaz" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/elimtiyaz_dark</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
-    </style>
+    <style name="Theme.MyApplication" parent="android:Theme.DeviceDefault.NoActionBar" />
 </resources>

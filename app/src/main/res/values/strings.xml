@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="el_imtiyaz_app_name">El-Imtiyaz</string>
+    <string name="app_name">El-Imtiyaz Staff</string>
 </resources>
