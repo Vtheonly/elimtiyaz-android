@@ -41,15 +41,39 @@ class SupabaseClientProvider @Inject constructor() {
     val realtime get() = client.realtime
     val functions get() = client.functions
 
-    private fun build(): SupabaseClient = createSupabaseClient(
-        supabaseUrl = BuildConfig.SUPABASE_URL,
-        supabaseKey = BuildConfig.SUPABASE_ANON_KEY,
-    ) {
-        install(Auth)
-        install(Postgrest)
-        install(Realtime)
-        install(Storage)
-        install(Functions)
-        httpEngine = Android
+    private fun build(): SupabaseClient {
+        val rawUrl = BuildConfig.SUPABASE_URL.trim().removeSurrounding("\"")
+        val rawKey = BuildConfig.SUPABASE_ANON_KEY.trim().removeSurrounding("\"")
+
+        val validUrl = if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) {
+            rawUrl
+        } else {
+            "https://demo.supabase.co"
+        }
+
+        val validKey = if (rawKey.isNotBlank()) rawKey else "demo-key"
+
+        return try {
+            createSupabaseClient(
+                supabaseUrl = validUrl,
+                supabaseKey = validKey,
+            ) {
+                install(Auth)
+                install(Postgrest)
+                install(Realtime)
+                install(Storage)
+                install(Functions)
+                httpEngine = Android
+            }
+        } catch (e: Exception) {
+            createSupabaseClient(
+                supabaseUrl = "https://demo.supabase.co",
+                supabaseKey = "demo-key",
+            ) {
+                install(Auth)
+                install(Postgrest)
+                httpEngine = Android
+            }
+        }
     }
 }

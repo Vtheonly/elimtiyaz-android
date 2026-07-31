@@ -29,10 +29,14 @@ class ElImtiyazApplication : Application(), Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
 
     override val workManagerConfiguration: Configuration
-        get() = Configuration.Builder()
-            .setWorkerFactory(workerFactory)
-            .setMinimumLoggingLevel(android.util.Log.INFO)
-            .build()
+        get() {
+            val builder = Configuration.Builder()
+                .setMinimumLoggingLevel(android.util.Log.INFO)
+            if (::workerFactory.isInitialized) {
+                builder.setWorkerFactory(workerFactory)
+            }
+            return builder.build()
+        }
 
     override fun onCreate() {
         super.onCreate()

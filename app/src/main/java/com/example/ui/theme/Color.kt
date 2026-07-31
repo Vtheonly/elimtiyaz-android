@@ -22,10 +22,10 @@ val WarningOrange  = Color(0xFFC8A98C)
 val InfoBlue       = Color(0xFF349BD4)
 
 // ── Dark theme surfaces ────────────────────────────────────────────────────
-val DarkBackground       = Color(0xFF1A1B1C)
-val DarkSurface          = Color(0xFF242526)
+val DarkBackground       = Color(0xFF242526)
+val DarkSurface          = Color(0xFF1E1F20)
 val DarkSurfaceVariant   = Color(0xFF2A2B2D)
-val DarkElevatedSurface  = Color(0xFF313234)
+val DarkElevatedSurface  = Color(0xFF2A2B2D)
 
 // ── Light theme surfaces ───────────────────────────────────────────────────
 val LightBackground      = Color(0xFFF7F8FA)
@@ -34,7 +34,7 @@ val LightSurfaceVariant  = Color(0xFFEFF1F4)
 val LightElevatedSurface = Color(0xFFFFFFFF)
 
 // ── Text colors ────────────────────────────────────────────────────────────
-val DarkTextPrimary   = Color(0xFFF5F6F7)
+val DarkTextPrimary   = Color(0xFFEFF2F3)
 val DarkTextSecondary = Color(0xFFB0B3B8)
 val DarkTextMuted     = Color(0xFF6E7176)
 

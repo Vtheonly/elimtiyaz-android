@@ -125,12 +125,23 @@ fun ParentDetailScreen(
                         p.address?.let { Text("Adresse: $it") }
                         p.occupation?.let { Text("Profession: $it") }
                         Spacer(Modifier.height(8.dp))
-                        Button(onClick = {
-                            val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
-                                data = android.net.Uri.parse("tel:${p.phone}")
-                            }
-                            context.startActivity(intent)
-                        }) { Text("Appeler") }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                                    data = android.net.Uri.parse("tel:${p.phone}")
+                                }
+                                context.startActivity(intent)
+                            }) { Text("Appeler") }
+
+                            Button(onClick = {
+                                val cleanPhone = (p.whatsapp ?: p.phone).replace("[^0-9]".toRegex(), "")
+                                val formatted = if (cleanPhone.startsWith("0")) "213${cleanPhone.substring(1)}" else cleanPhone
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                    data = android.net.Uri.parse("https://wa.me/$formatted")
+                                }
+                                context.startActivity(intent)
+                            }) { Text("WhatsApp") }
+                        }
                     }
                 }
             }

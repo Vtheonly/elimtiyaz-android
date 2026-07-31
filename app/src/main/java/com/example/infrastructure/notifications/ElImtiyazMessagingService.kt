@@ -5,10 +5,15 @@ import android.content.Context
 import androidx.core.app.NotificationCompat
 import com.example.ElImtiyazApplication
 import com.example.R
+import com.example.core.Result
+import com.example.infrastructure.supabase.SupabaseClientProvider
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * FCM messaging service — receives push notifications from Supabase Edge
@@ -69,13 +74,6 @@ class ElImtiyazMessagingService : FirebaseMessagingService() {
  * targeted to this device. The token is associated with the current user's
  * profile via an RPC.
  */
-import com.example.core.Result
-import com.example.infrastructure.supabase.SupabaseClientProvider
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import javax.inject.Inject
-import javax.inject.Singleton
-
 @Singleton
 class FcmTokenRegistrar @Inject constructor(
     private val provider: SupabaseClientProvider,
@@ -95,3 +93,4 @@ class FcmTokenRegistrar @Inject constructor(
         Result.Err(com.example.core.Errors.fromException(e))
     }
 }
+

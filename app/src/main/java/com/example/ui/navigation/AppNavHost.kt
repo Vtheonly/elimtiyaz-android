@@ -56,12 +56,7 @@ class AppNavViewModel @Inject constructor(
     val sessionState = sessionManager.state
 
     fun restoreSession() {
-        viewModelScopeRestore()
-    }
-
-    private fun viewModelScopeRestore() {
-        // Trigger session restore on first composition
-        kotlinx.coroutines.MainScope().launch {
+        androidx.lifecycle.viewModelScope.launch {
             sessionManager.restoreSession()
         }
     }

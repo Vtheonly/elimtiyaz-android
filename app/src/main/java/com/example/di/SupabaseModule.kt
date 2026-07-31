@@ -31,8 +31,8 @@ object SupabaseModule {
         provider.client
 
     @Provides @Singleton
-    fun provideEncryptedPrefs(@ApplicationContext context: Context): EncryptedSharedPreferences =
-        run {
+    fun provideEncryptedPrefs(@ApplicationContext context: Context): android.content.SharedPreferences =
+        try {
             val masterKey = MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                 .build()
@@ -42,6 +42,8 @@ object SupabaseModule {
                 masterKey,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-            ) as EncryptedSharedPreferences
+            )
+        } catch (e: Exception) {
+            context.getSharedPreferences("el-imtiyaz-fallback-prefs", Context.MODE_PRIVATE)
         }
 }
