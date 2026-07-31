@@ -9,6 +9,8 @@ plugins {
   alias(libs.plugins.google.services)
   alias(libs.plugins.hilt)
   alias(libs.plugins.kotlin.serialization)
+alias(libs.plugins.google.services)
+
 }
 
 android {
@@ -158,6 +160,8 @@ dependencies {
   // ── Firebase (FCM push notifications) ─────────────────────────────────
   implementation(libs.firebase.messaging)
   implementation(libs.firebase.appcheck.recaptcha)
+
+    implementation(platform(libs.firebase.bom))
 
   // ── Networking (kept for compatibility; Supabase SDK uses Ktor) ───────
   implementation(libs.okhttp)
