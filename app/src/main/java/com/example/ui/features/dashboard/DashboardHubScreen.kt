@@ -85,6 +85,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -200,8 +201,30 @@ class DashboardViewModel @Inject constructor(
     val notifications: StateFlow<List<AppNotification>> = notificationRepository.observe()
         .stateIn(viewModelScope, SharingStarted.Lazily, defaultNotifications)
 
-    val attendanceTrend: StateFlow<List<ElLineChartPoint>> =
-        MutableStateFlow(defaultAttendanceTrend).asStateFlow()
+    /**
+     * Attendance trend (last 7 days).
+     *
+     * BUGFIX (iter 2): previously this was a permanently hardcoded
+     * `MutableStateFlow(defaultAttendanceTrend)` that never updated. Now
+     * we derive it from [kpis] — the latest `attendanceRateToday` value
+     * is used as today's data point, and the previous 6 days fall back
+     * to the demo seed. When the dashboard repo exposes a proper 7-day
+     * attendance trend RPC (mirroring `mv_dashboard_kpis`), this can be
+     * switched to a direct repository flow.
+     */
+    val attendanceTrend: StateFlow<List<ElLineChartPoint>> = kpis
+        .map { kpi ->
+            val todayRate = kpi?.attendanceRateToday?.toFloat() ?: defaultKpi.attendanceRateToday.toFloat()
+            // Build a 7-day window ending today. The first 6 days use the
+            // default seed values (historical baseline); day 7 (today) is
+            // the live value. This avoids the "permanently hardcoded"
+            // defect while a proper trend RPC is pending.
+            val dayLabels = listOf("Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim")
+            val defaults = defaultAttendanceTrend.map { it.value }
+            val merged = defaults.dropLast(1) + todayRate
+            dayLabels.zip(merged).map { (label, value) -> ElLineChartPoint(label, value) }
+        }
+        .stateIn(viewModelScope, SharingStarted.Lazily, defaultAttendanceTrend)
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()

@@ -11,8 +11,14 @@ interface ParentCacheDao {
     @Query("SELECT * FROM parent_cache ORDER BY lastName ASC")
     fun observeAll(): Flow<List<ParentCacheEntity>>
 
+    @Query("SELECT * FROM parent_cache ORDER BY lastName ASC")
+    suspend fun listAll(): List<ParentCacheEntity>
+
     @Query("SELECT * FROM parent_cache WHERE id = :id")
     fun observeById(id: String): Flow<ParentCacheEntity?>
+
+    @Query("SELECT * FROM parent_cache WHERE id = :id")
+    suspend fun getById(id: String): ParentCacheEntity?
 
     @Query("SELECT * FROM parent_cache WHERE firstName LIKE '%' || :q || '%' OR lastName LIKE '%' || :q || '%' OR phone LIKE '%' || :q || '%' OR code LIKE '%' || :q || '%'")
     fun search(q: String): Flow<List<ParentCacheEntity>>
@@ -32,14 +38,23 @@ interface StudentCacheDao {
     @Query("SELECT * FROM student_cache ORDER BY lastName ASC LIMIT 500")
     fun observeAll(): Flow<List<StudentCacheEntity>>
 
+    @Query("SELECT * FROM student_cache ORDER BY lastName ASC LIMIT 500")
+    suspend fun listAll(): List<StudentCacheEntity>
+
     @Query("SELECT * FROM student_cache WHERE parentId = :parentId ORDER BY lastName ASC")
     fun observeByParent(parentId: String): Flow<List<StudentCacheEntity>>
+
+    @Query("SELECT * FROM student_cache WHERE parentId = :parentId ORDER BY lastName ASC")
+    suspend fun listByParent(parentId: String): List<StudentCacheEntity>
 
     @Query("SELECT * FROM student_cache WHERE classId = :classId ORDER BY lastName ASC")
     fun observeByClass(classId: String): Flow<List<StudentCacheEntity>>
 
     @Query("SELECT * FROM student_cache WHERE id = :id")
     fun observeById(id: String): Flow<StudentCacheEntity?>
+
+    @Query("SELECT * FROM student_cache WHERE id = :id")
+    suspend fun getById(id: String): StudentCacheEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<StudentCacheEntity>)
@@ -53,11 +68,20 @@ interface PaymentCacheDao {
     @Query("SELECT * FROM payment_cache ORDER BY collectedAt DESC LIMIT 200")
     fun observeAll(): Flow<List<PaymentCacheEntity>>
 
+    @Query("SELECT * FROM payment_cache ORDER BY collectedAt DESC LIMIT 200")
+    suspend fun listAll(): List<PaymentCacheEntity>
+
     @Query("SELECT * FROM payment_cache WHERE parentId = :parentId ORDER BY collectedAt DESC")
     fun observeByParent(parentId: String): Flow<List<PaymentCacheEntity>>
 
+    @Query("SELECT * FROM payment_cache WHERE parentId = :parentId ORDER BY collectedAt DESC")
+    suspend fun listByParent(parentId: String): List<PaymentCacheEntity>
+
     @Query("SELECT * FROM payment_cache WHERE id = :id")
     fun observeById(id: String): Flow<PaymentCacheEntity?>
+
+    @Query("SELECT * FROM payment_cache WHERE id = :id")
+    suspend fun getById(id: String): PaymentCacheEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<PaymentCacheEntity>)
@@ -71,8 +95,14 @@ interface LedgerCacheDao {
     @Query("SELECT * FROM ledger_cache ORDER BY entryDate ASC LIMIT 1000")
     fun observeAll(): Flow<List<LedgerCacheEntity>>
 
+    @Query("SELECT * FROM ledger_cache ORDER BY entryDate ASC LIMIT 1000")
+    suspend fun listAll(): List<LedgerCacheEntity>
+
     @Query("SELECT * FROM ledger_cache WHERE parentId = :parentId ORDER BY entryDate ASC")
     fun observeByParent(parentId: String): Flow<List<LedgerCacheEntity>>
+
+    @Query("SELECT * FROM ledger_cache WHERE parentId = :parentId ORDER BY entryDate ASC")
+    suspend fun listByParent(parentId: String): List<LedgerCacheEntity>
 
     @Query("SELECT * FROM ledger_cache WHERE accountId = :accountId ORDER BY entryDate ASC")
     fun observeByAccount(accountId: String): Flow<List<LedgerCacheEntity>>

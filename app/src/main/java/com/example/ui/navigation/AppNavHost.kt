@@ -20,7 +20,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import com.example.core.Session
 import com.example.session.SessionManager
 import com.example.ui.components.ElEmptyState
 import com.example.ui.components.ElScaffold
@@ -81,22 +80,37 @@ class AppNavViewModel @Inject constructor(
 }
 
 @Composable
-fun AppNavHost(sessionState: Session?) {
+fun AppNavHost() {
     val navController = rememberNavController()
     val viewModel: AppNavViewModel = hiltViewModel()
     val currentSession by viewModel.sessionState.collectAsState()
 
-    // Restore session on first launch
+    // Restore session on first launch. The SessionManager will propagate
+    // the restored session via setSession() (bugfix iter 2), which updates
+    // currentSession. The LaunchedEffect below handles post-restore routing.
     LaunchedEffect(Unit) {
         viewModel.restoreSession()
     }
 
-    // Route based on session state
-    val startRoute = if (currentSession == null) Routes.Login else Routes.Main
+    // Always start at Login; if a session is restored asynchronously,
+    // navigate to Main. This avoids the startDestination race that occurs
+    // when currentSession is null at composition time but becomes non-null
+    // shortly after.
+    LaunchedEffect(currentSession) {
+        if (currentSession != null) {
+            val current = navController.currentDestination?.route
+            if (current == null || current.contains("Login") || current.contains("Splash")) {
+                navController.navigate(Routes.Main) {
+                    popUpTo(Routes.Login) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
 
     NavHost(
         navController = navController,
-        startDestination = startRoute,
+        startDestination = Routes.Login,
     ) {
         composable<Routes.Login> {
             CompositionLocalProvider(LocalSession provides currentSession) {
@@ -188,6 +202,20 @@ fun AppNavHost(sessionState: Session?) {
                 val route: Routes.ExpenseDetail = backStackEntry.toRoute()
                 ExpenseApprovalScreen(
                     expenseId = route.expenseId,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
+
+        // ── Payment detail (RBAC: VIEW_FINANCIALS) ───────────────────────
+        // Renders a read-only receipt view of a collected payment. Linked
+        // from DashboardHubScreen ("Flux des Encaissements" feed) and from
+        // ParentDetailScreen. The screen itself lives in PaymentDetailScreen.kt.
+        composable<Routes.PaymentDetail> { backStackEntry ->
+            rbacGate(navController, Routes.PaymentDetail::class) {
+                val route: Routes.PaymentDetail = backStackEntry.toRoute()
+                com.example.ui.features.financials.PaymentDetailScreen(
+                    paymentId = route.paymentId,
                     onBack = { navController.popBackStack() },
                 )
             }

@@ -9,6 +9,9 @@ import com.example.domain.repository.AuditRepository
 import com.example.domain.repository.CreateParentInput
 import com.example.domain.repository.ParentRepository
 import com.example.domain.repository.UpdateParentInput
+import com.example.infrastructure.room.toCacheEntity
+import com.example.infrastructure.room.toDomain
+import com.example.infrastructure.sync.SyncSupport
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.Serializable
@@ -19,16 +22,33 @@ import javax.inject.Singleton
 class SupabaseParentRepository @Inject constructor(
     private val provider: SupabaseClientProvider,
     private val auditRepository: AuditRepository,
+    private val syncSupport: SyncSupport,
 ) : ParentRepository {
 
-    override fun observe() = flow {
-        val rows = fetchAll()
-        emit(rows)
-    }
+    /**
+     * Cache-then-network: emit cached rows immediately, then fetch from
+     * Supabase, update cache, emit again. Offline → cache only.
+     *
+     * BUGFIX (iter 2): previously the cache DAOs were never read; offline
+     * users saw empty lists. Now we mirror the desktop's cache-then-network
+     * pattern so the last-known data is shown when the device is offline.
+     */
+    override fun observe() = syncSupport.cacheThenNetwork(
+        cacheRead = {
+            syncSupport.listCachedParents().map { it.toDomain() }
+        },
+        cacheWrite = { parents: List<Parent> ->
+            syncSupport.upsertParents(parents.map { it.toCacheEntity() })
+        },
+        fetch = { fetchAll() },
+    )
 
     override fun observeById(id: String) = flow {
-        val row = fetchById(id)
-        emit(row)
+        // Emit cached value first (instant UI), then network.
+        val cached = syncSupport.getCachedParent(id)?.toDomain()
+        emit(cached)
+        val fresh = fetchById(id)
+        if (fresh != null) emit(fresh) else emit(cached)
     }
 
     override fun search(query: String) = flow {
@@ -53,23 +73,33 @@ class SupabaseParentRepository @Inject constructor(
     }
 
     override suspend fun createParent(input: CreateParentInput, actorId: String, actorName: String): Result<Parent> {
-        return try {
-            validateCreateInput(input)
-            val dto = ParentInsertDto(
-                firstName = input.firstName,
-                lastName = input.lastName,
-                phone = input.phone,
-                whatsapp = null,
-                email = input.email,
-                occupation = input.occupation,
-                address = input.address,
-                transportDestination = input.transportDestination,
-                preferredLanguage = input.preferredLanguage,
-            )
+        validateCreateInput(input)
+        val dto = ParentInsertDto(
+            firstName = input.firstName,
+            lastName = input.lastName,
+            phone = input.phone,
+            whatsapp = null,
+            email = input.email,
+            occupation = input.occupation,
+            address = input.address,
+            transportDestination = input.transportDestination,
+            preferredLanguage = input.preferredLanguage,
+        )
+        // Try direct insert; on offline, enqueue for sync.
+        return syncSupport.tryThenEnqueue(
+            entity = "parent",
+            operation = "create",
+            payload = {
+                syncSupport.json().encodeToString(ParentInsertDto.serializer(), dto)
+            },
+            sourceScreen = "ParentsDirectory",
+        ) {
             val inserted = provider.postgrest.from("parents").insert(dto) {
                 select()
             }.decodeList<ParentDto>().first()
             val parent = inserted.toDomain()
+            // Persist to cache so the next observe() emits it instantly.
+            syncSupport.upsertParents(listOf(parent.toCacheEntity()))
             auditRepository.log(AuditLogInput(
                 action = AuditActions.PARENT_CREATE,
                 entityType = "parent",
@@ -77,9 +107,7 @@ class SupabaseParentRepository @Inject constructor(
                 afterJson = """{"code":"${parent.code}","name":"${parent.fullName}"}""",
                 note = "Parent created from Android app",
             ))
-            Result.Ok(parent)
-        } catch (e: Exception) {
-            Result.Err(Errors.fromException(e))
+            parent
         }
     }
 

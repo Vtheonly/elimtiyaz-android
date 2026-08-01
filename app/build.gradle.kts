@@ -14,12 +14,17 @@ plugins {
 
 android {
   namespace = "com.example"
-  compileSdk = 36
+  // AGP 8.8.0 officially supports compileSdk = 35; AGP 8.9.1+ is required
+  // for compileSdk = 36. We pin to 35 to avoid the "compileSdk 36 is higher
+  // than the maximum supported 35" warning that could become a hard error
+  // under strict mode. To target Android 16 (API 36), bump `agp` to 8.9.1+
+  // and restore compileSdk/targetSdk to 36.
+  compileSdk = 35
 
   defaultConfig {
     applicationId = "com.aistudio.elimtiyazstaff.bxmzlx"
     minSdk = 24
-    targetSdk = 36
+    targetSdk = 35
     versionCode = 2
     versionName = "2.0.0"
     multiDexEnabled = true

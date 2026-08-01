@@ -38,12 +38,21 @@ class SessionManager @Inject constructor(
 
     /**
      * Restore the session at app start. Called from the splash gate.
+     *
      * If the JWT is still valid, the Supabase Auth plugin will have
      * restored it from encrypted storage; we just need to re-derive
      * the Session value from the current user.
+     *
+     * BUGFIX (iter 2): previously this method returned the result without
+     * updating [_state], so the app always cold-started at the Login screen
+     * even when a valid session existed. Now we propagate the restored
+     * session via [setSession] so the auth gate can route to Main.
      */
     suspend fun restoreSession(): com.example.core.Result<Session?> {
         val result = authRepository.refreshSession()
+        if (result is com.example.core.Result.Ok && result.value != null) {
+            setSession(result.value)
+        }
         return result
     }
 

@@ -1,5 +1,7 @@
 package com.example.ui.features.personnel
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,33 +21,40 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.core.Session
 import com.example.domain.model.AuditLog
+import com.example.domain.model.Personnel
+import com.example.domain.repository.AuditRepository
+import com.example.domain.repository.PersonnelRepository
 import com.example.ui.components.ElAvatar
 import com.example.ui.components.ElButton
 import com.example.ui.components.ElButtonStyle
 import com.example.ui.components.ElCard
+import com.example.ui.components.ElEmptyState
 import com.example.ui.components.ElGradientStatCard
 import com.example.ui.components.ElProgressBar
 import com.example.ui.components.ElScrollableTabRow
@@ -54,7 +63,25 @@ import com.example.ui.components.ElTag
 import com.example.ui.components.ModernSecondaryTabRow
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
+import com.example.ui.theme.WarmGold
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
+/**
+ * Root Personnel hub — 4 tabs:
+ *   0. Employés    → [EmployeeDirectoryScreen] (PersonnelRepository)
+ *   1. Activité    → [ReleveScreen]            (PersonnelRepository — derived compliance)
+ *   2. Audit       → [AuditStreamScreen]       (AuditRepository)
+ *   3. Déconnexion → [SignOutScreen]
+ *
+ * BUGFIX (iter 2): previously tabs 0–2 rendered hardcoded sample data.
+ * Now each tab has a real Hilt ViewModel that calls the corresponding
+ * repository, mirroring the desktop `personnel-page` implementation.
+ */
 @Composable
 fun PersonnelHubScreen(
     session: Session,
@@ -70,7 +97,10 @@ fun PersonnelHubScreen(
             selectedTabIndex = selectedTab,
             onTabSelected = { selectedTab = it },
         )
-        Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.TopStart) {
+        Box(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+            contentAlignment = Alignment.TopStart,
+        ) {
             when (selectedTab) {
                 0 -> EmployeeDirectoryScreen(session)
                 1 -> ReleveScreen(session)
@@ -83,41 +113,51 @@ fun PersonnelHubScreen(
 
 // ── 1. Personnel Directory ──────────────────────────────────────────────────
 
-data class StaffMember(
-    val name: String,
-    val role: String,
-    val category: String,
-    val phone: String,
-    val email: String,
-    val assignedInfo: String,
-)
-
-val SAMPLE_STAFF = listOf(
-    StaffMember("Dr. Karim Bencherif", "Directeur Général", "Administratif", "+213 550 12 34 56", "k.bencherif@el-imtiyaz.dz", "Super Admin"),
-    StaffMember("Mme. Samia Amrani", "Professeure Principale", "Enseignants", "+213 661 98 76 54", "s.amrani@el-imtiyaz.dz", "Mathématiques • CP A, CE1 B"),
-    StaffMember("M. Redouane Saidi", "Professeur", "Enseignants", "+213 770 45 67 89", "r.saidi@el-imtiyaz.dz", "Physique-Chimie • 3AS S"),
-    StaffMember("Mme. Amina Ziani", "Orthophoniste", "Soin & Médical", "+213 552 11 22 33", "a.ziani@el-imtiyaz.dz", "Cabinet Spécialisé • 12 Suivis"),
-    StaffMember("M. Mourad Khelil", "Support Informatique", "Support & Logistique", "+213 662 33 44 55", "m.khelil@el-imtiyaz.dz", "Infrastructures & Réseau"),
-)
+@HiltViewModel
+class EmployeeDirectoryViewModel @Inject constructor(
+    private val personnelRepository: PersonnelRepository,
+) : ViewModel() {
+    val personnel: StateFlow<List<Personnel>> = personnelRepository.observe()
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+}
 
 @Composable
-fun EmployeeDirectoryScreen(session: Session) {
-    var selectedCategoryTab by remember { mutableIntStateOf(0) }
-    val categories = listOf("Tous", "Administratif", "Enseignants", "Soin & Médical", "Support & Logistique")
+fun EmployeeDirectoryScreen(
+    session: Session,
+    viewModel: EmployeeDirectoryViewModel = hiltViewModel(),
+) {
+    val personnel by viewModel.personnel.collectAsState()
+    val context = LocalContext.current
 
-    val filteredStaff = remember(selectedCategoryTab) {
-        if (selectedCategoryTab == 0) SAMPLE_STAFF
-        else SAMPLE_STAFF.filter { it.category == categories[selectedCategoryTab] }
+    var selectedCategoryTab by remember { mutableIntStateOf(0) }
+    val categories = remember(personnel) {
+        val distinct = personnel.map { it.staffCategory }.distinct().sorted()
+        listOf("Tous") + distinct
+    }
+    val filteredStaff = remember(selectedCategoryTab, personnel) {
+        if (selectedCategoryTab == 0) personnel
+        else personnel.filter { it.staffCategory == categories[selectedCategoryTab] }
     }
 
     Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ElSectionHeader(title = "Registre du Personnel")
+        ElSectionHeader(title = "Registre du Personnel (${personnel.size})")
 
-        ElScrollableTabRow(
-            tabs = categories,
-            selectedTabIndex = selectedCategoryTab,
-            onTabSelected = { selectedCategoryTab = it },
-        )
+        if (categories.size > 1) {
+            ElScrollableTabRow(
+                tabs = categories,
+                selectedTabIndex = selectedCategoryTab,
+                onTabSelected = { selectedCategoryTab = it },
+            )
+        }
+
+        if (filteredStaff.isEmpty()) {
+            ElEmptyState(
+                icon = Icons.Default.Phone,
+                title = "Aucun personnel",
+                message = "Aucun employé enregistré. Ajoutez-en depuis les paramètres ou contactez un administrateur.",
+            )
+            return@Column
+        }
 
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
             items(filteredStaff) { staff ->
@@ -129,34 +169,57 @@ fun EmployeeDirectoryScreen(session: Session) {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                ElAvatar(initials = staff.name, size = 44)
+                                ElAvatar(initials = staff.fullName, size = 44)
                                 Spacer(Modifier.width(12.dp))
                                 Column {
-                                    Text(staff.name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 15.sp))
-                                    Text(staff.role, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        staff.fullName,
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 15.sp,
+                                        ),
+                                    )
+                                    Text(
+                                        staff.position,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
                             }
-                            ElTag(text = staff.category, color = PrimaryBlue)
+                            ElTag(text = staff.staffCategory, color = PrimaryBlue)
                         }
 
                         Spacer(Modifier.height(10.dp))
-                        Text("Affectation: ${staff.assignedInfo}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "Téléphone: ${staff.phone} · Embauché: ${staff.hireDate.take(10)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         Spacer(Modifier.height(10.dp))
 
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ElButton(
                                 text = "Appeler",
-                                onClick = {},
+                                onClick = {
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${staff.phone}"))
+                                    runCatching { context.startActivity(intent) }
+                                },
                                 style = ElButtonStyle.Secondary,
                                 icon = Icons.Default.Phone,
                                 modifier = Modifier.weight(1f),
                             )
                             ElButton(
                                 text = "Email",
-                                onClick = {},
+                                onClick = {
+                                    staff.email?.let { email ->
+                                        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$email"))
+                                        runCatching { context.startActivity(intent) }
+                                    }
+                                },
                                 style = ElButtonStyle.Secondary,
                                 icon = Icons.Default.Email,
                                 modifier = Modifier.weight(1f),
+                                enabled = !staff.email.isNullOrBlank(),
                             )
                         }
                     }
@@ -168,29 +231,76 @@ fun EmployeeDirectoryScreen(session: Session) {
 
 // ── 2. Teacher Activity Ledger (Relevé) ───────────────────────────────────
 
+/**
+ * Activity / compliance view derived from [PersonnelRepository].
+ *
+ * Mirrors desktop `releve-tab` — shows each personnel's weekly hours
+ * compliance (logged / target). The desktop also tracks `ReleveEntry`
+ * events (course, meeting, supervision, …) but the mobile repo doesn't
+ * expose them yet, so we derive compliance from the `weeklyHoursLogged`
+ * vs `weeklyHoursTarget` fields on the Personnel entity.
+ */
+@HiltViewModel
+class ReleveViewModel @Inject constructor(
+    private val personnelRepository: PersonnelRepository,
+) : ViewModel() {
+    val personnel: StateFlow<List<Personnel>> = personnelRepository.observe()
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+}
+
 @Composable
-fun ReleveScreen(session: Session) {
+fun ReleveScreen(
+    session: Session,
+    viewModel: ReleveViewModel = hiltViewModel(),
+) {
+    val personnel by viewModel.personnel.collectAsState()
+    val teachers = personnel.filter { it.staffCategory == "teacher" || it.weeklyHoursTarget > 0 }
+
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         ElGradientStatCard(
-            title = "Relevé d'Activité Enseignants",
-            value = "Suivi Ponctualité",
-            subtitle = "Appels, saisies de notes et devoirs",
+            title = "Relevé d'Activité",
+            value = "${teachers.size} Enseignants",
+            subtitle = "Suivi hebdomadaire des heures",
             modifier = Modifier.fillMaxWidth(),
         )
 
-        listOf(
-            Triple("Mme. Samia Amrani (Maths)", 98, "28 / 28 Heures Effectuées"),
-            Triple("M. Redouane Saidi (Physique)", 92, "24 / 26 Heures Effectuées"),
-            Triple("Mme. Fatma Zohra (Arabe)", 100, "30 / 30 Heures Effectuées"),
-        ).forEach { (name, compliance, hours) ->
+        if (teachers.isEmpty()) {
+            ElEmptyState(
+                icon = Icons.Default.Code,
+                title = "Aucune donnée d'activité",
+                message = "Aucun personnel avec objectif horaire défini.",
+            )
+            return@Column
+        }
+
+        teachers.forEach { staff ->
+            val target = staff.weeklyHoursTarget.coerceAtLeast(1)
+            val logged = staff.weeklyHoursLogged
+            val compliance = (logged.toFloat() / target * 100).toInt().coerceIn(0, 100)
+            val complianceColor = when {
+                compliance >= 95 -> SuccessGreen
+                compliance >= 80 -> WarmGold
+                else -> PrimaryBlue
+            }
+
             ElCard(modifier = Modifier.fillMaxWidth(), compact = true) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 15.sp))
+                    Text(
+                        staff.fullName,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                        ),
+                    )
                     Spacer(Modifier.height(4.dp))
-                    Text(hours, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "$logged / $target Heures Effectuées",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
 
                     Spacer(Modifier.height(10.dp))
                     Row(
@@ -198,7 +308,11 @@ fun ReleveScreen(session: Session) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text("Conformité", style = MaterialTheme.typography.labelSmall)
-                        Text("$compliance%", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = SuccessGreen)
+                        Text(
+                            "$compliance%",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = complianceColor,
+                        )
                     }
                     Spacer(Modifier.height(6.dp))
                     ElProgressBar(progress = compliance / 100f)
@@ -208,50 +322,46 @@ fun ReleveScreen(session: Session) {
     }
 }
 
-// ── 3. Live Contextual Audit Log Stream ────────────────────────────────────
+// ── 3. Live Audit Stream ────────────────────────────────────────────────────
+
+@HiltViewModel
+class AuditStreamViewModel @Inject constructor(
+    private val auditRepository: AuditRepository,
+) : ViewModel() {
+    val logs: StateFlow<List<AuditLog>> = auditRepository.observe(limit = 50)
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AuditStreamScreen(session: Session, onNavigateToAuditLog: () -> Unit) {
+fun AuditStreamScreen(
+    session: Session,
+    onNavigateToAuditLog: () -> Unit,
+    viewModel: AuditStreamViewModel = hiltViewModel(),
+) {
+    val logs by viewModel.logs.collectAsState()
     var selectedAuditLog by remember { mutableStateOf<AuditLog?>(null) }
     val sheetState = rememberModalBottomSheetState()
-
-    val sampleLogs = listOf(
-        AuditLog(
-            id = "AUD-1001", tenantId = "dev_tenant", action = "payment.recorded",
-            entityType = "payment_receipts", entityId = "REC-8821",
-            actorId = "USR-001", actorName = "M. Khelil", actorRole = "receptionist",
-            beforeJson = null, afterJson = """{"amount":25000}""",
-            note = "Paiement 25,000 DZD (Tranche 2) enregistré pour Élève STU-001 (Amine Benali). Reçu B11-042.",
-            ipAddress = "192.168.1.50", userAgent = "Android App", occurredAt = "2026-07-31T10:15:30Z"
-        ),
-        AuditLog(
-            id = "AUD-1002", tenantId = "dev_tenant", action = "grade.modified",
-            entityType = "grade_entries", entityId = "GRD-3302",
-            actorId = "USR-002", actorName = "Mme. Amrani", actorRole = "teacher",
-            beforeJson = """{"devoir1":12.0}""", afterJson = """{"devoir1":14.5}""",
-            note = "Modification note Devoir 1 Mathématiques de 12.0 à 14.5.",
-            ipAddress = "192.168.1.52", userAgent = "Android App", occurredAt = "2026-07-31T09:42:00Z"
-        ),
-        AuditLog(
-            id = "AUD-1003", tenantId = "dev_tenant", action = "expense.approved",
-            entityType = "expenses", entityId = "EXP-004",
-            actorId = "USR-003", actorName = "Dr. Bencherif", actorRole = "admin",
-            beforeJson = """{"status":"pending"}""", afterJson = """{"status":"approved"}""",
-            note = "Approbation dépense Tier 2 #EXP-004 (Fournitures Informatiques: 45,000 DZD).",
-            ipAddress = "192.168.1.10", userAgent = "Android App", occurredAt = "2026-07-31T08:12:10Z"
-        ),
-    )
+    val scope = rememberCoroutineScope()
 
     Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ElSectionHeader(
-            title = "Journal d'Audit",
+            title = "Journal d'Audit (${logs.size})",
             actionText = "Journal complet",
             onAction = onNavigateToAuditLog,
         )
 
+        if (logs.isEmpty()) {
+            ElEmptyState(
+                icon = Icons.Default.Code,
+                title = "Aucun événement",
+                message = "Aucune entrée d'audit récente. Les actions des utilisateurs apparaîtront ici.",
+            )
+            return@Column
+        }
+
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
-            items(sampleLogs) { log ->
+            items(logs) { log ->
                 ElCard(
                     modifier = Modifier.fillMaxWidth(),
                     onClick = { selectedAuditLog = log },
@@ -259,12 +369,32 @@ fun AuditStreamScreen(session: Session, onNavigateToAuditLog: () -> Unit) {
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(log.action, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, color = PrimaryBlue, fontSize = 14.sp))
-                            Text(log.occurredAt.take(19).replace("T", " "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                log.action,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = PrimaryBlue,
+                                    fontSize = 14.sp,
+                                ),
+                            )
+                            Text(
+                                log.occurredAt.take(19).replace("T", " "),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                         Spacer(Modifier.height(4.dp))
-                        Text("${log.actorName} • ${log.entityType}/${log.entityId}", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium))
-                        log.note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        Text(
+                            "${log.actorName} • ${log.entityType}/${log.entityId}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                        )
+                        log.note?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
 
                         Spacer(Modifier.height(6.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -284,7 +414,10 @@ fun AuditStreamScreen(session: Session, onNavigateToAuditLog: () -> Unit) {
             sheetState = sheetState,
         ) {
             Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Inspecteur JSON (${log.action})", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+                Text(
+                    "Inspecteur JSON (${log.action})",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                )
                 Text("Entité: ${log.entityType} ID: ${log.entityId}", style = MaterialTheme.typography.bodyMedium)
 
                 ElCard(modifier = Modifier.fillMaxWidth(), gradient = false) {
@@ -300,7 +433,7 @@ fun AuditStreamScreen(session: Session, onNavigateToAuditLog: () -> Unit) {
                               "entity": "${log.entityType}",
                               "entity_id": "${log.entityId}",
                               "timestamp": "${log.occurredAt}",
-                              "note": "${log.note}"
+                              "note": "${log.note ?: ""}"
                             }
                             """.trimIndent(),
                             fontFamily = FontFamily.Monospace,
@@ -312,7 +445,9 @@ fun AuditStreamScreen(session: Session, onNavigateToAuditLog: () -> Unit) {
 
                 ElButton(
                     text = "Fermer",
-                    onClick = { selectedAuditLog = null },
+                    onClick = {
+                        scope.launch { sheetState.hide() }.invokeOnCompletion { selectedAuditLog = null }
+                    },
                     style = ElButtonStyle.Secondary,
                     fullWidth = true,
                 )
@@ -335,8 +470,15 @@ fun SignOutScreen(session: Session, onSignOut: () -> Unit) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ElSectionHeader(title = "Informations")
                 Text("Email: ${session.email}", style = MaterialTheme.typography.bodyMedium)
-                Text("Rôle: ${session.role.code}", style = MaterialTheme.typography.bodyMedium.copy(color = PrimaryBlue, fontWeight = FontWeight.Medium))
-                Text("Permissions: ${session.permissions.size} actives", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "Rôle: ${session.role.code}",
+                    style = MaterialTheme.typography.bodyMedium.copy(color = PrimaryBlue, fontWeight = FontWeight.Medium),
+                )
+                Text(
+                    "Permissions: ${session.permissions.size} actives",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 
