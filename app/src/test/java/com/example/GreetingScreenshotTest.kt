@@ -6,7 +6,6 @@ import com.example.ui.navigation.AppNavHost
 import com.example.ui.theme.ElImtiyazTheme
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import com.github.takahirom.roborazzi.captureRoboImage
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,7 +21,6 @@ class GreetingScreenshotTest {
   @get:Rule val composeTestRule = createComposeRule()
 
   @Test
-  @Ignore("Requires Hilt test infrastructure (HiltTestActivity + HiltAndroidRule) which is not yet configured. Pre-existing issue — not related to the design system refactor.")
   fun greeting_screenshot() {
     composeTestRule.setContent { ElImtiyazTheme { AppNavHost(sessionState = null) } }
 
