@@ -2,7 +2,6 @@ package com.example.ui.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,12 +16,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,16 +27,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.features.main.HubTab
-import com.example.ui.theme.PrimaryBlue
+import com.example.ui.theme.ElPillShape
+import com.example.ui.theme.elDesignTokens
 
 /**
- * Modern secondary pill tab row for sub-screen navigation (e.g. CRM, Academics, Financials, Personnel).
+ * Modern secondary pill tab row for sub-screen navigation.
+ * Uses the custom design system with animated indicator pill.
  */
 @Composable
 fun ModernSecondaryTabRow(
@@ -49,13 +46,13 @@ fun ModernSecondaryTabRow(
     onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
+    val tokens = elDesignTokens()
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-        tonalElevation = 2.dp,
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(ElPillShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
     ) {
         Row(
             modifier = Modifier
@@ -67,7 +64,7 @@ fun ModernSecondaryTabRow(
             tabs.forEachIndexed { index, title ->
                 val isSelected = selectedTabIndex == index
                 val backgroundColor by animateColorAsState(
-                    targetValue = if (isSelected) PrimaryBlue else Color.Transparent,
+                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
                     animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
                     label = "tabBackground",
                 )
@@ -81,7 +78,7 @@ fun ModernSecondaryTabRow(
                     modifier = Modifier
                         .weight(1f)
                         .height(38.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(ElPillShape)
                         .background(backgroundColor)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
@@ -108,6 +105,7 @@ fun ModernSecondaryTabRow(
 
 /**
  * Modern floating bottom navigation bar for main app destinations.
+ * Features animated active indicator with gradient accent.
  */
 @Composable
 fun ModernBottomNavBar(
@@ -116,40 +114,44 @@ fun ModernBottomNavBar(
     onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
+    val tokens = elDesignTokens()
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .navigationBarsPadding(),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 8.dp,
-        shadowElevation = 12.dp,
+            .navigationBarsPadding()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(68.dp)
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .height(64.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             tabs.forEachIndexed { index, tab ->
                 val isSelected = selectedTabIndex == index
                 val activeBgColor by animateColorAsState(
-                    targetValue = if (isSelected) PrimaryBlue.copy(alpha = 0.15f) else Color.Transparent,
+                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
                     animationSpec = tween(durationMillis = 200),
                     label = "navItemBg",
                 )
                 val activeContentColor by animateColorAsState(
-                    targetValue = if (isSelected) PrimaryBlue else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     animationSpec = tween(durationMillis = 200),
                     label = "navItemColor",
+                )
+                val indicatorHeight by androidx.compose.animation.core.animateDpAsState(
+                    targetValue = if (isSelected) 3.dp else 0.dp,
+                    animationSpec = tween(durationMillis = 200),
+                    label = "navIndicator",
                 )
 
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(ElPillShape)
                         .background(activeBgColor)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
@@ -168,7 +170,7 @@ fun ModernBottomNavBar(
                             tint = activeContentColor,
                             modifier = Modifier.size(24.dp),
                         )
-                        Box(modifier = Modifier.height(2.dp))
+                        Box(modifier = Modifier.height(4.dp))
                         Text(
                             text = tab.label,
                             style = MaterialTheme.typography.labelSmall.copy(
@@ -179,6 +181,15 @@ fun ModernBottomNavBar(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
+                        if (indicatorHeight > 0.dp) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(top = 2.dp)
+                                    .size(width = 20.dp, height = indicatorHeight)
+                                    .clip(ElPillShape)
+                                    .background(MaterialTheme.colorScheme.primary),
+                            )
+                        }
                     }
                 }
             }

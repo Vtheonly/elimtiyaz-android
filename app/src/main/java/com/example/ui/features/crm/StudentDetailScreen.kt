@@ -1,7 +1,6 @@
 package com.example.ui.features.crm
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,35 +10,31 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.core.LedgerEngine
 import com.example.core.ParentLedgerSummary
 import com.example.core.Result
 import com.example.domain.model.Student
 import com.example.domain.repository.LedgerRepository
 import com.example.domain.repository.StudentRepository
+import com.example.ui.components.ElCard
+import com.example.ui.components.ElInfoRow
+import com.example.ui.components.ElSectionHeader
+import com.example.ui.components.ElScaffold
+import com.example.ui.components.ElTopBar
+import com.example.ui.theme.DangerRed
+import com.example.ui.theme.PrimaryBlue
+import com.example.ui.theme.SuccessGreen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -71,15 +66,12 @@ class StudentDetailViewModel @Inject constructor(
     fun load(studentId: String) {
         viewModelScope.launch {
             _isLoading.value = true
-            // Observe the student + siblings
             studentRepository.observeById(studentId).collect { s ->
                 _student.value = s
                 if (s != null) {
-                    // Fetch siblings
                     studentRepository.observeByParent(s.parentId).collect { sibs ->
                         _siblings.value = sibs.filter { it.id != studentId }
                     }
-                    // Fetch family ledger summary
                     when (val result = ledgerRepository.summary(s.parentId)) {
                         is Result.Ok -> _familySummary.value = result.value
                         is Result.Err -> _error.value = result.error.userMessage
@@ -91,7 +83,6 @@ class StudentDetailViewModel @Inject constructor(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudentDetailScreen(
     studentId: String,
@@ -105,55 +96,42 @@ fun StudentDetailScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(student?.fullName ?: "Élève") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Retour") }
-                },
-            )
-        },
-    ) { padding ->
+    ElScaffold(
+        topBar = { ElTopBar(title = student?.fullName ?: "Élève", onBack = onBack) },
+    ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (isLoading) Text("Chargement...")
-
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
             student?.let { s ->
-                // Identity card
-                Card(elevation = CardDefaults.cardElevation(2.dp)) {
+                ElCard(modifier = Modifier.fillMaxWidth(), accent = PrimaryBlue) {
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        Text("Identité", style = MaterialTheme.typography.titleMedium)
+                        ElSectionHeader(title = "Identité")
                         Spacer(Modifier.height(8.dp))
-                        Text("Code: ${s.code}")
-                        Text("Date de naissance: ${s.birthDate}")
-                        Text("Niveau: ${s.gradeLevel} (${s.level})")
-                        Text("Statut: ${s.status}")
-                        s.medicalNotes?.let { Text("Notes médicales: $it") }
+                        ElInfoRow(label = "Code", value = s.code)
+                        ElInfoRow(label = "Date de naissance", value = s.birthDate)
+                        ElInfoRow(label = "Niveau", value = "${s.gradeLevel} (${s.level})")
+                        ElInfoRow(label = "Statut", value = s.status, valueColor = if (s.status == "active") SuccessGreen else DangerRed)
+                        s.medicalNotes?.let { ElInfoRow(label = "Notes médicales", value = it) }
                     }
                 }
 
-                // Family financial summary
                 familySummary?.let { summary ->
-                    Card(elevation = CardDefaults.cardElevation(2.dp)) {
+                    ElCard(modifier = Modifier.fillMaxWidth(), accent = SuccessGreen) {
                         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                            Text("Finances familiales", style = MaterialTheme.typography.titleMedium)
+                            ElSectionHeader(title = "Finances familiales")
                             Spacer(Modifier.height(8.dp))
-                            Text("Total dû: ${(summary.totalCharged / 100).formatDzd()}")
-                            Text("Total payé: ${(summary.totalPaid / 100).formatDzd()}")
-                            Text("Solde restant: ${(summary.totalOutstanding / 100).formatDzd()}")
+                            ElInfoRow(label = "Total dû", value = "${(summary.totalCharged / 100).formatDzd()} DZD")
+                            ElInfoRow(label = "Total payé", value = "${(summary.totalPaid / 100).formatDzd()} DZD", valueColor = SuccessGreen)
+                            ElInfoRow(label = "Solde restant", value = "${(summary.totalOutstanding / 100).formatDzd()} DZD")
                             if (summary.totalOverdue > 0) {
-                                Text(
-                                    "En retard: ${(summary.totalOverdue / 100).formatDzd()}",
-                                    color = MaterialTheme.colorScheme.error,
-                                )
+                                ElInfoRow(label = "En retard", value = "${(summary.totalOverdue / 100).formatDzd()} DZD", valueColor = DangerRed)
                             }
                             Spacer(Modifier.height(8.dp))
-                            Text("Comptes (${summary.accounts.size}):", style = MaterialTheme.typography.labelMedium)
+                            Text("Comptes (${summary.accounts.size}):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                             summary.accounts.forEach { acc ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -167,14 +145,19 @@ fun StudentDetailScreen(
                     }
                 }
 
-                // Siblings
                 if (siblings.isNotEmpty()) {
-                    Card(elevation = CardDefaults.cardElevation(2.dp)) {
+                    ElCard(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                            Text("Fratrie (${siblings.size})", style = MaterialTheme.typography.titleMedium)
+                            ElSectionHeader(title = "Fratrie (${siblings.size})")
                             Spacer(Modifier.height(8.dp))
                             siblings.forEach { sib ->
-                                Text("• ${sib.fullName} (${sib.gradeLevel})", style = MaterialTheme.typography.bodyMedium)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Text("• ${sib.fullName}", style = MaterialTheme.typography.bodyMedium)
+                                    Text(sib.gradeLevel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                     }

@@ -2,6 +2,7 @@ package com.example.ui.features.auth
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -9,15 +10,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -25,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -34,6 +31,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.Result
 import com.example.domain.repository.AuthRepository
+import com.example.ui.components.ElButton
+import com.example.ui.components.ElButtonStyle
+import com.example.ui.components.ElDialog
+import com.example.ui.components.ElTextField
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,19 +42,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * Change password modal — mirrors the desktop's ChangePasswordModal.
- *
- * Flow:
- *   1. User enters current password + new password + confirm.
- *   2. Client-side strength validation (8+ chars, lowercase, uppercase, digit).
- *   3. Re-authenticate with current password (server-side).
- *   4. Update password via auth.updateUser (Supabase auto-revokes other sessions).
- *   5. Global sign-out (revokes ALL sessions across ALL devices).
- *   6. User must re-authenticate with the new password.
- *
- * Audit action: AUTH_PASSWORD_CHANGE.
- */
 @HiltViewModel
 class ChangePasswordViewModel @Inject constructor(
     private val authRepository: AuthRepository,
@@ -116,40 +104,39 @@ fun ChangePasswordModal(
         if (state.success) onDismiss()
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Changer le mot de passe") },
-        text = {
+    ElDialog(
+        onDismiss = onDismiss,
+        title = "Changer le mot de passe",
+        content = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                OutlinedTextField(
+                ElTextField(
                     value = current, onValueChange = { current = it },
-                    label = { Text("Mot de passe actuel") },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                    label = "Mot de passe actuel",
+                    leadingIcon = Icons.Default.Lock,
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
+                ElTextField(
                     value = new, onValueChange = { new = it },
-                    label = { Text("Nouveau mot de passe") },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                    label = "Nouveau mot de passe",
+                    leadingIcon = Icons.Default.Lock,
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
+                ElTextField(
                     value = confirm, onValueChange = { confirm = it },
-                    label = { Text("Confirmer") },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                    label = "Confirmer",
+                    leadingIcon = Icons.Default.Lock,
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                // Live strength checklist
                 val strength = passwordStrength(new)
                 Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
                     StrengthRow("8 caractères minimum", strength.minLength)
@@ -168,25 +155,27 @@ fun ChangePasswordModal(
             }
         },
         confirmButton = {
-            Button(
+            ElButton(
+                text = if (state.isLoading) "..." else "Changer",
                 onClick = { viewModel.changePassword(current, new, confirm) },
                 enabled = !state.isLoading,
-                colors = ButtonDefaults.buttonColors(),
-            ) {
-                if (state.isLoading) CircularProgressIndicator(modifier = Modifier.height(20.dp), strokeWidth = 2.dp)
-                else Text("Changer")
-            }
+                loading = state.isLoading,
+            )
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Annuler") }
+            ElButton(
+                text = "Annuler",
+                onClick = onDismiss,
+                style = ElButtonStyle.Secondary,
+            )
         },
     )
 }
 
 @Composable
 private fun StrengthRow(label: String, met: Boolean) {
-    androidx.compose.foundation.layout.Row(
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(vertical = 2.dp),
     ) {
         Icon(

@@ -10,23 +10,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -35,6 +26,16 @@ import com.example.core.PaymentStatus
 import com.example.core.formatDzd
 import com.example.domain.model.Installment
 import com.example.domain.repository.InstallmentRepository
+import com.example.ui.components.ElCard
+import com.example.ui.components.ElInfoRow
+import com.example.ui.components.ElProgressBar
+import com.example.ui.components.ElScaffold
+import com.example.ui.components.ElSectionHeader
+import com.example.ui.components.ElTag
+import com.example.ui.components.ElTopBar
+import com.example.ui.theme.DangerRed
+import com.example.ui.theme.PrimaryBlue
+import com.example.ui.theme.SuccessGreen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,12 +46,10 @@ import kotlinx.coroutines.flow.stateIn
 class InstallmentScheduleViewModel @Inject constructor(
     private val installmentRepository: InstallmentRepository,
 ) : ViewModel() {
-    // Placeholder — would observe installments for a selected parent/student
     val installments: StateFlow<List<Installment>> = kotlinx.coroutines.flow.flowOf(emptyList<Installment>())
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InstallmentScheduleScreen(
     onBack: () -> Unit,
@@ -58,29 +57,24 @@ fun InstallmentScheduleScreen(
 ) {
     val installments by viewModel.installments.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Tranches") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Retour") } },
-            )
-        },
-    ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+    ElScaffold(
+        topBar = { ElTopBar(title = "Tranches", onBack = onBack) },
+    ) {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             if (installments.isEmpty()) {
-                Text("Sélectionnez un parent pour voir ses tranches.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Selectionnez un parent pour voir ses tranches.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 val totalDue = installments.sumOf { it.amountDue }
                 val totalPaid = installments.sumOf { it.amountPaid }
                 val progress = if (totalDue > 0) totalPaid.toFloat() / totalDue.toFloat() else 0f
 
-                Card(elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                ElCard(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), accent = PrimaryBlue) {
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        Text("Progression", style = MaterialTheme.typography.titleMedium)
+                        ElSectionHeader(title = "Progression")
                         Spacer(Modifier.height(8.dp))
-                        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                        ElProgressBar(progress = progress)
                         Spacer(Modifier.height(8.dp))
-                        Text("${(totalPaid / 100).formatDzd()} / ${(totalDue / 100).formatDzd()} DZD")
+                        Text("${(totalPaid / 100).formatDzd()} / ${(totalDue / 100).formatDzd()} DZD", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
                     }
                 }
 
@@ -96,30 +90,27 @@ fun InstallmentScheduleScreen(
 
 @Composable
 private fun InstallmentCard(installment: Installment) {
-    val statusColor = when (installment.status) {
-        PaymentStatus.PAID -> MaterialTheme.colorScheme.primary
-        PaymentStatus.OVERDUE -> MaterialTheme.colorScheme.error
-        PaymentStatus.PENDING -> MaterialTheme.colorScheme.tertiary
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    val (statusColor, statusText) = when (installment.status) {
+        PaymentStatus.PAID -> SuccessGreen to "Paye"
+        PaymentStatus.OVERDUE -> DangerRed to "En retard"
+        PaymentStatus.PENDING -> PrimaryBlue to "En attente"
+        else -> MaterialTheme.colorScheme.onSurfaceVariant to installment.status.name
     }
-    Card(
-        elevation = CardDefaults.cardElevation(2.dp),
+    ElCard(
         modifier = Modifier.fillMaxWidth(),
+        accent = statusColor,
+        compact = true,
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(installment.label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                Text(
-                    installment.status.name,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = statusColor,
-                )
+                Text(installment.label, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold), modifier = Modifier.weight(1f))
+                ElTag(text = statusText, color = statusColor, selected = true)
             }
-            Spacer(Modifier.height(4.dp))
-            Text("Échéance: ${installment.dueDate}", style = MaterialTheme.typography.bodySmall)
-            Text("Montant: ${(installment.amountDue / 100).formatDzd()} DZD", style = MaterialTheme.typography.bodySmall)
-            Text("Payé: ${(installment.amountPaid / 100).formatDzd()} DZD", style = MaterialTheme.typography.bodySmall)
-            Text("Restant: ${(installment.remaining / 100).formatDzd()} DZD", style = MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.height(8.dp))
+            ElInfoRow(label = "Echeance", value = installment.dueDate)
+            ElInfoRow(label = "Montant", value = "${(installment.amountDue / 100).formatDzd()} DZD")
+            ElInfoRow(label = "Paye", value = "${(installment.amountPaid / 100).formatDzd()} DZD", valueColor = SuccessGreen)
+            ElInfoRow(label = "Restant", value = "${(installment.remaining / 100).formatDzd()} DZD", valueColor = if (installment.remaining > 0) DangerRed else SuccessGreen)
         }
     }
 }
