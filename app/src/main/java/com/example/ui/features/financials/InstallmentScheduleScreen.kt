@@ -2,7 +2,6 @@ package com.example.ui.features.financials
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,105 +12,24 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.example.core.PaymentStatus
 import com.example.core.formatDzd
-import com.example.domain.model.Installment
 import com.example.domain.model.Parent
-import com.example.domain.repository.InstallmentRepository
-import com.example.domain.repository.ParentRepository
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElButtonStyle
 import com.example.ui.components.ElCard
 import com.example.ui.components.ElDropdown
 import com.example.ui.components.ElEmptyState
-import com.example.ui.components.ElInfoRow
 import com.example.ui.components.ElProgressBar
 import com.example.ui.components.ElScaffold
 import com.example.ui.components.ElSectionHeader
-import com.example.ui.components.ElTag
 import com.example.ui.components.ElTopBar
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
-import com.example.ui.theme.WarmGold
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-
-/**
- * ViewModel for [InstallmentScheduleScreen].
- *
- * BUGFIX (iter 2): the previous version injected [InstallmentRepository]
- * then discarded it — the StateFlow emitted a permanent empty list and
- * there was no way to select a parent. Now the ViewModel:
- *   - Loads the parent list (so the user can pick one).
- *   - On parent selection, switches the installments flow to
- *     [InstallmentRepository.observeByParent].
- *   - Exposes the selected parent so the UI can show its name.
- */
-@HiltViewModel
-class InstallmentScheduleViewModel @Inject constructor(
-    private val installmentRepository: InstallmentRepository,
-    private val parentRepository: ParentRepository,
-) : ViewModel() {
-
-    val parents: StateFlow<List<Parent>> = parentRepository.observe()
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-    private val _selectedParentId = MutableStateFlow<String?>(null)
-    val selectedParentId: StateFlow<String?> = _selectedParentId.asStateFlow()
-
-    private val _installments = MutableStateFlow<List<Installment>>(emptyList())
-    val installments: StateFlow<List<Installment>> = _installments.asStateFlow()
-
-    private val _busy = MutableStateFlow(false)
-    val busy: StateFlow<Boolean> = _busy
-
-    private val _message = MutableStateFlow<String?>(null)
-    val message: StateFlow<String?> = _message
-
-    fun selectParent(parentId: String) {
-        _selectedParentId.value = parentId
-        viewModelScope.launch {
-            installmentRepository.observeByParent(parentId).collect { _installments.value = it }
-        }
-    }
-
-    /**
-     * Mark an installment as paid. Mirrors desktop's "Mark Paid" action —
-     * calls [InstallmentRepository.markPaid] which invokes the
-     * `mark_installment_paid` SECURITY DEFINER RPC.
-     */
-    fun markPaid(installmentId: String, actorId: String, actorName: String) {
-        viewModelScope.launch {
-            _busy.value = true
-            val result = installmentRepository.markPaid(installmentId, actorId, actorName)
-            _busy.value = false
-            result.onSuccess { _message.value = "Tranche marquée comme payée." }
-                .onFailure { _message.value = it.userMessage }
-        }
-    }
-
-    fun clearMessage() { _message.value = null }
-}
 
 @Composable
 fun InstallmentScheduleScreen(
@@ -197,52 +115,6 @@ fun InstallmentScheduleScreen(
                         onMarkPaid = { viewModel.markPaid(inst.id, selectedParentId ?: "", selectedParent?.fullName ?: "") },
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun InstallmentCard(
-    installment: Installment,
-    canMarkPaid: Boolean,
-    onMarkPaid: () -> Unit,
-) {
-    val (statusColor, statusText) = when (installment.status) {
-        PaymentStatus.PAID -> SuccessGreen to "Payée"
-        PaymentStatus.OVERDUE -> DangerRed to "En retard"
-        PaymentStatus.PENDING -> PrimaryBlue to "En attente"
-        PaymentStatus.PARTIAL -> WarmGold to "Partielle"
-        else -> MaterialTheme.colorScheme.onSurfaceVariant to installment.status.name
-    }
-    ElCard(
-        modifier = Modifier.fillMaxWidth(),
-        accent = statusColor,
-        compact = true,
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    installment.label,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    modifier = Modifier.weight(1f),
-                )
-                ElTag(text = statusText, color = statusColor, selected = true)
-            }
-            Spacer(Modifier.height(8.dp))
-            ElInfoRow(label = "Échéance", value = installment.dueDate)
-            ElInfoRow(label = "Montant", value = "${(installment.amountDue / 100).formatDzd()} DZD")
-            ElInfoRow(label = "Payé", value = "${(installment.amountPaid / 100).formatDzd()} DZD", valueColor = SuccessGreen)
-            ElInfoRow(label = "Restant", value = "${(installment.remaining / 100).formatDzd()} DZD", valueColor = if (installment.remaining > 0) DangerRed else SuccessGreen)
-
-            if (canMarkPaid) {
-                Spacer(Modifier.height(8.dp))
-                ElButton(
-                    text = "Marquer comme payée",
-                    onClick = onMarkPaid,
-                    style = ElButtonStyle.Secondary,
-                    fullWidth = true,
-                )
             }
         }
     }

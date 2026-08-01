@@ -3,10 +3,8 @@ package com.example.ui.features.crm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,24 +15,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.core.Result
 import com.example.domain.repository.CreateParentInput
 import com.example.domain.repository.CreateStudentInput
-import com.example.domain.repository.StudentRepository
-import com.example.session.SessionManager
 import com.example.ui.components.ElButton
 import com.example.ui.components.ElCard
 import com.example.ui.components.ElFab
@@ -45,56 +36,6 @@ import com.example.ui.components.ElTextField
 import com.example.ui.components.ElTopBar
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-
-@HiltViewModel
-class BatchRegistrationViewModel @Inject constructor(
-    private val studentRepository: StudentRepository,
-    private val sessionManager: SessionManager,
-) : ViewModel() {
-
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
-
-    private val _activationCode = MutableStateFlow<String?>(null)
-    val activationCode: StateFlow<String?> = _activationCode.asStateFlow()
-
-    fun register(parent: CreateParentInput, students: List<CreateStudentInput>, onSuccess: () -> Unit) {
-        if (parent.firstName.isBlank() || parent.lastName.isBlank() || parent.phone.isBlank()) {
-            _error.value = "Veuillez renseigner le prénom, nom et téléphone du parent"
-            return
-        }
-        if (students.isEmpty()) {
-            _error.value = "Au moins un élève est requis"
-            return
-        }
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            val actorId = sessionManager.currentUserId() ?: "system"
-            val actorName = sessionManager.currentDisplayName() ?: "System"
-            when (val result = studentRepository.batchRegister(parent, students, actorId, actorName)) {
-                is Result.Ok -> {
-                    _isLoading.value = false
-                    _activationCode.value = result.value.activationCode
-                    onSuccess()
-                }
-                is Result.Err -> {
-                    _isLoading.value = false
-                    _error.value = result.error.userMessage
-                }
-            }
-        }
-    }
-}
 
 @Composable
 fun BatchRegistrationScreen(
@@ -202,10 +143,3 @@ fun BatchRegistrationScreen(
         }
     }
 }
-
-data class ChildFormState(
-    val firstName: String = "",
-    val lastName: String = "",
-    val birthDate: String = "",
-    val gradeLevel: String = "",
-)

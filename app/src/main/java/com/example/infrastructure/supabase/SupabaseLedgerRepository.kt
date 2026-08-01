@@ -7,6 +7,7 @@ import com.example.core.LedgerEntry
 import com.example.core.ParentLedgerSummary
 import com.example.core.Result
 import com.example.core.Reconcile
+import com.example.core.createReversalEntry
 import com.example.domain.repository.AuditLogInput
 import com.example.domain.repository.AuditRepository
 import com.example.domain.repository.LedgerRepository
@@ -107,7 +108,7 @@ class SupabaseLedgerRepository @Inject constructor(
             ?.toDomain()
             ?: return Result.Err(Errors.notFound("Ledger entry $originalId not found"))
 
-        val reversal = LedgerEngine.createReversalEntry(original, reason, actorId, actorName)
+        val reversal = createReversalEntry(original, reason, actorId, actorName)
         val dto = LedgerEntryDto.fromDomain(reversal)
         provider.postgrest.from("ledger_entries").insert(dto)
 

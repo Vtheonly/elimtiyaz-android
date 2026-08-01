@@ -123,7 +123,7 @@ object Reconcile {
 
     private fun checkAccountIdsMatch(entries: List<LedgerEntry>): List<Violation> =
         entries.mapNotNull { e ->
-            val expected = LedgerEngine.deriveAccountId(e.parentId, e.category, e.studentId)
+            val expected = deriveAccountId(e.parentId, e.category, e.studentId)
             if (e.accountId != expected) Violation(Severity.ERROR, CODE_ACCOUNT_ID_MISMATCH, "accountId '${e.accountId}' does not match derived '$expected'", entryId = e.id, accountId = e.accountId) else null
         }
 

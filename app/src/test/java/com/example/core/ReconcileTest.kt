@@ -22,7 +22,7 @@ class ReconcileTest {
         parentId: String = "p1",
         tenantId: String = "t1",
         amount: Long = 50000L,
-    ) = LedgerEngine.createChargeEntry(
+    ) = createChargeEntry(
         tenantId = tenantId, parentId = parentId, studentId = null,
         category = PaymentCategory.TUITION, amount = amount,
         sourceType = LedgerSourceType.INSTALLMENT, sourceId = "inst-1",
@@ -59,7 +59,7 @@ class ReconcileTest {
     }
 
     @Test fun `payment with non-negative amount produces PAYMENT_NOT_NEGATIVE error`() {
-        val invalidPayment = LedgerEngine.createPaymentEntry(
+        val invalidPayment = createPaymentEntry(
             tenantId = "t1", parentId = "p1", studentId = null,
             category = PaymentCategory.TUITION, amount = 5000L,
             method = PaymentMethod.CASH, receiptNumber = "RCP-1",
@@ -79,7 +79,7 @@ class ReconcileTest {
 
     @Test fun `orphan reversal produces ORPHAN_REVERSAL error`() {
         val original = validCharge(id = "led-001")
-        val reversal = LedgerEngine.createReversalEntry(
+        val reversal = createReversalEntry(
             original, reason = "Test", actorId = "u2", actorName = "Bob", at = fixedAt,
         ).copy(reversesId = "led-nonexistent")  // orphan reference
         val report = Reconcile.reconcileLedger(listOf(original, reversal))
@@ -88,10 +88,10 @@ class ReconcileTest {
 
     @Test fun `double reversal produces DOUBLE_REVERSAL error`() {
         val original = validCharge(id = "led-001")
-        val reversal1 = LedgerEngine.createReversalEntry(
+        val reversal1 = createReversalEntry(
             original, reason = "First", actorId = "u2", actorName = "Bob", at = fixedAt,
         )
-        val reversal2 = LedgerEngine.createReversalEntry(
+        val reversal2 = createReversalEntry(
             original, reason = "Second", actorId = "u2", actorName = "Bob", at = fixedAt,
         )
         val report = Reconcile.reconcileLedger(listOf(original, reversal1, reversal2))
@@ -100,7 +100,7 @@ class ReconcileTest {
 
     @Test fun `reversal amount mismatch produces REVERSAL_AMOUNT_MISMATCH error`() {
         val original = validCharge(id = "led-001", amount = 50000L)
-        val reversal = LedgerEngine.createReversalEntry(
+        val reversal = createReversalEntry(
             original, reason = "Test", actorId = "u2", actorName = "Bob", at = fixedAt,
         ).copy(amount = -30000L)  // WRONG: should be -50000
         val report = Reconcile.reconcileLedger(listOf(original, reversal))
@@ -108,7 +108,7 @@ class ReconcileTest {
     }
 
     @Test fun `duplicate receipt number produces DUPLICATE_RECEIPT_NUMBER error`() {
-        val e1 = LedgerEngine.createPaymentEntry(
+        val e1 = createPaymentEntry(
             tenantId = "t1", parentId = "p1", studentId = null,
             category = PaymentCategory.TUITION, amount = 5000L,
             method = PaymentMethod.CASH, receiptNumber = "RCP-2026-00001",
@@ -140,7 +140,7 @@ class ReconcileTest {
         val entries = listOf(
             validCharge(id = "led-001", parentId = "p1", amount = 50000L),
             validCharge(id = "led-002", parentId = "p2", amount = 30000L),
-            LedgerEngine.createPaymentEntry(
+            createPaymentEntry(
                 tenantId = "t1", parentId = "p1", studentId = null,
                 category = PaymentCategory.TUITION, amount = 20000L,
                 method = PaymentMethod.CASH, receiptNumber = "RCP-1",
@@ -171,7 +171,7 @@ class ReconcileTest {
     }
 
     @Test fun `payment amount mismatch produces cross-check error`() {
-        val payment = LedgerEngine.createPaymentEntry(
+        val payment = createPaymentEntry(
             tenantId = "t1", parentId = "p1", studentId = null,
             category = PaymentCategory.TUITION, amount = 5000L,
             method = PaymentMethod.CASH, receiptNumber = "RCP-1",
