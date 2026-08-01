@@ -1,5 +1,6 @@
 package com.example.ui.navigation
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -9,6 +10,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -56,7 +59,7 @@ class AppNavViewModel @Inject constructor(
     val sessionState = sessionManager.state
 
     fun restoreSession() {
-        androidx.lifecycle.viewModelScope.launch {
+        viewModelScope.launch {
             sessionManager.restoreSession()
         }
     }

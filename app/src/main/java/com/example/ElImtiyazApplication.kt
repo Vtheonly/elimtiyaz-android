@@ -1,10 +1,10 @@
 package com.example
 
-import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import androidx.hilt.work.HiltWorkerFactory
+import androidx.multidex.MultiDexApplication
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -24,7 +24,7 @@ import javax.inject.Inject
  *   - `low`    → minimum importance
  */
 @HiltAndroidApp
-class ElImtiyazApplication : Application(), Configuration.Provider {
+class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
 
     @Inject lateinit var workerFactory: HiltWorkerFactory
 

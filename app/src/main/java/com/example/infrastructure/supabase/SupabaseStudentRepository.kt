@@ -94,29 +94,31 @@ class SupabaseStudentRepository @Inject constructor(
         Result.Err(Errors.fromException(e))
     }
 
-    override suspend fun updateStudent(id: String, input: UpdateStudentInput, actorId: String, actorName: String): Result<Student> = try {
-        val updates = mutableMapOf<String, String>()
-        input.firstName?.let { updates["first_name"] = it }
-        input.lastName?.let { updates["last_name"] = it }
-        input.classId?.let { updates["class_id"] = it }
-        input.status?.let { updates["status"] = it }
-        input.medicalNotes?.let { updates["medical_notes"] = it }
-        if (updates.isEmpty()) return Result.Err(Errors.validation("No fields to update"))
-        val updated = provider.postgrest.from("students").update(updates) {
-            filter { eq("id", id) }
-            select()
-        }.decodeList<StudentDto>().first()
-        val student = updated.toDomain()
-        auditRepository.log(AuditLogInput(
-            action = AuditActions.STUDENT_UPDATE,
-            entityType = "student",
-            entityId = id,
-            afterJson = updates.entries.joinToString(",", "{", "}") { (k, v) -> """"$k":"$v"""" },
-            note = "Student updated from Android app",
-        ))
-        Result.Ok(student)
-    } catch (e: Exception) {
-        Result.Err(Errors.fromException(e))
+    override suspend fun updateStudent(id: String, input: UpdateStudentInput, actorId: String, actorName: String): Result<Student> {
+        return try {
+            val updates = mutableMapOf<String, String>()
+            input.firstName?.let { updates["first_name"] = it }
+            input.lastName?.let { updates["last_name"] = it }
+            input.classId?.let { updates["class_id"] = it }
+            input.status?.let { updates["status"] = it }
+            input.medicalNotes?.let { updates["medical_notes"] = it }
+            if (updates.isEmpty()) return Result.Err(Errors.validation("No fields to update"))
+            val updated = provider.postgrest.from("students").update(updates) {
+                filter { eq("id", id) }
+                select()
+            }.decodeList<StudentDto>().first()
+            val student = updated.toDomain()
+            auditRepository.log(AuditLogInput(
+                action = AuditActions.STUDENT_UPDATE,
+                entityType = "student",
+                entityId = id,
+                afterJson = updates.entries.joinToString(",", "{", "}") { (k, v) -> """"$k":"$v"""" },
+                note = "Student updated from Android app",
+            ))
+            Result.Ok(student)
+        } catch (e: Exception) {
+            Result.Err(Errors.fromException(e))
+        }
     }
 
     /**

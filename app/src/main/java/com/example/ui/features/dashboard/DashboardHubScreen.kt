@@ -93,15 +93,17 @@ class DashboardViewModel @Inject constructor(
         monthlyRevenue = 12450000L, // 12.45M DZD
         outstandingDebt = 3200000L, // 3.2M DZD
         pendingExpenses = 3,
+        attendanceRateToday = 96.5,
+        overdueAlerts = 2,
     )
 
     private val _kpis = MutableStateFlow<DashboardKpi?>(defaultKpi)
     val kpis: StateFlow<DashboardKpi?> = _kpis.asStateFlow()
 
     private val sampleAlerts = listOf(
-        AppNotification("N-1", "Alerte Dépense Tier-2", "Demande d'achat matériel informatique (45,000 DZD) en attente de validation par l'administration.", "expense", "EXP-004", false, "2026-07-31T09:30:00Z"),
-        AppNotification("N-2", "Seuil 3+ Absences Atteint", "L'élève Yacine Belkacem (PRIM - CE1 B) a atteint 3 absences non justifiées.", "academic", "STU-003", false, "2026-07-31T08:15:00Z"),
-        AppNotification("N-3", "Échéance Chèque de Banque", "Chèque BNA #883921 (150,000 DZD) à déposer pour compensation aujourd'hui.", "financial", "CHK-001", true, "2026-07-30T16:00:00Z"),
+        AppNotification("N-1", "ten-001", "Alerte Dépense Tier-2", "Demande d'achat matériel informatique (45,000 DZD) en attente de validation par l'administration.", "expense_pending", "high", "system", "Système", "EXP-004", null, null, null, null, null, "2026-07-31T09:30:00Z", "system"),
+        AppNotification("N-2", "ten-001", "Seuil 3+ Absences Atteint", "L'élève Yacine Belkacem (PRIM - CE1 B) a atteint 3 absences non justifiées.", "attendance_alert", "urgent", "system", "Système", "STU-003", null, null, null, null, null, "2026-07-31T08:15:00Z", "system"),
+        AppNotification("N-3", "ten-001", "Échéance Chèque de Banque", "Chèque BNA #883921 (150,000 DZD) à déposer pour compensation aujourd'hui.", "payment_overdue", "medium", "system", "Système", "CHK-001", null, null, null, null, "2026-07-30T16:00:00Z", "2026-07-30T16:00:00Z", "system"),
     )
 
     val alerts: StateFlow<List<AppNotification>> = MutableStateFlow(sampleAlerts)
@@ -173,8 +175,8 @@ fun DashboardHubScreen(
                 }
                 BadgedBox(
                     badge = {
-                        if (alerts.any { !it.read }) {
-                            Badge { Text(alerts.count { !it.read }.toString()) }
+                        if (alerts.any { it.readAt == null }) {
+                            Badge { Text(alerts.count { it.readAt == null }.toString()) }
                         }
                     },
                 ) {
@@ -308,9 +310,9 @@ fun DashboardHubScreen(
                     alerts.forEach { alert ->
                         Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
                             Icon(
-                                if (alert.category == "academic") Icons.Default.Warning else Icons.Default.CheckCircle,
+                                if (alert.type == "attendance_alert") Icons.Default.Warning else Icons.Default.CheckCircle,
                                 contentDescription = null,
-                                tint = if (alert.category == "academic") DangerRed else WarmGold,
+                                tint = if (alert.type == "attendance_alert") DangerRed else WarmGold,
                                 modifier = Modifier.padding(top = 2.dp),
                             )
                             Spacer(Modifier.width(10.dp))
@@ -447,7 +449,7 @@ fun AiAssistantDrawerContent(onDismiss: () -> Unit) {
                             prompt.contains("résumer", ignoreCase = true) || prompt.contains("encaissement", ignoreCase = true) ->
                                 "IA: Aujourd'hui, 3 paiements ont été enregistrés pour un total de 55,000 DZD (Espèces: 30,000 DZD, Chèque: 25,000 DZD)."
                             prompt.contains("transport", ignoreCase = true) ->
-                                "IA: Il y a 4 élèves inscrits au transport Boumerdès ayant une tranche en retard ($Q > 0)."
+                                "IA: Il y a 4 élèves inscrits au transport Boumerdès ayant une tranche en retard (solde > 0)."
                             else ->
                                 "IA: Résultat généré par l'IA pour '$prompt': Opération analysée et prête."
                         }

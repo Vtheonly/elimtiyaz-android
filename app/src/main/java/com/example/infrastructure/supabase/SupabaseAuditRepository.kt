@@ -7,6 +7,7 @@ import com.example.domain.repository.AuditLogInput
 import com.example.domain.repository.AuditRepository
 import io.github.jan.supabase.postgrest.query.filter.FilterOperation
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -30,21 +31,9 @@ class SupabaseAuditRepository @Inject constructor(
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
-    override fun observe(limit: Int) = provider.realtime
-        .channel("audit_logs")
-        .postgrestChangeFlow("public") { table = "audit_logs" }
-        .let { flow ->
-            kotlinx.coroutines.flow.flow {
-                // Emit initial snapshot
-                val snapshot = fetchRecent(limit)
-                emit(snapshot)
-                // Then emit on every change
-                flow.collect { change ->
-                    val refreshed = fetchRecent(limit)
-                    emit(refreshed)
-                }
-            }
-        }
+    override fun observe(limit: Int) = kotlinx.coroutines.flow.flow {
+        emit(fetchRecent(limit))
+    }
 
     override fun observeByEntity(entityType: String, entityId: String) =
         kotlinx.coroutines.flow.flow {

@@ -65,3 +65,7 @@ enum class PaymentStatus(val code: String) {
     OVERDUE("overdue"), REFUNDED("refunded"), CANCELLED("cancelled");
     companion object { fun fromCode(code: String) = values().firstOrNull { it.code == code } ?: throw IllegalArgumentException("Unknown PaymentStatus: $code") }
 }
+
+fun Long.formatDzd(): String = java.text.NumberFormat.getNumberInstance(java.util.Locale.FRANCE).format(this)
+fun Int.formatDzd(): String = java.text.NumberFormat.getNumberInstance(java.util.Locale.FRANCE).format(this)
+fun Double.formatDzd(): String = java.text.NumberFormat.getNumberInstance(java.util.Locale.FRANCE).format(this)

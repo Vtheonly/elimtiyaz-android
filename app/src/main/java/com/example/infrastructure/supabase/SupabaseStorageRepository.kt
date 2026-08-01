@@ -41,7 +41,7 @@ class SupabaseStorageRepository @Inject constructor(
 
         provider.storage.from(bucket).upload(path, bytes) {
             upsert = false
-            contentType = mimeType
+            contentType = io.ktor.http.ContentType.parse(mimeType)
         }
 
         Result.Ok(path)
@@ -50,7 +50,7 @@ class SupabaseStorageRepository @Inject constructor(
     }
 
     override suspend fun createSignedUrl(bucket: String, path: String, expiresInSeconds: Long): Result<String> = try {
-        val url = provider.storage.from(bucket).createSignedUrl(path, expiresInSeconds)
+        val url = provider.storage.from(bucket).createSignedUrl(path, kotlin.time.Duration.parse("${expiresInSeconds}s"))
         Result.Ok(url)
     } catch (e: Exception) {
         Result.Err(Errors.fromException(e))

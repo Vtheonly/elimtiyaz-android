@@ -15,7 +15,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.example.core.Session
+
+import com.example.ui.components.ModernSecondaryTabRow
 
 @Composable
 fun CrmHubScreen(
@@ -28,16 +31,12 @@ fun CrmHubScreen(
     val tabs = listOf("Parents", "Élèves", "Inscription")
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = selectedTab) {
-            tabs.forEachIndexed { index, title ->
-                Tab(
-                    selected = selectedTab == index,
-                    onClick = { selectedTab = index },
-                    text = { Text(title) },
-                )
-            }
-        }
-        Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.TopStart) {
+        ModernSecondaryTabRow(
+            tabs = tabs,
+            selectedTabIndex = selectedTab,
+            onTabSelected = { selectedTab = it },
+        )
+        Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.TopStart) {
             when (selectedTab) {
                 0 -> ParentsDirectoryScreen(session = session, onParentClick = onNavigateToParent)
                 1 -> StudentRosterScreen(session = session, onStudentClick = onNavigateToStudent)

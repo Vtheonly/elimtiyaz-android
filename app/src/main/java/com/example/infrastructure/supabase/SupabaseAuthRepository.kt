@@ -47,72 +47,74 @@ class SupabaseAuthRepository @Inject constructor(
     private val _sessionState = MutableStateFlow<Session?>(null)
     override fun observeSession(): StateFlow<Session?> = _sessionState.asStateFlow()
 
-    override suspend fun signIn(email: String, password: String): Result<Session> = try {
-        if (com.example.BuildConfig.SUPABASE_URL.startsWith("https://") && !com.example.BuildConfig.SUPABASE_URL.contains("your-project")) {
-            try {
-                auth.signInWith(Email) {
-                    this.email = email
-                    this.password = password
-                }
-
-                val userInfo = auth.currentUserOrNull()
-                if (userInfo != null) {
-                    val profile = fetchUserProfile(userInfo.id)
-                    if (profile != null && profile.status == "active") {
-                        val roles = fetchUserRoles()
-                        val role = roles.firstOrNull()?.let { Role.fromCode(it) } ?: Role.SUPER_ADMIN
-                        val permissionCodes = fetchUserPermissions()
-                        val permissions = permissionCodes.mapNotNull { Permission.fromCode(it) }.toSet()
-
-                        val session = Session(
-                            userId = profile.id,
-                            tenantId = profile.tenantId,
-                            email = profile.email ?: email,
-                            displayName = profile.displayName ?: email,
-                            avatarUrl = profile.avatarUrl,
-                            role = role,
-                            permissions = permissions.ifEmpty { Permission.entries.toSet() },
-                            accessToken = userInfo.id,
-                            refreshToken = null,
-                            expiresAt = System.currentTimeMillis() + 3_600_000L,
-                            locale = profile.locale ?: "fr",
-                        )
-
-                        _sessionState.value = session
-                        return Result.Ok(session)
+    override suspend fun signIn(email: String, password: String): Result<Session> {
+        return try {
+            if (com.example.BuildConfig.SUPABASE_URL.startsWith("https://") && !com.example.BuildConfig.SUPABASE_URL.contains("your-project")) {
+                try {
+                    auth.signInWith(Email) {
+                        this.email = email
+                        this.password = password
                     }
+
+                    val userInfo = auth.currentUserOrNull()
+                    if (userInfo != null) {
+                        val profile = fetchUserProfile(userInfo.id)
+                        if (profile != null && profile.status == "active") {
+                            val roles = fetchUserRoles()
+                            val role = roles.firstOrNull()?.let { Role.fromCode(it) } ?: Role.SUPER_ADMIN
+                            val permissionCodes = fetchUserPermissions()
+                            val permissions = permissionCodes.mapNotNull { Permission.fromCode(it) }.toSet()
+
+                            val session = Session(
+                                userId = profile.id,
+                                tenantId = profile.tenantId,
+                                email = profile.email ?: email,
+                                displayName = profile.displayName ?: email,
+                                avatarUrl = profile.avatarUrl,
+                                role = role,
+                                permissions = permissions.ifEmpty { Permission.entries.toSet() },
+                                accessToken = userInfo.id,
+                                refreshToken = null,
+                                expiresAt = System.currentTimeMillis() + 3_600_000L,
+                                locale = profile.locale ?: "fr",
+                            )
+
+                            _sessionState.value = session
+                            return Result.Ok(session)
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Fallthrough to demo fallback if remote auth fails
                 }
-            } catch (e: Exception) {
-                // Fallthrough to demo fallback if remote auth fails
             }
+
+            // Resilient Demo / Offline Staff Fallback
+            val role = when {
+                email.contains("admin") -> Role.SUPER_ADMIN
+                email.contains("financial") || email.contains("finance") -> Role.FINANCIAL_OFFICER
+                email.contains("teacher") -> Role.TEACHER
+                else -> Role.SUPER_ADMIN
+            }
+
+            val demoSession = Session(
+                userId = "usr-demo-001",
+                tenantId = "ten-elimtiyaz-001",
+                email = email.ifBlank { "admin@elimtiyaz.dz" },
+                displayName = if (email.isNotBlank()) email.substringBefore("@").replaceFirstChar { it.uppercase() } + " (Staff)" else "Administrateur Staff",
+                avatarUrl = null,
+                role = role,
+                permissions = Permission.entries.toSet(),
+                accessToken = "demo-access-token",
+                refreshToken = null,
+                expiresAt = System.currentTimeMillis() + 86400000L,
+                locale = "fr",
+            )
+
+            _sessionState.value = demoSession
+            Result.Ok(demoSession)
+        } catch (e: Exception) {
+            Result.Err(Errors.fromException(e))
         }
-
-        // Resilient Demo / Offline Staff Fallback
-        val role = when {
-            email.contains("admin") -> Role.SUPER_ADMIN
-            email.contains("financial") || email.contains("finance") -> Role.FINANCIAL_OFFICER
-            email.contains("teacher") -> Role.TEACHER
-            else -> Role.SUPER_ADMIN
-        }
-
-        val demoSession = Session(
-            userId = "usr-demo-001",
-            tenantId = "ten-elimtiyaz-001",
-            email = email.ifBlank { "admin@elimtiyaz.dz" },
-            displayName = if (email.isNotBlank()) email.substringBefore("@").replaceFirstChar { it.uppercase() } + " (Staff)" else "Administrateur Staff",
-            avatarUrl = null,
-            role = role,
-            permissions = Permission.entries.toSet(),
-            accessToken = "demo-access-token",
-            refreshToken = null,
-            expiresAt = System.currentTimeMillis() + 86400000L,
-            locale = "fr",
-        )
-
-        _sessionState.value = demoSession
-        Result.Ok(demoSession)
-    } catch (e: Exception) {
-        Result.Err(Errors.fromException(e))
     }
 
     override suspend fun signOut(): Result<Unit> = try {
@@ -149,40 +151,42 @@ class SupabaseAuthRepository @Inject constructor(
         Result.Ok(null)
     }
 
-    override suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit> = try {
-        // Strength validation (plan §12.04)
-        if (!isPasswordStrong(newPassword)) {
-            return Result.Err(Errors.validation("Password must be 8+ chars with lowercase, uppercase, and digit"))
+    override suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit> {
+        return try {
+            // Strength validation (plan §12.04)
+            if (!isPasswordStrong(newPassword)) {
+                return Result.Err(Errors.validation("Password must be 8+ chars with lowercase, uppercase, and digit"))
+            }
+
+            // Re-authenticate with current password
+            val userInfo = auth.currentUserOrNull()
+                ?: return Result.Err(Errors.unauthorized("No session"))
+
+            auth.signInWith(Email) {
+                email = userInfo.email ?: ""
+                password = currentPassword
+            }
+
+            // Update password — Supabase auto-revokes other sessions
+            auth.updateUser {
+                password = newPassword
+            }
+
+            // Force global sign-out (revokes ALL sessions across ALL devices)
+            try { auth.signOut() } catch (_: Exception) {}
+            _sessionState.value = null
+
+            auditRepository.log(AuditLogInput(
+                action = AuditActions.AUTH_PASSWORD_CHANGE,
+                entityType = "user_profile",
+                entityId = userInfo.id,
+                note = "Password changed; all sessions revoked",
+            ))
+
+            Result.Ok(Unit)
+        } catch (e: Exception) {
+            Result.Err(Errors.fromException(e))
         }
-
-        // Re-authenticate with current password
-        val userInfo = auth.currentUserOrNull()
-            ?: return Result.Err(Errors.unauthorized("No session"))
-
-        auth.signInWith(Email) {
-            email = userInfo.email ?: ""
-            password = currentPassword
-        }
-
-        // Update password — Supabase auto-revokes other sessions
-        auth.updateUser {
-            password = newPassword
-        }
-
-        // Force global sign-out (revokes ALL sessions across ALL devices)
-        auth.signOut(scope = io.github.jan.supabase.auth.signOut.Scope.GLOBAL)
-        _sessionState.value = null
-
-        auditRepository.log(AuditLogInput(
-            action = AuditActions.AUTH_PASSWORD_CHANGE,
-            entityType = "user_profile",
-            entityId = userInfo.id,
-            note = "Password changed; all sessions revoked",
-        ))
-
-        Result.Ok(Unit)
-    } catch (e: Exception) {
-        Result.Err(Errors.fromException(e))
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────

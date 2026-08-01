@@ -26,7 +26,7 @@ object PiiMask {
             seen[original]?.let { return it }
             val n = (counters[prefix] ?: 0) + 1
             counters[prefix] = n
-            val placeholder = "[$prefix_$n]"
+            val placeholder = "[${prefix}_$n]"
             replacements[placeholder] = original
             seen[original] = placeholder
             return placeholder

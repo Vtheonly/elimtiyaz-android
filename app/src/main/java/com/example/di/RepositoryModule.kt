@@ -3,14 +3,20 @@ package com.example.di
 import com.example.domain.repository.AuditRepository
 import com.example.domain.repository.AuthRepository
 import com.example.domain.repository.ClassRepository
+import com.example.domain.repository.DebtRepository
 import com.example.domain.repository.DepartmentRepository
 import com.example.domain.repository.ExpenseRepository
+import com.example.domain.repository.InstallmentRepository
 import com.example.domain.repository.LedgerRepository
+import com.example.domain.repository.NotificationRepository
 import com.example.domain.repository.ParentRepository
 import com.example.domain.repository.PaymentRepository
 import com.example.domain.repository.PersonnelRepository
 import com.example.domain.repository.StudentRepository
 import com.example.domain.repository.StorageRepository
+import com.example.infrastructure.stub.StubDebtRepository
+import com.example.infrastructure.stub.StubInstallmentRepository
+import com.example.infrastructure.stub.StubNotificationRepository
 import com.example.infrastructure.supabase.SupabaseAuditRepository
 import com.example.infrastructure.supabase.SupabaseAuthRepository
 import com.example.infrastructure.supabase.SupabaseExpenseRepository
@@ -44,8 +50,7 @@ abstract class RepositoryModule {
     @Binds @Singleton abstract fun bindExpenseRepository(impl: SupabaseExpenseRepository): ExpenseRepository
     @Binds @Singleton abstract fun bindStorageRepository(impl: SupabaseStorageRepository): StorageRepository
 
-    // Stubs for repositories not yet implemented — will be added in future iterations.
-    // @Binds @Singleton abstract fun bindClassRepository(impl: ???): ClassRepository
-    // @Binds @Singleton abstract fun bindDepartmentRepository(impl: ???): DepartmentRepository
-    // @Binds @Singleton abstract fun bindPersonnelRepository(impl: ???): PersonnelRepository
+    @Binds @Singleton abstract fun bindNotificationRepository(impl: StubNotificationRepository): NotificationRepository
+    @Binds @Singleton abstract fun bindDebtRepository(impl: StubDebtRepository): DebtRepository
+    @Binds @Singleton abstract fun bindInstallmentRepository(impl: StubInstallmentRepository): InstallmentRepository
 }

@@ -33,6 +33,7 @@ import com.example.core.Role
 import com.example.core.Session
 import com.example.domain.repository.AuthRepository
 import com.example.session.SessionManager
+import com.example.ui.components.ModernBottomNavBar
 import com.example.ui.features.academics.AcademicsHubScreen
 import com.example.ui.features.crm.CrmHubScreen
 import com.example.ui.features.dashboard.DashboardHubScreen
@@ -117,16 +118,11 @@ fun MainScreen(
             )
         },
         bottomBar = {
-            NavigationBar {
-                visibleTabs.forEachIndexed { index, tab ->
-                    NavigationBarItem(
-                        selected = safeSelected == index,
-                        onClick = { selectedTab = index },
-                        icon = { Icon(tab.icon, contentDescription = tab.label) },
-                        label = { Text(tab.label) },
-                    )
-                }
-            }
+            ModernBottomNavBar(
+                tabs = visibleTabs,
+                selectedTabIndex = safeSelected,
+                onTabSelected = { selectedTab = it },
+            )
         },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {

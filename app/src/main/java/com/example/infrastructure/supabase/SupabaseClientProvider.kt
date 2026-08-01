@@ -63,7 +63,7 @@ class SupabaseClientProvider @Inject constructor() {
                 install(Realtime)
                 install(Storage)
                 install(Functions)
-                httpEngine = Android
+                httpEngine = io.ktor.client.engine.android.Android.create()
             }
         } catch (e: Exception) {
             createSupabaseClient(
@@ -72,7 +72,7 @@ class SupabaseClientProvider @Inject constructor() {
             ) {
                 install(Auth)
                 install(Postgrest)
-                httpEngine = Android
+                httpEngine = io.ktor.client.engine.android.Android.create()
             }
         }
     }

@@ -52,62 +52,66 @@ class SupabaseParentRepository @Inject constructor(
         emit(rows)
     }
 
-    override suspend fun createParent(input: CreateParentInput, actorId: String, actorName: String): Result<Parent> = try {
-        validateCreateInput(input)
-        val dto = ParentInsertDto(
-            firstName = input.firstName,
-            lastName = input.lastName,
-            phone = input.phone,
-            whatsapp = null,
-            email = input.email,
-            occupation = input.occupation,
-            address = input.address,
-            transportDestination = input.transportDestination,
-            preferredLanguage = input.preferredLanguage,
-        )
-        val inserted = provider.postgrest.from("parents").insert(dto) {
-            select()
-        }.decodeList<ParentDto>().first()
-        val parent = inserted.toDomain()
-        auditRepository.log(AuditLogInput(
-            action = AuditActions.PARENT_CREATE,
-            entityType = "parent",
-            entityId = parent.id,
-            afterJson = """{"code":"${parent.code}","name":"${parent.fullName}"}""",
-            note = "Parent created from Android app",
-        ))
-        Result.Ok(parent)
-    } catch (e: Exception) {
-        Result.Err(Errors.fromException(e))
+    override suspend fun createParent(input: CreateParentInput, actorId: String, actorName: String): Result<Parent> {
+        return try {
+            validateCreateInput(input)
+            val dto = ParentInsertDto(
+                firstName = input.firstName,
+                lastName = input.lastName,
+                phone = input.phone,
+                whatsapp = null,
+                email = input.email,
+                occupation = input.occupation,
+                address = input.address,
+                transportDestination = input.transportDestination,
+                preferredLanguage = input.preferredLanguage,
+            )
+            val inserted = provider.postgrest.from("parents").insert(dto) {
+                select()
+            }.decodeList<ParentDto>().first()
+            val parent = inserted.toDomain()
+            auditRepository.log(AuditLogInput(
+                action = AuditActions.PARENT_CREATE,
+                entityType = "parent",
+                entityId = parent.id,
+                afterJson = """{"code":"${parent.code}","name":"${parent.fullName}"}""",
+                note = "Parent created from Android app",
+            ))
+            Result.Ok(parent)
+        } catch (e: Exception) {
+            Result.Err(Errors.fromException(e))
+        }
     }
 
-    override suspend fun updateParent(id: String, input: UpdateParentInput, actorId: String, actorName: String): Result<Parent> = try {
-        val updates = mutableMapOf<String, String>()
-        input.firstName?.let { updates["first_name"] = it }
-        input.lastName?.let { updates["last_name"] = it }
-        input.phone?.let { updates["phone"] = it }
-        input.email?.let { updates["email"] = it }
-        input.occupation?.let { updates["occupation"] = it }
-        input.address?.let { updates["address"] = it }
-        input.transportDestination?.let { updates["transport_destination"] = it }
-        input.preferredLanguage?.let { updates["preferred_language"] = it }
-        if (updates.isEmpty()) return Result.Err(Errors.validation("No fields to update"))
-        val updated = provider.postgrest.from("parents").update(updates) {
-            filter { eq("id", id) }
-            select()
-        }.decodeList<ParentDto>().first()
-        val parent = updated.toDomain()
-        auditRepository.log(AuditLogInput(
-            action = AuditActions.PARENT_UPDATE,
-            entityType = "parent",
-            entityId = id,
-            beforeJson = "{}", // Best-effort; full diff would require a pre-fetch
-            afterJson = updates.entries.joinToString(",", "{", "}") { (k, v) -> """"$k":"$v"""" },
-            note = "Parent updated from Android app",
-        ))
-        Result.Ok(parent)
-    } catch (e: Exception) {
-        Result.Err(Errors.fromException(e))
+    override suspend fun updateParent(id: String, input: UpdateParentInput, actorId: String, actorName: String): Result<Parent> {
+        return try {
+            val updates = mutableMapOf<String, String>()
+            input.firstName?.let { updates["first_name"] = it }
+            input.lastName?.let { updates["last_name"] = it }
+            input.phone?.let { updates["phone"] = it }
+            input.email?.let { updates["email"] = it }
+            input.occupation?.let { updates["occupation"] = it }
+            input.address?.let { updates["address"] = it }
+            input.transportDestination?.let { updates["transport_destination"] = it }
+            input.preferredLanguage?.let { updates["preferred_language"] = it }
+            if (updates.isEmpty()) return Result.Err(Errors.validation("No fields to update"))
+            val updated = provider.postgrest.from("parents").update(updates) {
+                filter { eq("id", id) }
+                select()
+            }.decodeList<ParentDto>().first()
+            val parent = updated.toDomain()
+            auditRepository.log(AuditLogInput(
+                action = AuditActions.PARENT_UPDATE,
+                entityType = "parent",
+                entityId = id,
+                beforeJson = "{}", // Best-effort; full diff would require a pre-fetch
+                afterJson = updates.entries.joinToString(",", "{", "}") { (k, v) -> """"$k":"$v"""" },
+                note = "Parent updated from Android app",
+            ))
+            Result.Ok(parent)
+        } catch (e: Exception) {
+            Result.Err(Errors.fromException(e))
+        }
     }
 
     override suspend fun deleteParent(id: String, actorId: String, actorName: String): Result<Unit> = try {

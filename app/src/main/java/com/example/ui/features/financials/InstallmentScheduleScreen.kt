@@ -32,6 +32,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.PaymentStatus
+import com.example.core.formatDzd
 import com.example.domain.model.Installment
 import com.example.domain.repository.InstallmentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,7 +46,7 @@ class InstallmentScheduleViewModel @Inject constructor(
     private val installmentRepository: InstallmentRepository,
 ) : ViewModel() {
     // Placeholder — would observe installments for a selected parent/student
-    val installments: StateFlow<List<Installment>> = kotlinx.coroutines.flow.flowOf(emptyList())
+    val installments: StateFlow<List<Installment>> = kotlinx.coroutines.flow.flowOf(emptyList<Installment>())
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 }
 

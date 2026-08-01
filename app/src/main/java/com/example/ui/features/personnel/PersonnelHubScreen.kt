@@ -55,6 +55,8 @@ import com.example.domain.model.AuditLog
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
 
+import com.example.ui.components.ModernSecondaryTabRow
+
 @Composable
 fun PersonnelHubScreen(
     session: Session,
@@ -65,12 +67,12 @@ fun PersonnelHubScreen(
     val tabs = listOf("Employés", "Activité", "Audit", "Déconnexion")
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = selectedTab) {
-            tabs.forEachIndexed { index, title ->
-                Tab(selected = selectedTab == index, onClick = { selectedTab = index }, text = { Text(title) })
-            }
-        }
-        Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.TopStart) {
+        ModernSecondaryTabRow(
+            tabs = tabs,
+            selectedTabIndex = selectedTab,
+            onTabSelected = { selectedTab = it },
+        )
+        Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.TopStart) {
             when (selectedTab) {
                 0 -> EmployeeDirectoryScreen(session)
                 1 -> ReleveScreen(session)
@@ -218,9 +220,54 @@ fun AuditStreamScreen(session: Session, onNavigateToAuditLog: () -> Unit) {
     val sheetState = rememberModalBottomSheetState()
 
     val sampleLogs = listOf(
-        AuditLog("AUD-1001", "dev_tenant", "payment.recorded", "M. Khelil", "Paiement 25,000 DZD (Tranche 2) enregistré pour Élève STU-001 (Amine Benali). Reçu B11-042.", "payment_receipts", "REC-8821", null, "2026-07-31T10:15:30Z"),
-        AuditLog("AUD-1002", "dev_tenant", "grade.modified", "Mme. Amrani", "Modification note Devoir 1 Mathématiques de 12.0 à 14.5.", "grade_entries", "GRD-3302", null, "2026-07-31T09:42:00Z"),
-        AuditLog("AUD-1003", "dev_tenant", "expense.approved", "Dr. Bencherif", "Approbation dépense Tier 2 #EXP-004 (Fournitures Informatiques: 45,000 DZD).", "expenses", "EXP-004", null, "2026-07-31T08:12:10Z"),
+        AuditLog(
+            id = "AUD-1001",
+            tenantId = "dev_tenant",
+            action = "payment.recorded",
+            entityType = "payment_receipts",
+            entityId = "REC-8821",
+            actorId = "USR-001",
+            actorName = "M. Khelil",
+            actorRole = "receptionist",
+            beforeJson = null,
+            afterJson = """{"amount":25000}""",
+            note = "Paiement 25,000 DZD (Tranche 2) enregistré pour Élève STU-001 (Amine Benali). Reçu B11-042.",
+            ipAddress = "192.168.1.50",
+            userAgent = "Android App",
+            occurredAt = "2026-07-31T10:15:30Z"
+        ),
+        AuditLog(
+            id = "AUD-1002",
+            tenantId = "dev_tenant",
+            action = "grade.modified",
+            entityType = "grade_entries",
+            entityId = "GRD-3302",
+            actorId = "USR-002",
+            actorName = "Mme. Amrani",
+            actorRole = "teacher",
+            beforeJson = """{"devoir1":12.0}""",
+            afterJson = """{"devoir1":14.5}""",
+            note = "Modification note Devoir 1 Mathématiques de 12.0 à 14.5.",
+            ipAddress = "192.168.1.52",
+            userAgent = "Android App",
+            occurredAt = "2026-07-31T09:42:00Z"
+        ),
+        AuditLog(
+            id = "AUD-1003",
+            tenantId = "dev_tenant",
+            action = "expense.approved",
+            entityType = "expenses",
+            entityId = "EXP-004",
+            actorId = "USR-003",
+            actorName = "Dr. Bencherif",
+            actorRole = "admin",
+            beforeJson = """{"status":"pending"}""",
+            afterJson = """{"status":"approved"}""",
+            note = "Approbation dépense Tier 2 #EXP-004 (Fournitures Informatiques: 45,000 DZD).",
+            ipAddress = "192.168.1.10",
+            userAgent = "Android App",
+            occurredAt = "2026-07-31T08:12:10Z"
+        ),
     )
 
     Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {

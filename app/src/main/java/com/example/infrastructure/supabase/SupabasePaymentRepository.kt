@@ -12,6 +12,8 @@ import com.example.domain.repository.AuditRepository
 import com.example.domain.repository.CollectPaymentInput
 import com.example.domain.repository.PaymentRepository
 import io.github.jan.supabase.postgrest.query.Order
+import io.ktor.client.call.body
+import io.ktor.client.request.setBody
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -81,91 +83,91 @@ class SupabasePaymentRepository @Inject constructor(
         emit(row?.toDomain())
     }
 
-    override suspend fun collect(input: CollectPaymentInput, actorId: String, actorName: String): Result<Payment> = try {
-        // Client-side validation (server re-validates via the Edge Function)
-        if (input.amount <= 0) return Result.Err(Errors.validation("Amount must be > 0"))
-        if (input.method.requiresProof && input.proofPath.isNullOrBlank()) {
-            return Result.Err(Errors.validation("Proof is required for ${input.method.code} payments"))
-        }
-        if (input.method == PaymentMethod.CHECK) {
-            if (input.checkNumber.isNullOrBlank() || input.checkBankName.isNullOrBlank()) {
-                return Result.Err(Errors.validation("Check number and bank name are required for check payments"))
+    override suspend fun collect(input: CollectPaymentInput, actorId: String, actorName: String): Result<Payment> {
+        return try {
+            // Client-side validation (server re-validates via the Edge Function)
+            if (input.amount <= 0) return Result.Err(Errors.validation("Amount must be > 0"))
+            if (input.method.requiresProof && input.proofPath.isNullOrBlank()) {
+                return Result.Err(Errors.validation("Proof is required for ${input.method.code} payments"))
             }
+            if (input.method == PaymentMethod.CHECK) {
+                if (input.checkNumber.isNullOrBlank() || input.checkBankName.isNullOrBlank()) {
+                    return Result.Err(Errors.validation("Check number and bank name are required for check payments"))
+                }
+            }
+            if (input.method == PaymentMethod.TRANSFER && input.transferReference.isNullOrBlank()) {
+                return Result.Err(Errors.validation("Transfer reference is required for transfer payments"))
+            }
+
+            val params = buildJsonObject {
+                put("parent_id", input.parentId)
+                input.studentId?.let { put("student_id", it) }
+                put("amount", input.amount)
+                put("method", input.method.code)
+                put("category", input.category.code)
+                input.installmentId?.let { put("installment_id", it) }
+                input.notes?.let { put("notes", it) }
+                input.checkNumber?.let { put("check_number", it) }
+                input.checkBankName?.let { put("check_bank_name", it) }
+                input.checkIssueDate?.let { put("check_issue_date", it) }
+                input.checkClearanceDate?.let { put("check_clearance_date", it) }
+                input.transferReference?.let { put("transfer_reference", it) }
+                input.transferSourceBank?.let { put("transfer_source_bank", it) }
+                input.proofPath?.let { put("proof_path", it) }
+            }
+
+            val response = provider.functions.invoke("collect-payment") {
+                setBody(params)
+            }
+            val data = response.body<CollectPaymentResponse>()
+            val payment = fetchById(data.paymentId)
+                ?: return Result.Err(Errors.notFound("Payment ${data.paymentId} not found after collect"))
+
+            // Audit log (the Edge Function also writes one, but we add a mobile-specific note)
+            auditRepository.log(AuditLogInput(
+                action = AuditActions.PAYMENT_COLLECT,
+                entityType = "payment",
+                entityId = payment.id,
+                afterJson = """{"amount":${payment.amount},"method":"${payment.method.code}","receipt":"${payment.receiptNumber}"}""",
+                note = "Collected from Android app",
+            ))
+
+            Result.Ok(payment)
+        } catch (e: Exception) {
+            Result.Err(Errors.fromException(e))
         }
-        if (input.method == PaymentMethod.TRANSFER && input.transferReference.isNullOrBlank()) {
-            return Result.Err(Errors.validation("Transfer reference is required for transfer payments"))
-        }
-
-        val params = buildJsonObject {
-            put("parent_id", input.parentId)
-            input.studentId?.let { put("student_id", it) }
-            put("amount", input.amount)
-            put("method", input.method.code)
-            put("category", input.category.code)
-            input.installmentId?.let { put("installment_id", it) }
-            input.notes?.let { put("notes", it) }
-            input.checkNumber?.let { put("check_number", it) }
-            input.checkBankName?.let { put("check_bank_name", it) }
-            input.checkIssueDate?.let { put("check_issue_date", it) }
-            input.checkClearanceDate?.let { put("check_clearance_date", it) }
-            input.transferReference?.let { put("transfer_reference", it) }
-            input.transferSourceBank?.let { put("transfer_source_bank", it) }
-            input.proofPath?.let { put("proof_path", it) }
-        }
-
-        val response = provider.functions.invoke(
-            functionName = "collect-payment",
-            body = params,
-        )
-
-        // The Edge Function returns { data: { payment_id, receipt_id, new_installment_status, message } }
-        val data = response.decodeAs<CollectPaymentResponse>()
-        val payment = fetchById(data.paymentId)
-            ?: return Result.Err(Errors.notFound("Payment ${data.paymentId} not found after collect"))
-
-        // Audit log (the Edge Function also writes one, but we add a mobile-specific note)
-        auditRepository.log(AuditLogInput(
-            action = AuditActions.PAYMENT_COLLECT,
-            entityType = "payment",
-            entityId = payment.id,
-            afterJson = """{"amount":${payment.amount},"method":"${payment.method.code}","receipt":"${payment.receiptNumber}"}""",
-            note = "Collected from Android app",
-        ))
-
-        Result.Ok(payment)
-    } catch (e: Exception) {
-        Result.Err(Errors.fromException(e))
     }
 
-    override suspend fun refund(paymentId: String, reason: String, actorId: String, actorName: String): Result<Payment> = try {
-        if (reason.length < 3) return Result.Err(Errors.validation("Refund reason must be at least 3 characters"))
+    override suspend fun refund(paymentId: String, reason: String, actorId: String, actorName: String): Result<Payment> {
+        return try {
+            if (reason.length < 3) return Result.Err(Errors.validation("Refund reason must be at least 3 characters"))
 
-        val params = buildJsonObject {
-            put("payment_id", paymentId)
-            put("reason", reason)
+            val params = buildJsonObject {
+                put("payment_id", paymentId)
+                put("reason", reason)
+            }
+
+            val response = provider.functions.invoke("refund-payment") {
+                setBody(params)
+            }
+            val data = response.body<RefundPaymentResponse>()
+
+            // Fetch the reversal payment
+            val reversal = fetchById(data.reversalPaymentId)
+                ?: return Result.Err(Errors.notFound("Reversal payment ${data.reversalPaymentId} not found"))
+
+            auditRepository.log(AuditLogInput(
+                action = AuditActions.PAYMENT_REFUND,
+                entityType = "payment",
+                entityId = paymentId,
+                afterJson = """{"reversal_payment_id":"${data.reversalPaymentId}","reason":"$reason"}""",
+                note = "Refunded from Android app",
+            ))
+
+            Result.Ok(reversal)
+        } catch (e: Exception) {
+            Result.Err(Errors.fromException(e))
         }
-
-        val response = provider.functions.invoke(
-            functionName = "refund-payment",
-            body = params,
-        )
-        val data = response.decodeAs<RefundPaymentResponse>()
-
-        // Fetch the reversal payment
-        val reversal = fetchById(data.reversalPaymentId)
-            ?: return Result.Err(Errors.notFound("Reversal payment ${data.reversalPaymentId} not found"))
-
-        auditRepository.log(AuditLogInput(
-            action = AuditActions.PAYMENT_REFUND,
-            entityType = "payment",
-            entityId = paymentId,
-            afterJson = """{"reversal_payment_id":"${data.reversalPaymentId}","reason":"$reason"}""",
-            note = "Refunded from Android app",
-        ))
-
-        Result.Ok(reversal)
-    } catch (e: Exception) {
-        Result.Err(Errors.fromException(e))
     }
 
     override suspend fun adjust(input: com.example.domain.repository.AdjustAccountInput, actorId: String, actorName: String): Result<Unit> = try {

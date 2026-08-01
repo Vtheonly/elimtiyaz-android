@@ -76,18 +76,20 @@ import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.WarmGold
 import kotlinx.coroutines.launch
 
+import com.example.ui.components.ModernSecondaryTabRow
+
 @Composable
 fun AcademicsHubScreen(session: Session) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Présences", "Notes", "Devoirs", "Classes")
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = selectedTab) {
-            tabs.forEachIndexed { index, title ->
-                Tab(selected = selectedTab == index, onClick = { selectedTab = index }, text = { Text(title) })
-            }
-        }
-        Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.TopStart) {
+        ModernSecondaryTabRow(
+            tabs = tabs,
+            selectedTabIndex = selectedTab,
+            onTabSelected = { selectedTab = it },
+        )
+        Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.TopStart) {
             when (selectedTab) {
                 0 -> RollCallScreen(session)
                 1 -> GradeEntryScreen(session)

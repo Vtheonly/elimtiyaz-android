@@ -220,7 +220,7 @@ class SupabaseLedgerRepository @Inject constructor(
                 paymentStatus = e.paymentStatus?.code, reversesId = e.reversesId,
                 description = e.description, actorId = e.actorId, actorName = e.actorName,
                 entryDate = e.at,
-                metadata = e.metadata.mapValues { it.value?.toString() },
+                metadata = e.metadata.mapValues { it.value?.toString() ?: "" },
             )
         }
     }

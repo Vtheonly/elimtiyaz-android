@@ -12,6 +12,9 @@ import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -65,7 +68,9 @@ class ElImtiyazMessagingService : FirebaseMessagingService() {
     }
 
     override fun onNewToken(token: String) {
-        tokenRegistrar.register(token)
+        CoroutineScope(Dispatchers.IO).launch {
+            tokenRegistrar.register(token)
+        }
     }
 }
 
