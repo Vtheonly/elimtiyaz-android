@@ -127,6 +127,7 @@ val SAMPLE_PAYMENT_FEED = listOf(
     LivePaymentFeedItem("PAY-104", "Mehdi Mansouri", "Mme. Salima Mansouri", 52000L, "Espèces", "Hier 14:10", "B01-117"),
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardHubScreen(
     session: Session,

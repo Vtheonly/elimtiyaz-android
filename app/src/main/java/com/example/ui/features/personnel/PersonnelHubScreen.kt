@@ -210,6 +210,7 @@ fun ReleveScreen(session: Session) {
 
 // ── 3. Live Contextual Audit Log Stream ────────────────────────────────────
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuditStreamScreen(session: Session, onNavigateToAuditLog: () -> Unit) {
     var selectedAuditLog by remember { mutableStateOf<AuditLog?>(null) }

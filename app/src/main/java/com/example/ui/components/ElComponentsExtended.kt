@@ -536,7 +536,7 @@ fun ElDropdown(
                 }
             }
 
-            AnimatedVisibility(
+            androidx.compose.animation.AnimatedVisibility(
                 visible = expanded,
                 enter = fadeIn(tween(150)) + slideInVertically(tween(150)),
                 exit = fadeOut(tween(100)) + slideOutVertically(tween(100)),
