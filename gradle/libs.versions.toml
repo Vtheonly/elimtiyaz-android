@@ -56,6 +56,7 @@ workRuntimeKtx = "2.10.0"
 securityCrypto = "1.1.0-alpha06"
 firebaseMessaging = "24.1.0"
 multidex = "2.0.1"
+multiplatformSettings = "1.3.0"
 
 
 [libraries]
@@ -143,6 +144,10 @@ androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx"
 # ── EncryptedSharedPreferences (JWT + secrets) ─────────────────────────────
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 androidx-multidex = { group = "androidx.multidex", name = "multidex", version.ref = "multidex" }
+
+# ── multiplatform-settings (Supabase Auth session persistence) ─────────────
+multiplatform-settings = { group = "com.russhwolf", name = "multiplatform-settings-no-arg", version.ref = "multiplatformSettings" }
+multiplatform-settings-coroutines = { group = "com.russhwolf", name = "multiplatform-settings-coroutines", version.ref = "multiplatformSettings" }
 
 
 [plugins]

@@ -62,10 +62,3 @@ internal fun DiagnosticsSection(
         }
     }
 }
-
-/**
- * Single toggle row — icon + label + sublabel on the left, [Switch] on the right.
- * Uses Material 3's [Switch] with the primary color when checked so the
- * visual treatment matches the brand.
- */
-@Composable

@@ -1,10 +1,12 @@
 package com.example.infrastructure.supabase
 
+import android.content.Context
 import com.example.BuildConfig
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.settings.SettingsStorage
+import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.functions.functions
 import io.github.jan.supabase.postgrest.Postgrest
@@ -21,23 +23,19 @@ import javax.inject.Singleton
  * Supabase client provider — lazy singleton.
  *
  * Reads URL + anon key from BuildConfig (injected by the secrets plugin
- * from .env, or fallback to the default values in build.gradle.kts).
+ * from `.env`, or fallback to the default values in `build.gradle.kts`).
  *
  * The client uses the Android Ktor engine. JWT persistence is handled
- * by the Auth plugin via the injected [SettingsStorage] (which is backed
- * by EncryptedSharedPreferences — see [com.example.di.SupabaseModule]).
- *
- * BUGFIX (iter 2): previously the Auth plugin was installed without a
- * SettingsStorage, so it used the default in-memory storage — refresh
- * tokens were lost on every app cold-start, forcing re-login. Now we
- * pass a persistent [SettingsStorage] so JWTs survive cold-starts.
+ * by the Auth plugin via a [SettingsSessionManager] (built by
+ * [EncryptedSettingsStorage.createSessionManager]) — refresh tokens
+ * survive app cold-starts.
  *
  * CRITICAL: never ship the `service_role` key in the APK. Only the `anon`
  * key is used here; RLS enforces tenant isolation server-side.
  */
 @Singleton
 class SupabaseClientProvider @Inject constructor(
-    private val settingsStorage: SettingsStorage,
+    @ApplicationContext private val context: Context,
 ) {
 
     val client: SupabaseClient by lazy { build() }
@@ -67,8 +65,9 @@ class SupabaseClientProvider @Inject constructor(
             ) {
                 install(Auth) {
                     // Persist JWT refresh tokens to EncryptedSharedPreferences
-                    // so users stay signed in across app cold-starts.
-                    settingsStorage = this@SupabaseClientProvider.settingsStorage
+                    // (via SettingsSessionManager) so users stay signed in
+                    // across app cold-starts.
+                    sessionManager = EncryptedSettingsStorage.createSessionManager(context)
                 }
                 install(Postgrest)
                 install(Realtime)
@@ -82,7 +81,7 @@ class SupabaseClientProvider @Inject constructor(
                 supabaseKey = "demo-key",
             ) {
                 install(Auth) {
-                    settingsStorage = this@SupabaseClientProvider.settingsStorage
+                    sessionManager = EncryptedSettingsStorage.createSessionManager(context)
                 }
                 install(Postgrest)
                 httpEngine = Android.create()

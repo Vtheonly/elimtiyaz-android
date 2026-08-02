@@ -20,5 +20,3 @@ class EmployeeDirectoryViewModel @Inject constructor(
     val personnel: StateFlow<List<Personnel>> = personnelRepository.observe()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 }
-
-@Composable

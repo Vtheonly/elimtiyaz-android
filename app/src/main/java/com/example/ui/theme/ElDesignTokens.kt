@@ -1,5 +1,6 @@
 package com.example.ui.theme
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -55,3 +56,10 @@ val LocalElDesignTokens = staticCompositionLocalOf {
         dividerColor = DarkOutline.copy(alpha = 0.5f),
     )
 }
+
+// ── Convenience accessor ───────────────────────────────────────────────────
+
+/** Read the active [ElDesignTokens] from the composition. */
+@Composable
+fun elDesignTokens(): ElDesignTokens = LocalElDesignTokens.current
+

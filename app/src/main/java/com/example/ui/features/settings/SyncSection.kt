@@ -60,9 +60,3 @@ internal fun SyncSection(
         }
     }
 }
-
-/**
- * Diagnostics section — read-only runtime info: online status, last sync,
- * pending count, app version.
- */
-@Composable

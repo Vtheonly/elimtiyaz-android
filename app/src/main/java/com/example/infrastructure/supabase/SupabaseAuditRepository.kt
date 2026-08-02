@@ -1,13 +1,10 @@
 package com.example.infrastructure.supabase
 
-import com.example.core.AuditActions
 import com.example.core.Errors
 import com.example.core.Result
 import com.example.domain.repository.AuditLogInput
 import com.example.domain.repository.AuditRepository
-import io.github.jan.supabase.postgrest.query.filter.FilterOperation
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -23,13 +20,20 @@ import javax.inject.Singleton
  * The audit log is append-only server-side (a BEFORE UPDATE/DELETE trigger
  * blocks mutations). The client can only SELECT (filtered by RLS by tenant
  * + role) and INSERT (via this RPC).
+ *
+ * Offline strategy: audit log writes are NOT enqueued via [SyncSupport]
+ * because that would create a Hilt dependency cycle
+ * (`SyncService` → `AuditRepository` → `SyncSupport` → `SyncService`).
+ * Audit entries lost while offline are acceptable — the server-side
+ * triggers + RLS enforce invariants regardless, and the desktop also
+ * writes audit logs directly without queueing. If the write fails, the
+ * error is surfaced to the caller; the user can retry the originating
+ * action.
  */
 @Singleton
 class SupabaseAuditRepository @Inject constructor(
     private val provider: SupabaseClientProvider,
 ) : AuditRepository {
-
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     override fun observe(limit: Int) = kotlinx.coroutines.flow.flow {
         emit(fetchRecent(limit))
@@ -85,14 +89,17 @@ class SupabaseAuditRepository @Inject constructor(
         }
         val resultId = provider.postgrest.rpc("write_audit_log", params)
             .decodeAs<String>()
-        // Fetch the row back
+        // Fetch the row back so the caller has the full record.
         val row = provider.postgrest.from("audit_logs")
             .select { filter { eq("id", resultId) } }
             .decodeList<AuditLogDto>()
             .firstOrNull()
-            ?: return Result.Err(Errors.notFound("Audit log row not found after insert: $resultId"))
+            ?: error("Audit log row not found after insert: $resultId")
         Result.Ok(row.toDomain())
     } catch (e: Exception) {
+        // Audit log writes are not enqueued (would create a Hilt cycle with
+        // SyncService → AuditRepository → SyncSupport → SyncService).
+        // Surface the error so the caller can retry the originating action.
         Result.Err(Errors.fromException(e))
     }
 

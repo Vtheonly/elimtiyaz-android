@@ -76,9 +76,3 @@ internal fun ToggleRow(
         )
     }
 }
-
-/**
- * Tappable row used in the security section — icon + label, with optional
- * danger styling for destructive actions (sign out).
- */
-@Composable

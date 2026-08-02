@@ -21,7 +21,7 @@ import javax.inject.Singleton
  * existing interval timer.
  */
 @Singleton
-internal class SyncScheduler @Inject constructor() {
+class SyncScheduler @Inject constructor() {
 
     /**
      * Register the periodic WorkManager job that drains the queue every 15

@@ -24,6 +24,7 @@ import com.example.ui.features.financials.ProofScannerScreen
 import com.example.ui.features.main.MainScreen
 import com.example.ui.features.settings.SettingsScreen
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.getValue
 
 @Composable
 fun AppNavHost() {

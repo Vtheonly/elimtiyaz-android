@@ -11,6 +11,9 @@ import com.example.core.createReversalEntry
 import com.example.domain.repository.AuditLogInput
 import com.example.domain.repository.AuditRepository
 import com.example.domain.repository.LedgerRepository
+import com.example.infrastructure.room.toCacheEntity
+import com.example.infrastructure.room.toDomain
+import com.example.infrastructure.sync.SyncSupport
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -35,12 +38,25 @@ import javax.inject.Singleton
 class SupabaseLedgerRepository @Inject constructor(
     private val provider: SupabaseClientProvider,
     private val auditRepository: AuditRepository,
+    private val syncSupport: SyncSupport,
 ) : LedgerRepository {
 
-    override fun observe(): Flow<List<LedgerEntry>> = flow {
-        val rows = fetchAll()
-        emit(rows)
-    }
+    /**
+     * Cache-then-network: emit cached entries instantly, then fetch from
+     * Supabase, refresh cache, emit again. Offline → cache only.
+     *
+     * Ledger entries are immutable (RLS blocks UPDATE/DELETE), so the cache is
+     * only ever appended-to via [upsertLedger] (REPLACE on conflict by PK).
+     */
+    override fun observe(): Flow<List<LedgerEntry>> = syncSupport.cacheThenNetwork(
+        cacheRead = {
+            syncSupport.listCachedLedger().map { it.toDomain() }
+        },
+        cacheWrite = { entries: List<LedgerEntry> ->
+            syncSupport.upsertLedger(entries.map { it.toCacheEntity() })
+        },
+        fetch = { fetchAll() },
+    )
 
     override fun observeByParent(parentId: String) = flow {
         val rows = try {
@@ -69,60 +85,101 @@ class SupabaseLedgerRepository @Inject constructor(
         emit(rows)
     }
 
-    override suspend fun append(entry: LedgerEntry): Result<LedgerEntry> = try {
+    override suspend fun append(entry: LedgerEntry): Result<LedgerEntry> {
         val dto = LedgerEntryDto.fromDomain(entry)
-        provider.postgrest.from("ledger_entries").insert(dto)
-        auditRepository.log(AuditLogInput(
-            action = AuditActions.LEDGER_ENTRY_APPEND,
-            entityType = "ledger_entry",
-            entityId = entry.id,
-            afterJson = """{"type":"${entry.type.code}","amount":${entry.amount},"account_id":"${entry.accountId}"}""",
-            note = "Ledger entry appended from Android app",
-        ))
-        Result.Ok(entry)
-    } catch (e: Exception) {
-        Result.Err(Errors.fromException(e))
+        // Try direct insert; on offline, enqueue for sync (insert semantics —
+        // ledger_entries is immutable server-side: RLS blocks UPDATE/DELETE).
+        return syncSupport.tryThenEnqueue(
+            entity = "ledger_entry",
+            operation = "append",
+            payload = {
+                syncSupport.json().encodeToString(LedgerEntryDto.serializer(), dto)
+            },
+            sourceScreen = "LedgerDetail",
+        ) {
+            provider.postgrest.from("ledger_entries").insert(dto)
+            auditRepository.log(AuditLogInput(
+                action = AuditActions.LEDGER_ENTRY_APPEND,
+                entityType = "ledger_entry",
+                entityId = entry.id,
+                afterJson = """{"type":"${entry.type.code}","amount":${entry.amount},"account_id":"${entry.accountId}"}""",
+                note = "Ledger entry appended from Android app",
+            ))
+            // Persist to cache so the next observe() emits it instantly.
+            syncSupport.upsertLedger(listOf(entry.toCacheEntity()))
+            entry
+        }
     }
 
-    override suspend fun appendMany(entries: List<LedgerEntry>): Result<List<LedgerEntry>> = try {
+    override suspend fun appendMany(entries: List<LedgerEntry>): Result<List<LedgerEntry>> {
         val dtos = entries.map { LedgerEntryDto.fromDomain(it) }
-        provider.postgrest.from("ledger_entries").insert(dtos)
-        auditRepository.log(AuditLogInput(
-            action = AuditActions.LEDGER_ENTRY_APPEND_MANY,
-            entityType = "ledger_entry",
-            entityId = "batch",
-            afterJson = """{"count":${entries.size}}""",
-            note = "Batch ledger entry append from Android app",
-        ))
-        Result.Ok(entries)
-    } catch (e: Exception) {
-        Result.Err(Errors.fromException(e))
+        // Try direct bulk insert; on offline, enqueue the batch as a single
+        // sync entry (drain-side replays via direct table insert).
+        return syncSupport.tryThenEnqueue(
+            entity = "ledger_entry",
+            operation = "append_many",
+            payload = {
+                syncSupport.json().encodeToString(
+                    kotlinx.serialization.builtins.ListSerializer(LedgerEntryDto.serializer()),
+                    dtos,
+                )
+            },
+            sourceScreen = "LedgerDetail",
+        ) {
+            provider.postgrest.from("ledger_entries").insert(dtos)
+            auditRepository.log(AuditLogInput(
+                action = AuditActions.LEDGER_ENTRY_APPEND_MANY,
+                entityType = "ledger_entry",
+                entityId = "batch",
+                afterJson = """{"count":${entries.size}}""",
+                note = "Batch ledger entry append from Android app",
+            ))
+            // Persist batch to cache.
+            syncSupport.upsertLedger(entries.map { it.toCacheEntity() })
+            entries
+        }
     }
 
-    override suspend fun reverse(originalId: String, reason: String, actorId: String, actorName: String): Result<LedgerEntry> = try {
-        // Fetch the original
-        val original = provider.postgrest.from("ledger_entries")
-            .select { filter { eq("id", originalId) } }
-            .decodeList<LedgerEntryDto>()
-            .firstOrNull()
-            ?.toDomain()
-            ?: return Result.Err(Errors.notFound("Ledger entry $originalId not found"))
+    override suspend fun reverse(originalId: String, reason: String, actorId: String, actorName: String): Result<LedgerEntry> {
+        // Try direct fetch + insert reversal; on offline, enqueue with a
+        // payload that captures the originalId + reason (drain-side replay
+        // is best-effort — the audit failure log surfaces drain failures).
+        return syncSupport.tryThenEnqueue(
+            entity = "ledger_entry",
+            operation = "reverse",
+            payload = {
+                syncSupport.json().encodeToString(
+                    LedgerReversePayload.serializer(),
+                    LedgerReversePayload(originalId, reason, actorId, actorName),
+                )
+            },
+            sourceScreen = "LedgerDetail",
+        ) {
+            // Fetch the original (throws if not found — caught by tryThenEnqueue
+            // but NOT enqueued because it's a 404, not a network error).
+            val original = provider.postgrest.from("ledger_entries")
+                .select { filter { eq("id", originalId) } }
+                .decodeList<LedgerEntryDto>()
+                .firstOrNull()
+                ?.toDomain()
+                ?: error("Ledger entry $originalId not found")
 
-        val reversal = createReversalEntry(original, reason, actorId, actorName)
-        val dto = LedgerEntryDto.fromDomain(reversal)
-        provider.postgrest.from("ledger_entries").insert(dto)
+            val reversal = createReversalEntry(original, reason, actorId, actorName)
+            val dto = LedgerEntryDto.fromDomain(reversal)
+            provider.postgrest.from("ledger_entries").insert(dto)
 
-        auditRepository.log(AuditLogInput(
-            action = AuditActions.LEDGER_ENTRY_REVERSE,
-            entityType = "ledger_entry",
-            entityId = reversal.id,
-            afterJson = """{"reverses_id":"$originalId","amount":${reversal.amount},"reason":"$reason"}""",
-            note = "Ledger entry reversed from Android app",
-        ))
+            auditRepository.log(AuditLogInput(
+                action = AuditActions.LEDGER_ENTRY_REVERSE,
+                entityType = "ledger_entry",
+                entityId = reversal.id,
+                afterJson = """{"reverses_id":"$originalId","amount":${reversal.amount},"reason":"$reason"}""",
+                note = "Ledger entry reversed from Android app",
+            ))
 
-        Result.Ok(reversal)
-    } catch (e: Exception) {
-        Result.Err(Errors.fromException(e))
+            // Persist reversal to cache.
+            syncSupport.upsertLedger(listOf(reversal.toCacheEntity()))
+            reversal
+        }
     }
 
     override suspend fun summary(parentId: String): Result<ParentLedgerSummary> = try {
@@ -225,4 +282,19 @@ class SupabaseLedgerRepository @Inject constructor(
             )
         }
     }
+
+    /**
+     * Minimal payload captured when a `reverse` operation is enqueued offline.
+     * The drain-side replay (SupabaseSyncDao) is best-effort: a full replay
+     * would require re-fetching the original entry server-side, which is not
+     * currently implemented. The audit failure log surfaces permanent drain
+     * failures after [SyncService.maxAttempts] retries.
+     */
+    @Serializable
+    data class LedgerReversePayload(
+        val originalId: String,
+        val reason: String,
+        val actorId: String,
+        val actorName: String,
+    )
 }

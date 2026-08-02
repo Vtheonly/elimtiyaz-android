@@ -44,6 +44,7 @@ import com.example.ui.components.ElTopBar
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.elDesignTokens
+import androidx.compose.runtime.getValue
 
 @Composable
 fun ParentDetailScreen(

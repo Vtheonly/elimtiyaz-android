@@ -137,6 +137,12 @@ dependencies {
   implementation(libs.ktor.client.android)
   implementation(libs.ktor.client.core)
 
+  // ── multiplatform-settings (Supabase Auth session persistence) ───────
+  // Required by SettingsSessionManager — backs the JWT refresh-token
+  // store so users stay signed in across app cold-starts.
+  implementation(libs.multiplatform.settings)
+  implementation(libs.multiplatform.settings.coroutines)
+
   // ── Kotlinx Serialization + Datetime ──────────────────────────────────
   implementation(libs.kotlinx.serialization.json)
   implementation(libs.kotlinx.datetime)

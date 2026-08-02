@@ -36,6 +36,8 @@ import com.example.ui.components.ElTextField
 import com.example.ui.theme.PrimaryBlue
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 @Composable
 fun GradeEntryScreen(

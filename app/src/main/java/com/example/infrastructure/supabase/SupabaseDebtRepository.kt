@@ -160,6 +160,12 @@ class SupabaseDebtRepository @Inject constructor(
         )
 
         private fun bucketToDays(bucket: String): Long = when (bucket) {
+            "0_30" -> 15L
+            "31_60" -> 45L
+            "61_90" -> 75L
+            "91_180" -> 135L
+            "180_plus" -> 200L
+            // Backward-compat: accept dash format too (older MV snapshots).
             "0-30" -> 15L
             "31-60" -> 45L
             "61-90" -> 75L

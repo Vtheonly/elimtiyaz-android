@@ -26,6 +26,7 @@ import com.example.ui.components.ElSectionHeader
 import com.example.ui.components.ElTag
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.WarmGold
+import androidx.compose.runtime.getValue
 
 @Composable
 fun ClassesDirectoryScreen(

@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +32,7 @@ import com.example.ui.components.ElTopBar
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
+import androidx.compose.runtime.getValue
 
 @Composable
 fun InstallmentScheduleScreen(
@@ -51,7 +54,7 @@ fun InstallmentScheduleScreen(
             // Parent selector — required because the screen takes no route arg.
             if (parents.isEmpty()) {
                 ElEmptyState(
-                    icon = androidx.compose.material.icons.Icons.Default.Payments,
+                    icon = Icons.Default.Payments,
                     title = "Aucun parent",
                     message = "Aucun parent enregistré. Ajoutez-en depuis le CRM.",
                 )
@@ -68,7 +71,7 @@ fun InstallmentScheduleScreen(
 
             if (selectedParentId == null) {
                 ElEmptyState(
-                    icon = androidx.compose.material.icons.Icons.Default.Payments,
+                    icon = Icons.Default.Payments,
                     title = "Sélectionnez un parent",
                     message = "Choisissez un parent pour voir ses tranches de paiement.",
                 )
@@ -77,7 +80,7 @@ fun InstallmentScheduleScreen(
 
             if (installments.isEmpty()) {
                 ElEmptyState(
-                    icon = androidx.compose.material.icons.Icons.Default.Payments,
+                    icon = Icons.Default.Payments,
                     title = "Aucune tranche",
                     message = "Aucune tranche définie pour ce parent. Utilisez « Régénérer » pour créer le planning par défaut.",
                 )

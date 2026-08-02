@@ -41,6 +41,8 @@ import com.example.ui.components.ElEmptyState
 import com.example.ui.components.ElSectionHeader
 import com.example.ui.theme.PrimaryBlue
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -165,5 +167,3 @@ fun AuditStreamScreen(
         }
     }
 }
-
-@Composable

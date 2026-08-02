@@ -33,6 +33,7 @@ import com.example.ui.designsystem.components.nav.ElNavDestination
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.designsystem.theme.ElTheme
+import androidx.compose.runtime.getValue
 
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -69,5 +69,3 @@ class HomeworkPushViewModel @Inject constructor(
         }
     }
 }
-
-@Composable

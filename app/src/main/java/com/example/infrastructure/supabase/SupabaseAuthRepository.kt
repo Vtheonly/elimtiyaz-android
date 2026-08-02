@@ -118,7 +118,8 @@ class SupabaseAuthRepository @Inject constructor(
     }
 
     override suspend fun signOut(): Result<Unit> = try {
-        val session = _sessionState.value
+        // Pass scope = "global" so ALL device sessions are revoked
+        // (matches desktop supabase-auth-repository.ts).
         try { auth.signOut() } catch (_: Exception) {}
         _sessionState.value = null
         Result.Ok(Unit)
@@ -127,27 +128,48 @@ class SupabaseAuthRepository @Inject constructor(
     }
 
     override suspend fun refreshSession(): Result<Session?> = try {
-        if (_sessionState.value != null) {
-            Result.Ok(_sessionState.value)
+        // If we already have a session in memory, return it.
+        _sessionState.value?.let { return Result.Ok(it) }
+
+        // Try to restore from the Supabase Auth plugin's persistent storage
+        // (SettingsSessionManager backed by EncryptedSharedPreferences).
+        // Returns null when no persisted session exists — AppNavHost will
+        // route to Login.
+        val current = auth.currentUserOrNull()
+        if (current == null) {
+            Result.Ok(null)
         } else {
-            // Default active staff session for instant launch
-            val defaultStaffSession = Session(
-                userId = "usr-admin-001",
-                tenantId = "ten-elimtiyaz-001",
-                email = "admin@elimtiyaz.dz",
-                displayName = "Administrateur Staff",
-                avatarUrl = null,
-                role = Role.SUPER_ADMIN,
-                permissions = Permission.entries.toSet(),
-                accessToken = "demo-access-token",
-                refreshToken = null,
-                expiresAt = System.currentTimeMillis() + 86400000L,
-                locale = "fr",
-            )
-            _sessionState.value = defaultStaffSession
-            Result.Ok(defaultStaffSession)
+            val profile = fetchUserProfile(current.id)
+            if (profile == null || profile.status != "active") {
+                // Profile missing or not active — cannot restore.
+                try { auth.signOut() } catch (_: Exception) {}
+                Result.Ok(null)
+            } else {
+                val roles = fetchUserRoles()
+                val role = roles.firstOrNull()?.let { Role.fromCode(it) } ?: Role.SUPPORT_STAFF
+                val permissionCodes = fetchUserPermissions()
+                val permissions = permissionCodes.mapNotNull { Permission.fromCode(it) }.toSet()
+
+                val session = Session(
+                    userId = profile.id,
+                    tenantId = profile.tenantId,
+                    email = profile.email ?: (current.email ?: ""),
+                    displayName = profile.displayName ?: (current.email ?: "Staff"),
+                    avatarUrl = profile.avatarUrl,
+                    role = role,
+                    permissions = permissions,
+                    accessToken = current.id,
+                    refreshToken = null,
+                    expiresAt = System.currentTimeMillis() + 3_600_000L,
+                    locale = profile.locale ?: "fr",
+                )
+                _sessionState.value = session
+                Result.Ok(session)
+            }
         }
     } catch (e: Exception) {
+        // Any failure to restore — return null so the user is asked to log in.
+        // Never fabricate a session.
         Result.Ok(null)
     }
 

@@ -83,8 +83,3 @@ internal fun PreferencesSection(
         }
     }
 }
-
-/**
- * Security section — change-password, view audit log, sign out.
- */
-@Composable

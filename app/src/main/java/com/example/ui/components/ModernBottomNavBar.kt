@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.features.main.HubTab
 import com.example.ui.theme.ElPillShape
 import com.example.ui.theme.elDesignTokens
+import androidx.compose.runtime.getValue
 
 @Composable
 fun ModernBottomNavBar(

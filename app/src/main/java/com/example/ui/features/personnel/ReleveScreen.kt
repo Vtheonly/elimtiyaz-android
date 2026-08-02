@@ -30,6 +30,7 @@ import com.example.ui.components.ElProgressBar
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.WarmGold
+import androidx.compose.runtime.getValue
 
 @Composable
 fun ReleveScreen(

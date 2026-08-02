@@ -22,7 +22,7 @@ class GreetingScreenshotTest {
 
   @Test
   fun greeting_screenshot() {
-    composeTestRule.setContent { ElImtiyazTheme { AppNavHost(sessionState = null) } }
+    composeTestRule.setContent { ElImtiyazTheme { AppNavHost() } }
 
     composeTestRule.onRoot().captureRoboImage(filePath = "src/test/screenshots/greeting.png")
   }

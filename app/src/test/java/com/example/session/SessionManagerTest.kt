@@ -7,6 +7,7 @@ import com.example.core.Session
 import com.example.domain.repository.AuthRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -111,7 +112,6 @@ class SessionManagerTest {
         val job = kotlinx.coroutines.GlobalScope.launch {
             sessionManager.state.collect { states.add(it) }
         }
-
         // Initial value is null
         // Give the collector a tick to subscribe
         kotlinx.coroutines.delay(10)

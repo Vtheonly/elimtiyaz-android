@@ -126,8 +126,8 @@ class SyncSupport @Inject constructor(
             Result.Ok(mutation())
         } catch (e: Exception) {
             val error = Errors.fromException(e)
-            if (error.code == AppError.CODE_NETWORK || error.code == AppError.CODE_OFFLINE
-                || error.code == AppError.CODE_TIMEOUT
+            if (error.code == Errors.CODE_NETWORK || error.code == Errors.CODE_OFFLINE
+                || error.code == Errors.CODE_TIMEOUT
                 || !onlineDetector.isOnline()
             ) {
                 // Offline — enqueue for later sync

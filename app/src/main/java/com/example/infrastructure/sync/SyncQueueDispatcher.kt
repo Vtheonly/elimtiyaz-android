@@ -18,7 +18,7 @@ import javax.inject.Singleton
  * @param supabaseSyncDao The shared Supabase table-write DAO.
  */
 @Singleton
-internal class SyncQueueDispatcher @Inject constructor(
+class SyncQueueDispatcher @Inject constructor(
     private val supabaseSyncDao: SupabaseSyncDao,
 ) {
 

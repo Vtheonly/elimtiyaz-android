@@ -32,8 +32,3 @@ internal fun SecuritySection(
         }
     }
 }
-
-/**
- * Sync section — Sync now button + live pending count + last sync time.
- */
-@Composable

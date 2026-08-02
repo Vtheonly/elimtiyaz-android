@@ -40,10 +40,13 @@ import com.example.ui.components.ElButton
 import com.example.ui.components.ElButtonStyle
 import com.example.ui.components.ElCard
 import com.example.ui.components.ElTopBar
+import com.example.ui.navigation.LocalSession
 import com.example.ui.theme.SuccessGreen
 import java.io.File
 import java.util.UUID
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 /**
  * Proof capture + upload screen.
@@ -69,6 +72,7 @@ fun ProofScannerScreen(
     val uploadedPath by viewModel.uploadedPath.collectAsState()
     val error by viewModel.error.collectAsState()
     val context = LocalContext.current
+    val session = LocalSession.current
 
     // Temp URI for the camera capture result.
     val capturedImageUri = remember {
@@ -109,7 +113,7 @@ fun ProofScannerScreen(
     // Trigger upload whenever a new bitmap is captured.
     androidx.compose.runtime.LaunchedEffect(pendingBitmap) {
         val bmp = pendingBitmap ?: return@LaunchedEffect
-        val entityId = sessionManager.currentUserId() ?: "unknown"
+        val entityId = session?.userId ?: "unknown"
         viewModel.uploadProof(bmp, entityId)
     }
 

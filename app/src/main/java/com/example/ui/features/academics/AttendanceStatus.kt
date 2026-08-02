@@ -19,5 +19,3 @@ enum class AttendanceStatus(val label: String, val color: Color, val wireCode: S
     EXCUSED("Excusé", WarmGold, "absent_excused"),
     LATE("Retard", LightBlue, "late"),
 }
-
-@HiltViewModel

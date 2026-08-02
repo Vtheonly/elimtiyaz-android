@@ -11,10 +11,14 @@ import com.example.domain.repository.AuditLogInput
 import com.example.domain.repository.AuditRepository
 import com.example.domain.repository.CollectPaymentInput
 import com.example.domain.repository.PaymentRepository
+import com.example.infrastructure.room.toCacheEntity
+import com.example.infrastructure.room.toDomain
+import com.example.infrastructure.sync.SyncSupport
 import io.github.jan.supabase.postgrest.query.Order
 import io.ktor.client.call.body
 import io.ktor.client.request.setBody
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import javax.inject.Inject
@@ -40,12 +44,26 @@ import javax.inject.Singleton
 class SupabasePaymentRepository @Inject constructor(
     private val provider: SupabaseClientProvider,
     private val auditRepository: AuditRepository,
+    private val syncSupport: SyncSupport,
 ) : PaymentRepository {
 
-    override fun observe() = kotlinx.coroutines.flow.flow {
-        val rows = fetchAll()
-        emit(rows)
-    }
+    /**
+     * Cache-then-network: emit cached payments instantly, then fetch from
+     * Supabase, refresh cache, emit again. Offline → cache only.
+     *
+     * Payments are immutable server-side (RLS blocks UPDATE/DELETE), so the
+     * cache is updated only via [upsertPayments] (REPLACE on conflict) — there
+     * is no risk of stale edits overwriting newer server rows.
+     */
+    override fun observe() = syncSupport.cacheThenNetwork(
+        cacheRead = {
+            syncSupport.listCachedPayments().map { it.toDomain() }
+        },
+        cacheWrite = { payments: List<Payment> ->
+            syncSupport.upsertPayments(payments.map { it.toCacheEntity() })
+        },
+        fetch = { fetchAll() },
+    )
 
     override fun observeByParent(parentId: String) = kotlinx.coroutines.flow.flow {
         val rows = try {
@@ -84,44 +102,56 @@ class SupabasePaymentRepository @Inject constructor(
     }
 
     override suspend fun collect(input: CollectPaymentInput, actorId: String, actorName: String): Result<Payment> {
-        return try {
-            // Client-side validation (server re-validates via the Edge Function)
-            if (input.amount <= 0) return Result.Err(Errors.validation("Amount must be > 0"))
-            if (input.method.requiresProof && input.proofPath.isNullOrBlank()) {
-                return Result.Err(Errors.validation("Proof is required for ${input.method.code} payments"))
+        // Client-side validation (server re-validates via the Edge Function).
+        // Validation errors return immediately — they must NOT be enqueued.
+        if (input.amount <= 0) return Result.Err(Errors.validation("Amount must be > 0"))
+        if (input.method.requiresProof && input.proofPath.isNullOrBlank()) {
+            return Result.Err(Errors.validation("Proof is required for ${input.method.code} payments"))
+        }
+        if (input.method == PaymentMethod.CHECK) {
+            if (input.checkNumber.isNullOrBlank() || input.checkBankName.isNullOrBlank()) {
+                return Result.Err(Errors.validation("Check number and bank name are required for check payments"))
             }
-            if (input.method == PaymentMethod.CHECK) {
-                if (input.checkNumber.isNullOrBlank() || input.checkBankName.isNullOrBlank()) {
-                    return Result.Err(Errors.validation("Check number and bank name are required for check payments"))
-                }
-            }
-            if (input.method == PaymentMethod.TRANSFER && input.transferReference.isNullOrBlank()) {
-                return Result.Err(Errors.validation("Transfer reference is required for transfer payments"))
-            }
+        }
+        if (input.method == PaymentMethod.TRANSFER && input.transferReference.isNullOrBlank()) {
+            return Result.Err(Errors.validation("Transfer reference is required for transfer payments"))
+        }
 
-            val params = buildJsonObject {
-                put("parent_id", input.parentId)
-                input.studentId?.let { put("student_id", it) }
-                put("amount", input.amount)
-                put("method", input.method.code)
-                put("category", input.category.code)
-                input.installmentId?.let { put("installment_id", it) }
-                input.notes?.let { put("notes", it) }
-                input.checkNumber?.let { put("check_number", it) }
-                input.checkBankName?.let { put("check_bank_name", it) }
-                input.checkIssueDate?.let { put("check_issue_date", it) }
-                input.checkClearanceDate?.let { put("check_clearance_date", it) }
-                input.transferReference?.let { put("transfer_reference", it) }
-                input.transferSourceBank?.let { put("transfer_source_bank", it) }
-                input.proofPath?.let { put("proof_path", it) }
-            }
+        val params = buildJsonObject {
+            put("parent_id", input.parentId)
+            input.studentId?.let { put("student_id", it) }
+            put("amount", input.amount)
+            put("method", input.method.code)
+            put("category", input.category.code)
+            input.installmentId?.let { put("installment_id", it) }
+            input.notes?.let { put("notes", it) }
+            input.checkNumber?.let { put("check_number", it) }
+            input.checkBankName?.let { put("check_bank_name", it) }
+            input.checkIssueDate?.let { put("check_issue_date", it) }
+            input.checkClearanceDate?.let { put("check_clearance_date", it) }
+            input.transferReference?.let { put("transfer_reference", it) }
+            input.transferSourceBank?.let { put("transfer_source_bank", it) }
+            input.proofPath?.let { put("proof_path", it) }
+        }
 
+        // Try direct Edge Function call; on offline/network failure, enqueue the
+        // payment insert for [SyncWorker] to drain later (insert semantics —
+        // payments are immutable server-side). Returns Result.Err(CODE_OFFLINE)
+        // so the UI can surface a "queued for sync" message.
+        return syncSupport.tryThenEnqueue(
+            entity = "payment",
+            operation = "collect",
+            payload = {
+                syncSupport.json().encodeToString(JsonObject.serializer(), params)
+            },
+            sourceScreen = "CounterPayment",
+        ) {
             val response = provider.functions.invoke("collect-payment") {
                 setBody(params)
             }
             val data = response.body<CollectPaymentResponse>()
             val payment = fetchById(data.paymentId)
-                ?: return Result.Err(Errors.notFound("Payment ${data.paymentId} not found after collect"))
+                ?: error("Payment ${data.paymentId} not found after collect")
 
             // Audit log (the Edge Function also writes one, but we add a mobile-specific note)
             auditRepository.log(AuditLogInput(
@@ -132,21 +162,31 @@ class SupabasePaymentRepository @Inject constructor(
                 note = "Collected from Android app",
             ))
 
-            Result.Ok(payment)
-        } catch (e: Exception) {
-            Result.Err(Errors.fromException(e))
+            // Persist to cache so the next observe() emits it instantly.
+            syncSupport.upsertPayments(listOf(payment.toCacheEntity()))
+            payment
         }
     }
 
     override suspend fun refund(paymentId: String, reason: String, actorId: String, actorName: String): Result<Payment> {
-        return try {
-            if (reason.length < 3) return Result.Err(Errors.validation("Refund reason must be at least 3 characters"))
+        // Validation — must NOT be enqueued.
+        if (reason.length < 3) return Result.Err(Errors.validation("Refund reason must be at least 3 characters"))
 
-            val params = buildJsonObject {
-                put("payment_id", paymentId)
-                put("reason", reason)
-            }
+        val params = buildJsonObject {
+            put("payment_id", paymentId)
+            put("reason", reason)
+        }
 
+        // Try direct Edge Function call; on offline, enqueue the refund as a
+        // payment insert (the reversal row) for later drain.
+        return syncSupport.tryThenEnqueue(
+            entity = "payment",
+            operation = "refund",
+            payload = {
+                syncSupport.json().encodeToString(JsonObject.serializer(), params)
+            },
+            sourceScreen = "PaymentDetail",
+        ) {
             val response = provider.functions.invoke("refund-payment") {
                 setBody(params)
             }
@@ -154,7 +194,7 @@ class SupabasePaymentRepository @Inject constructor(
 
             // Fetch the reversal payment
             val reversal = fetchById(data.reversalPaymentId)
-                ?: return Result.Err(Errors.notFound("Reversal payment ${data.reversalPaymentId} not found"))
+                ?: error("Reversal payment ${data.reversalPaymentId} not found")
 
             auditRepository.log(AuditLogInput(
                 action = AuditActions.PAYMENT_REFUND,
@@ -164,13 +204,13 @@ class SupabasePaymentRepository @Inject constructor(
                 note = "Refunded from Android app",
             ))
 
-            Result.Ok(reversal)
-        } catch (e: Exception) {
-            Result.Err(Errors.fromException(e))
+            // Persist reversal to cache.
+            syncSupport.upsertPayments(listOf(reversal.toCacheEntity()))
+            reversal
         }
     }
 
-    override suspend fun adjust(input: com.example.domain.repository.AdjustAccountInput, actorId: String, actorName: String): Result<Unit> = try {
+    override suspend fun adjust(input: com.example.domain.repository.AdjustAccountInput, actorId: String, actorName: String): Result<Unit> {
         // Account adjustments are done via a ledger entry directly (no Edge Function).
         // This is acceptable because the ledger_entries table accepts inserts from
         // authenticated users with the adjust_account permission (RLS-enforced).
@@ -182,17 +222,28 @@ class SupabasePaymentRepository @Inject constructor(
             put("p_reason", input.reason)
             input.receiptRef?.let { put("p_receipt_ref", it) }
         }
-        provider.postgrest.rpc("create_account_adjustment", params)
-        auditRepository.log(AuditLogInput(
-            action = AuditActions.PAYMENT_ADJUST,
-            entityType = "parent",
-            entityId = input.parentId,
-            afterJson = """{"amount":${input.amount},"category":"${input.category.code}","reason":"${input.reason}"}""",
-            note = "Account adjusted from Android app",
-        ))
-        Result.Ok(Unit)
-    } catch (e: Exception) {
-        Result.Err(Errors.fromException(e))
+        // Try direct RPC; on offline, enqueue as a payment/adjust insert for
+        // later drain. The drain-side [SupabaseSyncDao.pushPayment] does a
+        // direct table insert — for adjust this is best-effort; the audit
+        // failure log will surface drain failures after 5 attempts.
+        return syncSupport.tryThenEnqueue(
+            entity = "payment",
+            operation = "adjust",
+            payload = {
+                syncSupport.json().encodeToString(JsonObject.serializer(), params)
+            },
+            sourceScreen = "ParentLedger",
+        ) {
+            provider.postgrest.rpc("create_account_adjustment", params)
+            auditRepository.log(AuditLogInput(
+                action = AuditActions.PAYMENT_ADJUST,
+                entityType = "parent",
+                entityId = input.parentId,
+                afterJson = """{"amount":${input.amount},"category":"${input.category.code}","reason":"${input.reason}"}""",
+                note = "Account adjusted from Android app",
+            ))
+            Unit
+        }
     }
 
     private suspend fun fetchAll(): List<Payment> = try {

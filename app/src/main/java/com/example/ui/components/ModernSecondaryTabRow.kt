@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.ElPillShape
 import com.example.ui.theme.elDesignTokens
+import androidx.compose.runtime.getValue
 
 @Composable
 fun ModernSecondaryTabRow(
@@ -90,9 +91,3 @@ fun ModernSecondaryTabRow(
         }
     }
 }
-
-/**
- * Modern floating bottom navigation bar for main app destinations.
- * Features animated active indicator with gradient accent.
- */
-@Composable

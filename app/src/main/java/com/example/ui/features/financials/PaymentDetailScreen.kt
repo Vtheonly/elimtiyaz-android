@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -120,7 +122,7 @@ fun PaymentDetailScreen(
         val p = payment
         if (p == null) {
             ElEmptyState(
-                icon = androidx.compose.material.icons.Icons.Default.Receipt,
+                icon = Icons.Default.Receipt,
                 title = "Paiement introuvable",
                 message = error ?: "Chargement…",
                 modifier = Modifier.fillMaxSize(),

@@ -25,9 +25,3 @@ internal fun rbacGate(
 
     if (granted) content()
 }
-
-/**
- * Permission-denied destination — shown when a user navigates to a route
- * their role lacks permission for. Provides a single "back" action.
- */
-@Composable

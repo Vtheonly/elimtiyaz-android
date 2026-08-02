@@ -18,6 +18,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
 import com.example.ui.components.ElScaffold
 import com.example.ui.components.ElTopBar
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 @Composable
 fun SettingsScreen(
@@ -78,9 +80,3 @@ fun SettingsScreen(
         }
     }
 }
-
-/**
- * Profile card — shows the signed-in user's avatar, name, email, and role
- * badge. Reads from the active [Session].
- */
-@Composable

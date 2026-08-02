@@ -34,8 +34,8 @@ import javax.inject.Singleton
  *   - installment → `installments`       (update keyed by id)
  *   - expense    → `expense_tickets`     (upsert)
  *   - attendance → `attendance_records`  (upsert)
- *   - grade      → `assessments`         (upsert)
- *   - homework   → `homework_assignments`(upsert)
+ *   - grade      → `grades`              (upsert)
+ *   - homework   → `homework`            (upsert)
  *   - personnel  → `personnel`           (upsert)
  *   - ledger_entry → `ledger_entries`    (insert — immutable, RLS blocks UPDATE)
  *
@@ -72,13 +72,13 @@ class SupabaseSyncDao @Inject constructor(
     @WorkerThread
     suspend fun pushAttendance(entry: SyncQueueEntity) = upsert("attendance_records", entry)
 
-    /** Upsert an assessment (grade) to the `assessments` table. */
+    /** Upsert a grade to the `grades` table (server-side trigger auto-computes subject_average). */
     @WorkerThread
-    suspend fun pushGrade(entry: SyncQueueEntity) = upsert("assessments", entry)
+    suspend fun pushGrade(entry: SyncQueueEntity) = upsert("grades", entry)
 
-    /** Upsert a homework assignment to the `homework_assignments` table. */
+    /** Upsert a homework assignment to the `homework` table. */
     @WorkerThread
-    suspend fun pushHomework(entry: SyncQueueEntity) = upsert("homework_assignments", entry)
+    suspend fun pushHomework(entry: SyncQueueEntity) = upsert("homework", entry)
 
     /** Upsert a personnel row to the `personnel` table. */
     @WorkerThread

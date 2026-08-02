@@ -21,6 +21,3 @@ class AuditStreamViewModel @Inject constructor(
     val logs: StateFlow<List<AuditLog>> = auditRepository.observe(limit = 50)
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 }
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable

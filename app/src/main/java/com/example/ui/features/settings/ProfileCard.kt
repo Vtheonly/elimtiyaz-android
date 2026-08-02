@@ -55,9 +55,3 @@ internal fun ProfileCard(session: Session?) {
         }
     }
 }
-
-/**
- * Preferences section — toggles for dark mode, notifications, force-offline,
- * plus a language dropdown. Each toggle persists immediately via [DataStore].
- */
-@Composable

@@ -41,6 +41,8 @@ import com.example.ui.components.ElScrollableTabRow
 import com.example.ui.components.ElSectionHeader
 import com.example.ui.components.ElTag
 import com.example.ui.theme.PrimaryBlue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 @Composable
 fun EmployeeDirectoryScreen(

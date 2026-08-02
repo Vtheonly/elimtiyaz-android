@@ -36,6 +36,8 @@ import com.example.ui.components.ElTextField
 import com.example.ui.components.ElTopBar
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 @Composable
 fun BatchRegistrationScreen(
