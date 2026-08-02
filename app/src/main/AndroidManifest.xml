@@ -11,6 +11,9 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
         tools:ignore="CoarseFinePermission" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Required by RoutingForegroundService (live driver tracking) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
@@ -46,6 +49,12 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- ── Routing foreground service (live driver position tracking) ── -->
+        <service
+            android:name=".infrastructure.routing.RoutingForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <!-- ── WorkManager initialization (deferred to on-demand) ─────────── -->
         <provider

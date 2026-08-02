@@ -13,8 +13,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -78,6 +76,12 @@ val HUB_TABS = listOf(
     HubTab("Personnel", Icons.Default.Person, Permission.VIEW_PERSONNEL, null),
 )
 
+/**
+ * Main screen — bottom-nav host with 5 hub tabs.
+ *
+ * All navigation callbacks are passed in from [com.example.ui.navigation.AppNavHost]
+ * so hub screens can drill down to detail screens without holding a NavController.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
@@ -89,6 +93,24 @@ fun MainScreen(
     onNavigateToProofScanner: () -> Unit,
     onNavigateToDebtDashboard: () -> Unit,
     onNavigateToInstallmentSchedule: () -> Unit,
+    onNavigateToExpenseSubmit: () -> Unit,
+    onNavigateToExpenseDetail: (String) -> Unit,
+    onNavigateToPaymentDetail: (String) -> Unit,
+    onNavigateToPersonnelDetail: (String) -> Unit,
+    onNavigateToReleve: (String) -> Unit,
+    onNavigateToWorkflowMonitor: () -> Unit,
+    onNavigateToClassDetail: (String) -> Unit,
+    onNavigateToSubjectsDirectory: () -> Unit,
+    onNavigateToRollCall: (String) -> Unit,
+    onNavigateToGradeEntry: (String) -> Unit,
+    onNavigateToHomeworkPush: (String) -> Unit,
+    onNavigateToProfile: () -> Unit,
+    onNavigateToGlobalSearch: () -> Unit,
+    onNavigateToReports: () -> Unit,
+    onNavigateToAlerts: () -> Unit,
+    onNavigateToRouting: () -> Unit,
+    onNavigateToRoutingMap: (String) -> Unit,
+    onNavigateToTripHistory: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAuditLog: () -> Unit,
     onSignOut: () -> Unit,
@@ -96,7 +118,6 @@ fun MainScreen(
 ) {
     if (session == null) return
 
-    // Filter tabs by session permissions + roles
     val visibleTabs = HUB_TABS.filter { tab ->
         val permOk = tab.requiresPermission?.let { session.can(it) } ?: true
         val roleOk = tab.requiresRole?.let { session.role in it } ?: true
@@ -111,8 +132,11 @@ fun MainScreen(
             TopAppBar(
                 title = { Text(visibleTabs.getOrElse(safeSelected) { visibleTabs.first() }.label) },
                 actions = {
+                    IconButton(onClick = onNavigateToProfile) {
+                        Icon(Icons.Default.Person, contentDescription = "Profil")
+                    }
                     IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Default.Person, contentDescription = "Paramètres")
+                        Icon(Icons.Default.Dashboard, contentDescription = "Paramètres")
                     }
                 },
             )
@@ -133,6 +157,9 @@ fun MainScreen(
                     onNavigateToParent = onNavigateToParent,
                     onNavigateToCounterPayment = onNavigateToCounterPayment,
                     onNavigateToDebtDashboard = onNavigateToDebtDashboard,
+                    onNavigateToGlobalSearch = onNavigateToGlobalSearch,
+                    onNavigateToReports = onNavigateToReports,
+                    onNavigateToAlerts = onNavigateToAlerts,
                 )
                 "CRM" -> CrmHubScreen(
                     session = session,
@@ -140,17 +167,31 @@ fun MainScreen(
                     onNavigateToParent = onNavigateToParent,
                     onNavigateToBatchRegistration = onNavigateToBatchRegistration,
                 )
-                "Pédagogie" -> AcademicsHubScreen(session = session)
+                "Pédagogie" -> AcademicsHubScreen(
+                    session = session,
+                    onNavigateToClassDetail = onNavigateToClassDetail,
+                    onNavigateToSubjectsDirectory = onNavigateToSubjectsDirectory,
+                    onNavigateToRollCall = onNavigateToRollCall,
+                    onNavigateToGradeEntry = onNavigateToGradeEntry,
+                    onNavigateToHomeworkPush = onNavigateToHomeworkPush,
+                )
                 "Finances" -> FinancialsHubScreen(
                     session = session,
                     onNavigateToCounterPayment = onNavigateToCounterPayment,
                     onNavigateToProofScanner = onNavigateToProofScanner,
                     onNavigateToDebtDashboard = onNavigateToDebtDashboard,
                     onNavigateToInstallmentSchedule = onNavigateToInstallmentSchedule,
+                    onNavigateToExpenseSubmit = onNavigateToExpenseSubmit,
+                    onNavigateToExpenseDetail = onNavigateToExpenseDetail,
+                    onNavigateToPaymentDetail = onNavigateToPaymentDetail,
                 )
                 "Personnel" -> PersonnelHubScreen(
                     session = session,
+                    onNavigateToPersonnelDetail = onNavigateToPersonnelDetail,
+                    onNavigateToReleve = onNavigateToReleve,
+                    onNavigateToWorkflowMonitor = onNavigateToWorkflowMonitor,
                     onNavigateToAuditLog = onNavigateToAuditLog,
+                    onNavigateToRouting = onNavigateToRouting,
                     onSignOut = { viewModel.signOut(onSignOut) },
                 )
             }

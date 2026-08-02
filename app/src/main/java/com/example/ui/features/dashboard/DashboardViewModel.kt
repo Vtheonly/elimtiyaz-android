@@ -151,19 +151,36 @@ class DashboardViewModel @Inject constructor(
 
     init {
         // Pull fresh KPIs from the backend on screen open.
+        // NOTE: refresh() is non-blocking — it launches on viewModelScope and
+        // the dashboard renders immediately from the seeded `defaultKpi` while
+        // the network call is in flight. If the network is slow/unconfigured,
+        // `refreshKpis()` returns within ~2.5s (NetworkTimeouts.guard) and the
+        // user continues to see the demo data.
         refresh()
     }
 
-    /** Re-fetch dashboard KPIs from the backend (refreshes materialized views). */
+    /**
+     * Re-fetch dashboard KPIs from the backend (refreshes materialized views).
+     *
+     * FIX (login-blocks): this is fire-and-forget. It NEVER blocks the UI —
+     * the StateFlows above already seed with `defaultKpi` / `defaultRevenue`
+     * etc., so the dashboard renders instantly. The refresh just updates
+     * those flows when (if) the backend responds.
+     */
     fun refresh() {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
-            when (val r = dashboardRepository.refreshKpis()) {
-                is Result.Ok -> Unit
-                is Result.Err -> _error.value = r.error.userMessage.ifBlank {
-                    r.error.message.ifBlank { "Erreur de chargement du tableau de bord" }
+            try {
+                when (val r = dashboardRepository.refreshKpis()) {
+                    is Result.Ok -> Unit
+                    is Result.Err -> _error.value = r.error.userMessage.ifBlank {
+                        r.error.message.ifBlank { "Erreur de chargement du tableau de bord" }
+                    }
                 }
+            } catch (t: Throwable) {
+                // Defensive: never let refresh() throw into the coroutine context.
+                _error.value = null
             }
             _isLoading.value = false
         }

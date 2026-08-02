@@ -47,6 +47,7 @@ import androidx.compose.runtime.setValue
 @Composable
 fun EmployeeDirectoryScreen(
     session: Session,
+    onNavigateToPersonnelDetail: (String) -> Unit = {},
     viewModel: EmployeeDirectoryViewModel = hiltViewModel(),
 ) {
     val personnel by viewModel.personnel.collectAsState()

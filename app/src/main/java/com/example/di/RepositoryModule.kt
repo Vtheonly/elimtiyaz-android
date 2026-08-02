@@ -17,9 +17,12 @@ import com.example.domain.repository.ParentRepository
 import com.example.domain.repository.PaymentRepository
 import com.example.domain.repository.PersonnelRepository
 import com.example.domain.repository.PricingRepository
+import com.example.domain.repository.ReleveRepository
+import com.example.domain.repository.RoutingRepository
 import com.example.domain.repository.StudentRepository
 import com.example.domain.repository.StorageRepository
 import com.example.domain.repository.SubjectRepository
+import com.example.domain.repository.WorkflowRepository
 import com.example.infrastructure.supabase.SupabaseAttendanceRepository
 import com.example.infrastructure.supabase.SupabaseAuditRepository
 import com.example.infrastructure.supabase.SupabaseAuthRepository
@@ -37,9 +40,12 @@ import com.example.infrastructure.supabase.SupabaseParentRepository
 import com.example.infrastructure.supabase.SupabasePaymentRepository
 import com.example.infrastructure.supabase.SupabasePersonnelRepository
 import com.example.infrastructure.supabase.SupabasePricingRepository
+import com.example.infrastructure.supabase.SupabaseReleveRepository
+import com.example.infrastructure.supabase.SupabaseRoutingRepository
 import com.example.infrastructure.supabase.SupabaseStorageRepository
 import com.example.infrastructure.supabase.SupabaseStudentRepository
 import com.example.infrastructure.supabase.SupabaseSubjectRepository
+import com.example.infrastructure.supabase.SupabaseWorkflowRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -82,4 +88,9 @@ abstract class RepositoryModule {
     @Binds @Singleton abstract fun bindInstallmentRepository(impl: SupabaseInstallmentRepository): InstallmentRepository
     @Binds @Singleton abstract fun bindDebtRepository(impl: SupabaseDebtRepository): DebtRepository
     @Binds @Singleton abstract fun bindNotificationRepository(impl: SupabaseNotificationRepository): NotificationRepository
+
+    // ---- Wave 2 (restoration): routing + releve + workflow ----
+    @Binds @Singleton abstract fun bindRoutingRepository(impl: SupabaseRoutingRepository): RoutingRepository
+    @Binds @Singleton abstract fun bindReleveRepository(impl: SupabaseReleveRepository): ReleveRepository
+    @Binds @Singleton abstract fun bindWorkflowRepository(impl: SupabaseWorkflowRepository): WorkflowRepository
 }

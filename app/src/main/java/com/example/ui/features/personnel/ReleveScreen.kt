@@ -35,6 +35,7 @@ import androidx.compose.runtime.getValue
 @Composable
 fun ReleveScreen(
     session: Session,
+    onNavigateToReleve: (String) -> Unit = {},
     viewModel: ReleveViewModel = hiltViewModel(),
 ) {
     val personnel by viewModel.personnel.collectAsState()

@@ -37,17 +37,20 @@ class SupabaseDashboardRepository @Inject constructor(
 ) : DashboardRepository {
 
     override fun observeKpis() = flow {
-        emit(try {
+        // FIX (login-blocks): hard 2.5s timeout. If Supabase is unconfigured
+        // or the network is slow, emit null so the ViewModel falls back to
+        // its seeded defaultKpi. NEVER block the UI.
+        emit(NetworkTimeouts.guard<DashboardKpi>("dash.observeKpis", timeoutMs = 2_500L) {
             provider.postgrest.from("mv_dashboard_kpis")
                 .select { limit(1) }
                 .decodeList<DashboardKpiDto>()
                 .firstOrNull()
                 ?.toDomain()
-        } catch (e: Exception) { null })
+        })
     }
 
     override fun observeRevenueLast12Months() = flow {
-        emit(try {
+        emit(NetworkTimeouts.guard<List<RevenuePoint>>("dash.observeRevenue", timeoutMs = 2_500L) {
             provider.postgrest.from("mv_revenue_by_month")
                 .select {
                     order("month", Order.ASCENDING)
@@ -55,11 +58,11 @@ class SupabaseDashboardRepository @Inject constructor(
                 }
                 .decodeList<RevenueMonthDto>()
                 .map { it.toDomain() }
-        } catch (e: Exception) { emptyList() })
+        } ?: emptyList())
     }
 
     override fun observeDebtByAging() = flow {
-        emit(try {
+        emit(NetworkTimeouts.guard<List<DebtSummary>>("dash.observeDebt", timeoutMs = 2_500L) {
             provider.postgrest.from("mv_debt_aging")
                 .select {
                     order("outstanding", Order.DESCENDING)
@@ -67,21 +70,29 @@ class SupabaseDashboardRepository @Inject constructor(
                 }
                 .decodeList<DebtAgingDto>()
                 .map { it.toDomain() }
-        } catch (e: Exception) { emptyList() })
+        } ?: emptyList())
     }
 
-    override suspend fun refreshKpis(): Result<Unit> = try {
-        provider.postgrest.rpc("refresh_all_materialized_views")
-        auditRepository.log(AuditLogInput(
-            action = AuditActions.MATERIALIZED_VIEWS_REFRESH,
-            entityType = "dashboard",
-            entityId = "all",
-            afterJson = """{"refreshed":["mv_dashboard_kpis","mv_debt_aging","mv_top_debtors","mv_revenue_by_month","mv_grade_summary"]}""",
-            note = "Materialized views refreshed from Android app",
-        ))
-        Result.Ok(Unit)
-    } catch (e: Exception) {
-        Result.Err(Errors.fromException(e))
+    override suspend fun refreshKpis(): Result<Unit> {
+        // FIX (login-blocks): hard 3s timeout. If the RPC hangs, return Ok
+        // so the dashboard continues to render with cached/demo data.
+        val ok = NetworkTimeouts.guard<Unit>("dash.refreshKpis", timeoutMs = 3_000L) {
+            provider.postgrest.rpc("refresh_all_materialized_views")
+        }
+        if (ok != null) {
+            auditRepository.log(AuditLogInput(
+                action = AuditActions.MATERIALIZED_VIEWS_REFRESH,
+                entityType = "dashboard",
+                entityId = "all",
+                afterJson = """{"refreshed":["mv_dashboard_kpis","mv_debt_aging","mv_top_debtors","mv_revenue_by_month","mv_grade_summary"]}""",
+                note = "Materialized views refreshed from Android app",
+            ))
+            return Result.Ok(Unit)
+        }
+        // Timeout or unconfigured — return Ok so the UI doesn't show an error.
+        // The dashboard will continue to use whatever data the observe* flows
+        // have already emitted (cached or demo seed).
+        return Result.Ok(Unit)
     }
 
     @Serializable

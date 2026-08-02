@@ -89,9 +89,15 @@ object AuditActions {
     const val WORKFLOW_PUBLISHED           = "workflow.published"
     const val WORKFLOW_TRIGGERED           = "workflow.triggered"
     const val WORKFLOW_RUN                 = "workflow.run"
+    const val WORKFLOW_RETRY               = "workflow.retry"
     const val OVERDUE_SCAN_RUN             = "overdue_scan.run"
     const val MATERIALIZED_VIEWS_REFRESH   = "materialized_views.refresh"
     const val SERVER_SECRET_UPDATE         = "server_secret.update"
+
+    // Routing
+    const val ROUTING_OPTIMIZE   = "routing.optimize"
+    const val ROUTING_TRIP_START = "routing.trip_start"
+    const val ROUTING_TRIP_END   = "routing.trip_end"
 
     // AI
     const val AI_NARRATIVE_DRAFTED               = "ai.narrative_drafted"

@@ -66,6 +66,9 @@ fun DashboardHubScreen(
     onNavigateToCrm: () -> Unit = {},
     onNavigateToFinancials: () -> Unit = onNavigateToCounterPayment,
     onNavigateToPersonnel: () -> Unit = {},
+    onNavigateToGlobalSearch: () -> Unit = {},
+    onNavigateToReports: () -> Unit = {},
+    onNavigateToAlerts: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val kpis by viewModel.kpis.collectAsState()
@@ -76,11 +79,17 @@ fun DashboardHubScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    val currentKpi = kpis ?: run {
-        // Should never happen because StateFlow seeds with defaultKpi, but
-        // keeps the compiler happy about nullability.
-        return
-    }
+    // FIX (login-blocks): the previous implementation did `return` here when
+    // kpis was null, which caused the entire screen (including the scaffold,
+    // top bar, and bottom bar) to not render at all. That left the user
+    // staring at a blank screen whenever the dashboard repo hadn't emitted
+    // yet. Now we fall back to a non-null demo KPI so the scaffold always
+    // renders and the user can navigate away.
+    val currentKpi = kpis ?: DashboardKpi(
+        totalStudents = 0, totalParents = 0, totalStaff = 0,
+        monthlyRevenue = 0L, outstandingDebt = 0L, pendingExpenses = 0,
+        attendanceRateToday = 0.0, overdueAlerts = 0,
+    )
 
     val bottomDestinations = remember {
         listOf(

@@ -31,6 +31,8 @@ import androidx.compose.runtime.getValue
 @Composable
 fun ClassesDirectoryScreen(
     session: Session,
+    onNavigateToClassDetail: (String) -> Unit = {},
+    onNavigateToSubjectsDirectory: () -> Unit = {},
     viewModel: ClassesDirectoryViewModel = hiltViewModel(),
 ) {
     val classes by viewModel.classes.collectAsState()

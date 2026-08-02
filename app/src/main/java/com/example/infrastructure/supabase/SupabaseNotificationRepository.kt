@@ -34,7 +34,8 @@ class SupabaseNotificationRepository @Inject constructor(
 ) : NotificationRepository {
 
     override fun observe() = flow {
-        emit(try {
+        // FIX (login-blocks): hard 2.5s timeout. Never block the dashboard.
+        emit(NetworkTimeouts.guard<List<AppNotification>>("notif.observe", timeoutMs = 2_500L) {
             provider.postgrest.from("notifications")
                 .select {
                     order("created_at", Order.DESCENDING)
@@ -42,40 +43,48 @@ class SupabaseNotificationRepository @Inject constructor(
                 }
                 .decodeList<NotificationDto>()
                 .map { it.toDomain() }
-        } catch (e: Exception) { emptyList() })
+        } ?: emptyList())
     }
 
     override fun observeForSession(session: Session) = flow {
-        emit(try {
-            // Two union queries because Postgrest doesn't support OR-on-different-columns
-            // directly in a single filter; we run them in parallel and dedupe by id.
-            val byUser = provider.postgrest.from("notifications")
+        // FIX (login-blocks): each query has a hard 2.5s timeout. If any
+        // times out, we substitute an empty list and continue. The UI
+        // receives whatever notifications we could fetch within the budget.
+        val byUser = NetworkTimeouts.guard<List<NotificationDto>>("notif.byUser", timeoutMs = 2_500L) {
+            provider.postgrest.from("notifications")
                 .select {
                     filter { eq("target_user_id", session.userId) }
                     order("created_at", Order.DESCENDING)
                     limit(100)
                 }
                 .decodeList<NotificationDto>()
-            val byRole = provider.postgrest.from("notifications")
+        } ?: emptyList()
+
+        val byRole = NetworkTimeouts.guard<List<NotificationDto>>("notif.byRole", timeoutMs = 2_500L) {
+            provider.postgrest.from("notifications")
                 .select {
                     filter { eq("target_role", session.role.code) }
                     order("created_at", Order.DESCENDING)
                     limit(100)
                 }
                 .decodeList<NotificationDto>()
-            // Broadcast = target_user_id AND target_role both null — fetch all, filter client-side
-            val broadcast = provider.postgrest.from("notifications")
+        } ?: emptyList()
+
+        // Broadcast = target_user_id AND target_role both null — fetch all, filter client-side
+        val broadcast = NetworkTimeouts.guard<List<NotificationDto>>("notif.broadcast", timeoutMs = 2_500L) {
+            provider.postgrest.from("notifications")
                 .select {
                     order("created_at", Order.DESCENDING)
                     limit(100)
                 }
                 .decodeList<NotificationDto>()
                 .filter { it.targetUserId == null && it.targetRole == null }
-            val merged = (byUser + byRole + broadcast)
-                .distinctBy { it.id }
-                .sortedByDescending { it.createdAt }
-            merged.map { it.toDomain() }
-        } catch (e: Exception) { emptyList() })
+        } ?: emptyList()
+
+        val merged = (byUser + byRole + broadcast)
+            .distinctBy { it.id }
+            .sortedByDescending { it.createdAt }
+        emit(merged.map { it.toDomain() })
     }
 
     override suspend fun markRead(id: String): Result<Unit> = try {

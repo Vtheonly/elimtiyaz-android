@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 @Composable
 fun HomeworkPushScreen(
     session: Session,
+    onNavigateToHomeworkPush: (String) -> Unit = {},
     viewModel: HomeworkPushViewModel = hiltViewModel(),
 ) {
     val classes by viewModel.classes.collectAsState()

@@ -51,6 +51,7 @@ import androidx.compose.runtime.setValue
 @Composable
 fun RollCallScreen(
     session: Session,
+    onNavigateToRollCall: (String) -> Unit = {},
     viewModel: RollCallViewModel = hiltViewModel(),
 ) {
     val classes by viewModel.classes.collectAsState()

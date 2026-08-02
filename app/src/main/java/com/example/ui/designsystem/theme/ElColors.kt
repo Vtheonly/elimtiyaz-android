@@ -107,5 +107,11 @@ data class ElColors(
 }
 
 val LocalElColors = staticCompositionLocalOf<ElColors> {
-    error("ElColors not provided. Wrap your composable in ElImtiyazTheme {}.")
+    // FIX (login-blocks): fall back to DarkElColors instead of throwing.
+    // If a composable is rendered outside the ElImtiyazTheme wrapper (e.g. in
+    // a preview, or during a transient recomposition before the theme
+    // installs), it now gets a valid color set instead of crashing with
+    // "ElColors not provided". The proper theme is still required for
+    // correct light/dark switching.
+    DarkElColors
 }

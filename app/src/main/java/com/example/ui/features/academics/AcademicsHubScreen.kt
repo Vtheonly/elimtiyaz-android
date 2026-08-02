@@ -15,8 +15,22 @@ import com.example.ui.components.ModernSecondaryTabRow
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 
+/**
+ * Academics hub — restores navigation callbacks to drill into class detail + subjects directory.
+ *
+ * Tabs: Présences (RollCall) / Notes (GradeEntry) / Devoirs (HomeworkPush) / Classes (ClassesDirectory).
+ *
+ * Each sub-screen receives the navigation callbacks it needs to drill into detail screens.
+ */
 @Composable
-fun AcademicsHubScreen(session: Session) {
+fun AcademicsHubScreen(
+    session: Session,
+    onNavigateToClassDetail: (String) -> Unit = {},
+    onNavigateToSubjectsDirectory: () -> Unit = {},
+    onNavigateToRollCall: (String) -> Unit = {},
+    onNavigateToGradeEntry: (String) -> Unit = {},
+    onNavigateToHomeworkPush: (String) -> Unit = {},
+) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Présences", "Notes", "Devoirs", "Classes")
 
@@ -31,10 +45,10 @@ fun AcademicsHubScreen(session: Session) {
             contentAlignment = Alignment.TopStart,
         ) {
             when (selectedTab) {
-                0 -> RollCallScreen(session)
-                1 -> GradeEntryScreen(session)
-                2 -> HomeworkPushScreen(session)
-                3 -> ClassesDirectoryScreen(session)
+                0 -> RollCallScreen(session, onNavigateToRollCall = onNavigateToRollCall)
+                1 -> GradeEntryScreen(session, onNavigateToGradeEntry = onNavigateToGradeEntry)
+                2 -> HomeworkPushScreen(session, onNavigateToHomeworkPush = onNavigateToHomeworkPush)
+                3 -> ClassesDirectoryScreen(session, onNavigateToClassDetail = onNavigateToClassDetail, onNavigateToSubjectsDirectory = onNavigateToSubjectsDirectory)
             }
         }
     }

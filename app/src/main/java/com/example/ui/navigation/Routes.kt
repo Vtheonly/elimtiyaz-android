@@ -43,9 +43,35 @@ object Routes {
     @Serializable data class PaymentDetail(val paymentId: String) : Route
     @Serializable data class ExpenseDetail(val expenseId: String) : Route
     @Serializable object CounterPayment : Route
+    @Serializable object ExpenseSubmit : Route
     @Serializable object ProofScanner : Route
     @Serializable object DebtDashboard : Route
     @Serializable object InstallmentSchedule : Route
+
+    // Personnel detail routes
+    @Serializable data class PersonnelDetail(val personnelId: String) : Route
+    @Serializable data class Releve(val personnelId: String) : Route
+    @Serializable object WorkflowMonitor : Route
+
+    // Academics detail routes
+    @Serializable data class ClassDetail(val classId: String) : Route
+    @Serializable object SubjectsDirectory : Route
+    @Serializable data class RollCall(val classId: String) : Route
+    @Serializable data class GradeEntry(val classId: String) : Route
+    @Serializable data class HomeworkPush(val classId: String) : Route
+
+    // CRM detail routes (additions)
+    @Serializable object Profile : Route
+    @Serializable object GlobalSearch : Route
+
+    // Dashboard detail routes
+    @Serializable object Reports : Route
+    @Serializable object Alerts : Route
+
+    // Routing detail routes
+    @Serializable object Routing : Route
+    @Serializable data class RoutingMap(val vehicleId: String) : Route
+    @Serializable object TripHistory : Route
 
     // Settings
     @Serializable object Settings : Route
@@ -80,14 +106,38 @@ val RoutePermissions: Map<KClass<out Route>, Permission> = mapOf(
     Routes.StudentDetail::class to Permission.VIEW_ROSTER,
     Routes.ParentDetail::class to Permission.VIEW_ROSTER,
     Routes.BatchRegistration::class to Permission.CREATE_PARENT,
+    Routes.Profile::class to Permission.VIEW_PERSONNEL,
+    Routes.GlobalSearch::class to Permission.VIEW_ROSTER,
 
     // Financials detail routes
     Routes.PaymentDetail::class to Permission.VIEW_FINANCIALS,
     Routes.ExpenseDetail::class to Permission.VIEW_FINANCIALS,
     Routes.CounterPayment::class to Permission.COLLECT_PAYMENT,
+    Routes.ExpenseSubmit::class to Permission.SUBMIT_EXPENSE,
     Routes.ProofScanner::class to Permission.SETTLE_EXPENSE_PROOF,
     Routes.DebtDashboard::class to Permission.VIEW_DEBT,
     Routes.InstallmentSchedule::class to Permission.VIEW_FINANCIALS,
+
+    // Personnel detail routes
+    Routes.PersonnelDetail::class to Permission.VIEW_PERSONNEL,
+    Routes.Releve::class to Permission.VIEW_RELEVE,
+    Routes.WorkflowMonitor::class to Permission.VIEW_WORKFLOW_RUNS,
+
+    // Academics detail routes
+    Routes.ClassDetail::class to Permission.VIEW_ACADEMICS,
+    Routes.SubjectsDirectory::class to Permission.VIEW_ACADEMICS,
+    Routes.RollCall::class to Permission.ROLL_CALL,
+    Routes.GradeEntry::class to Permission.ENTER_GRADES,
+    Routes.HomeworkPush::class to Permission.ASSIGN_HOMEWORK,
+
+    // Dashboard detail routes
+    Routes.Reports::class to Permission.VIEW_AUDIT_LOG,
+    Routes.Alerts::class to Permission.VIEW_PERSONNEL,
+
+    // Routing detail routes
+    Routes.Routing::class to Permission.ACCESS_DRIVER_MODE,
+    Routes.RoutingMap::class to Permission.ACCESS_DRIVER_MODE,
+    Routes.TripHistory::class to Permission.ACCESS_DRIVER_MODE,
 
     // Settings
     Routes.AuditLog::class to Permission.VIEW_AUDIT_LOG,

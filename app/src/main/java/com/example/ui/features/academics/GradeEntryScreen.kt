@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 @Composable
 fun GradeEntryScreen(
     session: Session,
+    onNavigateToGradeEntry: (String) -> Unit = {},
     viewModel: GradeEntryViewModel = hiltViewModel(),
 ) {
     val classes by viewModel.classes.collectAsState()
