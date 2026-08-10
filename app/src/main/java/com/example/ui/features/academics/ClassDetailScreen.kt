@@ -59,10 +59,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.plus
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.todayIn
@@ -125,7 +128,7 @@ class ClassDetailViewModel @Inject constructor(
                 val records = mutableListOf<AttendanceRecord>()
                 for (i in 0 until 7) {
                     val day = monday.plus(i, DateTimeUnit.DAY)
-                    val dayRecords = attendanceRepository.observeByClass(classId, day.toString())
+                    val dayRecords = attendanceRepository.observeByClass(classId, day.toString()).first()
                     records.addAll(dayRecords)
                 }
                 _weekAttendance.value = records.sortedByDescending { it.date }
@@ -137,7 +140,7 @@ class ClassDetailViewModel @Inject constructor(
                     if (m >= 9) "$it-${it + 1}" else "${it - 1}-$it"
                 }
                 subjects.value.forEach { subj ->
-                    val g = gradeRepository.observeForClass(classId, subj.id, "T1", currentYear)
+                    val g = gradeRepository.observeForClass(classId, subj.id, "T1", currentYear).first()
                     allGrades.addAll(g)
                 }
                 _recentGrades.value = allGrades.sortedByDescending { it.enteredAt }
@@ -150,14 +153,11 @@ class ClassDetailViewModel @Inject constructor(
     }
 
     val weekStatusCounts: StateFlow<Map<String, Int>> = _weekAttendance.asStateFlow().let { sf ->
-        kotlinx.coroutines.flow.combine(sf) { records ->
+        sf.map { records ->
             records.groupingBy { it.status }.eachCount()
         }.stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
     }
 }
-
-private fun kotlinx.datetime.LocalDate.plus(value: Int, unit: kotlinx.datetime.DateTimeUnit.Day): kotlinx.datetime.LocalDate =
-    kotlinx.datetime.plus(this, value, unit, TimeZone.currentSystemDefault())
 
 private val kotlinx.datetime.LocalDate.monthNumber: Int get() = this.monthNumber
 

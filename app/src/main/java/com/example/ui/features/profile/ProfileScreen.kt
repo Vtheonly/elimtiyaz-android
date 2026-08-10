@@ -164,6 +164,7 @@ fun ProfileScreen(
             }
 
             item {
+                val s = session
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {

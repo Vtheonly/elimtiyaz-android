@@ -1,41 +1,26 @@
 package com.example.infrastructure.sync
 
 import com.example.infrastructure.room.SyncQueueEntity
-import com.example.infrastructure.supabase.SupabaseSyncDao
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Dispatcher that pushes a single [SyncQueueEntity] to the appropriate
- * [SupabaseSyncDao] push method, selected by `entry.entity`.
+ * Dispatcher that processes a single [SyncQueueEntity].
  *
- * Extracted from [SyncService] so the entity-type → push-handler routing
- * can evolve independently of the drain loop / snapshot / scheduling
- * concerns. The dispatcher is a thin lookup — it does NOT touch the
- * queue's status, retry counters, or audit log; those concerns remain in
- * [SyncService] (the drain orchestrator).
+ * In this local-first build, Room is the source of truth and all writes are
+ * committed directly to the local database. The sync queue is retained for
+ * forward compatibility with a future Supabase backend — entries are simply
+ * marked as "synced" (local commit) without a remote push.
  *
- * @param supabaseSyncDao The shared Supabase table-write DAO.
+ * When a real Supabase backend is configured, replace the body of
+ * [pushEntry] with the appropriate remote RPC call.
  */
 @Singleton
-class SyncQueueDispatcher @Inject constructor(
-    private val supabaseSyncDao: SupabaseSyncDao,
-) {
+class SyncQueueDispatcher @Inject constructor() {
 
-    /** Dispatch a single queue entry to the appropriate [SupabaseSyncDao] push method. */
+    /** Process a single queue entry. Local build: no-op (data already persisted). */
     suspend fun pushEntry(entry: SyncQueueEntity) {
-        when (entry.entity) {
-            "parent" -> supabaseSyncDao.pushParent(entry)
-            "student" -> supabaseSyncDao.pushStudent(entry)
-            "payment" -> supabaseSyncDao.pushPayment(entry)
-            "installment" -> supabaseSyncDao.pushInstallment(entry)
-            "expense" -> supabaseSyncDao.pushExpense(entry)
-            "attendance" -> supabaseSyncDao.pushAttendance(entry)
-            "grade" -> supabaseSyncDao.pushGrade(entry)
-            "homework" -> supabaseSyncDao.pushHomework(entry)
-            "personnel" -> supabaseSyncDao.pushPersonnel(entry)
-            "ledger_entry" -> supabaseSyncDao.pushLedgerEntry(entry)
-            else -> throw IllegalArgumentException("Unknown sync entity: ${entry.entity}")
-        }
+        // Local-first build: data is already written to Room by the repository.
+        // The sync queue entry will be marked as "synced" by the SyncService.
     }
 }

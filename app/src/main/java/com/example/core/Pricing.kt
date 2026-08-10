@@ -70,7 +70,8 @@ fun computeOverallGpa(assessments: List<Assessment>): Double? {
     var weightedSum = 0.0
     var coefSum = 0
     for (a in assessments) {
-        val avg = a.subjectAverage ?: continue
+        // Mirror desktop: compute subject average if not yet stored.
+        val avg = a.subjectAverage ?: computeSubjectAverage(a.devoir1, a.devoir2, a.examen) ?: continue
         weightedSum += avg * a.coefficient
         coefSum += a.coefficient
     }

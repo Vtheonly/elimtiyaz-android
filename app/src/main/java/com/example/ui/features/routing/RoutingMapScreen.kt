@@ -62,10 +62,15 @@ import com.example.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -132,9 +137,9 @@ class RoutingMapViewModel @Inject constructor(
             _isLoading.value = true
             try {
                 // Load all vehicles, find the matching one
-                val vehiclesResult = routingRepository.observeVehicles()
-                val vehiclesList = when (val r = vehiclesResult.first()) {
-                    is Result.Ok -> r.value
+                val vehiclesResult = routingRepository.observeVehicles().first()
+                val vehiclesList = when (vehiclesResult) {
+                    is Result.Ok -> vehiclesResult.value
                     is Result.Err -> emptyList()
                 }
                 _vehicle.value = vehiclesList.firstOrNull { it.id == vehicleId }
@@ -223,8 +228,6 @@ class RoutingMapViewModel @Inject constructor(
         _etaMin.value = remaining * 2.5 + (list.size - idx)
     }
 }
-
-private suspend fun <T> kotlinx.coroutines.flow.Flow<T>.first(): T = kotlinx.coroutines.flow.first(this)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

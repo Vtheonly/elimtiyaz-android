@@ -1,6 +1,7 @@
 package com.example.ui.features.dashboard
 
 import androidx.compose.foundation.layout.Arrangement
+import com.example.domain.model.DashboardKpi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer

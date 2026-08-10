@@ -237,12 +237,3 @@ private fun AlertCard(notification: AppNotification, onClick: () -> Unit) {
     }
 }
 
-/**
- * Helper: flatten a Flow<Flow<List<T>>> into a Flow<List<T>>.
- *
- * Used by [AlertsViewModel.notifications] where we have an outer Flow
- * over session+filter that maps to an inner Flow from the repository.
- */
-private fun <T> kotlinx.coroutines.flow.Flow<kotlinx.coroutines.flow.Flow<List<T>>>.flatMapLatestToState(): kotlinx.coroutines.flow.Flow<List<T>> =
-    kotlinx.coroutines.flow.flatMapLatest { it }
-

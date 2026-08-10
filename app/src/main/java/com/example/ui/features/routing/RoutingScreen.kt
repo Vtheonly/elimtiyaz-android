@@ -53,6 +53,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 
 /**
@@ -71,22 +72,18 @@ class RoutingViewModel @Inject constructor(
 ) : ViewModel() {
 
     val vehicles: StateFlow<List<Vehicle>> = routingRepository.observeVehicles()
-        .let { flow ->
-            kotlinx.coroutines.flow.mapNotNull(flow) { result ->
-                when (result) {
-                    is Result.Ok -> result.value
-                    is Result.Err -> emptyList()
-                }
+        .mapNotNull { result ->
+            when (result) {
+                is Result.Ok -> result.value
+                is Result.Err -> emptyList()
             }
         }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val recentTrips: StateFlow<List<TripLog>> = routingRepository.observeTripHistory()
-        .let { flow ->
-            kotlinx.coroutines.flow.mapNotNull(flow) { result ->
-                when (result) {
-                    is Result.Ok -> result.value
-                    is Result.Err -> emptyList()
-                }
+        .mapNotNull { result ->
+            when (result) {
+                is Result.Ok -> result.value
+                is Result.Err -> emptyList()
             }
         }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 

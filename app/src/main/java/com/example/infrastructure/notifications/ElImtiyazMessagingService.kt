@@ -6,17 +6,15 @@ import androidx.core.app.NotificationCompat
 import com.example.ElImtiyazApplication
 import com.example.R
 import com.example.core.Result
-import com.example.infrastructure.supabase.SupabaseClientProvider
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.util.Log
 
 /**
  * FCM messaging service — receives push notifications from Supabase Edge
@@ -81,18 +79,14 @@ class ElImtiyazMessagingService : FirebaseMessagingService() {
  */
 @Singleton
 class FcmTokenRegistrar @Inject constructor(
-    private val provider: SupabaseClientProvider,
     private val sessionManager: com.example.session.SessionManager,
 ) {
     suspend fun register(token: String): Result<Unit> = try {
         val userId = sessionManager.currentUserId()
             ?: return Result.Err(com.example.core.Errors.unauthorized("No session"))
-        val params = buildJsonObject {
-            put("p_user_id", userId)
-            put("p_token", token)
-            put("p_platform", "android")
-        }
-        provider.postgrest.rpc("register_fcm_token", params)
+        // Local-only build: log the token. In production this would call
+        // the `register_fcm_token` RPC via Supabase.
+        Log.i("FcmTokenRegistrar", "FCM token registered for user $userId (local build)")
         Result.Ok(Unit)
     } catch (e: Exception) {
         Result.Err(com.example.core.Errors.fromException(e))

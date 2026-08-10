@@ -1,0 +1,411 @@
+package com.example.infrastructure.room
+
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.PrimaryKey
+
+/**
+ * Local source-of-truth entities — Room is the PRIMARY store for this build.
+ *
+ * The mobile app is designed to work offline-first. These entities persist
+ * real business data (parents, students, classes, payments, installments,
+ * ledger entries, attendance, grades, audit logs, etc.) so that every UI
+ * screen is backed by real records and real calculations — not hardcoded
+ * dummy numbers.
+ *
+ * Mirrors the desktop's Supabase schema (`supabase/migrations/`) field-by-field
+ * so the business logic, calculations, and financial mathematics produce
+ * identical numbers on both platforms.
+ */
+
+// ─── CRM ─────────────────────────────────────────────────────────────────────
+
+@Entity(tableName = "parents", indices = [Index("code", unique = true), Index("phone")])
+data class ParentEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val code: String,
+    val firstName: String,
+    val lastName: String,
+    val phone: String,
+    val whatsapp: String?,
+    val email: String?,
+    val occupation: String?,
+    val address: String?,
+    val transportDestination: String?,
+    val preferredLanguage: String,
+    val avatarUrl: String?,
+    val isActive: Boolean,
+    val isFinanciallyRestricted: Boolean,
+    val activationCode: String?,
+    val createdAt: String,
+    val updatedAt: String,
+)
+
+@Entity(tableName = "students", indices = [Index("code", unique = true), Index("parentId"), Index("classId"), Index("gradeLevel")])
+data class StudentEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val code: String,
+    val parentId: String,
+    val firstName: String,
+    val lastName: String,
+    val gender: String,
+    val birthDate: String,
+    val enrollmentDate: String,
+    val level: String,
+    val gradeLevel: String,
+    val classId: String?,
+    val photoUrl: String?,
+    val medicalNotes: String?,
+    val status: String,
+    val createdAt: String,
+    val updatedAt: String,
+)
+
+// ─── Academic ────────────────────────────────────────────────────────────────
+
+@Entity(tableName = "classes", indices = [Index("code", unique = true), Index("gradeLevel")])
+data class AcademicClassEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val code: String,
+    val name: String,
+    val level: String,
+    val gradeYear: Int,
+    val gradeLevel: String,
+    val section: String?,
+    val room: String?,
+    val capacity: Int,
+    val homeroomTeacherId: String?,
+    val homeroomTeacherName: String?,
+    val academicYear: String,
+    val isActive: Boolean,
+    val createdAt: String,
+    val updatedAt: String,
+)
+
+@Entity(tableName = "subjects", indices = [Index("code")])
+data class SubjectEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val code: String,
+    val name: String,
+    val category: String,
+    val coefficient: Int,
+    val weeklyHours: Double,
+    val isExtracurricular: Boolean,
+    val isActive: Boolean,
+)
+
+@Entity(tableName = "attendance", indices = [Index("studentId"), Index("classId"), Index("date")])
+data class AttendanceEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val studentId: String,
+    val classId: String,
+    val date: String,
+    val session: String,
+    val status: String,
+    val arrivalTime: String?,
+    val note: String?,
+    val recordedBy: String,
+    val recordedBy_name: String,
+    val recordedAt: String,
+)
+
+@Entity(tableName = "assessments", indices = [Index("studentId"), Index("subjectId"), Index("classId"), Index("term")])
+data class AssessmentEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val studentId: String,
+    val subjectId: String,
+    val classId: String,
+    val term: String,
+    val academicYear: String,
+    val devoir1: Double?,
+    val devoir2: Double?,
+    val examen: Double?,
+    val coefficient: Int,
+    val subjectAverage: Double?,
+    val enteredBy: String,
+    val enteredAt: String,
+)
+
+@Entity(tableName = "homework", indices = [Index("classId"), Index("subjectId"), Index("dueDate")])
+data class HomeworkEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val classId: String,
+    val subjectId: String,
+    val subjectName: String,
+    val teacherId: String,
+    val teacherName: String,
+    val title: String,
+    val description: String,
+    val dueDate: String,
+    val attachmentsJson: String,
+    val createdAt: String,
+)
+
+// ─── Finance ─────────────────────────────────────────────────────────────────
+
+@Entity(tableName = "payments", indices = [Index("receiptNumber", unique = true), Index("parentId"), Index("studentId"), Index("status")])
+data class PaymentEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val receiptNumber: String,
+    val parentId: String,
+    val studentId: String?,
+    val amount: Long,
+    val method: String,
+    val status: String,
+    val category: String,
+    val installmentId: String?,
+    val proofUrl: String?,
+    val checkNumber: String?,
+    val checkBankName: String?,
+    val checkIssueDate: String?,
+    val checkClearanceDate: String?,
+    val transferReference: String?,
+    val transferSourceBank: String?,
+    val notes: String?,
+    val collectedBy: String,
+    val collectedBy_name: String,
+    val collectedAt: String,
+    val createdAt: String,
+    val updatedAt: String,
+)
+
+@Entity(tableName = "installments", indices = [Index("parentId"), Index("studentId"), Index("status"), Index("dueDate")])
+data class InstallmentEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val parentId: String,
+    val studentId: String?,
+    val category: String,
+    val label: String,
+    val amountDue: Long,
+    val amountPaid: Long,
+    val amountPending: Long,
+    val dueDate: String,
+    val paidDate: String?,
+    val status: String,
+    val academicCycle: String?,
+    val customSchedule: Boolean,
+    val customScheduleNote: String?,
+    val createdAt: String,
+    val updatedAt: String,
+)
+
+@Entity(tableName = "ledger_entries", indices = [Index("accountId"), Index("parentId"), Index("studentId"), Index("type"), Index("at")])
+data class LedgerEntryEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val accountId: String,
+    val parentId: String,
+    val studentId: String?,
+    val category: String,
+    val amount: Long,
+    val type: String,
+    val sourceType: String,
+    val sourceId: String,
+    val method: String?,
+    val receiptNumber: String?,
+    val paymentStatus: String?,
+    val reversesId: String?,
+    val description: String,
+    val actorId: String,
+    val actorName: String,
+    val at: String,
+)
+
+@Entity(tableName = "expenses", indices = [Index("requestCode", unique = true), Index("status"), Index("submittedBy")])
+data class ExpenseEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val requestCode: String,
+    val title: String,
+    val description: String,
+    val amount: Long,
+    val category: String,
+    val payee: String,
+    val status: String,
+    val submittedBy: String,
+    val submittedByName: String,
+    val submittedAt: String,
+    val approvedBy: String?,
+    val approvedAt: String?,
+    val disbursedAt: String?,
+    val settledAt: String?,
+    val proofUrl: String?,
+    val urgency: String,
+    val anomalyScore: Double,
+    val notes: String?,
+    val createdAt: String,
+    val updatedAt: String,
+)
+
+// ─── Personnel ───────────────────────────────────────────────────────────────
+
+@Entity(tableName = "personnel", indices = [Index("code")])
+data class PersonnelEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val code: String,
+    val firstName: String,
+    val lastName: String,
+    val role: String,
+    val departmentId: String?,
+    val departmentName: String?,
+    val phone: String?,
+    val email: String?,
+    val status: String,
+    val hireDate: String?,
+    val weeklyHoursTarget: Int,
+    val createdAt: String,
+    val updatedAt: String,
+)
+
+@Entity(tableName = "departments", indices = [Index("name")])
+data class DepartmentEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val name: String,
+    val description: String?,
+    val headPersonnelId: String?,
+    val parentDepartmentId: String?,
+    val colorHex: String?,
+    val archivedAt: String?,
+)
+
+// ─── Pricing ─────────────────────────────────────────────────────────────────
+
+@Entity(tableName = "pricing_config")
+data class PricingConfigEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val isActive: Boolean,
+    val registrationFee: Long,
+    val latePenaltyPerDay: Long,
+    val secondApronFee: Long,
+    val canteenTermFee: Long,
+    val uniformFee: Long,
+    val booksFee: Long,
+    val updatedAt: String,
+)
+
+@Entity(tableName = "pricing_discounts", indices = [Index("code")])
+data class PricingDiscountEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val code: String,
+    val label: String,
+    val amount: Long,
+    val discountType: String,
+    val isActive: Boolean,
+)
+
+@Entity(tableName = "grade_level_tuition", indices = [Index("gradeLevel")])
+data class GradeLevelTuitionEntity(
+    @PrimaryKey val id: String,
+    val pricingConfigId: String,
+    val gradeLevel: String,
+    val annualAmount: Long,
+    val tranche1: Long,
+    val tranche2: Long,
+    val tranche3: Long,
+)
+
+@Entity(tableName = "transport_pricing", indices = [Index("destination")])
+data class TransportPricingEntity(
+    @PrimaryKey val id: String,
+    val pricingConfigId: String,
+    val destination: String,
+    val annualAmount: Long,
+    val tranche1: Long,
+    val tranche2: Long,
+    val tranche3: Long,
+)
+
+// ─── Notifications & Audit ───────────────────────────────────────────────────
+
+@Entity(tableName = "notifications", indices = [Index("targetUserId"), Index("priority"), Index("createdAt")])
+data class NotificationEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val title: String,
+    val body: String,
+    val type: String,
+    val priority: String,
+    val source: String,
+    val sourceLabel: String,
+    val entityType: String?,
+    val entityId: String?,
+    val targetUserId: String?,
+    val isRead: Boolean,
+    val createdAt: String,
+)
+
+@Entity(tableName = "audit_logs", indices = [Index("entityType"), Index("entityId"), Index("actorId"), Index("createdAt")])
+data class AuditLogEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val action: String,
+    val entityType: String,
+    val entityId: String,
+    val actorId: String,
+    val actorName: String,
+    val actorRole: String?,
+    val beforeJson: String?,
+    val afterJson: String?,
+    val note: String?,
+    val createdAt: String,
+)
+
+// ─── Routing (optional, for driver dashboard) ────────────────────────────────
+
+@Entity(tableName = "trip_logs", indices = [Index("driverId"), Index("date")])
+data class TripLogEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val driverId: String,
+    val driverName: String,
+    val date: String,
+    val startTime: String?,
+    val endTime: String?,
+    val stopCount: Int,
+    val studentIdsJson: String,
+    val distanceKm: Double?,
+    val status: String,
+    val notes: String?,
+    val createdAt: String,
+)
+
+@Entity(tableName = "releve_entries", indices = [Index("personnelId"), Index("date")])
+data class ReleveEntryEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val personnelId: String,
+    val personnelName: String,
+    val date: String,
+    val activityType: String,
+    val description: String,
+    val durationMinutes: Int,
+    val recordedBy: String,
+    val recordedAt: String,
+)
+
+@Entity(tableName = "workflow_runs", indices = [Index("status"), Index("startedAt")])
+data class WorkflowRunEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val workflowId: String,
+    val workflowName: String,
+    val status: String,
+    val startedBy: String,
+    val startedAt: String,
+    val finishedAt: String?,
+    val resultJson: String?,
+    val errorMessage: String?,
+)

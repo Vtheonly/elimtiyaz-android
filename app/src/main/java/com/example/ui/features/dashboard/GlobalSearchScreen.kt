@@ -88,14 +88,8 @@ class GlobalSearchViewModel @Inject constructor(
             _isSearching.value = true
             try {
                 // search() returns Flow<List<T>>; snapshot via first()
-                val pResult = kotlinx.coroutines.async {
-                    parentRepository.search(q).first()
-                }
-                val sResult = kotlinx.coroutines.async {
-                    studentRepository.search(q).first()
-                }
-                _parents.value = pResult.await()
-                _students.value = sResult.await()
+                _parents.value = parentRepository.search(q).first()
+                _students.value = studentRepository.search(q).first()
             } finally {
                 _isSearching.value = false
             }

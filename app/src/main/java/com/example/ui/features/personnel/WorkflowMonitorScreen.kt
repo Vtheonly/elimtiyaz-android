@@ -55,6 +55,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 
 /**
@@ -75,6 +76,7 @@ class WorkflowMonitorViewModel @Inject constructor(
 ) : ViewModel() {
 
     val runs: StateFlow<List<WorkflowRun>> = workflowRepository.observeRuns(50)
+        .mapNotNull { result -> (result as? com.example.core.Result.Ok)?.value ?: emptyList() }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _detailRunId = MutableStateFlow<String?>(null)

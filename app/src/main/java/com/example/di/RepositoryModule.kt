@@ -23,29 +23,29 @@ import com.example.domain.repository.StudentRepository
 import com.example.domain.repository.StorageRepository
 import com.example.domain.repository.SubjectRepository
 import com.example.domain.repository.WorkflowRepository
-import com.example.infrastructure.supabase.SupabaseAttendanceRepository
-import com.example.infrastructure.supabase.SupabaseAuditRepository
-import com.example.infrastructure.supabase.SupabaseAuthRepository
-import com.example.infrastructure.supabase.SupabaseClassRepository
-import com.example.infrastructure.supabase.SupabaseDashboardRepository
-import com.example.infrastructure.supabase.SupabaseDebtRepository
-import com.example.infrastructure.supabase.SupabaseDepartmentRepository
-import com.example.infrastructure.supabase.SupabaseExpenseRepository
-import com.example.infrastructure.supabase.SupabaseGradeRepository
-import com.example.infrastructure.supabase.SupabaseHomeworkRepository
-import com.example.infrastructure.supabase.SupabaseInstallmentRepository
-import com.example.infrastructure.supabase.SupabaseLedgerRepository
-import com.example.infrastructure.supabase.SupabaseNotificationRepository
-import com.example.infrastructure.supabase.SupabaseParentRepository
-import com.example.infrastructure.supabase.SupabasePaymentRepository
-import com.example.infrastructure.supabase.SupabasePersonnelRepository
-import com.example.infrastructure.supabase.SupabasePricingRepository
-import com.example.infrastructure.supabase.SupabaseReleveRepository
-import com.example.infrastructure.supabase.SupabaseRoutingRepository
-import com.example.infrastructure.supabase.SupabaseStorageRepository
-import com.example.infrastructure.supabase.SupabaseStudentRepository
-import com.example.infrastructure.supabase.SupabaseSubjectRepository
-import com.example.infrastructure.supabase.SupabaseWorkflowRepository
+import com.example.infrastructure.local.LocalAuditRepository
+import com.example.infrastructure.local.LocalAuthRepository
+import com.example.infrastructure.local.LocalAttendanceRepository
+import com.example.infrastructure.local.LocalClassRepository
+import com.example.infrastructure.local.LocalDashboardRepository
+import com.example.infrastructure.local.LocalDebtRepository
+import com.example.infrastructure.local.LocalDepartmentRepository
+import com.example.infrastructure.local.LocalExpenseRepository
+import com.example.infrastructure.local.LocalGradeRepository
+import com.example.infrastructure.local.LocalHomeworkRepository
+import com.example.infrastructure.local.LocalInstallmentRepository
+import com.example.infrastructure.local.LocalLedgerRepository
+import com.example.infrastructure.local.LocalNotificationRepository
+import com.example.infrastructure.local.LocalParentRepository
+import com.example.infrastructure.local.LocalPaymentRepository
+import com.example.infrastructure.local.LocalPersonnelRepository
+import com.example.infrastructure.local.LocalPricingRepository
+import com.example.infrastructure.local.LocalReleveRepository
+import com.example.infrastructure.local.LocalRoutingRepository
+import com.example.infrastructure.local.LocalStorageRepository
+import com.example.infrastructure.local.LocalStudentRepository
+import com.example.infrastructure.local.LocalSubjectRepository
+import com.example.infrastructure.local.LocalWorkflowRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -53,44 +53,44 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 /**
- * Repository bindings — maps domain interfaces to their Supabase implementations.
+ * Repository bindings — maps domain interfaces to their LOCAL Room-backed
+ * implementations.
  *
- * To swap in a mock or Room-only implementation (e.g. for testing), replace
- * the right-hand side of the corresponding @Binds method.
+ * The mobile app is offline-first: Room is the source of truth. Every UI
+ * screen reads from and writes to local SQLite tables via these repositories.
+ * The business logic (pricing, ledger, waterfall, GPA) is computed in
+ * `com.example.core` and matches the desktop's math exactly.
  *
- * Wave 1B (DOMAIN-REPOS) added 12 new Supabase-backed repositories; the
- * previous stub implementations (Notification/Debt/Installment) have been
- * removed — see `infrastructure/stub/StubRepositories.kt`.
+ * To swap in Supabase or another remote backend later, replace the right-hand
+ * side of the corresponding @Binds method.
  */
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
 
-    @Binds @Singleton abstract fun bindAuthRepository(impl: SupabaseAuthRepository): AuthRepository
-    @Binds @Singleton abstract fun bindAuditRepository(impl: SupabaseAuditRepository): AuditRepository
-    @Binds @Singleton abstract fun bindParentRepository(impl: SupabaseParentRepository): ParentRepository
-    @Binds @Singleton abstract fun bindStudentRepository(impl: SupabaseStudentRepository): StudentRepository
-    @Binds @Singleton abstract fun bindPaymentRepository(impl: SupabasePaymentRepository): PaymentRepository
-    @Binds @Singleton abstract fun bindLedgerRepository(impl: SupabaseLedgerRepository): LedgerRepository
-    @Binds @Singleton abstract fun bindExpenseRepository(impl: SupabaseExpenseRepository): ExpenseRepository
-    @Binds @Singleton abstract fun bindStorageRepository(impl: SupabaseStorageRepository): StorageRepository
+    @Binds @Singleton abstract fun bindAuthRepository(impl: LocalAuthRepository): AuthRepository
+    @Binds @Singleton abstract fun bindAuditRepository(impl: LocalAuditRepository): AuditRepository
+    @Binds @Singleton abstract fun bindParentRepository(impl: LocalParentRepository): ParentRepository
+    @Binds @Singleton abstract fun bindStudentRepository(impl: LocalStudentRepository): StudentRepository
+    @Binds @Singleton abstract fun bindPaymentRepository(impl: LocalPaymentRepository): PaymentRepository
+    @Binds @Singleton abstract fun bindLedgerRepository(impl: LocalLedgerRepository): LedgerRepository
+    @Binds @Singleton abstract fun bindExpenseRepository(impl: LocalExpenseRepository): ExpenseRepository
+    @Binds @Singleton abstract fun bindStorageRepository(impl: LocalStorageRepository): StorageRepository
 
-    // ---- Wave 1B: 12 new Supabase-backed repositories ----
-    @Binds @Singleton abstract fun bindClassRepository(impl: SupabaseClassRepository): ClassRepository
-    @Binds @Singleton abstract fun bindSubjectRepository(impl: SupabaseSubjectRepository): SubjectRepository
-    @Binds @Singleton abstract fun bindGradeRepository(impl: SupabaseGradeRepository): GradeRepository
-    @Binds @Singleton abstract fun bindAttendanceRepository(impl: SupabaseAttendanceRepository): AttendanceRepository
-    @Binds @Singleton abstract fun bindHomeworkRepository(impl: SupabaseHomeworkRepository): HomeworkRepository
-    @Binds @Singleton abstract fun bindPersonnelRepository(impl: SupabasePersonnelRepository): PersonnelRepository
-    @Binds @Singleton abstract fun bindDepartmentRepository(impl: SupabaseDepartmentRepository): DepartmentRepository
-    @Binds @Singleton abstract fun bindDashboardRepository(impl: SupabaseDashboardRepository): DashboardRepository
-    @Binds @Singleton abstract fun bindPricingRepository(impl: SupabasePricingRepository): PricingRepository
-    @Binds @Singleton abstract fun bindInstallmentRepository(impl: SupabaseInstallmentRepository): InstallmentRepository
-    @Binds @Singleton abstract fun bindDebtRepository(impl: SupabaseDebtRepository): DebtRepository
-    @Binds @Singleton abstract fun bindNotificationRepository(impl: SupabaseNotificationRepository): NotificationRepository
+    @Binds @Singleton abstract fun bindClassRepository(impl: LocalClassRepository): ClassRepository
+    @Binds @Singleton abstract fun bindSubjectRepository(impl: LocalSubjectRepository): SubjectRepository
+    @Binds @Singleton abstract fun bindGradeRepository(impl: LocalGradeRepository): GradeRepository
+    @Binds @Singleton abstract fun bindAttendanceRepository(impl: LocalAttendanceRepository): AttendanceRepository
+    @Binds @Singleton abstract fun bindHomeworkRepository(impl: LocalHomeworkRepository): HomeworkRepository
+    @Binds @Singleton abstract fun bindPersonnelRepository(impl: LocalPersonnelRepository): PersonnelRepository
+    @Binds @Singleton abstract fun bindDepartmentRepository(impl: LocalDepartmentRepository): DepartmentRepository
+    @Binds @Singleton abstract fun bindDashboardRepository(impl: LocalDashboardRepository): DashboardRepository
+    @Binds @Singleton abstract fun bindPricingRepository(impl: LocalPricingRepository): PricingRepository
+    @Binds @Singleton abstract fun bindInstallmentRepository(impl: LocalInstallmentRepository): InstallmentRepository
+    @Binds @Singleton abstract fun bindDebtRepository(impl: LocalDebtRepository): DebtRepository
+    @Binds @Singleton abstract fun bindNotificationRepository(impl: LocalNotificationRepository): NotificationRepository
 
-    // ---- Wave 2 (restoration): routing + releve + workflow ----
-    @Binds @Singleton abstract fun bindRoutingRepository(impl: SupabaseRoutingRepository): RoutingRepository
-    @Binds @Singleton abstract fun bindReleveRepository(impl: SupabaseReleveRepository): ReleveRepository
-    @Binds @Singleton abstract fun bindWorkflowRepository(impl: SupabaseWorkflowRepository): WorkflowRepository
+    @Binds @Singleton abstract fun bindRoutingRepository(impl: LocalRoutingRepository): RoutingRepository
+    @Binds @Singleton abstract fun bindReleveRepository(impl: LocalReleveRepository): ReleveRepository
+    @Binds @Singleton abstract fun bindWorkflowRepository(impl: LocalWorkflowRepository): WorkflowRepository
 }

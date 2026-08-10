@@ -50,6 +50,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.Permission
 import com.example.core.Role
+import com.example.core.formatDzd
 import com.example.domain.model.Personnel
 import com.example.domain.model.ReleveEntry
 import com.example.domain.repository.PersonnelRepository
@@ -62,9 +63,11 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.plus
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
@@ -122,7 +125,8 @@ class PersonnelDetailViewModel @Inject constructor(
                 val sunday = monday.plus(6, DateTimeUnit.DAY)
                 _isLoading.value = true
                 releveRepository.observeByPersonnel(personnelId, monday.toString(), sunday.toString())
-                    .collect { entries ->
+                    .collect { result ->
+                        val entries = (result as? com.example.core.Result.Ok)?.value ?: emptyList()
                         _weekEntries.value = entries.sortedByDescending { it.recordedAt }
                         _isLoading.value = false
                     }
@@ -135,14 +139,14 @@ class PersonnelDetailViewModel @Inject constructor(
 
     /** Sum of (hoursOut - hoursIn) for the current week, in hours. */
     val hoursLoggedThisWeek: StateFlow<Double> = _weekEntries.asStateFlow().let { sf ->
-        kotlinx.coroutines.flow.combine(sf) { entries ->
+        sf.map { entries ->
             entries.sumOf { it.durationMinutes?.toDouble()?.div(60.0) ?: 0.0 }
         }.stateIn(viewModelScope, SharingStarted.Lazily, 0.0)
     }
 
     /** Per-day breakdown: Mon→Sun hours. */
     val perDayBreakdown: StateFlow<Map<DayOfWeek, Double>> = _weekEntries.asStateFlow().let { sf ->
-        kotlinx.coroutines.flow.combine(sf) { entries ->
+        sf.map { entries ->
             val map = mutableMapOf<DayOfWeek, Double>()
             entries.forEach { e ->
                 val day = try {
@@ -155,14 +159,12 @@ class PersonnelDetailViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
     }
 
-    val hoursTarget: StateFlow<Int> = personnel.asStateFlow().let { sf ->
-        kotlinx.coroutines.flow.combine(sf) { p ->
-            p?.weeklyHoursTarget ?: 0
-        }.stateIn(viewModelScope, SharingStarted.Lazily, 0)
-    }
+    val hoursTarget: StateFlow<Int> = personnel
+        .map { p -> p?.weeklyHoursTarget ?: 0 }
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
 
     val recentEntries: StateFlow<List<ReleveEntry>> = _weekEntries.asStateFlow().let { sf ->
-        kotlinx.coroutines.flow.combine(sf) { entries ->
+        sf.map { entries ->
             entries.take(10)
         }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
     }
