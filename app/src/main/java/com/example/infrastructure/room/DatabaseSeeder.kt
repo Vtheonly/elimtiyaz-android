@@ -188,41 +188,41 @@ class DatabaseSeeder @Inject constructor(
         // ── Family 1: Benali — 2 children (Yacine 4AP, Sara 1AP) ──
         val p1 = ParentEntity(
             id = "par-001", tenantId = tenantId, code = "PAR-2026-A4F9",
-            firstName = "Karim", lastName = "Benali", phone = "+213 555 12 34 56",
+            firstName = "Karim", lastName = "Benali", displayName = "Karim Benali", phone = "+213 555 12 34 56",
             whatsapp = "+213 555 12 34 56", email = "karim.benali@email.dz",
             occupation = "Ingénieur", address = "Boumerdes Centre",
             transportDestination = "ville_boumerdes", preferredLanguage = "fr",
             avatarUrl = null, isActive = true, isFinanciallyRestricted = false,
             activationCode = "8492015", createdAt = now, updatedAt = now,
         )
-        val s1 = StudentEntity("stu-001", tenantId, "ELV-2026-000001", p1.id, "Yacine", "Benali", "M", "2016-03-15", sept, "primaire", "4ap", "cls-4ap", null, null, "active", now, now)
-        val s2 = StudentEntity("stu-002", tenantId, "ELV-2026-000002", p1.id, "Sara", "Benali", "F", "2018-07-22", sept, "primaire", "1ap", "cls-1ap", null, null, "active", now, now)
+        val s1 = StudentEntity("stu-001", tenantId, "ELV-2026-000001", p1.id, "Yacine", "Benali", null, "M", "2016-03-15", sept, "primaire", "4ap", "cls-4ap", null, null, "active", now, now)
+        val s2 = StudentEntity("stu-002", tenantId, "ELV-2026-000002", p1.id, "Sara", "Benali", null, "F", "2018-07-22", sept, "primaire", "1ap", "cls-1ap", null, null, "active", now, now)
 
         // ── Family 2: Khelifi — 1 child (Amine 1AM) ──
         val p2 = ParentEntity(
             id = "par-002", tenantId = tenantId, code = "PAR-2026-B7C2",
-            firstName = "Fatima", lastName = "Khelifi", phone = "+213 661 23 45 67",
+            firstName = "Fatima", lastName = "Khelifi", displayName = "Fatima Khelifi", phone = "+213 661 23 45 67",
             whatsapp = "+213 661 23 45 67", email = null, occupation = "Médecin",
             address = "Tidjelabine", transportDestination = "tidjelabine_sahel_figuier_corso",
             preferredLanguage = "fr", avatarUrl = null, isActive = true,
             isFinanciallyRestricted = false, activationCode = "3728104",
             createdAt = now, updatedAt = now,
         )
-        val s3 = StudentEntity("stu-003", tenantId, "ELV-2026-000003", p2.id, "Amine", "Khelifi", "M", "2013-11-05", sept, "cem", "1am", "cls-1am", null, null, "active", now, now)
+        val s3 = StudentEntity("stu-003", tenantId, "ELV-2026-000003", p2.id, "Amine", "Khelifi", null, "M", "2013-11-05", sept, "cem", "1am", "cls-1am", null, null, "active", now, now)
 
         // ── Family 3: Saidi — 3 children (multi-child sibling discount) ──
         val p3 = ParentEntity(
             id = "par-003", tenantId = tenantId, code = "PAR-2026-D9E1",
-            firstName = "Mohamed", lastName = "Saidi", phone = "+213 770 11 22 33",
+            firstName = "Mohamed", lastName = "Saidi", displayName = "Mohamed Saidi", phone = "+213 770 11 22 33",
             whatsapp = null, email = null, occupation = "Commerçant",
             address = "Boudouaou", transportDestination = "boudouaou_thenia_zemmouri",
             preferredLanguage = "ar", avatarUrl = null, isActive = true,
             isFinanciallyRestricted = false, activationCode = "5039281",
             createdAt = now, updatedAt = now,
         )
-        val s4 = StudentEntity("stu-004", tenantId, "ELV-2026-000004", p3.id, "Lina", "Saidi", "F", "2017-02-10", sept, "primaire", "2ap", "cls-2ap", null, null, "active", now, now)
-        val s5 = StudentEntity("stu-005", tenantId, "ELV-2026-000005", p3.id, "Omar", "Saidi", "M", "2015-09-18", sept, "primaire", "4ap", "cls-4ap", null, null, "active", now, now)
-        val s6 = StudentEntity("stu-006", tenantId, "ELV-2026-000006", p3.id, "Rania", "Saidi", "F", "2012-06-30", sept, "cem", "1am", "cls-1am", null, null, "active", now, now)
+        val s4 = StudentEntity("stu-004", tenantId, "ELV-2026-000004", p3.id, "Lina", "Saidi", null, "F", "2017-02-10", sept, "primaire", "2ap", "cls-2ap", null, null, "active", now, now)
+        val s5 = StudentEntity("stu-005", tenantId, "ELV-2026-000005", p3.id, "Omar", "Saidi", null, "M", "2015-09-18", sept, "primaire", "4ap", "cls-4ap", null, null, "active", now, now)
+        val s6 = StudentEntity("stu-006", tenantId, "ELV-2026-000006", p3.id, "Rania", "Saidi", null, "F", "2012-06-30", sept, "cem", "1am", "cls-1am", null, null, "active", now, now)
 
         db.parentDao().upsertAll(listOf(p1, p2, p3))
         db.studentDao().upsertAll(listOf(s1, s2, s3, s4, s5, s6))

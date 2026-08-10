@@ -27,6 +27,8 @@ data class ParentEntity(
     val code: String,
     val firstName: String,
     val lastName: String,
+    /** COMPLETE display name as imported (migration 0027). UI shows this verbatim when non-null. */
+    val displayName: String? = null,
     val phone: String,
     val whatsapp: String?,
     val email: String?,
@@ -50,6 +52,8 @@ data class StudentEntity(
     val parentId: String,
     val firstName: String,
     val lastName: String,
+    /** COMPLETE display name as imported (migration 0027). UI shows this verbatim when non-null. */
+    val displayName: String? = null,
     val gender: String,
     val birthDate: String,
     val enrollmentDate: String,

@@ -21,6 +21,8 @@ interface StudentRepository {
 /** Input payload for [StudentRepository.createStudent]. */
 data class CreateStudentInput(
     val firstName: String, val lastName: String, val gender: String,
+    /** COMPLETE display name. When null, derived from first+last. Migration 0027. */
+    val displayName: String? = null,
     val birthDate: String, val level: String, val gradeLevel: String,
     val classId: String? = null, val parentId: String? = null,
     val medicalNotes: String? = null,
@@ -29,6 +31,7 @@ data class CreateStudentInput(
 /** Input payload for [StudentRepository.updateStudent]. */
 data class UpdateStudentInput(
     val firstName: String? = null, val lastName: String? = null,
+    val displayName: String? = null,
     val classId: String? = null, val status: String? = null,
     val medicalNotes: String? = null,
 )

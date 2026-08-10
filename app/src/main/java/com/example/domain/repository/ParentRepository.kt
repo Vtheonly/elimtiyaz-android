@@ -17,6 +17,8 @@ interface ParentRepository {
 /** Input payload for [ParentRepository.createParent]. */
 data class CreateParentInput(
     val firstName: String, val lastName: String, val phone: String,
+    /** COMPLETE display name (e.g. "BENALI Mohamed"). When null, derived from first+last. Migration 0027. */
+    val displayName: String? = null,
     val email: String? = null, val occupation: String? = null,
     val address: String? = null, val transportDestination: String? = null,
     val preferredLanguage: String = "fr",
@@ -25,6 +27,7 @@ data class CreateParentInput(
 /** Input payload for [ParentRepository.updateParent]. All fields nullable — only set fields are mutated. */
 data class UpdateParentInput(
     val firstName: String? = null, val lastName: String? = null,
+    val displayName: String? = null,
     val phone: String? = null, val email: String? = null,
     val occupation: String? = null, val address: String? = null,
     val transportDestination: String? = null, val preferredLanguage: String? = null,

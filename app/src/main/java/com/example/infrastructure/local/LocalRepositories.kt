@@ -108,7 +108,7 @@ class LocalAuthRepository @Inject constructor(
                     val role = com.example.core.Role.SUPER_ADMIN // default; enrich from profile.roleId if present
                     val session = com.example.core.Session(
                         userId = profile.id,
-                        tenantId = profile.tenantId,
+                        tenantId = profile.tenantId ?: "ten-elimtiyaz-001",
                         email = profile.email ?: email,
                         displayName = profile.displayName ?: email,
                         avatarUrl = profile.avatarUrl,
@@ -229,7 +229,7 @@ class LocalAuthRepository @Inject constructor(
 
         val session = com.example.core.Session(
             userId = profile.id,
-            tenantId = profile.tenantId,
+            tenantId = profile.tenantId ?: "ten-elimtiyaz-001",
             email = profile.email ?: "",
             displayName = profile.displayName ?: "",
             avatarUrl = profile.avatarUrl,
@@ -281,7 +281,9 @@ class LocalParentRepository @Inject constructor(
         val entity = ParentEntity(
             id = "par-${UUID.randomUUID()}",
             tenantId = "ten-elimtiyaz-001", code = code,
-            firstName = input.firstName, lastName = input.lastName, phone = input.phone,
+            firstName = input.firstName, lastName = input.lastName,
+            displayName = input.displayName ?: "${input.firstName} ${input.lastName}".trim().ifEmpty { null },
+            phone = input.phone,
             whatsapp = input.phone, email = input.email, occupation = input.occupation,
             address = input.address, transportDestination = input.transportDestination,
             preferredLanguage = input.preferredLanguage, avatarUrl = null,
@@ -354,7 +356,9 @@ class LocalStudentRepository @Inject constructor(
         val entity = StudentEntity(
             id = "stu-${UUID.randomUUID()}",
             tenantId = "ten-elimtiyaz-001", code = code, parentId = parentId,
-            firstName = input.firstName, lastName = input.lastName, gender = input.gender,
+            firstName = input.firstName, lastName = input.lastName,
+            displayName = input.displayName ?: "${input.firstName} ${input.lastName}".trim().ifEmpty { null },
+            gender = input.gender,
             birthDate = input.birthDate, enrollmentDate = now,
             level = input.level, gradeLevel = input.gradeLevel,
             classId = input.classId, photoUrl = null, medicalNotes = input.medicalNotes,
@@ -396,7 +400,9 @@ class LocalStudentRepository @Inject constructor(
         val parentEntity = ParentEntity(
             id = "par-${UUID.randomUUID()}",
             tenantId = "ten-elimtiyaz-001", code = parentCode,
-            firstName = parent.firstName, lastName = parent.lastName, phone = parent.phone,
+            firstName = parent.firstName, lastName = parent.lastName,
+            displayName = parent.displayName ?: "${parent.firstName} ${parent.lastName}".trim().ifEmpty { null },
+            phone = parent.phone,
             whatsapp = parent.phone, email = parent.email, occupation = parent.occupation,
             address = parent.address, transportDestination = parent.transportDestination,
             preferredLanguage = parent.preferredLanguage, avatarUrl = null,
@@ -417,7 +423,9 @@ class LocalStudentRepository @Inject constructor(
             val studentEntity = StudentEntity(
                 id = "stu-${UUID.randomUUID()}",
                 tenantId = "ten-elimtiyaz-001", code = code, parentId = parentEntity.id,
-                firstName = s.firstName, lastName = s.lastName, gender = s.gender,
+                firstName = s.firstName, lastName = s.lastName,
+                displayName = s.displayName ?: "${s.firstName} ${s.lastName}".trim().ifEmpty { null },
+                gender = s.gender,
                 birthDate = s.birthDate, enrollmentDate = now,
                 level = s.level, gradeLevel = s.gradeLevel,
                 classId = s.classId, photoUrl = null, medicalNotes = s.medicalNotes,

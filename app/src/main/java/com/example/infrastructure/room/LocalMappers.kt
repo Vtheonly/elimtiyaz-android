@@ -32,7 +32,8 @@ object LocalMappers {
 
     fun ParentEntity.toDomain() = Parent(
         id = id, tenantId = tenantId, code = code,
-        firstName = firstName, lastName = lastName, phone = phone,
+        firstName = firstName, lastName = lastName, displayName = displayName,
+        phone = phone,
         whatsapp = whatsapp, email = email, occupation = occupation,
         address = address, transportDestination = transportDestination,
         preferredLanguage = preferredLanguage, avatarUrl = avatarUrl,
@@ -41,7 +42,8 @@ object LocalMappers {
 
     fun StudentEntity.toDomain() = com.example.domain.model.Student(
         id = id, tenantId = tenantId, code = code, parentId = parentId,
-        firstName = firstName, lastName = lastName, gender = gender,
+        firstName = firstName, lastName = lastName, displayName = displayName,
+        gender = gender,
         birthDate = birthDate, enrollmentDate = enrollmentDate,
         level = level, gradeLevel = gradeLevel, classId = classId,
         photoUrl = photoUrl, medicalNotes = medicalNotes, status = status,

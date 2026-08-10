@@ -22,7 +22,7 @@ import com.example.domain.model.Student
 
 fun Parent.toCacheEntity(): ParentCacheEntity = ParentCacheEntity(
     id = id, tenantId = tenantId, code = code,
-    firstName = firstName, lastName = lastName, phone = phone,
+    firstName = firstName, lastName = lastName, displayName = displayName, phone = phone,
     whatsapp = whatsapp, email = email, occupation = occupation,
     address = address, transportDestination = transportDestination,
     preferredLanguage = preferredLanguage, avatarUrl = avatarUrl,
@@ -32,7 +32,7 @@ fun Parent.toCacheEntity(): ParentCacheEntity = ParentCacheEntity(
 
 fun ParentCacheEntity.toDomain(): Parent = Parent(
     id = id, tenantId = tenantId, code = code,
-    firstName = firstName, lastName = lastName, phone = phone,
+    firstName = firstName, lastName = lastName, displayName = displayName, phone = phone,
     whatsapp = whatsapp, email = email, occupation = occupation,
     address = address, transportDestination = transportDestination,
     preferredLanguage = preferredLanguage, avatarUrl = avatarUrl,
@@ -43,7 +43,7 @@ fun ParentCacheEntity.toDomain(): Parent = Parent(
 
 fun Student.toCacheEntity(): StudentCacheEntity = StudentCacheEntity(
     id = id, tenantId = tenantId, code = code, parentId = parentId,
-    firstName = firstName, lastName = lastName, gender = gender,
+    firstName = firstName, lastName = lastName, displayName = displayName, gender = gender,
     birthDate = birthDate, enrollmentDate = enrollmentDate,
     level = level, gradeLevel = gradeLevel, classId = classId,
     photoUrl = photoUrl, medicalNotes = medicalNotes, status = status,
@@ -53,7 +53,7 @@ fun Student.toCacheEntity(): StudentCacheEntity = StudentCacheEntity(
 
 fun StudentCacheEntity.toDomain(): Student = Student(
     id = id, tenantId = tenantId, code = code, parentId = parentId,
-    firstName = firstName, lastName = lastName, gender = gender,
+    firstName = firstName, lastName = lastName, displayName = displayName, gender = gender,
     birthDate = birthDate, enrollmentDate = enrollmentDate,
     level = level, gradeLevel = gradeLevel, classId = classId,
     photoUrl = photoUrl, medicalNotes = medicalNotes, status = status,
