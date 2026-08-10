@@ -29,8 +29,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
 import com.example.ui.designsystem.components.button.ElIconButton
 import com.example.ui.designsystem.components.feedback.ElLoadingBlock
-import com.example.ui.designsystem.components.nav.ElBottomBar
-import com.example.ui.designsystem.components.nav.ElNavDestination
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.designsystem.theme.ElTheme
@@ -92,16 +90,6 @@ fun DashboardHubScreen(
         attendanceRateToday = 0.0, overdueAlerts = 0,
     )
 
-    val bottomDestinations = remember {
-        listOf(
-            ElNavDestination("dashboard", "Tableau", Icons.Default.Dashboard),
-            ElNavDestination("crm", "CRM", Icons.Default.Group),
-            ElNavDestination("academics", "Pédagogie", Icons.Default.MenuBook),
-            ElNavDestination("financials", "Finances", Icons.Default.Payments),
-            ElNavDestination("personnel", "Personnel", Icons.Default.Person),
-        )
-    }
-
     ElScaffold(
         topBar = {
             ElTopBar(
@@ -117,21 +105,6 @@ fun DashboardHubScreen(
                         size = 40,
                         iconSize = 22,
                     )
-                },
-            )
-        },
-        bottomBar = {
-            ElBottomBar(
-                destinations = bottomDestinations,
-                currentRoute = "dashboard",
-                onNavigate = { route ->
-                    when (route) {
-                        "crm"         -> onNavigateToCrm()
-                        "academics"   -> onNavigateToAcademics()
-                        "financials"  -> onNavigateToFinancials()
-                        "personnel"   -> onNavigateToPersonnel()
-                        // "dashboard" — already here, no-op
-                    }
                 },
             )
         },

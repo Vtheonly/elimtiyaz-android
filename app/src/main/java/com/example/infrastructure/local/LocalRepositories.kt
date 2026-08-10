@@ -53,16 +53,23 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Local Room-backed AuthRepository implementation.
+ * Hybrid AuthRepository — Supabase-first, local fallback.
  *
- * Since the mobile app is offline-first and the task specifies a single
- * logged-in clerk (Information Entry Clerk), this implementation accepts
- * any email/password and creates a real local session. This matches the
- * desktop's "Stage 2: resilient demo / offline fallback" behavior.
+ * This makes the app **Supabase-ready**: when real Supabase credentials are
+ * configured in `.env` (`SUPABASE_URL` + `SUPABASE_ANON_KEY`), sign-in goes
+ * through real Supabase Auth with a 4-second hard timeout. If Supabase is
+ * not configured (placeholder credentials) or the network call fails/times
+ * out, the repository falls back to a local demo session so the app is
+ * always usable offline.
+ *
+ * This mirrors the desktop's two-stage auth strategy:
+ *   Stage 1: real Supabase Auth (with timeout)
+ *   Stage 2: resilient demo / offline fallback
  */
 @Singleton
 class LocalAuthRepository @Inject constructor(
     private val auditDao: AuditLogDao,
+    private val supabaseProvider: com.example.infrastructure.supabase.SupabaseClientProvider,
 ) : com.example.domain.repository.AuthRepository {
 
     private val _sessionState = kotlinx.coroutines.flow.MutableStateFlow<com.example.core.Session?>(null)
@@ -71,6 +78,68 @@ class LocalAuthRepository @Inject constructor(
     override fun observeSession(): Flow<com.example.core.Session?> = sessionState
 
     override suspend fun signIn(email: String, password: String): Result<com.example.core.Session> {
+        // ── Stage 1: try real Supabase Auth (with 4s hard timeout) ──────────
+        if (com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) {
+            val userInfo = com.example.infrastructure.supabase.NetworkTimeouts.guard<io.github.jan.supabase.auth.user.UserInfo?>(
+                "auth.signIn", timeoutMs = 4_000L, onlyIfConfigured = false,
+            ) {
+                supabaseProvider.auth.signInWith(io.github.jan.supabase.auth.providers.builtin.Email) {
+                    this.email = email
+                    this.password = password
+                }
+                supabaseProvider.auth.currentUserOrNull()
+            }
+
+            if (userInfo != null) {
+                // Fetch the user's profile from the `user_profiles` table.
+                val profile = com.example.infrastructure.supabase.NetworkTimeouts.guard<com.example.infrastructure.supabase.UserProfileDto?>(
+                    "auth.fetchProfile",
+                ) {
+                    supabaseProvider.postgrest.from("user_profiles")
+                        .select {
+                            filter { eq("auth_user_id", userInfo.id) }
+                            limit(1)
+                        }
+                        .decodeList<com.example.infrastructure.supabase.UserProfileDto>()
+                        .firstOrNull()
+                }
+
+                if (profile != null && profile.status == "active") {
+                    val role = com.example.core.Role.SUPER_ADMIN // default; enrich from profile.roleId if present
+                    val session = com.example.core.Session(
+                        userId = profile.id,
+                        tenantId = profile.tenantId,
+                        email = profile.email ?: email,
+                        displayName = profile.displayName ?: email,
+                        avatarUrl = profile.avatarUrl,
+                        role = role,
+                        permissions = com.example.core.Permission.entries.toSet(),
+                        accessToken = userInfo.id,
+                        refreshToken = null,
+                        expiresAt = System.currentTimeMillis() + 3_600_000L,
+                        locale = profile.locale ?: "fr",
+                    )
+                    _sessionState.value = session
+                    auditDao.upsert(
+                        AuditLogEntity(
+                            id = "aud-${UUID.randomUUID()}",
+                            tenantId = session.tenantId,
+                            action = AuditActions.AUTH_LOGIN,
+                            entityType = "auth", entityId = session.userId,
+                            actorId = session.userId, actorName = session.displayName,
+                            actorRole = session.role.code,
+                            beforeJson = null, afterJson = """{"email":"${session.email}","source":"supabase"}""",
+                            note = "Supabase sign-in", createdAt = Instant.now().toString(),
+                        )
+                    )
+                    return Result.Ok(session)
+                }
+                // Profile missing/inactive → fall through to demo.
+            }
+            // signIn timed out or failed → fall through to demo.
+        }
+
+        // ── Stage 2: resilient demo / offline fallback ──────────────────────
         val role = if (email.contains("admin", ignoreCase = true)) com.example.core.Role.SUPER_ADMIN
             else if (email.contains("finance", ignoreCase = true)) com.example.core.Role.FINANCIAL_OFFICER
             else if (email.contains("teacher", ignoreCase = true)) com.example.core.Role.TEACHER
@@ -98,14 +167,20 @@ class LocalAuthRepository @Inject constructor(
                 entityType = "auth", entityId = session.userId,
                 actorId = session.userId, actorName = session.displayName,
                 actorRole = session.role.code,
-                beforeJson = null, afterJson = """{"email":"${session.email}"}""",
-                note = "Mobile sign-in", createdAt = Instant.now().toString(),
+                beforeJson = null, afterJson = """{"email":"${session.email}","source":"local"}""",
+                note = "Local sign-in (offline mode)", createdAt = Instant.now().toString(),
             )
         )
         return Result.Ok(session)
     }
 
     override suspend fun signOut(): Result<Unit> {
+        // Best-effort remote sign-out (don't block on it).
+        if (com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) {
+            com.example.infrastructure.supabase.NetworkTimeouts.guard<Unit>("auth.signOut", timeoutMs = 2_000L) {
+                supabaseProvider.auth.signOut()
+            }
+        }
         _sessionState.value?.let { s ->
             auditDao.upsert(
                 AuditLogEntity(
@@ -124,10 +199,61 @@ class LocalAuthRepository @Inject constructor(
         return Result.Ok(Unit)
     }
 
-    override suspend fun refreshSession(): Result<com.example.core.Session?> = Result.Ok(_sessionState.value)
+    override suspend fun refreshSession(): Result<com.example.core.Session?> {
+        // If we already have an in-memory session, return it.
+        _sessionState.value?.let { return Result.Ok(it) }
 
-    override suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit> =
-        Result.Ok(Unit)
+        // If Supabase isn't configured, there's nothing to restore.
+        if (!com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) return Result.Ok(null)
+
+        // Try to restore from the Supabase Auth plugin's persistent storage.
+        val current = com.example.infrastructure.supabase.NetworkTimeouts.guard<io.github.jan.supabase.auth.user.UserInfo?>(
+            "auth.refreshSession", timeoutMs = 3_000L, onlyIfConfigured = false,
+        ) {
+            supabaseProvider.auth.currentUserOrNull()
+        } ?: return Result.Ok(null)
+
+        val profile = com.example.infrastructure.supabase.NetworkTimeouts.guard<com.example.infrastructure.supabase.UserProfileDto?>(
+            "auth.refreshProfile",
+        ) {
+            supabaseProvider.postgrest.from("user_profiles")
+                .select {
+                    filter { eq("auth_user_id", current.id) }
+                    limit(1)
+                }
+                .decodeList<com.example.infrastructure.supabase.UserProfileDto>()
+                .firstOrNull()
+        } ?: return Result.Ok(null)
+
+        if (profile.status != "active") return Result.Ok(null)
+
+        val session = com.example.core.Session(
+            userId = profile.id,
+            tenantId = profile.tenantId,
+            email = profile.email ?: "",
+            displayName = profile.displayName ?: "",
+            avatarUrl = profile.avatarUrl,
+            role = com.example.core.Role.SUPER_ADMIN,
+            permissions = com.example.core.Permission.entries.toSet(),
+            accessToken = current.id,
+            refreshToken = null,
+            expiresAt = System.currentTimeMillis() + 3_600_000L,
+            locale = profile.locale ?: "fr",
+        )
+        _sessionState.value = session
+        return Result.Ok(session)
+    }
+
+    override suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit> {
+        if (com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) {
+            com.example.infrastructure.supabase.NetworkTimeouts.guard<Unit>("auth.changePassword", timeoutMs = 4_000L) {
+                supabaseProvider.auth.updateUser {
+                    password = newPassword
+                }
+            }
+        }
+        return Result.Ok(Unit)
+    }
 }
 
 // ─── Parent Repository ──────────────────────────────────────────────────────

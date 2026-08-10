@@ -6,6 +6,9 @@ import androidx.core.app.NotificationCompat
 import com.example.ElImtiyazApplication
 import com.example.R
 import com.example.core.Result
+import com.example.infrastructure.supabase.NetworkTimeouts
+import com.example.infrastructure.supabase.SupabaseClientProvider
+import com.example.session.SessionManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
@@ -15,6 +18,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 import android.util.Log
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * FCM messaging service — receives push notifications from Supabase Edge
@@ -74,22 +79,37 @@ class ElImtiyazMessagingService : FirebaseMessagingService() {
 
 /**
  * Registers the FCM token with the backend so push notifications can be
- * targeted to this device. The token is associated with the current user's
- * profile via an RPC.
+ * targeted to this device.
+ *
+ * When Supabase is configured (real URL + anon key in `.env`), this calls
+ * the `register_fcm_token` RPC. When Supabase is NOT configured (placeholder
+ * credentials), it logs the token locally — push notifications won't be
+ * delivered, but the app still functions normally.
  */
 @Singleton
 class FcmTokenRegistrar @Inject constructor(
-    private val sessionManager: com.example.session.SessionManager,
+    private val provider: SupabaseClientProvider,
+    private val sessionManager: SessionManager,
 ) {
     suspend fun register(token: String): Result<Unit> = try {
         val userId = sessionManager.currentUserId()
             ?: return Result.Err(com.example.core.Errors.unauthorized("No session"))
-        // Local-only build: log the token. In production this would call
-        // the `register_fcm_token` RPC via Supabase.
-        Log.i("FcmTokenRegistrar", "FCM token registered for user $userId (local build)")
+
+        if (NetworkTimeouts.isSupabaseConfigured) {
+            NetworkTimeouts.guard<Unit>("fcm.registerToken", timeoutMs = 4_000L) {
+                val params = buildJsonObject {
+                    put("p_user_id", userId)
+                    put("p_token", token)
+                    put("p_platform", "android")
+                }
+                provider.postgrest.rpc("register_fcm_token", params)
+            }
+            Log.i("FcmTokenRegistrar", "FCM token registered with Supabase for user $userId")
+        } else {
+            Log.i("FcmTokenRegistrar", "Supabase not configured — FCM token logged locally for user $userId")
+        }
         Result.Ok(Unit)
     } catch (e: Exception) {
         Result.Err(com.example.core.Errors.fromException(e))
     }
 }
-

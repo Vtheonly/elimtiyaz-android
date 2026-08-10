@@ -84,3 +84,13 @@ All work is complete. The final deliverables are:
 - `/home/z/my-project/download/elimtiyaz-mobile-debug.apk` — the built APK.
 - `/home/z/my-project/download/elimtiyaz-mobile-source.zip` — the full source code.
 - `/home/z/my-project/workspace/mobile/docs/implementation-progress/` — iteration logs.
+
+## Setup Troubleshooting Guide
+
+A comprehensive guide to every build-environment error, misconfiguration, and
+compilation issue encountered during the initial setup — with root causes,
+fixes, and quick-reference tables — is at:
+
+**`docs/SETUP_TROUBLESHOOTING.md`**
+
+Read this FIRST before running any `./gradlew` command on a fresh clone.
