@@ -10,6 +10,7 @@ import com.example.core.Role
 import com.example.infrastructure.sync.OnlineDetector
 import com.example.infrastructure.sync.SyncService
 import com.example.session.SessionManager
+import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -17,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -27,7 +29,7 @@ import kotlinx.coroutines.launch
  * injection code at compile time; all `@Inject`-annotated constructors
  * across the codebase are wired here.
  *
- * On startup [onCreate] performs three things in addition to creating
+ * On startup [onCreate] performs four things in addition to creating
  * the notification channels:
  *   1. Starts [OnlineDetector] — registers the ConnectivityManager callback
  *      and launches the 30-second periodic probe loop.
@@ -38,6 +40,12 @@ import kotlinx.coroutines.launch
  *      subscription is reactive — when the session changes (sign-in /
  *      sign-out / role switch), the previous topic is unsubscribed and
  *      the new one is subscribed.
+ *   4. FETCHES the FCM token on startup and registers it with the backend
+ *      via [FcmTokenRegistrar]. This is the FIX for the previous bug where
+ *      the token was only registered on `onNewToken` (which fires ONLY when
+ *      the token rotates, not on first install or app upgrade). The fetch
+ *      is also re-triggered reactively when the user signs in, so the
+ *      token is always registered against the active session's user id.
  *
  * Notification channels are created here so they exist before any FCM
  * message arrives. Channels map to the desktop's `AlertPriority` enum:
@@ -53,12 +61,19 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
     @Inject lateinit var onlineDetector: OnlineDetector
     @Inject lateinit var syncService: SyncService
     @Inject lateinit var sessionManager: SessionManager
+    @Inject lateinit var fcmTokenRegistrar: com.example.infrastructure.notifications.FcmTokenRegistrar
 
     /** Long-running scope for the FCM topic subscription observer. */
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** Currently-subscribed role topic — used to unsubscribe on role change. */
     private var subscribedRoleTopic: String? = null
+
+    /** Last user id we registered the FCM token against — avoids re-registering the same pair. */
+    private var lastRegisteredUserId: String? = null
+
+    /** Token fetched before the user signed in — registered once a session appears. */
+    @Volatile private var pendingFcmToken: String? = null
 
     override val workManagerConfiguration: Configuration
         get() {
@@ -76,6 +91,8 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
         startOnlineDetector()
         schedulePeriodicSync()
         observeRoleForFcmTopic()
+        fetchAndRegisterFcmTokenOnStartup()
+        observeSessionForFcmToken()
     }
 
     /** Create the four notification channels before any FCM message arrives. */
@@ -113,7 +130,7 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
 
     /**
      * Start the [OnlineDetector] — registers the ConnectivityManager
-     * callback and launches the 30-second periodic HEAD probe loop. Safe
+     * callback and launches the 30-second periodic probe loop. Safe
      * to call multiple times (idempotent).
      */
     private fun startOnlineDetector() {
@@ -168,6 +185,82 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
 
     /** Build the FCM topic string for a given [Role] (e.g. `role_teacher`). */
     private fun roleTopic(role: Role): String = "role_${role.code}"
+
+    /**
+     * FETCH the FCM token on startup and register it with the backend.
+     *
+     * This is the FIX for the bug where the token was only registered on
+     * `onNewToken` (which fires ONLY when the token rotates — not on first
+     * install, not on app upgrade, not on cold start). Without this fetch,
+     * first-install tokens were never registered with the backend, so push
+     * notifications silently failed for new devices.
+     *
+     * The fetch is asynchronous and best-effort — if it fails (e.g. no
+     * network, no Google Play services), the next sign-in or the next
+     * `onNewToken` callback will retry.
+     */
+    private fun fetchAndRegisterFcmTokenOnStartup() {
+        runCatching {
+            FirebaseMessaging.getInstance().token
+                .addOnCompleteListener(OnCompleteListener { task ->
+                    if (!task.isSuccessful) {
+                        android.util.Log.w(
+                            "ElImtiyazApp",
+                            "FCM token fetch failed on startup — will retry on next sign-in/onNewToken",
+                            task.exception,
+                        )
+                        return@OnCompleteListener
+                    }
+                    val token = task.result ?: return@OnCompleteListener
+                    // Register on the IO dispatcher so we don't block the
+                    // Firebase callback thread.
+                    appScope.launch {
+                        val userId = sessionManager.currentUserId()
+                        if (userId != null && userId != lastRegisteredUserId) {
+                            fcmTokenRegistrar.register(token)
+                            lastRegisteredUserId = userId
+                        } else if (userId == null) {
+                            // No active session yet — stash the token so the
+                            // session observer can register it once sign-in
+                            // completes. Stored in a volatile field; if the
+                            // process dies before sign-in, the next startup
+                            // will re-fetch.
+                            pendingFcmToken = token
+                        }
+                    }
+                })
+        }.onFailure { e ->
+            android.util.Log.w("ElImtiyazApp", "FCM token fetch setup failed", e)
+        }
+    }
+
+    /**
+     * Observe the session and register the FCM token against the active
+     * user id whenever the session appears. This handles the common flow:
+     *   1. App cold-starts (no session).
+     *   2. FCM token fetch completes → stashed in [pendingFcmToken].
+     *   3. User signs in → session appears → token is registered.
+     *
+     * Also re-registers when the user id changes (e.g. account switch) so
+     * the new user receives pushes on this device.
+     */
+    private fun observeSessionForFcmToken() {
+        appScope.launch {
+            sessionManager.state
+                .filter { it != null }
+                .map { it!!.userId }
+                .distinctUntilChanged()
+                .collect { userId ->
+                    val token = pendingFcmToken
+                        ?: try { FirebaseMessaging.getInstance().token.result } catch (t: Throwable) { null }
+                    if (token != null && userId != lastRegisteredUserId) {
+                        runCatching { fcmTokenRegistrar.register(token) }
+                        lastRegisteredUserId = userId
+                        pendingFcmToken = null
+                    }
+                }
+        }
+    }
 
     companion object {
         const val CHANNEL_URGENT = "el_imtiyaz_urgent"

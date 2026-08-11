@@ -251,19 +251,36 @@ fun RoutingMapScreen(
 
     var hasLocationPermission by remember { mutableStateOf(false) }
 
-    // Request location permission
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted -> hasLocationPermission = granted }
+    // Permission flow: use the centralized helper so "permanently denied" is
+    // handled correctly. The previous implementation requested
+    // ACCESS_FINE_LOCATION on every screen entry but never read the result
+    // and never offered a path to system settings when the user checked
+    // "Don't ask again". The foreground service also started unconditionally
+    // — now it's gated on the granted state.
+    val locationPerm = com.example.ui.permissions.rememberPermissionState(
+        Manifest.permission.ACCESS_FINE_LOCATION,
+    )
+    hasLocationPermission = locationPerm.state is com.example.ui.permissions.PermissionState.Granted
 
-    LaunchedEffect(Unit) {
-        permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+    // Auto-request on first entry (NotDetermined). Don't re-request after a
+    // denial — the helper already tracks "have we asked?" so the user can
+    // tap a retry button instead of being pestered on every recomposition.
+    LaunchedEffect(locationPerm.state) {
+        if (locationPerm.state is com.example.ui.permissions.PermissionState.NotDetermined) {
+            locationPerm.request()
+        }
     }
 
-    // Start foreground service when screen opens
-    DisposableEffect(Unit) {
-        val tripLabel = "Tournée ${vehicle?.plate ?: ""}"
-        RoutingForegroundService.startTracking(context, tripLabel, 0, stops.size)
+    // Start foreground service ONLY when the permission is granted. The
+    // previous implementation started it unconditionally, which caused
+    // `ContextCompat.checkSelfPermission` inside the service to silently
+    // skip location updates — the user saw a "tracking" notification but
+    // no actual location data.
+    DisposableEffect(hasLocationPermission) {
+        if (hasLocationPermission) {
+            val tripLabel = "Tournée ${vehicle?.plate ?: ""}"
+            RoutingForegroundService.startTracking(context, tripLabel, 0, stops.size)
+        }
         onDispose {
             RoutingForegroundService.stopTracking(context)
         }

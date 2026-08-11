@@ -39,6 +39,10 @@ data class ParentDto(
     @SerialName("occupation") val occupation: String? = null,
     @SerialName("address") val address: String? = null,
     @SerialName("city") val city: String? = null,
+    /** Canonical transport town ("BOUMERDES", etc.). Migration 0028. */
+    @SerialName("transport_destination") val transportDestination: String? = null,
+    /** Legacy tier code ("t1"/"t2"/"t3"). Migration 0028. */
+    @SerialName("city_tier") val cityTier: String? = null,
     @SerialName("is_active") val isActive: Boolean = true,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
@@ -58,10 +62,16 @@ data class StudentDto(
     @SerialName("date_of_birth") val dateOfBirth: String? = null,
     @SerialName("gender") val gender: String? = null,
     @SerialName("grade_level_id") val gradeLevelId: String? = null,
+    /** Canonical grade-level code ("1ap", "CE1", "CP", ...). Migration 0028. */
+    @SerialName("grade_level_code") val gradeLevelCode: String? = null,
     @SerialName("class_id") val classId: String? = null,
     @SerialName("enrollment_date") val enrollmentDate: String? = null,
     @SerialName("enrollment_status") val enrollmentStatus: String? = "active",
     @SerialName("medical_notes") val medicalNotes: String? = null,
+    /** Transport tier / zone string. Migration 0028. */
+    @SerialName("transport_tier") val transportTier: String? = null,
+    /** 'tranches' or 'full_annual'. Migration 0028. */
+    @SerialName("payment_plan") val paymentPlan: String? = "tranches",
     @SerialName("is_active") val isActive: Boolean = true,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,

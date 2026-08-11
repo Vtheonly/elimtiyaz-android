@@ -20,7 +20,7 @@ interface ParentCacheDao {
     @Query("SELECT * FROM parent_cache WHERE id = :id")
     suspend fun getById(id: String): ParentCacheEntity?
 
-    @Query("SELECT * FROM parent_cache WHERE firstName LIKE '%' || :q || '%' OR lastName LIKE '%' || :q || '%' OR phone LIKE '%' || :q || '%' OR code LIKE '%' || :q || '%'")
+    @Query("SELECT * FROM parent_cache WHERE firstName LIKE '%' || :q || '%' OR lastName LIKE '%' || :q || '%' OR displayName LIKE '%' || :q || '%' OR phone LIKE '%' || :q || '%' OR code LIKE '%' || :q || '%'")
     fun search(q: String): Flow<List<ParentCacheEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

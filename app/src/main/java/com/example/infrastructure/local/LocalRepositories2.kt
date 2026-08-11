@@ -201,11 +201,11 @@ class LocalDashboardRepository @Inject constructor(
     ) { parents, ledgerEntries ->
         parents.map { parent ->
             val parentEntries = ledgerEntries.filter { it.parentId == parent.id }
-            val summary = LedgerEngine.computeParentSummary(parentEntries.map { LocalMappers.run { it.toDomain() } }, parent.id, parent.firstName + " " + parent.lastName)
+            val summary = LedgerEngine.computeParentSummary(parentEntries.map { LocalMappers.run { it.toDomain() } }, parent.id, parent.fullName)
             val maxDays = LedgerEngine.maxDaysOverdueFromLedger(parentEntries.map { LocalMappers.run { it.toDomain() } })
             DebtSummary(
                 parentId = parent.id,
-                parentName = parent.firstName + " " + parent.lastName,
+                parentName = parent.fullName,
                 parentPhone = parent.phone,
                 studentCount = 0,
                 outstandingAmount = summary.totalOutstanding.coerceAtLeast(0L),
@@ -231,10 +231,10 @@ class LocalDebtRepository @Inject constructor(
     ) { parents, ledgerEntries ->
         parents.map { parent ->
             val parentEntries = ledgerEntries.filter { it.parentId == parent.id }
-            val summary = LedgerEngine.computeParentSummary(parentEntries.map { LocalMappers.run { it.toDomain() } }, parent.id, parent.firstName + " " + parent.lastName)
+            val summary = LedgerEngine.computeParentSummary(parentEntries.map { LocalMappers.run { it.toDomain() } }, parent.id, parent.fullName)
             DebtSummary(
                 parentId = parent.id,
-                parentName = parent.firstName + " " + parent.lastName,
+                parentName = parent.fullName,
                 parentPhone = parent.phone,
                 studentCount = 0,
                 outstandingAmount = summary.totalOutstanding.coerceAtLeast(0L),
@@ -252,10 +252,10 @@ class LocalDebtRepository @Inject constructor(
     ) { parent, ledgerEntries, installments, payments ->
         if (parent == null) null
         else {
-            val summary = LedgerEngine.computeParentSummary(ledgerEntries.map { LocalMappers.run { it.toDomain() } }, parentId, parent.firstName + " " + parent.lastName)
+            val summary = LedgerEngine.computeParentSummary(ledgerEntries.map { LocalMappers.run { it.toDomain() } }, parentId, parent.fullName)
             ParentFinancialProfile(
                 parentId = parentId,
-                parentName = parent.firstName + " " + parent.lastName,
+                parentName = parent.fullName,
                 totalDue = summary.totalCharged,
                 totalPaid = summary.totalPaid,
                 totalOutstanding = summary.totalOutstanding.coerceAtLeast(0L),

@@ -366,7 +366,7 @@ class LocalStudentRepository @Inject constructor(
         )
         studentDao.upsert(entity)
         auditDao.upsert(audit("student.create", "student", entity.id, actorId, actorName,
-            after = """{"code":"$code","name":"${entity.firstName} ${entity.lastName}"}"""))
+            after = """{"code":"$code","name":"${entity.fullName}"}"""))
         return Result.Ok(LocalMappers.run { entity.toDomain() })
     }
 

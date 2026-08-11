@@ -30,8 +30,15 @@ class BatchRegistrationViewModel @Inject constructor(
     val activationCode: StateFlow<String?> = _activationCode.asStateFlow()
 
     fun register(parent: CreateParentInput, students: List<CreateStudentInput>, onSuccess: () -> Unit) {
-        if (parent.firstName.isBlank() || parent.lastName.isBlank() || parent.phone.isBlank()) {
-            _error.value = "Veuillez renseigner le prénom, nom et téléphone du parent"
+        // A parent is valid when EITHER (firstName + lastName) is non-blank OR
+        // displayName is non-blank. The importer path stores the full NOM
+        // column as `displayName` with empty firstName (migration 0027), so
+        // a parent with only `displayName` set is a legitimate record that
+        // must pass validation. The previous check rejected these.
+        val hasName = parent.displayName?.isNotBlank() == true ||
+            (parent.firstName.isNotBlank() && parent.lastName.isNotBlank())
+        if (!hasName || parent.phone.isBlank()) {
+            _error.value = "Veuillez renseigner le nom complet (ou prénom + nom) et téléphone du parent"
             return
         }
         if (students.isEmpty()) {

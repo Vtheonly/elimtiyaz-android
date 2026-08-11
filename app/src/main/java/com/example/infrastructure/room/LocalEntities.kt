@@ -42,7 +42,30 @@ data class ParentEntity(
     val activationCode: String?,
     val createdAt: String,
     val updatedAt: String,
-)
+) {
+    /**
+     * The complete display name — mirrors the `Parent.fullName` helper on the
+     * domain model. UI code MUST use this extension instead of
+     * `firstName + " " + lastName` because the latter produces a blank
+     * `" "` string for parents imported with only `displayName` set
+     * (migration 0027 — the importer stores the full NOM column as
+     * `displayName` when TUTEUR is empty).
+     *
+     * Behavior:
+     *   - If `displayName` is non-blank → return it verbatim.
+     *   - Otherwise → return `firstName + " " + lastName` (filtered for blanks).
+     *   - If both are blank → return "—" so the UI never renders an empty name.
+     */
+    val fullName: String
+        get() {
+            val dn = displayName?.trim().orEmpty()
+            if (dn.isNotEmpty()) return dn
+            return listOf(firstName, lastName)
+                .filter { it.isNotBlank() }
+                .joinToString(" ")
+                .ifEmpty { "—" }
+        }
+}
 
 @Entity(tableName = "students", indices = [Index("code", unique = true), Index("parentId"), Index("classId"), Index("gradeLevel")])
 data class StudentEntity(
@@ -65,7 +88,18 @@ data class StudentEntity(
     val status: String,
     val createdAt: String,
     val updatedAt: String,
-)
+) {
+    /** Mirrors [ParentEntity.fullName] — see that property for the rationale. */
+    val fullName: String
+        get() {
+            val dn = displayName?.trim().orEmpty()
+            if (dn.isNotEmpty()) return dn
+            return listOf(firstName, lastName)
+                .filter { it.isNotBlank() }
+                .joinToString(" ")
+                .ifEmpty { "—" }
+        }
+}
 
 // ─── Academic ────────────────────────────────────────────────────────────────
 
