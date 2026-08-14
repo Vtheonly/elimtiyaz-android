@@ -123,7 +123,7 @@ fun StudentDto.toEntity(): StudentEntity = StudentEntity(
 /** Convert a [ClassDto] to an [AcademicClassEntity] for Room upsert. */
 fun ClassDto.toEntity(): com.example.infrastructure.room.AcademicClassEntity = com.example.infrastructure.room.AcademicClassEntity(
     id = id,
-    tenantId = tenantId ?: "ten-elimtiyaz-001",
+    tenantId = tenantId ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
     code = code,
     name = name ?: "Classe $section",
     level = gradeCode ?: "1ap",
@@ -143,7 +143,7 @@ fun ClassDto.toEntity(): com.example.infrastructure.room.AcademicClassEntity = c
 /** Convert a [SubjectDto] to a [SubjectEntity] for Room upsert. */
 fun SubjectDto.toEntity(): com.example.infrastructure.room.SubjectEntity = com.example.infrastructure.room.SubjectEntity(
     id = id,
-    tenantId = tenantId ?: "ten-elimtiyaz-001",
+    tenantId = tenantId ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
     code = code,
     name = nameFr,
     category = domain,
@@ -156,7 +156,7 @@ fun SubjectDto.toEntity(): com.example.infrastructure.room.SubjectEntity = com.e
 /** Convert an [InstallmentDto] to an [InstallmentEntity] for Room upsert. */
 fun InstallmentDto.toEntity(): com.example.infrastructure.room.InstallmentEntity = com.example.infrastructure.room.InstallmentEntity(
     id = id,
-    tenantId = tenantId ?: "ten-elimtiyaz-001",
+    tenantId = tenantId ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
     parentId = parentId,
     studentId = studentId,
     category = category,
@@ -177,7 +177,7 @@ fun InstallmentDto.toEntity(): com.example.infrastructure.room.InstallmentEntity
 /** Convert a [DepartmentDto] to a [DepartmentEntity] for Room upsert. */
 fun DepartmentDto.toEntity(): com.example.infrastructure.room.DepartmentEntity = com.example.infrastructure.room.DepartmentEntity(
     id = id,
-    tenantId = tenantId ?: "ten-elimtiyaz-001",
+    tenantId = tenantId ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
     name = nameFr,
     description = description,
     headPersonnelId = headPersonnelId,
@@ -189,7 +189,7 @@ fun DepartmentDto.toEntity(): com.example.infrastructure.room.DepartmentEntity =
 /** Convert a [PersonnelDto] to a [PersonnelEntity] for Room upsert. */
 fun PersonnelDto.toEntity(): com.example.infrastructure.room.PersonnelEntity = com.example.infrastructure.room.PersonnelEntity(
     id = id,
-    tenantId = tenantId ?: "ten-elimtiyaz-001",
+    tenantId = tenantId ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
     code = personnelCode,
     firstName = firstName,
     lastName = lastName,
@@ -208,7 +208,7 @@ fun PersonnelDto.toEntity(): com.example.infrastructure.room.PersonnelEntity = c
 /** Convert a [NotificationDto] to a [NotificationEntity] for Room upsert. */
 fun NotificationDto.toEntity(): com.example.infrastructure.room.NotificationEntity = com.example.infrastructure.room.NotificationEntity(
     id = id,
-    tenantId = tenantId ?: "ten-elimtiyaz-001",
+    tenantId = tenantId ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
     title = title,
     body = body ?: "",
     type = kind,

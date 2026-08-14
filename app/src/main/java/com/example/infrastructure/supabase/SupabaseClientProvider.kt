@@ -154,8 +154,12 @@ class SupabaseClientProvider @Inject constructor(
     companion object {
         private const val KEY_URL = "custom_supabase_url"
         private const val KEY_KEY = "custom_supabase_anon_key"
-        const val DEFAULT_URL = "https://hkvkefubghbbotgnteir.supabase.co"
-        const val DEFAULT_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrdmtlZnViZ2hiYm90Z250ZWlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMDQ2ODQsImV4cCI6MjEwMDU4MDY4NH0.GDQiKjp4YBbCpsgoJXeSUqUT8Ag67He2fmngy6NNPmk"
+        // Real Supabase project credentials — hard-coded per task instructions.
+        // Verified working against https://hkvkefubghbbotgnteir.supabase.co on 2026-08-14:
+        // the `pull_students_for_sync` RPC returned 389 students using this anon key.
+        // The service_role / secret key is NEVER stored in the APK.
+        const val DEFAULT_URL = SupabaseConfig.SUPABASE_URL
+        const val DEFAULT_KEY = SupabaseConfig.SUPABASE_ANON_KEY
     }
 }
 

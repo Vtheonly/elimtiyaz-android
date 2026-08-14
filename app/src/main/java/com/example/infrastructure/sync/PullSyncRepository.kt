@@ -76,7 +76,7 @@ class PullSyncRepository @Inject constructor(
         if (!provider.isConfigured()) {
             return@withContext Result.Err(com.example.core.Errors.server("Supabase non configuré — veuillez saisir votre URL et clé API Supabase dans les paramètres."))
         }
-        val tenantId = sessionManager.currentTenantId() ?: "ten-elimtiyaz-001"
+        val tenantId = sessionManager.currentTenantId() ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID
         try {
             var count = 0
             // 1. Try RPC first
@@ -126,7 +126,7 @@ class PullSyncRepository @Inject constructor(
                                 db.parentDao().upsert(
                                     ParentEntity(
                                         id = id,
-                                        tenantId = item["tenant_id"]?.let { if (it is kotlinx.serialization.json.JsonPrimitive) it.content else "ten-elimtiyaz-001" } ?: "ten-elimtiyaz-001",
+                                        tenantId = item["tenant_id"]?.let { if (it is kotlinx.serialization.json.JsonPrimitive) it.content else com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID } ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
                                         code = code,
                                         firstName = firstName.ifBlank { displayName.ifBlank { "Parent" } },
                                         lastName = lastName,
@@ -172,7 +172,7 @@ class PullSyncRepository @Inject constructor(
         if (!provider.isConfigured()) {
             return@withContext Result.Err(com.example.core.Errors.server("Supabase non configuré — veuillez saisir votre URL et clé API Supabase dans les paramètres."))
         }
-        val tenantId = sessionManager.currentTenantId() ?: "ten-elimtiyaz-001"
+        val tenantId = sessionManager.currentTenantId() ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID
         try {
             var count = 0
             // 1. Try RPC first
@@ -224,7 +224,7 @@ class PullSyncRepository @Inject constructor(
                                 db.studentDao().upsert(
                                     StudentEntity(
                                         id = id,
-                                        tenantId = item["tenant_id"]?.let { if (it is kotlinx.serialization.json.JsonPrimitive) it.content else "ten-elimtiyaz-001" } ?: "ten-elimtiyaz-001",
+                                        tenantId = item["tenant_id"]?.let { if (it is kotlinx.serialization.json.JsonPrimitive) it.content else com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID } ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
                                         code = code,
                                         parentId = parentId,
                                         firstName = firstName.ifBlank { displayName.ifBlank { "Élève" } },
@@ -276,7 +276,7 @@ class PullSyncRepository @Inject constructor(
             for (dto in dtoList) {
                 val entity = com.example.infrastructure.room.PaymentEntity(
                     id = dto.id,
-                    tenantId = dto.tenantId ?: "ten-elimtiyaz-001",
+                    tenantId = dto.tenantId ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
                     receiptNumber = dto.receiptNumber ?: dto.paymentNumber,
                     parentId = dto.parentId,
                     studentId = dto.studentId,

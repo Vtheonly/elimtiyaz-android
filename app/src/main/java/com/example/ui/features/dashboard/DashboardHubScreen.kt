@@ -78,12 +78,10 @@ fun DashboardHubScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    // FIX (login-blocks): the previous implementation did `return` here when
-    // kpis was null, which caused the entire screen (including the scaffold,
-    // top bar, and bottom bar) to not render at all. That left the user
-    // staring at a blank screen whenever the dashboard repo hadn't emitted
-    // yet. Now we fall back to a non-null demo KPI so the scaffold always
-    // renders and the user can navigate away.
+    // When `kpis` is null (initial load — the ViewModel no longer seeds with
+    // demo data), fall back to an all-zeros DashboardKpi so the scaffold,
+    // top bar, and bottom bar always render. The real numbers from Supabase
+    // will replace the zeros as soon as the repository emits.
     val currentKpi = kpis ?: DashboardKpi(
         totalStudents = 0, totalParents = 0, totalStaff = 0,
         monthlyRevenue = 0L, outstandingDebt = 0L, pendingExpenses = 0,

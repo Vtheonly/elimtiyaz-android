@@ -90,6 +90,32 @@ class SubjectsDirectoryViewModel @Inject constructor(
             }
         }
     }
+
+    fun createSubject(name: String, code: String, level: String, coefficient: Int) {
+        if (!canManage) { _error.value = "Permission manquante : MANAGE_SUBJECTS."; return }
+        if (name.isBlank() || code.isBlank()) {
+            _error.value = "Le nom et le code sont obligatoires."
+            return
+        }
+        viewModelScope.launch {
+            val actorId = sessionManager.currentUserId() ?: "system"
+            val actorName = sessionManager.currentDisplayName() ?: "System"
+            val input = com.example.domain.repository.CreateSubjectInput(
+                name = name.trim(),
+                nameAr = null,
+                code = code.trim().uppercase(),
+                level = level.trim().lowercase().ifBlank { "primaire" },
+                coefficient = coefficient.coerceAtLeast(1),
+                isExtracurricular = false,
+            )
+            when (val r = subjectRepository.createSubject(input, actorId, actorName)) {
+                is Result.Ok -> {}
+                is Result.Err -> _error.value = r.error.userMessage
+            }
+        }
+    }
+
+    fun clearError() { _error.value = null }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -171,7 +197,13 @@ fun SubjectsDirectoryScreen(
                     androidx.compose.material3.OutlinedTextField(value = coef, onValueChange = { coef = it.filter { c -> c.isDigit() } }, label = { Text("Coefficient") }, modifier = Modifier.fillMaxWidth())
                 }
             },
-            confirmButton = { TextButton(onClick = { showCreateDialog = false }) { Text("Créer (mock)") } },
+            confirmButton = {
+                TextButton(onClick = {
+                    val coefInt = coef.toIntOrNull() ?: 1
+                    viewModel.createSubject(name, code, level, coefInt)
+                    showCreateDialog = false
+                }) { Text("Créer") }
+            },
             dismissButton = { TextButton(onClick = { showCreateDialog = false }) { Text("Annuler") } },
         )
     }
