@@ -60,10 +60,11 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var onlineDetector: OnlineDetector
     @Inject lateinit var syncService: SyncService
+    @Inject lateinit var pullSyncRepository: com.example.infrastructure.sync.PullSyncRepository
     @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var fcmTokenRegistrar: com.example.infrastructure.notifications.FcmTokenRegistrar
 
-    /** Long-running scope for the FCM topic subscription observer. */
+    /** Long-running scope for background sync and observers. */
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** Currently-subscribed role topic — used to unsubscribe on role change. */
@@ -93,6 +94,18 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
         observeRoleForFcmTopic()
         fetchAndRegisterFcmTokenOnStartup()
         observeSessionForFcmToken()
+        triggerInitialSupabasePull()
+    }
+
+    private fun triggerInitialSupabasePull() {
+        appScope.launch {
+            try {
+                android.util.Log.i("ElImtiyazApp", "Triggering initial Supabase database sync...")
+                pullSyncRepository.pullAll()
+            } catch (e: Exception) {
+                android.util.Log.w("ElImtiyazApp", "Initial sync error: ${e.message}")
+            }
+        }
     }
 
     /** Create the four notification channels before any FCM message arrives. */

@@ -78,10 +78,10 @@ class LocalAuthRepository @Inject constructor(
     override fun observeSession(): Flow<com.example.core.Session?> = sessionState
 
     override suspend fun signIn(email: String, password: String): Result<com.example.core.Session> {
-        // ── Stage 1: try real Supabase Auth (with 4s hard timeout) ──────────
+        // ── Stage 1: try real Supabase Auth (with 8s hard timeout) ──────────
         if (com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) {
             val userInfo = com.example.infrastructure.supabase.NetworkTimeouts.guard<io.github.jan.supabase.auth.user.UserInfo?>(
-                "auth.signIn", timeoutMs = 4_000L, onlyIfConfigured = false,
+                "auth.signIn", timeoutMs = 8_000L, onlyIfConfigured = false,
             ) {
                 supabaseProvider.auth.signInWith(io.github.jan.supabase.auth.providers.builtin.Email) {
                     this.email = email
@@ -93,7 +93,7 @@ class LocalAuthRepository @Inject constructor(
             if (userInfo != null) {
                 // Fetch the user's profile from the `user_profiles` table.
                 val profile = com.example.infrastructure.supabase.NetworkTimeouts.guard<com.example.infrastructure.supabase.UserProfileDto?>(
-                    "auth.fetchProfile",
+                    "auth.fetchProfile", timeoutMs = 5_000L,
                 ) {
                     supabaseProvider.postgrest.from("user_profiles")
                         .select {
@@ -104,37 +104,37 @@ class LocalAuthRepository @Inject constructor(
                         .firstOrNull()
                 }
 
-                if (profile != null && profile.status == "active") {
-                    val role = com.example.core.Role.SUPER_ADMIN // default; enrich from profile.roleId if present
-                    val session = com.example.core.Session(
-                        userId = profile.id,
-                        tenantId = profile.tenantId ?: "ten-elimtiyaz-001",
-                        email = profile.email ?: email,
-                        displayName = profile.displayName ?: email,
-                        avatarUrl = profile.avatarUrl,
-                        role = role,
-                        permissions = com.example.core.Permission.entries.toSet(),
-                        accessToken = userInfo.id,
-                        refreshToken = null,
-                        expiresAt = System.currentTimeMillis() + 3_600_000L,
-                        locale = profile.locale ?: "fr",
+                val role = com.example.core.Role.SUPER_ADMIN
+                val displayName = profile?.displayName
+                    ?: userInfo.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() }
+                    ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
+                val session = com.example.core.Session(
+                    userId = profile?.id ?: userInfo.id,
+                    tenantId = profile?.tenantId ?: "ten-elimtiyaz-001",
+                    email = profile?.email ?: userInfo.email ?: email,
+                    displayName = displayName,
+                    avatarUrl = profile?.avatarUrl,
+                    role = role,
+                    permissions = com.example.core.Permission.entries.toSet(),
+                    accessToken = userInfo.id,
+                    refreshToken = null,
+                    expiresAt = System.currentTimeMillis() + 3_600_000L,
+                    locale = profile?.locale ?: "fr",
+                )
+                _sessionState.value = session
+                auditDao.upsert(
+                    AuditLogEntity(
+                        id = "aud-${UUID.randomUUID()}",
+                        tenantId = session.tenantId,
+                        action = AuditActions.AUTH_LOGIN,
+                        entityType = "auth", entityId = session.userId,
+                        actorId = session.userId, actorName = session.displayName,
+                        actorRole = session.role.code,
+                        beforeJson = null, afterJson = """{"email":"${session.email}","source":"supabase"}""",
+                        note = "Supabase sign-in", createdAt = Instant.now().toString(),
                     )
-                    _sessionState.value = session
-                    auditDao.upsert(
-                        AuditLogEntity(
-                            id = "aud-${UUID.randomUUID()}",
-                            tenantId = session.tenantId,
-                            action = AuditActions.AUTH_LOGIN,
-                            entityType = "auth", entityId = session.userId,
-                            actorId = session.userId, actorName = session.displayName,
-                            actorRole = session.role.code,
-                            beforeJson = null, afterJson = """{"email":"${session.email}","source":"supabase"}""",
-                            note = "Supabase sign-in", createdAt = Instant.now().toString(),
-                        )
-                    )
-                    return Result.Ok(session)
-                }
-                // Profile missing/inactive → fall through to demo.
+                )
+                return Result.Ok(session)
             }
             // signIn timed out or failed → fall through to demo.
         }
@@ -225,20 +225,21 @@ class LocalAuthRepository @Inject constructor(
                 .firstOrNull()
         } ?: return Result.Ok(null)
 
-        if (profile.status != "active") return Result.Ok(null)
-
+        val displayName = profile?.displayName
+            ?: current.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() }
+            ?: "Administrateur"
         val session = com.example.core.Session(
-            userId = profile.id,
-            tenantId = profile.tenantId ?: "ten-elimtiyaz-001",
-            email = profile.email ?: "",
-            displayName = profile.displayName ?: "",
-            avatarUrl = profile.avatarUrl,
+            userId = profile?.id ?: current.id,
+            tenantId = profile?.tenantId ?: "ten-elimtiyaz-001",
+            email = profile?.email ?: current.email ?: "",
+            displayName = displayName,
+            avatarUrl = profile?.avatarUrl,
             role = com.example.core.Role.SUPER_ADMIN,
             permissions = com.example.core.Permission.entries.toSet(),
             accessToken = current.id,
             refreshToken = null,
             expiresAt = System.currentTimeMillis() + 3_600_000L,
-            locale = profile.locale ?: "fr",
+            locale = profile?.locale ?: "fr",
         )
         _sessionState.value = session
         return Result.Ok(session)

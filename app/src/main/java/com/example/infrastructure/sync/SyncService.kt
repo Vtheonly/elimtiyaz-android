@@ -41,6 +41,8 @@ class SyncService @Inject constructor(
     private val auditRepository: AuditRepository,
     private val queueDispatcher: SyncQueueDispatcher,
     private val scheduler: SyncScheduler,
+    private val pullSyncRepository: PullSyncRepository,
+    private val supabaseProvider: com.example.infrastructure.supabase.SupabaseClientProvider,
 ) {
     /** Backing scope for [syncNow]; SupervisorJob isolates failures. Re-entrancy guard for [drainPending]. */
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -87,8 +89,7 @@ class SyncService @Inject constructor(
      */
     suspend fun drainPending(): DrainResult = withContext(Dispatchers.IO) {
         if (!onlineDetector.isOnline()) return@withContext DrainResult(0, 0, 0)
-        if (sessionManager.current() == null) return@withContext DrainResult(0, 0, 0)
-        if (!isSupabaseConfigured()) return@withContext DrainResult(0, 0, 0)
+        if (!supabaseProvider.isConfigured()) return@withContext DrainResult(0, 0, 0)
 
         drainMutex.withLock {
             _snapshot.value = _snapshot.value.copy(isRunning = true)
@@ -124,10 +125,14 @@ class SyncService @Inject constructor(
                     }
                 }
             }
+
+            // Also pull latest data from Supabase into Room
+            runCatching { pullSyncRepository.pullAll() }
+
             _snapshot.value = _snapshot.value.copy(
                 isRunning = false,
                 online = onlineDetector.isOnline(),
-                lastSyncAt = if (pushed > 0) Instant.now().toString() else _snapshot.value.lastSyncAt,
+                lastSyncAt = Instant.now().toString(),
                 lastError = lastError,
             )
             refreshSnapshot()
@@ -137,7 +142,10 @@ class SyncService @Inject constructor(
 
     /** Immediate one-shot sync on a direct coroutine (NOT via WorkManager). */
     fun syncNow(): Result<Unit> {
-        scope.launch { runCatching { drainPending() } }
+        scope.launch {
+            runCatching { drainPending() }
+            runCatching { pullSyncRepository.pullAll() }
+        }
         return Result.Ok(Unit)
     }
 

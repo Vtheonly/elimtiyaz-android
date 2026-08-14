@@ -43,17 +43,21 @@ object NetworkTimeouts {
      * This is checked BEFORE any network call to avoid pointless DNS lookups
      * that hang on the emulator.
      */
-    val isSupabaseConfigured: Boolean by lazy {
-        val url = BuildConfig.SUPABASE_URL.trim().removeSurrounding("\"")
-        val key = BuildConfig.SUPABASE_ANON_KEY.trim().removeSurrounding("\"")
-        url.startsWith("https://") &&
-            !url.contains("your-project", ignoreCase = true) &&
-            !url.contains("demo.supabase.co", ignoreCase = true) &&
-            !url.contains("placeholder", ignoreCase = true) &&
-            key.isNotBlank() &&
-            !key.equals("your-anon-key", ignoreCase = true) &&
-            !key.equals("demo-key", ignoreCase = true)
-    }
+    val isSupabaseConfigured: Boolean
+        get() {
+            val url = BuildConfig.SUPABASE_URL.trim().removeSurrounding("\"")
+            val key = BuildConfig.SUPABASE_ANON_KEY.ifBlank { BuildConfig.SUPABASE_PUBLISHABLE_KEY }.trim().removeSurrounding("\"")
+            val buildConfigConfigured = url.startsWith("https://") &&
+                !url.contains("your-project", ignoreCase = true) &&
+                !url.contains("demo.supabase.co", ignoreCase = true) &&
+                !url.contains("placeholder", ignoreCase = true) &&
+                key.isNotBlank() &&
+                !key.equals("your-anon-key", ignoreCase = true) &&
+                !key.equals("placeholder-anon-key", ignoreCase = true) &&
+                !key.equals("placeholder-publishable-key", ignoreCase = true) &&
+                !key.equals("demo-key", ignoreCase = true)
+            return buildConfigConfigured || SupabaseClientProvider.DEFAULT_URL.isNotBlank()
+        }
 
     /**
      * Run [block] with a hard timeout. Returns `null` on timeout OR on any

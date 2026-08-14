@@ -142,6 +142,9 @@ interface SubjectDao {
     suspend fun getById(id: String): SubjectEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(row: SubjectEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<SubjectEntity>)
 }
 

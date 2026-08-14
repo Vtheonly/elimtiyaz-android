@@ -74,8 +74,8 @@ fun StudentDto.toDomain(): Student = Student(
     id = id,
     tenantId = tenantId ?: "",
     code = studentCode ?: "ELV-?",
-    parentId = parentId,
-    firstName = firstName,
+    parentId = parentId ?: "",
+    firstName = firstName.ifBlank { displayName ?: "Élève" },
     lastName = lastName,
     displayName = displayName,
     // The Student domain model uses `gender: String` (not an enum). The DB
@@ -103,8 +103,8 @@ fun StudentDto.toEntity(): StudentEntity = StudentEntity(
     id = id,
     tenantId = tenantId ?: "",
     code = studentCode ?: "ELV-?",
-    parentId = parentId,
-    firstName = firstName,
+    parentId = parentId ?: "",
+    firstName = firstName.ifBlank { displayName ?: "Élève" },
     lastName = lastName,
     displayName = displayName,
     gender = gender ?: "unspecified",
@@ -120,26 +120,105 @@ fun StudentDto.toEntity(): StudentEntity = StudentEntity(
     updatedAt = updatedAt ?: "",
 )
 
-/** Convert a [PaymentDto] to the [Payment] domain model. */
-@Suppress("UNUSED")
-fun PaymentDto.toDomain(): Payment = Payment(
+/** Convert a [ClassDto] to an [AcademicClassEntity] for Room upsert. */
+fun ClassDto.toEntity(): com.example.infrastructure.room.AcademicClassEntity = com.example.infrastructure.room.AcademicClassEntity(
     id = id,
-    tenantId = tenantId ?: "",
-    receiptNumber = receiptNumber ?: paymentNumber,
-    parentId = parentId,
-    studentId = studentId,
-    amount = (amount * 100).toLong(), // DTO is in dinars; domain is in centimes
-    method = runCatching { PaymentMethod.valueOf(method.uppercase()) }
-        .getOrDefault(PaymentMethod.CASH),
-    status = runCatching { PaymentStatus.valueOf(status.uppercase()) }
-        .getOrDefault(PaymentStatus.PENDING),
-    category = runCatching { PaymentCategory.valueOf((category ?: "OTHER").uppercase()) }
-        .getOrDefault(PaymentCategory.OTHER),
-    installmentId = installmentId,
-    proofUrl = proofPath,
-    notes = notes,
-    collectedBy = collectedBy ?: "system",
-    collectedAt = collectedAt ?: "",
+    tenantId = tenantId ?: "ten-elimtiyaz-001",
+    code = code,
+    name = name ?: "Classe $section",
+    level = gradeCode ?: "1ap",
+    gradeYear = 1,
+    gradeLevel = gradeCode ?: "1ap",
+    section = section,
+    room = room ?: "Salle 1",
+    capacity = capacity,
+    homeroomTeacherId = homeroomTeacherId ?: "ens-1",
+    homeroomTeacherName = homeroomTeacherName ?: "Professeur",
+    academicYear = academicYearId ?: "2024-2025",
+    isActive = isActive,
     createdAt = createdAt ?: "",
     updatedAt = updatedAt ?: "",
 )
+
+/** Convert a [SubjectDto] to a [SubjectEntity] for Room upsert. */
+fun SubjectDto.toEntity(): com.example.infrastructure.room.SubjectEntity = com.example.infrastructure.room.SubjectEntity(
+    id = id,
+    tenantId = tenantId ?: "ten-elimtiyaz-001",
+    code = code,
+    name = nameFr,
+    category = domain,
+    coefficient = defaultCoefficient,
+    weeklyHours = 4.0,
+    isExtracurricular = isExtracurricular,
+    isActive = isActive,
+)
+
+/** Convert an [InstallmentDto] to an [InstallmentEntity] for Room upsert. */
+fun InstallmentDto.toEntity(): com.example.infrastructure.room.InstallmentEntity = com.example.infrastructure.room.InstallmentEntity(
+    id = id,
+    tenantId = tenantId ?: "ten-elimtiyaz-001",
+    parentId = parentId,
+    studentId = studentId,
+    category = category,
+    label = label ?: "Tranche $trancheNumber",
+    amountDue = (amountDue * 100).toLong(),
+    amountPaid = (amountPaid * 100).toLong(),
+    amountPending = (amountPending * 100).toLong(),
+    dueDate = dueDate,
+    paidDate = paidDate,
+    status = status,
+    academicCycle = academicCycle,
+    customSchedule = false,
+    customScheduleNote = null,
+    createdAt = createdAt ?: "",
+    updatedAt = updatedAt ?: "",
+)
+
+/** Convert a [DepartmentDto] to a [DepartmentEntity] for Room upsert. */
+fun DepartmentDto.toEntity(): com.example.infrastructure.room.DepartmentEntity = com.example.infrastructure.room.DepartmentEntity(
+    id = id,
+    tenantId = tenantId ?: "ten-elimtiyaz-001",
+    name = nameFr,
+    description = description,
+    headPersonnelId = headPersonnelId,
+    parentDepartmentId = null,
+    colorHex = colorHex ?: "#2563EB",
+    archivedAt = null,
+)
+
+/** Convert a [PersonnelDto] to a [PersonnelEntity] for Room upsert. */
+fun PersonnelDto.toEntity(): com.example.infrastructure.room.PersonnelEntity = com.example.infrastructure.room.PersonnelEntity(
+    id = id,
+    tenantId = tenantId ?: "ten-elimtiyaz-001",
+    code = personnelCode,
+    firstName = firstName,
+    lastName = lastName,
+    role = staffCategory,
+    departmentId = departmentId ?: "dep-pedagogie",
+    departmentName = "Pédagogie",
+    phone = primaryPhone,
+    email = email,
+    status = if (isActive) "active" else "inactive",
+    hireDate = hireDate,
+    weeklyHoursTarget = 18,
+    createdAt = createdAt ?: "",
+    updatedAt = updatedAt ?: "",
+)
+
+/** Convert a [NotificationDto] to a [NotificationEntity] for Room upsert. */
+fun NotificationDto.toEntity(): com.example.infrastructure.room.NotificationEntity = com.example.infrastructure.room.NotificationEntity(
+    id = id,
+    tenantId = tenantId ?: "ten-elimtiyaz-001",
+    title = title,
+    body = body ?: "",
+    type = kind,
+    priority = priority,
+    source = source,
+    sourceLabel = "Système",
+    entityType = null,
+    entityId = null,
+    targetUserId = targetUserId,
+    isRead = isRead,
+    createdAt = createdAt ?: "",
+)
+

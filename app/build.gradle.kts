@@ -30,10 +30,6 @@ android {
     multiDexEnabled = true
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-    // Default Supabase config — overridden by .env via the secrets plugin.
-    buildConfigField("String", "SUPABASE_URL", "\"https://your-project.supabase.co\"")
-    buildConfigField("String", "SUPABASE_ANON_KEY", "\"your-anon-key\"")
   }
 
   signingConfigs {
