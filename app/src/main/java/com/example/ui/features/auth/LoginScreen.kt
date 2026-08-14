@@ -233,9 +233,46 @@ fun LoginScreen(
 
                 Spacer(Modifier.height(4.dp))
 
-                // Note: demo account shortcuts were removed because the app now
-                // authenticates against the REAL Supabase Auth instance. Users
-                // must sign in with their real Supabase credentials.
+                // Demo accounts — tap to fill the VM state directly
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        "Comptes démo",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp),
+                    )
+                    listOf("admin", "financial", "teacher", "support", "manager", "buyer", "driver", "warehouse", "worker").chunked(3).forEach { row ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            row.forEach { role ->
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(MaterialTheme.shapes.small)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null,
+                                            onClick = { viewModel.fillDemoAccount(role) },
+                                        )
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        role,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

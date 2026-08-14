@@ -61,11 +61,12 @@ fun FinancialsHubScreen(
     val recentPayments by viewModel.recentPayments.collectAsState()
     val expenses by viewModel.expenses.collectAsState()
     val debtors by viewModel.topDebtors.collectAsState()
+    val ledgerEntries by viewModel.ledgerEntries.collectAsState()
     val collectedToday by viewModel.collectedToday.collectAsState()
     val pendingExpensesCount by viewModel.pendingExpensesCount.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Encaissement", "Preuves", "Tranches", "Créances", "Dépenses")
+    val tabs = listOf("Encaissement", "Preuves", "Tranches", "Créances", "Dépenses", "Circulation")
 
     Scaffold(
         floatingActionButton = {
@@ -109,6 +110,54 @@ fun FinancialsHubScreen(
                     2 -> InstallmentScheduleScreen(onBack = onNavigateToInstallmentSchedule)
                     3 -> DebtDashboardScreen(onBack = onNavigateToDebtDashboard)
                     4 -> ExpensesList(expenses, onNavigateToExpenseDetail)
+                    5 -> LedgerCirculationList(ledgerEntries)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LedgerCirculationList(entries: List<com.example.core.LedgerEntry>) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(entries.sortedByDescending { it.at }) { entry ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(1.dp),
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = entry.description.ifBlank { entry.category.name },
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "${(entry.amount / 100).formatDzd()} DZD",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (entry.type.code == "charge") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = "Type: ${entry.type.code} • Compte: ${entry.accountId}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = entry.at.take(10),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }

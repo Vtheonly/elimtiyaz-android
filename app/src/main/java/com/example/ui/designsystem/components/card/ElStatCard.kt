@@ -13,6 +13,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 import com.example.ui.designsystem.theme.ElTheme
 
 /**
@@ -43,12 +45,16 @@ fun ElStatCard(
             text = label,
             color = colors.textSecondary,
             style = ElTheme.typography.labelMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.size(4.dp))
         Text(
             text = value,
             color = colors.textPrimary,
-            style = ElTheme.textStyles.numeric,
+            style = ElTheme.textStyles.numeric.copy(fontSize = 24.sp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         if (trend != null) {
             Spacer(Modifier.size(4.dp))

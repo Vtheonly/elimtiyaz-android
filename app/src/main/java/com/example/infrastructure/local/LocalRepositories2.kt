@@ -91,8 +91,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import java.time.Instant
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -123,7 +121,7 @@ class LocalClassRepository @Inject constructor(
         val now = Instant.now().toString()
         val code = "CLS-${input.level.uppercase()}-${UUID.randomUUID().toString().takeLast(4).uppercase()}"
         val entity = AcademicClassEntity(
-            id = "cls-${UUID.randomUUID()}", tenantId = com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID, code = code,
+            id = "cls-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001", code = code,
             name = input.name, level = input.level, gradeYear = input.gradeYear,
             gradeLevel = input.level, section = null, room = input.room, capacity = input.capacity,
             homeroomTeacherId = input.homeroomTeacherId, homeroomTeacherName = null,
@@ -160,7 +158,6 @@ class LocalClassRepository @Inject constructor(
 @Singleton
 class LocalDashboardRepository @Inject constructor(
     private val db: ElImtiyazDatabase,
-    private val pullSyncRepository: com.example.infrastructure.sync.PullSyncRepository,
 ) : DashboardRepository {
 
     override fun observeKpis(): Flow<DashboardKpi?> = combine(
@@ -218,21 +215,7 @@ class LocalDashboardRepository @Inject constructor(
         }.filter { it.outstandingAmount > 0L }.sortedByDescending { it.outstandingAmount }
     }
 
-    /**
-     * Refresh KPIs by pulling the latest data from Supabase into Room.
-     *
-     * The KPI StateFlow is derived from Room flows (observeActiveCount,
-     * observeAll on parents/payments/ledger/expenses), so once the Supabase
-     * pull completes and upserts new rows into Room, the KPIs auto-emit
-     * with the fresh numbers.
-     */
-    override suspend fun refreshKpis(): Result<Unit> {
-        val res = pullSyncRepository.pullAll()
-        return when (res) {
-            is Result.Ok -> Result.Ok(Unit)
-            is Result.Err -> Result.Err(res.error)
-        }
-    }
+    override suspend fun refreshKpis(): Result<Unit> = Result.Ok(Unit)
 }
 
 // ─── Debt Repository ────────────────────────────────────────────────────────
@@ -350,7 +333,7 @@ class LocalAuditRepository @Inject constructor(
 
     override suspend fun log(input: AuditLogInput): Result<AuditLog> {
         val entity = AuditLogEntity(
-            id = "aud-${UUID.randomUUID()}", tenantId = com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+            id = "aud-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
             action = input.action, entityType = input.entityType, entityId = input.entityId,
             actorId = "system", actorName = "System", actorRole = null,
             beforeJson = input.beforeJson, afterJson = input.afterJson,
@@ -381,7 +364,7 @@ class LocalAttendanceRepository @Inject constructor(
         val now = Instant.now().toString()
         val entities = records.map { r ->
             AttendanceEntity(
-                id = "att-${UUID.randomUUID()}", tenantId = com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+                id = "att-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
                 studentId = r.studentId, classId = classId, date = date, session = session,
                 status = r.status, arrivalTime = null, note = r.note,
                 recordedBy = actorId, recordedBy_name = actorName, recordedAt = now,
@@ -420,7 +403,7 @@ class LocalGradeRepository @Inject constructor(
         val subjectAvg = com.example.core.computeSubjectAverage(input.devoir1, input.devoir2, input.examen)
         val existing = assessmentDao.getByStudentSubjectTerm(input.studentId, input.subjectId, input.term, input.academicYear)
         val entity = (existing ?: AssessmentEntity(
-            id = "asm-${UUID.randomUUID()}", tenantId = com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+            id = "asm-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
             studentId = input.studentId, subjectId = input.subjectId, classId = input.classId,
             term = input.term, academicYear = input.academicYear,
             devoir1 = null, devoir2 = null, examen = null, coefficient = input.coefficient,
@@ -458,7 +441,7 @@ class LocalExpenseRepository @Inject constructor(
         val year = LocalDate.now().year
         val seq = (expenseDao.countPending() + 1).toString().padStart(3, '0')
         val entity = ExpenseEntity(
-            id = "exp-${UUID.randomUUID()}", tenantId = com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+            id = "exp-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
             requestCode = "EXP-$year-$seq", title = input.title, description = input.description,
             amount = input.amount, category = input.category, payee = input.payee,
             status = "submitted", submittedBy = actorId, submittedByName = actorName,
@@ -528,7 +511,7 @@ class LocalPersonnelRepository @Inject constructor(
     override suspend fun createPersonnel(input: CreatePersonnelInput, actorId: String, actorName: String): Result<Personnel> {
         val now = Instant.now().toString()
         val entity = PersonnelEntity(
-            id = "per-${UUID.randomUUID()}", tenantId = com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+            id = "per-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
             code = "PER-${(personnelDao.countActive() + 1).toString().padStart(3, '0')}",
             firstName = input.firstName, lastName = input.lastName, role = input.roleId,
             departmentId = input.departmentId, departmentName = null,
@@ -575,7 +558,7 @@ class LocalDepartmentRepository @Inject constructor(
 
     override suspend fun createDepartment(input: CreateDepartmentInput, actorId: String, actorName: String): Result<Department> {
         val entity = DepartmentEntity(
-            id = "dep-${UUID.randomUUID()}", tenantId = com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+            id = "dep-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
             name = input.name, description = input.description,
             headPersonnelId = input.headPersonnelId, parentDepartmentId = input.parentDepartmentId,
             colorHex = input.colorHex, archivedAt = null,
@@ -593,7 +576,6 @@ class LocalDepartmentRepository @Inject constructor(
 @Singleton
 class LocalSubjectRepository @Inject constructor(
     private val subjectDao: SubjectDao,
-    private val supabaseProvider: com.example.infrastructure.supabase.SupabaseClientProvider,
 ) : SubjectRepository {
 
     override fun observe(): Flow<List<Subject>> =
@@ -607,33 +589,11 @@ class LocalSubjectRepository @Inject constructor(
 
     override suspend fun createSubject(input: CreateSubjectInput, actorId: String, actorName: String): Result<Subject> {
         val entity = SubjectEntity(
-            id = "sub-${UUID.randomUUID()}", tenantId = com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+            id = "sub-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
             code = input.code, name = input.name, category = "academic",
             coefficient = input.coefficient, weeklyHours = 0.0,
             isExtracurricular = input.isExtracurricular, isActive = true,
         )
-
-        // ── Supabase write-through ───────────────────────────────────────
-        val supabaseErr = com.example.infrastructure.supabase.NetworkTimeouts.guard<Throwable?>(
-            "subject.create.supabase", timeoutMs = 6_000L, onlyIfConfigured = false,
-        ) {
-            val payload = buildJsonObject {
-                put("id", entity.id)
-                put("tenant_id", entity.tenantId)
-                put("code", entity.code)
-                put("name_fr", entity.name)
-                put("domain", entity.category)
-                put("default_coefficient", entity.coefficient)
-                put("is_active", entity.isActive)
-                put("is_extracurricular", entity.isExtracurricular)
-            }
-            supabaseProvider.postgrest.from("subjects").insert(payload)
-            null
-        }
-        if (supabaseErr != null) {
-            return Result.Err(com.example.core.Errors.fromException(supabaseErr))
-        }
-
         subjectDao.upsertAll(listOf(entity))
         return Result.Ok(LocalMappers.run { entity.toDomain() })
     }
@@ -659,7 +619,7 @@ class LocalHomeworkRepository @Inject constructor(
     override suspend fun push(input: PushHomeworkInput, actorId: String, actorName: String): Result<Homework> {
         val now = Instant.now().toString()
         val entity = HomeworkEntity(
-            id = "hwk-${UUID.randomUUID()}", tenantId = com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+            id = "hwk-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
             classId = input.classId, subjectId = input.subjectId, subjectName = "",
             teacherId = actorId, teacherName = actorName,
             title = input.title, description = input.description, dueDate = input.dueDate,
@@ -704,7 +664,7 @@ class LocalReleveRepository @Inject constructor(
     override suspend fun logEntry(entry: ReleveEntry, actorId: String, actorName: String): Result<ReleveEntry> {
         val entity = ReleveEntryEntity(
             id = entry.id.ifBlank { "rel-${UUID.randomUUID()}" },
-            tenantId = com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+            tenantId = "00000000-0000-0000-0000-000000000001",
             personnelId = entry.personnelId, personnelName = entry.personnelName,
             date = entry.date, activityType = entry.activity.wireCode,
             description = "", durationMinutes = (entry.durationMinutes ?: 0).toInt(),
@@ -775,7 +735,7 @@ class LocalWorkflowRepository @Inject constructor(
         val now = Instant.now().toString()
         val newId = "wfr-${UUID.randomUUID()}"
         workflowRunDao.upsert(WorkflowRunEntity(
-            id = newId, tenantId = com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+            id = newId, tenantId = "00000000-0000-0000-0000-000000000001",
             workflowId = "retry-$runId", workflowName = "Manual retry",
             status = "completed", startedBy = actorId, startedAt = now,
             finishedAt = now, resultJson = "{}", errorMessage = null,
@@ -797,7 +757,7 @@ class LocalStorageRepository @Inject constructor() : StorageRepository {
 // ─── Helper ─────────────────────────────────────────────────────────────────
 
 private fun auditLog(action: String, entityType: String, entityId: String, actorId: String, actorName: String, after: String? = null) = AuditLogEntity(
-    id = "aud-${UUID.randomUUID()}", tenantId = com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+    id = "aud-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
     action = action, entityType = entityType, entityId = entityId,
     actorId = actorId, actorName = actorName, actorRole = null,
     beforeJson = null, afterJson = after, note = null,

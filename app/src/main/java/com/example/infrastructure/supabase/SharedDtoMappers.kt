@@ -123,7 +123,7 @@ fun StudentDto.toEntity(): StudentEntity = StudentEntity(
 /** Convert a [ClassDto] to an [AcademicClassEntity] for Room upsert. */
 fun ClassDto.toEntity(): com.example.infrastructure.room.AcademicClassEntity = com.example.infrastructure.room.AcademicClassEntity(
     id = id,
-    tenantId = tenantId ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
     code = code,
     name = name ?: "Classe $section",
     level = gradeCode ?: "1ap",
@@ -143,7 +143,7 @@ fun ClassDto.toEntity(): com.example.infrastructure.room.AcademicClassEntity = c
 /** Convert a [SubjectDto] to a [SubjectEntity] for Room upsert. */
 fun SubjectDto.toEntity(): com.example.infrastructure.room.SubjectEntity = com.example.infrastructure.room.SubjectEntity(
     id = id,
-    tenantId = tenantId ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
     code = code,
     name = nameFr,
     category = domain,
@@ -156,7 +156,7 @@ fun SubjectDto.toEntity(): com.example.infrastructure.room.SubjectEntity = com.e
 /** Convert an [InstallmentDto] to an [InstallmentEntity] for Room upsert. */
 fun InstallmentDto.toEntity(): com.example.infrastructure.room.InstallmentEntity = com.example.infrastructure.room.InstallmentEntity(
     id = id,
-    tenantId = tenantId ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
     parentId = parentId,
     studentId = studentId,
     category = category,
@@ -177,7 +177,7 @@ fun InstallmentDto.toEntity(): com.example.infrastructure.room.InstallmentEntity
 /** Convert a [DepartmentDto] to a [DepartmentEntity] for Room upsert. */
 fun DepartmentDto.toEntity(): com.example.infrastructure.room.DepartmentEntity = com.example.infrastructure.room.DepartmentEntity(
     id = id,
-    tenantId = tenantId ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
     name = nameFr,
     description = description,
     headPersonnelId = headPersonnelId,
@@ -189,7 +189,7 @@ fun DepartmentDto.toEntity(): com.example.infrastructure.room.DepartmentEntity =
 /** Convert a [PersonnelDto] to a [PersonnelEntity] for Room upsert. */
 fun PersonnelDto.toEntity(): com.example.infrastructure.room.PersonnelEntity = com.example.infrastructure.room.PersonnelEntity(
     id = id,
-    tenantId = tenantId ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
     code = personnelCode,
     firstName = firstName,
     lastName = lastName,
@@ -208,7 +208,7 @@ fun PersonnelDto.toEntity(): com.example.infrastructure.room.PersonnelEntity = c
 /** Convert a [NotificationDto] to a [NotificationEntity] for Room upsert. */
 fun NotificationDto.toEntity(): com.example.infrastructure.room.NotificationEntity = com.example.infrastructure.room.NotificationEntity(
     id = id,
-    tenantId = tenantId ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
     title = title,
     body = body ?: "",
     type = kind,
@@ -221,4 +221,54 @@ fun NotificationDto.toEntity(): com.example.infrastructure.room.NotificationEnti
     isRead = isRead,
     createdAt = createdAt ?: "",
 )
+
+/** Convert a [PaymentDto] to a [PaymentEntity] for Room upsert. */
+fun PaymentDto.toEntity(): com.example.infrastructure.room.PaymentEntity = com.example.infrastructure.room.PaymentEntity(
+    id = id,
+    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
+    receiptNumber = receiptNumber ?: paymentNumber,
+    parentId = parentId,
+    studentId = studentId,
+    amount = (amount * 100).toLong(),
+    method = method.lowercase(),
+    status = status.lowercase(),
+    category = category ?: "tuition",
+    installmentId = installmentId,
+    proofUrl = proofPath,
+    checkNumber = checkNumber,
+    checkBankName = checkBankName,
+    checkIssueDate = checkIssueDate,
+    checkClearanceDate = checkClearanceDate,
+    transferReference = transferReference,
+    transferSourceBank = transferSourceBank,
+    notes = notes,
+    collectedBy = collectedBy ?: "system",
+    collectedBy_name = "Système",
+    collectedAt = collectedAt ?: createdAt ?: "",
+    createdAt = createdAt ?: "",
+    updatedAt = updatedAt ?: "",
+)
+
+/** Convert a [LedgerEntryDto] to a [LedgerEntryEntity] for Room upsert. */
+fun LedgerEntryDto.toEntity(): com.example.infrastructure.room.LedgerEntryEntity = com.example.infrastructure.room.LedgerEntryEntity(
+    id = id,
+    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
+    accountId = accountId,
+    parentId = parentId,
+    studentId = studentId,
+    category = category,
+    amount = (amount * 100).toLong(),
+    type = entryType,
+    sourceType = sourceType ?: "payment",
+    sourceId = sourceId ?: id,
+    method = method,
+    receiptNumber = receiptNumber,
+    paymentStatus = paymentStatus,
+    reversesId = reversesId,
+    description = description ?: "",
+    actorId = actorId ?: "per-admin",
+    actorName = actorName ?: "Administrateur",
+    at = at ?: createdAt ?: "",
+)
+
 

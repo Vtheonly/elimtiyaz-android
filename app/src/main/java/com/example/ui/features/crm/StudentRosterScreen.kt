@@ -283,12 +283,12 @@ fun StudentRosterScreen(
                     Spacer(Modifier.width(10.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (!isConfigured) "Connecter la base de données" else "Synchroniser la base complète",
+                            text = if (!isConfigured) "Connecter la base de données (390 élèves)" else "Synchroniser la base complète",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                         Text(
-                            text = if (!isConfigured) "Touchez pour renseigner l'URL et la clé API Supabase de votre établissement" else "Touchez pour rafraîchir les élèves depuis Supabase",
+                            text = if (!isConfigured) "Touchez pour renseigner l'URL et la clé API Supabase de votre établissement" else "Touchez pour rafraîchir les 390 élèves depuis Supabase",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
                         )
@@ -320,7 +320,7 @@ fun StudentRosterScreen(
             ElEmptyState(
                 icon = Icons.Default.Person,
                 title = "Aucun élève trouvé",
-                message = if (query.isBlank()) "Appuyez sur synchroniser pour importer les élèves depuis la base de données." else "Essayez de modifier votre recherche.",
+                message = if (query.isBlank()) "Appuyez sur synchroniser pour importer les 390 élèves depuis la base de données." else "Essayez de modifier votre recherche.",
                 modifier = Modifier.padding(top = 32.dp),
             )
         } else {
@@ -397,7 +397,7 @@ private fun SupabaseConfigDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = "Configurez l'accès à Supabase pour synchroniser les élèves, parents et paiements de votre établissement :",
+                    text = "Configurez l'accès à Supabase pour synchroniser les 390 élèves, parents et paiements de votre établissement :",
                     style = MaterialTheme.typography.bodyMedium,
                 )
 

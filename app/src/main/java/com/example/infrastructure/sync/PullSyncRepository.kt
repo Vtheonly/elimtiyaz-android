@@ -8,6 +8,8 @@ import com.example.infrastructure.room.StudentEntity
 import com.example.infrastructure.supabase.NetworkTimeouts
 import com.example.infrastructure.supabase.ParentDto
 import com.example.infrastructure.supabase.StudentDto
+import com.example.infrastructure.supabase.PaymentDto
+import com.example.infrastructure.supabase.LedgerEntryDto
 import com.example.infrastructure.supabase.SupabaseClientProvider
 import com.example.infrastructure.supabase.toEntity
 import com.example.session.SessionManager
@@ -76,7 +78,7 @@ class PullSyncRepository @Inject constructor(
         if (!provider.isConfigured()) {
             return@withContext Result.Err(com.example.core.Errors.server("Supabase non configuré — veuillez saisir votre URL et clé API Supabase dans les paramètres."))
         }
-        val tenantId = sessionManager.currentTenantId() ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID
+        val tenantId = sessionManager.currentTenantId() ?: "00000000-0000-0000-0000-000000000001"
         try {
             var count = 0
             // 1. Try RPC first
@@ -126,7 +128,7 @@ class PullSyncRepository @Inject constructor(
                                 db.parentDao().upsert(
                                     ParentEntity(
                                         id = id,
-                                        tenantId = item["tenant_id"]?.let { if (it is kotlinx.serialization.json.JsonPrimitive) it.content else com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID } ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+                                        tenantId = item["tenant_id"]?.let { if (it is kotlinx.serialization.json.JsonPrimitive) it.content else "00000000-0000-0000-0000-000000000001" } ?: "00000000-0000-0000-0000-000000000001",
                                         code = code,
                                         firstName = firstName.ifBlank { displayName.ifBlank { "Parent" } },
                                         lastName = lastName,
@@ -172,7 +174,7 @@ class PullSyncRepository @Inject constructor(
         if (!provider.isConfigured()) {
             return@withContext Result.Err(com.example.core.Errors.server("Supabase non configuré — veuillez saisir votre URL et clé API Supabase dans les paramètres."))
         }
-        val tenantId = sessionManager.currentTenantId() ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID
+        val tenantId = sessionManager.currentTenantId() ?: "00000000-0000-0000-0000-000000000001"
         try {
             var count = 0
             // 1. Try RPC first
@@ -224,7 +226,7 @@ class PullSyncRepository @Inject constructor(
                                 db.studentDao().upsert(
                                     StudentEntity(
                                         id = id,
-                                        tenantId = item["tenant_id"]?.let { if (it is kotlinx.serialization.json.JsonPrimitive) it.content else com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID } ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
+                                        tenantId = item["tenant_id"]?.let { if (it is kotlinx.serialization.json.JsonPrimitive) it.content else "00000000-0000-0000-0000-000000000001" } ?: "00000000-0000-0000-0000-000000000001",
                                         code = code,
                                         parentId = parentId,
                                         firstName = firstName.ifBlank { displayName.ifBlank { "Élève" } },
@@ -264,47 +266,89 @@ class PullSyncRepository @Inject constructor(
     /**
      * Pull ALL payments from Supabase and upsert them into Room.
      */
-    suspend fun pullPayments(): Result<Int> = withContext(Dispatchers.IO) {
+    suspend fun pullPayments(sinceIso: String? = null): Result<Int> = withContext(Dispatchers.IO) {
         if (!provider.isConfigured()) {
             return@withContext Result.Err(com.example.core.Errors.server("Supabase not configured"))
         }
+        val tenantId = sessionManager.currentTenantId() ?: "00000000-0000-0000-0000-000000000001"
         try {
-            val dtoList = provider.postgrest.from("payments")
-                .select { limit(2000) }
-                .decodeList<com.example.infrastructure.supabase.PaymentDto>()
-
-            for (dto in dtoList) {
-                val entity = com.example.infrastructure.room.PaymentEntity(
-                    id = dto.id,
-                    tenantId = dto.tenantId ?: com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID,
-                    receiptNumber = dto.receiptNumber ?: dto.paymentNumber,
-                    parentId = dto.parentId,
-                    studentId = dto.studentId,
-                    amount = (dto.amount * 100).toLong(),
-                    method = dto.method.lowercase(),
-                    status = dto.status.lowercase(),
-                    category = dto.category ?: "tuition",
-                    installmentId = dto.installmentId,
-                    proofUrl = dto.proofPath,
-                    checkNumber = null,
-                    checkBankName = null,
-                    checkIssueDate = null,
-                    checkClearanceDate = null,
-                    transferReference = null,
-                    transferSourceBank = null,
-                    notes = dto.notes,
-                    collectedBy = dto.collectedBy ?: "system",
-                    collectedBy_name = "Système",
-                    collectedAt = dto.collectedAt ?: dto.createdAt ?: "",
-                    createdAt = dto.createdAt ?: "",
-                    updatedAt = dto.updatedAt ?: "",
-                )
-                db.paymentDao().upsert(entity)
+            var count = 0
+            var fetched = false
+            try {
+                val params = buildJsonObject {
+                    put("p_tenant_id", tenantId)
+                    if (sinceIso != null) put("p_since", sinceIso)
+                    put("p_limit", 2000)
+                }
+                val raw = provider.postgrest.rpc("pull_payments_for_sync", params)
+                val dtoList = json.decodeFromString(ListSerializer(PaymentDto.serializer()), raw.toString())
+                for (dto in dtoList) {
+                    db.paymentDao().upsert(dto.toEntity())
+                    count++
+                }
+                fetched = true
+            } catch (rpcEx: Throwable) {
+                Log.d("PullSync", "RPC pull_payments_for_sync failed (${rpcEx.message}), attempting table query")
             }
-            Log.i("PullSync", "Pulled ${dtoList.size} payments from Supabase")
-            Result.Ok(dtoList.size)
+
+            if (!fetched || count == 0) {
+                val dtoList = provider.postgrest.from("payments")
+                    .select { limit(2000) }
+                    .decodeList<PaymentDto>()
+                for (dto in dtoList) {
+                    db.paymentDao().upsert(dto.toEntity())
+                    count++
+                }
+            }
+            Log.i("PullSync", "Pulled $count payments from Supabase")
+            Result.Ok(count)
         } catch (e: Exception) {
             Log.d("PullSync", "pullPayments info: ${e.message}")
+            Result.Err(com.example.core.Errors.fromException(e))
+        }
+    }
+
+    /**
+     * Pull ALL ledger entries from Supabase and upsert them into Room.
+     */
+    suspend fun pullLedgerEntries(sinceIso: String? = null): Result<Int> = withContext(Dispatchers.IO) {
+        if (!provider.isConfigured()) {
+            return@withContext Result.Err(com.example.core.Errors.server("Supabase not configured"))
+        }
+        val tenantId = sessionManager.currentTenantId() ?: "00000000-0000-0000-0000-000000000001"
+        try {
+            var count = 0
+            var fetched = false
+            try {
+                val params = buildJsonObject {
+                    put("p_tenant_id", tenantId)
+                    if (sinceIso != null) put("p_since", sinceIso)
+                    put("p_limit", 2000)
+                }
+                val raw = provider.postgrest.rpc("pull_ledger_entries_for_sync", params)
+                val dtoList = json.decodeFromString(ListSerializer(LedgerEntryDto.serializer()), raw.toString())
+                for (dto in dtoList) {
+                    db.ledgerEntryDao().upsert(dto.toEntity())
+                    count++
+                }
+                fetched = true
+            } catch (rpcEx: Throwable) {
+                Log.d("PullSync", "RPC pull_ledger_entries_for_sync failed (${rpcEx.message}), attempting table query")
+            }
+
+            if (!fetched || count == 0) {
+                val dtoList = provider.postgrest.from("ledger_entries")
+                    .select { limit(2000) }
+                    .decodeList<LedgerEntryDto>()
+                for (dto in dtoList) {
+                    db.ledgerEntryDao().upsert(dto.toEntity())
+                    count++
+                }
+            }
+            Log.i("PullSync", "Pulled $count ledger entries from Supabase")
+            Result.Ok(count)
+        } catch (e: Exception) {
+            Log.d("PullSync", "pullLedgerEntries info: ${e.message}")
             Result.Err(com.example.core.Errors.fromException(e))
         }
     }
@@ -369,17 +413,19 @@ class PullSyncRepository @Inject constructor(
     suspend fun pullAll(sinceIso: String? = null): Result<Int> = withContext(Dispatchers.IO) {
         val parents = pullParents(sinceIso)
         val students = pullStudents(sinceIso)
-        val payments = pullPayments()
+        val payments = pullPayments(sinceIso)
+        val ledgerEntries = pullLedgerEntries(sinceIso)
         val classes = pullClasses()
         val subjects = pullSubjects()
         val installments = pullInstallments()
         val p = (parents as? Result.Ok)?.value ?: 0
         val s = (students as? Result.Ok)?.value ?: 0
         val pay = (payments as? Result.Ok)?.value ?: 0
+        val led = (ledgerEntries as? Result.Ok)?.value ?: 0
         val cls = (classes as? Result.Ok)?.value ?: 0
         val sub = (subjects as? Result.Ok)?.value ?: 0
         val ins = (installments as? Result.Ok)?.value ?: 0
-        val total = p + s + pay + cls + sub + ins
+        val total = p + s + pay + led + cls + sub + ins
 
         if (total == 0) {
             val firstErr = (students as? Result.Err)?.error

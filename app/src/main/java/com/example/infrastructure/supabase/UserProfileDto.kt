@@ -7,17 +7,15 @@ import kotlinx.serialization.Serializable
  * DTO for the `user_profiles` table — used by [com.example.infrastructure.local.LocalAuthRepository]
  * to fetch the signed-in user's profile during Supabase Auth.
  *
- * Every field carries an explicit `@SerialName` matching the snake_case
- * column name in PostgreSQL. Without these annotations, the Kotlin
- * serialization framework would look for camelCase JSON keys and silently
- * fall back to defaults — causing the auth flow to drop the tenant_id,
- * display_name, etc. and forcing the user into demo mode.
+ * SHARED-UNIFICATION (migration 0027):
+ *   Every field carries an explicit `@SerialName` matching the snake_case
+ *   column name in PostgreSQL. Without these annotations, the Kotlin
+ *   serialization framework would look for camelCase JSON keys and silently
+ *   fall back to defaults — causing the auth flow to drop the tenant_id,
+ *   display_name, role_id, etc. and forcing the user into demo mode.
  *
- * Verified against the REAL Supabase project (hkvkefubghbbotgnteir):
- * the `user_profiles` table does NOT have a `role_id` column (it was
- * removed during schema refactor). Role is now derived from the
- * `role_assignments` table, but for now we default the in-app Role to
- * SUPER_ADMIN since the desktop's RBAC layer hasn't been ported yet.
+ * Kept as a standalone file so the local Room-based auth repository can
+ * reference it without pulling in the full (now-deleted) SupabaseAuthRepository.
  */
 @Serializable
 data class UserProfileDto(
@@ -29,4 +27,5 @@ data class UserProfileDto(
     @SerialName("avatar_url") val avatarUrl: String? = null,
     @SerialName("status") val status: String = "active",
     @SerialName("locale") val locale: String? = null,
+    @SerialName("role_id") val roleId: String? = null,
 )

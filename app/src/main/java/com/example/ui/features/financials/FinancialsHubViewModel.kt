@@ -2,6 +2,7 @@ package com.example.ui.features.financials
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.core.LedgerEntry
 import com.example.core.PaymentStatus
 import com.example.domain.model.DashboardKpi
 import com.example.domain.model.DebtSummary
@@ -10,6 +11,7 @@ import com.example.domain.model.Payment
 import com.example.domain.repository.DashboardRepository
 import com.example.domain.repository.DebtRepository
 import com.example.domain.repository.ExpenseRepository
+import com.example.domain.repository.LedgerRepository
 import com.example.domain.repository.PaymentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -40,6 +42,7 @@ class FinancialsHubViewModel @Inject constructor(
     private val paymentRepository: PaymentRepository,
     private val expenseRepository: ExpenseRepository,
     private val debtRepository: DebtRepository,
+    private val ledgerRepository: LedgerRepository,
 ) : ViewModel() {
 
     val kpis: StateFlow<DashboardKpi?> = dashboardRepository.observeKpis()
@@ -52,6 +55,9 @@ class FinancialsHubViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val debtors: StateFlow<List<DebtSummary>> = debtRepository.observeSummary()
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val ledgerEntries: StateFlow<List<LedgerEntry>> = ledgerRepository.observe()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _error = MutableStateFlow<String?>(null)

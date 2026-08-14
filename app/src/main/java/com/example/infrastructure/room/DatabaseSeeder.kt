@@ -30,34 +30,18 @@ import java.util.UUID
 class DatabaseSeeder @Inject constructor(
     private val db: ElImtiyazDatabase,
 ) {
-    private val tenantId = com.example.infrastructure.supabase.SupabaseConfig.DEFAULT_TENANT_ID
+    private val tenantId = "00000000-0000-0000-0000-000000000001"
     private val academicYear = "2026-2027"
     private val startYear = 2026
 
-    /**
-     * Seed the local Room database with REFERENCE / CATALOG data only.
-     *
-     * This is NOT demo data — it is the school's canonical pricing schedule
-     * (from Prices.md, 2026-2027 school year, Boumerdes, Algeria), the
-     * subject catalog, the class catalog, and the personnel directory.
-     * These rows are needed by the local LedgerEngine + waterfall allocation
-     * logic so financial calculations produce correct numbers regardless of
-     * whether the Supabase backend is reachable.
-     *
-     * DEMO PARENTS / STUDENTS / PAYMENTS / LEDGER ENTRIES are intentionally
-     * NOT seeded here. The app pulls all financial, parent, and student data
-     * from the real Supabase backend via [com.example.infrastructure.sync.PullSyncRepository]
-     * — there is no local demo data for those tables anymore.
-     */
+    /** Seed the database if it is empty. Safe to call on every launch. */
     suspend fun seedIfEmpty() {
         if (db.pricingConfigDao().getActive() != null) return
         seedPricing()
         seedSubjects()
         seedClasses()
         seedPersonnel()
-        // NOTE: seedDemoFamilies() is intentionally removed.
-        // Real parents / students / payments / installments / ledger entries
-        // are pulled from Supabase via PullSyncRepository.pullAll().
+        seedDemoFamilies()
     }
 
     // ─── Pricing config + grade-level tuition + transport + discounts ───────

@@ -22,7 +22,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.ui.designsystem.components.display.ElGradient
 import com.example.ui.designsystem.foundation.elShadow
 import com.example.ui.designsystem.foundation.pressClickable
@@ -101,6 +103,8 @@ fun ElGradientStatCard(
                     text = title,
                     color = Color.White.copy(alpha = 0.92f),
                     style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
@@ -108,7 +112,12 @@ fun ElGradientStatCard(
             Text(
                 text = value,
                 color = Color.White,
-                style = ElTheme.textStyles.numeric.copy(fontWeight = FontWeight.Black),
+                style = ElTheme.textStyles.numeric.copy(
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Black,
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             if (subtitle != null) {
                 Spacer(Modifier.size(4.dp))
@@ -116,6 +125,8 @@ fun ElGradientStatCard(
                     text = subtitle,
                     color = Color.White.copy(alpha = 0.85f),
                     style = ElTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

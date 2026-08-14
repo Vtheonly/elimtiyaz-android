@@ -182,6 +182,7 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
 
     /** Swap the FCM role topic subscription — unsubscribes the old, subscribes the new. */
     private fun handleRoleTopic(role: Role?) {
+        if (com.google.firebase.FirebaseApp.getApps(this).isEmpty()) return
         val previous = subscribedRoleTopic
         if (previous != null && previous != role?.let { roleTopic(it) }) {
             runCatching { FirebaseMessaging.getInstance().unsubscribeFromTopic(previous) }
@@ -189,7 +190,11 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
         if (role != null && role != Role.STUDENT && role != Role.PARENT) {
             // Only staff roles receive push notifications on mobile (per plan §13.05).
             val topic = roleTopic(role)
-            runCatching { FirebaseMessaging.getInstance().subscribeToTopic(topic) }
+            runCatching { 
+                FirebaseMessaging.getInstance().subscribeToTopic(topic)
+            }.onFailure {
+                // Ignore topic registration failures if FCM project topics are unprovisioned
+            }
             subscribedRoleTopic = topic
         } else {
             subscribedRoleTopic = null
