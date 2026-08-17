@@ -115,6 +115,9 @@ interface AcademicClassDao {
     @Query("SELECT * FROM classes WHERE gradeLevel = :gradeLevel AND isActive = 1 ORDER BY name ASC")
     suspend fun listByGradeLevel(gradeLevel: String): List<AcademicClassEntity>
 
+    @Query("SELECT COUNT(*) FROM classes WHERE isActive = 1")
+    fun observeActiveCount(): Flow<Int>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: AcademicClassEntity)
 
@@ -152,6 +155,12 @@ interface SubjectDao {
 
 @Dao
 interface AttendanceDao {
+    @Query("SELECT * FROM attendance ORDER BY date DESC LIMIT 1000")
+    fun observeAll(): Flow<List<AttendanceEntity>>
+
+    @Query("SELECT * FROM attendance WHERE date = :date ORDER BY classId ASC, studentId ASC")
+    fun observeByDate(date: String): Flow<List<AttendanceEntity>>
+
     @Query("SELECT * FROM attendance WHERE classId = :classId AND date = :date ORDER BY studentId ASC")
     fun observeByClassAndDate(classId: String, date: String): Flow<List<AttendanceEntity>>
 
@@ -227,10 +236,10 @@ interface HomeworkDao {
 
 @Dao
 interface PaymentDao {
-    @Query("SELECT * FROM payments ORDER BY collectedAt DESC LIMIT 200")
+    @Query("SELECT * FROM payments ORDER BY collectedAt DESC LIMIT 500")
     fun observeAll(): Flow<List<PaymentEntity>>
 
-    @Query("SELECT * FROM payments ORDER BY collectedAt DESC LIMIT 200")
+    @Query("SELECT * FROM payments ORDER BY collectedAt DESC LIMIT 500")
     suspend fun listAll(): List<PaymentEntity>
 
     @Query("SELECT * FROM payments WHERE parentId = :parentId ORDER BY collectedAt DESC")
@@ -288,6 +297,9 @@ interface InstallmentDao {
 
     @Query("SELECT * FROM installments WHERE id = :id")
     suspend fun getById(id: String): InstallmentEntity?
+
+    @Query("SELECT * FROM installments WHERE status != 'paid' AND dueDate < :now ORDER BY dueDate ASC")
+    fun observeOverdue(now: String): Flow<List<InstallmentEntity>>
 
     @Query("SELECT * FROM installments WHERE status != 'paid' AND dueDate < :now ORDER BY dueDate ASC")
     suspend fun listOverdue(now: String): List<InstallmentEntity>
@@ -350,6 +362,9 @@ interface ExpenseDao {
     @Query("SELECT COUNT(*) FROM expenses WHERE status = 'submitted'")
     suspend fun countPending(): Int
 
+    @Query("SELECT COUNT(*) FROM expenses WHERE status = 'submitted'")
+    fun observePendingCount(): Flow<Int>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: ExpenseEntity)
 
@@ -375,6 +390,9 @@ interface PersonnelDao {
 
     @Query("SELECT COUNT(*) FROM personnel WHERE status = 'active'")
     suspend fun countActive(): Int
+
+    @Query("SELECT COUNT(*) FROM personnel WHERE status = 'active'")
+    fun observeActiveCount(): Flow<Int>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: PersonnelEntity)

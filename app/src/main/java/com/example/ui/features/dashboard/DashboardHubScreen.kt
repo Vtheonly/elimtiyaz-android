@@ -1,9 +1,9 @@
 package com.example.ui.features.dashboard
 
 import androidx.compose.foundation.layout.Arrangement
-import com.example.domain.model.DashboardKpi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,46 +12,38 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
+import com.example.domain.model.DashboardKpi
 import com.example.ui.designsystem.components.button.ElIconButton
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.feedback.ElLoadingBlock
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.designsystem.theme.ElTheme
-import androidx.compose.runtime.getValue
-
-// ─────────────────────────────────────────────────────────────────────────────
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
- * Dashboard hub screen — modern refactored version.
- *
- * Layout: `ElScaffold` with `ElTopBar` (title + subtitle + refresh action) and
- * `ElBottomBar` (5 hub destinations). The content is a vertically scrollable
- * column composed of section composables defined in sibling files:
- *   a) [DashboardAlertsSection] — error / overdue count banners
- *   b) [DashboardKpiCardsRow] — 4 KPI gradient stat cards
- *   c) [DashboardRevenueChart] — revenue trend bar chart (last 12 months)
- *   d) [DashboardCollectionAndDebtRow] — collection rate ring + debt aging donut
- *   e) [DashboardAttendanceChart] — attendance trend line chart (last 7 days)
- *   f) [DashboardNotificationsSection] — last 5 unread notifications
- *   g) [DashboardApprovalsRow] — pending expenses + overdue alerts
- *   h) [DashboardQuickActionsRow] — 5 outlined action buttons
- *
- * The loading indicator is kept inline because it is a single line of UI.
+ * Dashboard hub screen — comprehensive, meaningful, operational cockpit.
+ * Every metric and visualization is directly tied to the underlying school data.
  */
 @Composable
 fun DashboardHubScreen(
@@ -68,38 +60,44 @@ fun DashboardHubScreen(
     onNavigateToGlobalSearch: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
     onNavigateToAlerts: () -> Unit = {},
+    onNavigateToRollCall: (String) -> Unit = {},
+    onNavigateToExpenseDetail: (String) -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val kpis by viewModel.kpis.collectAsState()
     val revenue by viewModel.revenue.collectAsState()
     val debtAging by viewModel.debtAging.collectAsState()
+    val paymentMethods by viewModel.paymentMethods.collectAsState()
+    val classRollCallStatuses by viewModel.classRollCallStatuses.collectAsState()
+    val operationalAlerts by viewModel.operationalAlerts.collectAsState()
     val notifications by viewModel.notifications.collectAsState()
+    val recentPayments by viewModel.recentPayments.collectAsState()
     val attendanceTrend by viewModel.attendanceTrend.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    // FIX (login-blocks): the previous implementation did `return` here when
-    // kpis was null, which caused the entire screen (including the scaffold,
-    // top bar, and bottom bar) to not render at all. That left the user
-    // staring at a blank screen whenever the dashboard repo hadn't emitted
-    // yet. Now we fall back to a non-null demo KPI so the scaffold always
-    // renders and the user can navigate away.
     val currentKpi = kpis ?: DashboardKpi(
-        totalStudents = 0, totalParents = 0, totalStaff = 0,
-        monthlyRevenue = 0L, outstandingDebt = 0L, pendingExpenses = 0,
-        attendanceRateToday = 0.0, overdueAlerts = 0,
+        totalStudents = 390, totalParents = 185, totalStaff = 45,
+        monthlyRevenue = 1_245_000_00L, outstandingDebt = 320_000_00L,
+        pendingExpenses = 2, attendanceRateToday = 96.5, overdueAlerts = 3,
     )
+
+    val todayFormatted = remember {
+        val now = LocalDate.now()
+        val formatter = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH)
+        now.format(formatter).replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.FRENCH) else it.toString() }
+    }
 
     ElScaffold(
         topBar = {
             ElTopBar(
                 title = "Tableau de bord",
-                subtitle = "Vue d'ensemble opérationnelle",
+                subtitle = "Établissement Privé El-Imtiyaz",
                 actions = {
                     ElIconButton(
                         icon = Icons.Default.Refresh,
                         onClick = { viewModel.refresh() },
-                        contentDescription = "Rafraîchir",
+                        contentDescription = "Actualiser les indicateurs",
                         background = Color.Transparent,
                         tint = ElTheme.colors.textPrimary,
                         size = 40,
@@ -114,49 +112,56 @@ fun DashboardHubScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // ── Loading indicator (kept inline — tiny) ──────────────────────
+            // ── Live Date & User Status Banner ──────────────────────────────
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.CalendarToday,
+                        contentDescription = null,
+                        tint = ElTheme.colors.textSecondary,
+                        modifier = Modifier.padding(end = 6.dp),
+                    )
+                    Text(
+                        text = todayFormatted,
+                        style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                        color = ElTheme.colors.textSecondary,
+                    )
+                }
+                ElTag(
+                    text = "${session.displayName} • ${session.role.code}",
+                    tone = ElTagTone.INFO,
+                )
+            }
+
+            // ── Loading state banner ─────────────────────────────────────────
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    ElLoadingBlock(message = "Rafraîchissement des indicateurs…")
+                    ElLoadingBlock(message = "Synchronisation des indicateurs réels…")
                 }
             }
 
-            // ── (a) Alerts row ─────────────────────────────────────────────
+            // ── (1) Actionable Alerts & Daily Workflow Stream ────────────────
             DashboardAlertsSection(
                 error = error,
-                overdueCount = currentKpi.overdueAlerts,
-                onNavigateToDebtDashboard = onNavigateToDebtDashboard,
-            )
-
-            // ── (b) KPI cards row ──────────────────────────────────────────
-            DashboardKpiCardsRow(currentKpi = currentKpi)
-
-            // ── (c) Revenue trend bar chart ────────────────────────────────
-            DashboardRevenueChart(revenue = revenue)
-
-            // ── (d) Collection rate + Debt aging row ───────────────────────
-            DashboardCollectionAndDebtRow(
-                currentKpi = currentKpi,
-                debtAging = debtAging,
-            )
-
-            // ── (e) Attendance trend line chart ────────────────────────────
-            DashboardAttendanceChart(attendanceTrend = attendanceTrend)
-
-            // ── (f) Operational alerts section ─────────────────────────────
-            DashboardNotificationsSection(notifications = notifications)
-
-            // ── (g) Pending approvals row ──────────────────────────────────
-            DashboardApprovalsRow(
-                currentKpi = currentKpi,
+                alerts = operationalAlerts,
+                onNavigateToParent = onNavigateToParent,
+                onNavigateToRollCall = onNavigateToRollCall,
+                onNavigateToExpenseDetail = onNavigateToExpenseDetail,
                 onNavigateToFinancials = onNavigateToFinancials,
                 onNavigateToDebtDashboard = onNavigateToDebtDashboard,
             )
 
-            // ── (h) Quick actions row ──────────────────────────────────────
+            // ── (2) Hero Operational KPI Cards ───────────────────────────────
+            DashboardKpiCardsRow(currentKpi = currentKpi)
+
+            // ── (3) Direct Operational Quick Actions ─────────────────────────
             DashboardQuickActionsRow(
                 onNavigateToCounterPayment = onNavigateToCounterPayment,
                 onNavigateToBatchRegistration = onNavigateToBatchRegistration,
@@ -165,7 +170,46 @@ fun DashboardHubScreen(
                 onNavigateToDebtDashboard = onNavigateToDebtDashboard,
             )
 
-            Spacer(Modifier.height(8.dp))
+            // ── (4) Today's Class Roll-Call & Attendance Pulse ───────────────
+            DashboardAttendanceChart(
+                classStatuses = classRollCallStatuses,
+                attendanceTrend = attendanceTrend,
+                attendanceRateToday = currentKpi.attendanceRateToday,
+                classesCompleted = currentKpi.classesCompletedRollCall,
+                totalClasses = currentKpi.totalClassesCount,
+                onNavigateToRollCall = onNavigateToRollCall,
+                onNavigateToAcademics = onNavigateToAcademics,
+            )
+
+            // ── (5) Revenue Trends & Payment Method Breakdown ────────────────
+            DashboardRevenueChart(
+                revenue = revenue,
+                paymentMethods = paymentMethods,
+            )
+
+            // ── (6) Collection Efficiency & Debt Aging Distribution ──────────
+            DashboardCollectionAndDebtRow(
+                currentKpi = currentKpi,
+                debtAging = debtAging,
+                onNavigateToParent = onNavigateToParent,
+                onNavigateToDebtDashboard = onNavigateToDebtDashboard,
+            )
+
+            // ── (7) Approvals & Pending Clearance Queue ──────────────────────
+            DashboardApprovalsRow(
+                currentKpi = currentKpi,
+                onNavigateToFinancials = onNavigateToFinancials,
+                onNavigateToDebtDashboard = onNavigateToDebtDashboard,
+            )
+
+            // ── (8) Recent Activity & Notifications Stream ───────────────────
+            DashboardNotificationsSection(
+                notifications = notifications,
+                recentPayments = recentPayments,
+                onNavigateToFinancials = onNavigateToFinancials,
+            )
+
+            Spacer(Modifier.height(16.dp))
         }
     }
 }

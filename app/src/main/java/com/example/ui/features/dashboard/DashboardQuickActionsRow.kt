@@ -5,9 +5,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -18,8 +19,8 @@ import com.example.ui.designsystem.components.button.ElButtonVariant
 import com.example.ui.designsystem.components.display.ElSectionHeader
 
 /**
- * Section (h) — horizontally scrollable row of 5 outlined quick-action
- * buttons: new payment, new student, new expense, roll call, view debt report.
+ * Section (3) — Direct Operational Quick Actions.
+ * Fast shortcuts for daily administrative and financial actions.
  */
 @Composable
 internal fun DashboardQuickActionsRow(
@@ -29,41 +30,36 @@ internal fun DashboardQuickActionsRow(
     onNavigateToAcademics: () -> Unit,
     onNavigateToDebtDashboard: () -> Unit,
 ) {
-    ElSectionHeader(title = "Actions rapides")
+    ElSectionHeader(
+        title = "Actions Rapides",
+        subtitle = "Raccourcis pour les opérations quotidiennes",
+    )
+
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
         item {
             ElButton(
-                text = "Nouveau paiement",
+                text = "Encaisser",
                 onClick = onNavigateToCounterPayment,
-                variant = ElButtonVariant.OUTLINED,
+                variant = ElButtonVariant.PRIMARY,
                 size = ElButtonSize.MEDIUM,
                 icon = Icons.Default.Payments,
             )
         }
         item {
             ElButton(
-                text = "Nouvel élève",
+                text = "Inscrire Famille",
                 onClick = onNavigateToBatchRegistration,
                 variant = ElButtonVariant.OUTLINED,
                 size = ElButtonSize.MEDIUM,
-                icon = Icons.Default.Person,
+                icon = Icons.Default.PersonAdd,
             )
         }
         item {
             ElButton(
-                text = "Nouvelle dépense",
-                onClick = onNavigateToFinancials,
-                variant = ElButtonVariant.OUTLINED,
-                size = ElButtonSize.MEDIUM,
-                icon = Icons.Default.Receipt,
-            )
-        }
-        item {
-            ElButton(
-                text = "Roll call",
+                text = "Faire l'Appel",
                 onClick = onNavigateToAcademics,
                 variant = ElButtonVariant.OUTLINED,
                 size = ElButtonSize.MEDIUM,
@@ -72,7 +68,16 @@ internal fun DashboardQuickActionsRow(
         }
         item {
             ElButton(
-                text = "Voir rapport",
+                text = "Nouvelle Dépense",
+                onClick = onNavigateToFinancials,
+                variant = ElButtonVariant.OUTLINED,
+                size = ElButtonSize.MEDIUM,
+                icon = Icons.Default.Receipt,
+            )
+        }
+        item {
+            ElButton(
+                text = "Relance Créances",
                 onClick = onNavigateToDebtDashboard,
                 variant = ElButtonVariant.OUTLINED,
                 size = ElButtonSize.MEDIUM,

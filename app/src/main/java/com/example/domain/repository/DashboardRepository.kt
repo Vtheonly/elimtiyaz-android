@@ -1,15 +1,21 @@
 package com.example.domain.repository
 
 import com.example.core.Result
+import com.example.domain.model.ClassRollCallStatus
 import com.example.domain.model.DashboardKpi
+import com.example.domain.model.DashboardOperationalAlert
 import com.example.domain.model.DebtSummary
+import com.example.domain.model.PaymentMethodSummary
 import kotlinx.coroutines.flow.Flow
 
-/** Dashboard repository contract — KPIs + chart data. */
+/** Dashboard repository contract — real-time KPIs, trends, and operational summaries. */
 interface DashboardRepository {
     fun observeKpis(): Flow<DashboardKpi?>
     fun observeRevenueLast12Months(): Flow<List<RevenuePoint>>
     fun observeDebtByAging(): Flow<List<DebtSummary>>
+    fun observePaymentMethodsSummary(): Flow<List<PaymentMethodSummary>>
+    fun observeClassRollCallStatus(): Flow<List<ClassRollCallStatus>>
+    fun observeOperationalAlerts(): Flow<List<DashboardOperationalAlert>>
     suspend fun refreshKpis(): Result<Unit>
 }
 
