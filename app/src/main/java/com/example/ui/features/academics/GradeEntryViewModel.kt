@@ -1,8 +1,8 @@
 package com.example.ui.features.academics
 
-import androidx.compose.runtime.Composable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.core.Role
 import com.example.domain.model.AcademicClass
 import com.example.domain.model.Student
 import com.example.domain.model.Subject
@@ -11,14 +11,14 @@ import com.example.domain.repository.EnterGradeInput
 import com.example.domain.repository.GradeRepository
 import com.example.domain.repository.StudentRepository
 import com.example.domain.repository.SubjectRepository
+import com.example.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-
-// ── 2. Grade Entry ────────────────────────────────────────────────────────
 
 @HiltViewModel
 class GradeEntryViewModel @Inject constructor(
@@ -26,9 +26,24 @@ class GradeEntryViewModel @Inject constructor(
     private val subjectRepository: SubjectRepository,
     private val studentRepository: StudentRepository,
     private val gradeRepository: GradeRepository,
+    private val sessionManager: SessionManager,
 ) : ViewModel() {
 
     val classes: StateFlow<List<AcademicClass>> = classRepository.observe()
+        .map { all ->
+            val session = sessionManager.current()
+            if (session?.role == Role.TEACHER) {
+                val teacherId = session.userId
+                val teacherName = session.displayName
+                val scoped = all.filter {
+                    it.homeroomTeacherId == teacherId ||
+                    (it.homeroomTeacherName != null && it.homeroomTeacherName.equals(teacherName, ignoreCase = true))
+                }
+                if (scoped.isNotEmpty()) scoped else all.take(1)
+            } else {
+                all
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _subjects = kotlinx.coroutines.flow.MutableStateFlow<List<Subject>>(emptyList())
@@ -55,11 +70,6 @@ class GradeEntryViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Enter a grade via [GradeRepository.enterGrade]. The desktop's
-     * `compute_grade_subject_average()` trigger will auto-compute
-     * `subject_average = (d1 + d2 + 2*ex) / 4.0` server-side.
-     */
     fun enterGrade(
         studentId: String,
         subjectId: String,

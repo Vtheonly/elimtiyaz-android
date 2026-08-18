@@ -1,5 +1,7 @@
 package com.example.ui.features.crm
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -26,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.core.formatDzd
 import com.example.domain.model.Parent
 import com.example.ui.components.ElAvatar
 import com.example.ui.components.ElCard
@@ -44,7 +48,6 @@ import com.example.ui.components.ElTopBar
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.elDesignTokens
-import androidx.compose.runtime.getValue
 
 @Composable
 fun ParentDetailScreen(
@@ -65,7 +68,11 @@ fun ParentDetailScreen(
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -92,8 +99,8 @@ fun ParentDetailScreen(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
                                         onClick = {
-                                            val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
-                                                data = android.net.Uri.parse("tel:${p.phone}")
+                                            val intent = Intent(Intent.ACTION_DIAL).apply {
+                                                data = Uri.parse("tel:${p.phone}")
                                             }
                                             context.startActivity(intent)
                                         },
@@ -118,8 +125,8 @@ fun ParentDetailScreen(
                                         onClick = {
                                             val cleanPhone = (p.whatsapp ?: p.phone).replace("[^0-9]".toRegex(), "")
                                             val formatted = if (cleanPhone.startsWith("0")) "213${cleanPhone.substring(1)}" else cleanPhone
-                                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                                data = android.net.Uri.parse("https://wa.me/$formatted")
+                                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                                data = Uri.parse("https://wa.me/$formatted")
                                             }
                                             context.startActivity(intent)
                                         },

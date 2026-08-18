@@ -1,15 +1,15 @@
 package com.example.ui.features.academics
 
-import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.Composable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.core.Role
 import com.example.domain.model.AcademicClass
 import com.example.domain.model.Student
 import com.example.domain.repository.AttendanceRepository
 import com.example.domain.repository.ClassRepository
 import com.example.domain.repository.RollCallEntry
 import com.example.domain.repository.StudentRepository
+import com.example.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,9 +23,24 @@ class RollCallViewModel @Inject constructor(
     private val classRepository: ClassRepository,
     private val studentRepository: StudentRepository,
     private val attendanceRepository: AttendanceRepository,
+    private val sessionManager: SessionManager,
 ) : ViewModel() {
 
     val classes: StateFlow<List<AcademicClass>> = classRepository.observe()
+        .map { all ->
+            val session = sessionManager.current()
+            if (session?.role == Role.TEACHER) {
+                val teacherId = session.userId
+                val teacherName = session.displayName
+                val scoped = all.filter {
+                    it.homeroomTeacherId == teacherId ||
+                    (it.homeroomTeacherName != null && it.homeroomTeacherName.equals(teacherName, ignoreCase = true))
+                }
+                if (scoped.isNotEmpty()) scoped else all.take(1)
+            } else {
+                all
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _students = kotlinx.coroutines.flow.MutableStateFlow<List<Student>>(emptyList())
@@ -43,16 +58,6 @@ class RollCallViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Submit roll call to Supabase via [AttendanceRepository.recordRollCall].
-     *
-     * Mirrors desktop `RollCallScreen`:
-     *   - Wire status codes are the 4 canonical values (present,
-     *     absent_excused, absent_unexcused, late).
-     *   - Late entries include the arrival-time note.
-     *   - After save, alerts are sent for any student hitting the 3+ absence
-     *     threshold (per desktop `alert-absences` Edge Function).
-     */
     fun submitRollCall(
         classId: String,
         date: String,
@@ -74,9 +79,6 @@ class RollCallViewModel @Inject constructor(
             val result = attendanceRepository.recordRollCall(classId, date, session, records, actorId, actorName)
             _busy.value = false
             result.onSuccess {
-                // Identify students reaching 3+ absence threshold for alert.
-                // (Server-side `alert-absences` Edge Function handles the
-                // actual notification; this is a client-side UX hint.)
                 _message.value = "Appel enregistré pour la classe (${records.size} élèves)."
             }.onFailure { err ->
                 _message.value = err.userMessage

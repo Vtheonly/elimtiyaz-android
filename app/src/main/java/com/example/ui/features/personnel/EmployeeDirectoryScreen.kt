@@ -20,8 +20,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -33,7 +35,6 @@ import com.example.core.Session
 import com.example.domain.model.Personnel
 import com.example.ui.components.ElAvatar
 import com.example.ui.components.ElButton
-import com.example.ui.components.ElButtonSize
 import com.example.ui.components.ElButtonStyle
 import com.example.ui.components.ElCard
 import com.example.ui.components.ElEmptyState
@@ -41,8 +42,6 @@ import com.example.ui.components.ElScrollableTabRow
 import com.example.ui.components.ElSectionHeader
 import com.example.ui.components.ElTag
 import com.example.ui.theme.PrimaryBlue
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 
 private fun roleDisplayLabel(code: String): String = when (code.lowercase()) {
     "teacher" -> "Enseignants"
