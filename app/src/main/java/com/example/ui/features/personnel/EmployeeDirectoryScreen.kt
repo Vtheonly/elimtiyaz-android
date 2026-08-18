@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,6 +33,7 @@ import com.example.core.Session
 import com.example.domain.model.Personnel
 import com.example.ui.components.ElAvatar
 import com.example.ui.components.ElButton
+import com.example.ui.components.ElButtonSize
 import com.example.ui.components.ElButtonStyle
 import com.example.ui.components.ElCard
 import com.example.ui.components.ElEmptyState
@@ -43,6 +43,18 @@ import com.example.ui.components.ElTag
 import com.example.ui.theme.PrimaryBlue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+
+private fun roleDisplayLabel(code: String): String = when (code.lowercase()) {
+    "teacher" -> "Enseignants"
+    "super_admin" -> "Direction"
+    "financial_officer" -> "Finances"
+    "support_staff" -> "Support"
+    "driver" -> "Chauffeurs"
+    "buyer" -> "Achats"
+    "warehouse_worker" -> "Magasin"
+    "worker" -> "Services"
+    else -> code.replace("_", " ").replaceFirstChar { it.uppercase() }
+}
 
 @Composable
 fun EmployeeDirectoryScreen(
@@ -54,21 +66,24 @@ fun EmployeeDirectoryScreen(
     val context = LocalContext.current
 
     var selectedCategoryTab by remember { mutableIntStateOf(0) }
-    val categories = remember(personnel) {
+    val rawCategories = remember(personnel) {
         val distinct = personnel.map { it.staffCategory }.distinct().sorted()
-        listOf("Tous") + distinct
+        listOf("all") + distinct
+    }
+    val tabLabels = remember(rawCategories) {
+        rawCategories.map { if (it == "all") "Tous" else roleDisplayLabel(it) }
     }
     val filteredStaff = remember(selectedCategoryTab, personnel) {
         if (selectedCategoryTab == 0) personnel
-        else personnel.filter { it.staffCategory == categories[selectedCategoryTab] }
+        else personnel.filter { it.staffCategory == rawCategories[selectedCategoryTab] }
     }
 
-    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ElSectionHeader(title = "Registre du Personnel (${personnel.size})")
 
-        if (categories.size > 1) {
+        if (tabLabels.size > 1) {
             ElScrollableTabRow(
-                tabs = categories,
+                tabs = tabLabels,
                 selectedTabIndex = selectedCategoryTab,
                 onTabSelected = { selectedCategoryTab = it },
             )
@@ -78,7 +93,7 @@ fun EmployeeDirectoryScreen(
             ElEmptyState(
                 icon = Icons.Default.Phone,
                 title = "Aucun personnel",
-                message = "Aucun employé enregistré. Ajoutez-en depuis les paramètres ou contactez un administrateur.",
+                message = "Aucun employé dans cette catégorie.",
             )
             return@Column
         }
@@ -86,15 +101,15 @@ fun EmployeeDirectoryScreen(
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
             items(filteredStaff) { staff ->
                 ElCard(modifier = Modifier.fillMaxWidth(), compact = true) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(14.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                ElAvatar(initials = staff.fullName, size = 44)
-                                Spacer(Modifier.width(12.dp))
+                                ElAvatar(initials = staff.fullName, size = 42)
+                                Spacer(Modifier.width(10.dp))
                                 Column {
                                     Text(
                                         staff.fullName,
@@ -110,12 +125,13 @@ fun EmployeeDirectoryScreen(
                                     )
                                 }
                             }
-                            ElTag(text = staff.staffCategory, color = PrimaryBlue)
+                            ElTag(text = roleDisplayLabel(staff.staffCategory), color = PrimaryBlue)
                         }
 
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(8.dp))
                         Text(
-                            "Téléphone: ${staff.phone} · Embauché: ${staff.hireDate.take(10)}",
+                            text = if (staff.phone.isNotBlank()) "Tél: ${staff.phone} • Embauché: ${staff.hireDate.take(10)}"
+                                   else "Embauché: ${staff.hireDate.take(10)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -131,6 +147,7 @@ fun EmployeeDirectoryScreen(
                                 style = ElButtonStyle.Secondary,
                                 icon = Icons.Default.Phone,
                                 modifier = Modifier.weight(1f),
+                                enabled = staff.phone.isNotBlank(),
                             )
                             ElButton(
                                 text = "Email",

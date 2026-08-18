@@ -1,22 +1,33 @@
 package com.example.core
 
 import java.time.Instant
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
+
+/**
+ * Safe ISO-8601 timestamp parser that supports offsets (+00:00, +01:00),
+ * UTC (Z), and date-only (yyyy-MM-dd) strings without throwing.
+ */
+fun parseIsoInstantSafe(isoString: String?): Instant {
+    if (isoString.isNullOrBlank()) return Instant.EPOCH
+    return try {
+        OffsetDateTime.parse(isoString).toInstant()
+    } catch (_: Exception) {
+        try {
+            Instant.parse(isoString)
+        } catch (_: Exception) {
+            try {
+                LocalDate.parse(isoString).atStartOfDay(ZoneOffset.UTC).toInstant()
+            } catch (_: Exception) {
+                Instant.EPOCH
+            }
+        }
+    }
+}
 
 /**
  * Ledger engine — read-side computations over an immutable ledger.
- *
- * Entry construction (charge / payment / adjustment / refund / reversal) and
- * ID derivation have been extracted to top-level functions in
- * [LedgerEntryFactory.kt]; this object now holds only the replay-based
- * balance + summary + overdue computations that need to be addressed as
- * `LedgerEngine.computeXxx(...)` (they're referenced from cross-cutting
- * reconciliation, repository, and UI layers).
- *
- * Invariants preserved verbatim from the original implementation:
- *   - Balances are NEVER stored — always computed by replaying entries.
- *   - Reversed entries contribute to the running balance but NOT to typed
- *     totals (totalCharged / totalPaid / etc.).
- *   - The same ledger replayed twice yields identical results.
  */
 object LedgerEngine {
 
@@ -25,10 +36,9 @@ object LedgerEngine {
      * This is the ONLY way to compute a balance. Balances are NEVER stored.
      */
     fun computeAccountBalance(entries: List<LedgerEntry>, accountId: String, now: Instant = Instant.now()): AccountBalance {
-        val nowIso = now.toString()
         val accountEntries = entries
-            .filter { it.accountId == accountId && it.at <= nowIso }
-            .sortedWith(compareBy({ it.at }, { it.id }))
+            .filter { it.accountId == accountId && parseIsoInstantSafe(it.at) <= now }
+            .sortedWith(compareBy({ parseIsoInstantSafe(it.at) }, { it.id }))
 
         if (accountEntries.isEmpty()) {
             return AccountBalance(
@@ -134,12 +144,12 @@ object LedgerEngine {
     fun buildOverdueDueDateMap(entries: List<LedgerEntry>): Map<String, Instant> =
         entries.filter { it.type == LedgerEntryType.CHARGE }
             .groupBy { it.accountId }
-            .mapValues { (_, e) -> e.maxOf { Instant.parse(it.at) } }
+            .mapValues { (_, e) -> e.maxOf { parseIsoInstantSafe(it.at) } }
 
     fun maxDaysOverdueFromLedger(entries: List<LedgerEntry>, now: Instant = Instant.now()): Long {
-        val pastCharges = entries.filter { it.type == LedgerEntryType.CHARGE && Instant.parse(it.at).isBefore(now) }
+        val pastCharges = entries.filter { it.type == LedgerEntryType.CHARGE && parseIsoInstantSafe(it.at).isBefore(now) }
         if (pastCharges.isEmpty()) return 0L
-        val oldest = pastCharges.minOf { Instant.parse(it.at) }
+        val oldest = pastCharges.minOf { parseIsoInstantSafe(it.at) }
         return (now.toEpochMilli() - oldest.toEpochMilli()) / 86_400_000L
     }
 }

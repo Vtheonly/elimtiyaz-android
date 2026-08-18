@@ -3,10 +3,11 @@ package com.example.core
 /**
  * RBAC — mirrors desktop `src/core/rbac/`. Wire-protocol: Role.code and
  * Permission.code are stable strings stored in JWT claims and the
- * role_assignments table. Renaming requires a Supabase migration.
+ * role_assignments table.
  */
 
 /** 11 roles. 9 staff (can sign into Android) + 2 web-portal-only (parent, student). */
+
 enum class Role(val code: String) {
     SUPER_ADMIN("super_admin"),
     FINANCIAL_OFFICER("financial_officer"),
@@ -21,7 +22,17 @@ enum class Role(val code: String) {
     STUDENT("student");
 
     companion object {
-        fun fromCode(code: String): Role? = values().firstOrNull { it.code == code }
+        fun fromCode(code: String): Role? {
+            val normalized = code.trim().lowercase()
+            return values().firstOrNull { it.code == normalized }
+                ?: when (normalized) {
+                    "admin", "direction", "directeur" -> SUPER_ADMIN
+                    "finance", "comptable", "agent_financier" -> FINANCIAL_OFFICER
+                    "prof", "enseignant", "teaching" -> TEACHER
+                    "support", "admin_staff" -> SUPPORT_STAFF
+                    else -> null
+                }
+        }
         val STAFF_ROLES: Set<Role> = setOf(SUPER_ADMIN, FINANCIAL_OFFICER, TEACHER, SUPPORT_STAFF, MANAGER, BUYER, DRIVER, WAREHOUSE_WORKER, WORKER)
         val ADMINISTRATIVE_ROLES: Set<Role> = setOf(SUPER_ADMIN, MANAGER)
         val SUPERVISORY_ROLES: Set<Role> = setOf(SUPER_ADMIN, MANAGER)
@@ -29,6 +40,8 @@ enum class Role(val code: String) {
         val DASHBOARD_ROLES: Set<Role> = setOf(SUPER_ADMIN, FINANCIAL_OFFICER, SUPPORT_STAFF, MANAGER)
     }
 }
+
+
 
 /** 56 action-grained permissions. Wire-protocol: stable snake_case strings. */
 enum class Permission(val code: String) {
@@ -56,17 +69,61 @@ enum class Permission(val code: String) {
     MANAGE_ONBOARDING("manage_onboarding"), VIEW_WORKFORCE_REPORTS("view_workforce_reports");
 
     companion object {
-        fun fromCode(code: String): Permission? = values().firstOrNull { it.code == code }
+        fun fromCode(code: String): Permission? = entries.firstOrNull { it.code == code }
+
         val DEFAULT_ROLE_PERMISSIONS: Map<Role, Set<Permission>> = mapOf(
-            Role.SUPER_ADMIN to values().toSet(),
-            Role.FINANCIAL_OFFICER to values().toSet(),
-            Role.TEACHER to values().toSet(),
-            Role.SUPPORT_STAFF to values().toSet(),
-            Role.MANAGER to values().toSet(),
-            Role.BUYER to values().toSet(),
-            Role.DRIVER to values().toSet(),
-            Role.WAREHOUSE_WORKER to values().toSet(),
-            Role.WORKER to values().toSet(),
+            Role.SUPER_ADMIN to entries.toSet(),
+            Role.FINANCIAL_OFFICER to setOf(
+                VIEW_ROSTER, VIEW_FINANCIALS, COLLECT_PAYMENT, REFUND_PAYMENT,
+                ADJUST_ACCOUNT, GENERATE_RECEIPT, VIEW_DEBT, SEND_REMINDER,
+                SUBMIT_EXPENSE, APPROVE_EXPENSE, DISBURSE_EXPENSE, SETTLE_EXPENSE_PROOF,
+                VIEW_PERSONNEL, VIEW_AUDIT_LOG, VIEW_RELEVE, MANAGE_PRICING,
+                VIEW_WORKFLOW_RUNS, VIEW_DEPARTMENTS, VIEW_SALARY, VIEW_ATTENDANCE,
+                CLOCK_IN_OUT, APPROVE_REQUESTS, SUBMIT_REQUESTS, VIEW_TASKS,
+                UPDATE_TASK_STATUS, VIEW_PERFORMANCE, USE_CHAT, VIEW_WORKFORCE_REPORTS,
+            ),
+            Role.TEACHER to setOf(
+                VIEW_ROSTER, VIEW_ACADEMICS, ENTER_GRADES, ASSIGN_HOMEWORK,
+                ROLL_CALL, VIEW_ATTENDANCE, CLOCK_IN_OUT, SUBMIT_REQUESTS,
+                VIEW_TASKS, UPDATE_TASK_STATUS, USE_CHAT, USE_AI,
+            ),
+            Role.SUPPORT_STAFF to setOf(
+                VIEW_ROSTER, CREATE_PARENT, EDIT_PARENT, CREATE_STUDENT, EDIT_STUDENT,
+                VIEW_ACADEMICS, VIEW_ATTENDANCE, ROLL_CALL, VIEW_FINANCIALS,
+                COLLECT_PAYMENT, GENERATE_RECEIPT, SUBMIT_EXPENSE, CLOCK_IN_OUT,
+                SUBMIT_REQUESTS, VIEW_TASKS, UPDATE_TASK_STATUS, USE_CHAT,
+            ),
+            Role.MANAGER to setOf(
+                VIEW_ROSTER, CREATE_PARENT, EDIT_PARENT, DELETE_PARENT,
+                CREATE_STUDENT, EDIT_STUDENT, PROMOTE_STUDENT, VIEW_ACADEMICS,
+                MANAGE_SUBJECTS, MANAGE_CLASSES, ASSIGN_HOMEWORK, ROLL_CALL,
+                VIEW_FINANCIALS, VIEW_DEBT, SEND_REMINDER, SUBMIT_EXPENSE,
+                APPROVE_EXPENSE, VIEW_PERSONNEL, MANAGE_PERSONNEL, VIEW_AUDIT_LOG,
+                VIEW_RELEVE, MANAGE_SETTINGS, MANAGE_PRICING, VIEW_WORKFLOW_RUNS,
+                EXECUTE_WORKFLOW, USE_AI, VIEW_DEPARTMENTS, MANAGE_DEPARTMENTS,
+                MANAGE_EMPLOYEE_PROFILES, VIEW_SALARY, MANAGE_SCHEDULES,
+                VIEW_ATTENDANCE, CLOCK_IN_OUT, APPROVE_REQUESTS, SUBMIT_REQUESTS,
+                MANAGE_TASKS, VIEW_TASKS, UPDATE_TASK_STATUS, VIEW_PERFORMANCE,
+                MANAGE_PERFORMANCE, USE_CHAT, MANAGE_CHAT_CHANNELS,
+                MANAGE_ONBOARDING, VIEW_WORKFORCE_REPORTS,
+            ),
+            Role.BUYER to setOf(
+                SUBMIT_EXPENSE, CLOCK_IN_OUT, SUBMIT_REQUESTS, VIEW_TASKS,
+                UPDATE_TASK_STATUS, USE_CHAT, MANAGE_PURCHASE_REQUESTS,
+                MANAGE_SUPPLIERS, MANAGE_DELIVERIES, MANAGE_INVENTORY,
+            ),
+            Role.DRIVER to setOf(
+                ACCESS_DRIVER_MODE, CLOCK_IN_OUT, SUBMIT_REQUESTS,
+                VIEW_TASKS, UPDATE_TASK_STATUS, USE_CHAT,
+            ),
+            Role.WAREHOUSE_WORKER to setOf(
+                MANAGE_INVENTORY, MANAGE_DELIVERIES, CLOCK_IN_OUT,
+                SUBMIT_REQUESTS, VIEW_TASKS, UPDATE_TASK_STATUS, USE_CHAT,
+            ),
+            Role.WORKER to setOf(
+                CLOCK_IN_OUT, SUBMIT_REQUESTS, VIEW_TASKS,
+                UPDATE_TASK_STATUS, USE_CHAT,
+            ),
             Role.PARENT to emptySet(),
             Role.STUDENT to emptySet(),
         )

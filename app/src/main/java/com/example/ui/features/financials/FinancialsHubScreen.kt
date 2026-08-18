@@ -34,17 +34,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Permission
 import com.example.core.Session
 import com.example.core.formatDzd
-import com.example.ui.components.ElGradientStatCard
 import com.example.ui.components.ModernSecondaryTabRow
 
-/**
- * Financials hub — restored to use [FinancialsHubViewModel] for aggregated state.
- *
- * KPI cards at the top (collected today, monthly revenue, outstanding debt, pending expenses).
- * 5-tab layout: Encaissement / Preuves / Tranches / Créances / Dépenses.
- *
- * FAB on the "Dépenses" tab → ExpenseSubmit (gated by SUBMIT_EXPENSE).
- */
 @Composable
 fun FinancialsHubScreen(
     session: Session,
@@ -60,13 +51,12 @@ fun FinancialsHubScreen(
     val kpis by viewModel.kpis.collectAsState()
     val recentPayments by viewModel.recentPayments.collectAsState()
     val expenses by viewModel.expenses.collectAsState()
-    val debtors by viewModel.topDebtors.collectAsState()
     val ledgerEntries by viewModel.ledgerEntries.collectAsState()
     val collectedToday by viewModel.collectedToday.collectAsState()
     val pendingExpensesCount by viewModel.pendingExpensesCount.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Encaissement", "Preuves", "Tranches", "Créances", "Dépenses", "Circulation")
+    val tabs = listOf("Encaissements", "Preuves", "Tranches", "Créances", "Dépenses", "Circulation")
 
     Scaffold(
         floatingActionButton = {
@@ -78,19 +68,19 @@ fun FinancialsHubScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // KPI cards row
+            // KPI cards row (divided by 100 for DZD)
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                KpiCard("Encaissé aujourdhui", "${collectedToday.formatDzd()} DZD", Modifier.weight(1f))
-                KpiCard("Revenu mensuel", "${(kpis?.monthlyRevenue ?: 0L).formatDzd()} DZD", Modifier.weight(1f))
+                KpiCard("Encaissé aujourd'hui", "${(collectedToday / 100).formatDzd()} DZD", Modifier.weight(1f))
+                KpiCard("Revenu mensuel", "${((kpis?.monthlyRevenue ?: 0L) / 100).formatDzd()} DZD", Modifier.weight(1f))
             }
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                KpiCard("Créances", "${(kpis?.outstandingDebt ?: 0L).formatDzd()} DZD", Modifier.weight(1f))
+                KpiCard("Créances", "${((kpis?.outstandingDebt ?: 0L) / 100).formatDzd()} DZD", Modifier.weight(1f))
                 KpiCard("Dépenses en attente", pendingExpensesCount.toString(), Modifier.weight(1f))
             }
 
@@ -101,7 +91,7 @@ fun FinancialsHubScreen(
             )
 
             Box(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 6.dp),
                 contentAlignment = Alignment.TopStart,
             ) {
                 when (selectedTab) {
@@ -148,7 +138,7 @@ private fun LedgerCirculationList(entries: List<com.example.core.LedgerEntry>) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(
-                            text = "Type: ${entry.type.code} • Compte: ${entry.accountId}",
+                            text = "Type: ${entry.type.code}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -168,11 +158,12 @@ private fun LedgerCirculationList(entries: List<com.example.core.LedgerEntry>) {
 private fun KpiCard(label: String, value: String, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
-        elevation = CardDefaults.cardElevation(2.dp),
+        elevation = CardDefaults.cardElevation(1.dp),
     ) {
-        Column(modifier = Modifier.padding(8.dp)) {
+        Column(modifier = Modifier.padding(10.dp)) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(2.dp))
+            Text(value, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
         }
     }
 }
@@ -180,17 +171,33 @@ private fun KpiCard(label: String, value: String, modifier: Modifier = Modifier)
 @Composable
 private fun PaymentsList(payments: List<com.example.domain.model.Payment>, onNavigateToPaymentDetail: (String) -> Unit) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(payments.take(30)) { payment ->
+        items(payments.take(50)) { payment ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { onNavigateToPaymentDetail(payment.id) },
                 elevation = CardDefaults.cardElevation(1.dp),
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                    Text(payment.receiptNumber, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Text("${payment.method.code} • ${payment.category.code}", style = MaterialTheme.typography.labelSmall)
-                    Text("${(payment.amount / 100).formatDzd()} DZD", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                    Text(payment.collectedAt.take(10), style = MaterialTheme.typography.labelSmall)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(payment.receiptNumber, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            "${(payment.amount / 100).formatDzd()} DZD",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    Spacer(Modifier.height(3.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text("${payment.method.code.uppercase()} • ${payment.category.code}", style = MaterialTheme.typography.labelSmall)
+                        Text(payment.collectedAt.take(10), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
@@ -207,10 +214,20 @@ private fun ExpensesList(expenses: List<com.example.domain.model.Expense>, onNav
                 elevation = CardDefaults.cardElevation(1.dp),
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                    Text(expense.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(expense.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            "${(expense.amount / 100).formatDzd()} DZD",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    Spacer(Modifier.height(2.dp))
                     Text("${expense.requestCode} • ${expense.status}", style = MaterialTheme.typography.labelSmall)
-                    Text("${(expense.amount / 100).formatDzd()} DZD", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                    Text(expense.payee, style = MaterialTheme.typography.labelSmall)
+                    Text("Bénéficiaire: ${expense.payee}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

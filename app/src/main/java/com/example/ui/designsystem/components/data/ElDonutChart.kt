@@ -24,32 +24,19 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.designsystem.theme.ElTheme
 import kotlin.math.min
 
-// ── ElDonutChart ─────────────────────────────────────────────────────────────
-
-/**
- * Donut chart with center label and legend below.
- *
- * Each [ElDonutSegment] maps to an arc proportional to its value over the
- * sum of all values. The center of the donut shows [centerLabel] /
- * [centerValue] when supplied.
- *
- * @param segments     Donut segments.
- * @param modifier     Outer modifier.
- * @param size         Outer square size of the donut (legend is below).
- * @param centerLabel  Optional small caption inside the donut hole.
- * @param centerValue  Optional large value inside the donut hole.
- */
 @Composable
 fun ElDonutChart(
     segments: List<ElDonutSegment>,
     modifier: Modifier = Modifier,
-    size: Dp = 160.dp,
+    size: Dp = 130.dp,
     centerLabel: String? = null,
     centerValue: String? = null,
 ) {
@@ -71,12 +58,12 @@ fun ElDonutChart(
         ) {
             Canvas(modifier = Modifier.size(size)) {
                 val diameter = min(this.size.width, this.size.height)
-                val stroke = diameter * 0.18f
+                val stroke = diameter * 0.15f
                 val arcSize = Size(diameter - stroke, diameter - stroke)
                 val arcTopLeft = Offset(stroke / 2f, stroke / 2f)
                 val sweepTotal = 360f * progress.value
 
-                var startAngle = -90f // start at top
+                var startAngle = -90f
                 segments.forEach { segment ->
                     val sweep = (segment.value / total) * 360f
                     val cappedSweep = (startAngle + sweep).coerceAtMost(-90f + sweepTotal) - startAngle
@@ -95,46 +82,54 @@ fun ElDonutChart(
                 }
             }
             if (centerValue != null) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                ) {
                     Text(
                         text = centerValue,
                         color = c.textPrimary,
-                        style = ElTheme.textStyles.numeric.copy(
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Black,
+                        style = ElTheme.typography.labelMedium.copy(
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
                         ),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     if (centerLabel != null) {
                         Text(
                             text = centerLabel,
                             color = c.textMuted,
-                            style = ElTheme.typography.labelSmall,
+                            style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
                         )
                     }
                 }
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-        Column {
-            segments.forEach { segment ->
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            segments.take(3).forEach { segment ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(vertical = 2.dp),
+                    modifier = Modifier.padding(horizontal = 4.dp),
                 ) {
-                    Canvas(modifier = Modifier.size(10.dp)) {
+                    Canvas(modifier = Modifier.size(8.dp)) {
                         drawRect(
                             color = segment.color,
                             topLeft = Offset(0f, 0f),
-                            size = Size(10f, 10f),
+                            size = Size(8f, 8f),
                             style = Fill,
                         )
                     }
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(4.dp))
                     Text(
                         text = segment.label,
                         color = c.textSecondary,
-                        style = ElTheme.typography.labelSmall,
+                        style = ElTheme.typography.labelSmall.copy(fontSize = 11.sp),
                     )
                 }
             }

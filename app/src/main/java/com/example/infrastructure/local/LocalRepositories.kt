@@ -5,7 +5,10 @@ import com.example.core.Errors
 import com.example.core.PaymentCategory
 import com.example.core.PaymentMethod
 import com.example.core.PaymentStatus
+import com.example.core.Permission
 import com.example.core.Result
+import com.example.core.Role
+import com.example.core.Session
 import com.example.core.allocatePaymentToInstallments
 import com.example.core.createChargeEntry
 import com.example.core.createPaymentEntry
@@ -54,17 +57,6 @@ import javax.inject.Singleton
 
 /**
  * Hybrid AuthRepository — Supabase-first, local fallback.
- *
- * This makes the app **Supabase-ready**: when real Supabase credentials are
- * configured in `.env` (`SUPABASE_URL` + `SUPABASE_ANON_KEY`), sign-in goes
- * through real Supabase Auth with a 4-second hard timeout. If Supabase is
- * not configured (placeholder credentials) or the network call fails/times
- * out, the repository falls back to a local demo session so the app is
- * always usable offline.
- *
- * This mirrors the desktop's two-stage auth strategy:
- *   Stage 1: real Supabase Auth (with timeout)
- *   Stage 2: resilient demo / offline fallback
  */
 @Singleton
 class LocalAuthRepository @Inject constructor(
@@ -72,12 +64,12 @@ class LocalAuthRepository @Inject constructor(
     private val supabaseProvider: com.example.infrastructure.supabase.SupabaseClientProvider,
 ) : com.example.domain.repository.AuthRepository {
 
-    private val _sessionState = kotlinx.coroutines.flow.MutableStateFlow<com.example.core.Session?>(null)
-    private val sessionState: kotlinx.coroutines.flow.StateFlow<com.example.core.Session?> = _sessionState
+    private val _sessionState = kotlinx.coroutines.flow.MutableStateFlow<Session?>(null)
+    private val sessionState: kotlinx.coroutines.flow.StateFlow<Session?> = _sessionState
 
-    override fun observeSession(): Flow<com.example.core.Session?> = sessionState
+    override fun observeSession(): Flow<Session?> = sessionState
 
-    override suspend fun signIn(email: String, password: String): Result<com.example.core.Session> {
+    override suspend fun signIn(email: String, password: String): Result<Session> {
         // ── Stage 1: try real Supabase Auth (with 8s hard timeout) ──────────
         if (com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) {
             val userInfo = com.example.infrastructure.supabase.NetworkTimeouts.guard<io.github.jan.supabase.auth.user.UserInfo?>(
@@ -104,24 +96,24 @@ class LocalAuthRepository @Inject constructor(
                         .firstOrNull()
                 }
 
-                val role = com.example.core.Role.fromCode(profile?.roleId ?: "")
-                    ?: if (email.contains("finance", ignoreCase = true)) com.example.core.Role.FINANCIAL_OFFICER
-                    else if (email.contains("teacher", ignoreCase = true)) com.example.core.Role.TEACHER
-                    else if (email.contains("manager", ignoreCase = true)) com.example.core.Role.MANAGER
-                    else com.example.core.Role.SUPER_ADMIN
-                val permissions = com.example.core.Permission.DEFAULT_ROLE_PERMISSIONS[role] ?: com.example.core.Permission.entries.toSet()
+                val remoteRole = Role.fromCode(profile?.roleId ?: "")
+                    ?: if (email.contains("finance", ignoreCase = true)) Role.FINANCIAL_OFFICER
+                    else if (email.contains("teacher", ignoreCase = true)) Role.TEACHER
+                    else if (email.contains("manager", ignoreCase = true)) Role.MANAGER
+                    else Role.SUPER_ADMIN
+                val remotePermissions = Permission.DEFAULT_ROLE_PERMISSIONS[remoteRole] ?: Permission.entries.toSet()
 
                 val displayName = profile?.displayName
                     ?: userInfo.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() }
                     ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
-                val session = com.example.core.Session(
+                val session = Session(
                     userId = profile?.id ?: userInfo.id,
                     tenantId = profile?.tenantId ?: "00000000-0000-0000-0000-000000000001",
                     email = profile?.email ?: userInfo.email ?: email,
                     displayName = displayName,
                     avatarUrl = profile?.avatarUrl,
-                    role = role,
-                    permissions = permissions,
+                    role = remoteRole,
+                    permissions = remotePermissions,
                     accessToken = userInfo.id,
                     refreshToken = null,
                     expiresAt = System.currentTimeMillis() + 3_600_000L,
@@ -142,48 +134,52 @@ class LocalAuthRepository @Inject constructor(
                 )
                 return Result.Ok(session)
             }
-            // signIn timed out or failed → fall through to demo.
         }
 
         // ── Stage 2: resilient demo / offline fallback ──────────────────────
-        val role = if (email.contains("admin", ignoreCase = true)) com.example.core.Role.SUPER_ADMIN
-            else if (email.contains("finance", ignoreCase = true)) com.example.core.Role.FINANCIAL_OFFICER
-            else if (email.contains("teacher", ignoreCase = true)) com.example.core.Role.TEACHER
-            else if (email.contains("manager", ignoreCase = true)) com.example.core.Role.MANAGER
-            else com.example.core.Role.SUPER_ADMIN
-        val permissions = com.example.core.Permission.DEFAULT_ROLE_PERMISSIONS[role] ?: com.example.core.Permission.entries.toSet()
+        val fallbackRole: Role = when {
+            email.contains("finance", ignoreCase = true) -> Role.FINANCIAL_OFFICER
+            email.contains("teacher", ignoreCase = true) -> Role.TEACHER
+            email.contains("manager", ignoreCase = true) -> Role.MANAGER
+            email.contains("support", ignoreCase = true) -> Role.SUPPORT_STAFF
+            email.contains("buyer", ignoreCase = true) -> Role.BUYER
+            email.contains("driver", ignoreCase = true) -> Role.DRIVER
+            email.contains("warehouse", ignoreCase = true) -> Role.WAREHOUSE_WORKER
+            email.contains("worker", ignoreCase = true) -> Role.WORKER
+            else -> Role.SUPER_ADMIN
+        }
+        val fallbackPermissions = Permission.DEFAULT_ROLE_PERMISSIONS[fallbackRole] ?: Permission.entries.toSet()
 
-        val session = com.example.core.Session(
-            userId = "usr-local-${role.code}",
+        val localSession = Session(
+            userId = "usr-local-${fallbackRole.code}",
             tenantId = "00000000-0000-0000-0000-000000000001",
             email = email.ifBlank { "admin@elimtiyaz.dz" },
             displayName = email.substringBefore("@").replaceFirstChar { it.uppercase() }.ifBlank { "Administrateur" },
             avatarUrl = null,
-            role = role,
-            permissions = permissions,
+            role = fallbackRole,
+            permissions = fallbackPermissions,
             accessToken = "local-${System.currentTimeMillis()}",
             refreshToken = null,
             expiresAt = System.currentTimeMillis() + 86_400_000L,
             locale = "fr",
         )
-        _sessionState.value = session
+        _sessionState.value = localSession
         auditDao.upsert(
             AuditLogEntity(
                 id = "aud-${UUID.randomUUID()}",
-                tenantId = session.tenantId,
+                tenantId = localSession.tenantId,
                 action = AuditActions.AUTH_LOGIN,
-                entityType = "auth", entityId = session.userId,
-                actorId = session.userId, actorName = session.displayName,
-                actorRole = session.role.code,
-                beforeJson = null, afterJson = """{"email":"${session.email}","source":"local"}""",
+                entityType = "auth", entityId = localSession.userId,
+                actorId = localSession.userId, actorName = localSession.displayName,
+                actorRole = localSession.role.code,
+                beforeJson = null, afterJson = """{"email":"${localSession.email}","source":"local"}""",
                 note = "Local sign-in (offline mode)", createdAt = Instant.now().toString(),
             )
         )
-        return Result.Ok(session)
+        return Result.Ok(localSession)
     }
 
     override suspend fun signOut(): Result<Unit> {
-        // Best-effort remote sign-out (don't block on it).
         if (com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) {
             com.example.infrastructure.supabase.NetworkTimeouts.guard<Unit>("auth.signOut", timeoutMs = 2_000L) {
                 supabaseProvider.auth.signOut()
@@ -207,14 +203,11 @@ class LocalAuthRepository @Inject constructor(
         return Result.Ok(Unit)
     }
 
-    override suspend fun refreshSession(): Result<com.example.core.Session?> {
-        // If we already have an in-memory session, return it.
+    override suspend fun refreshSession(): Result<Session?> {
         _sessionState.value?.let { return Result.Ok(it) }
 
-        // If Supabase isn't configured, there's nothing to restore.
         if (!com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) return Result.Ok(null)
 
-        // Try to restore from the Supabase Auth plugin's persistent storage.
         val current = com.example.infrastructure.supabase.NetworkTimeouts.guard<io.github.jan.supabase.auth.user.UserInfo?>(
             "auth.refreshSession", timeoutMs = 3_000L, onlyIfConfigured = false,
         ) {
@@ -233,21 +226,22 @@ class LocalAuthRepository @Inject constructor(
                 .firstOrNull()
         } ?: return Result.Ok(null)
 
-        val displayName = profile?.displayName
+        val displayName = profile.displayName
             ?: current.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() }
             ?: "Administrateur"
-        val session = com.example.core.Session(
-            userId = profile?.id ?: current.id,
-            tenantId = profile?.tenantId ?: "00000000-0000-0000-0000-000000000001",
-            email = profile?.email ?: current.email ?: "",
+        val restoredRole = Role.fromCode(profile.roleId ?: "") ?: Role.SUPER_ADMIN
+        val session = Session(
+            userId = profile.id,
+            tenantId = profile.tenantId ?: "00000000-0000-0000-0000-000000000001",
+            email = profile.email ?: current.email ?: "",
             displayName = displayName,
-            avatarUrl = profile?.avatarUrl,
-            role = com.example.core.Role.SUPER_ADMIN,
-            permissions = com.example.core.Permission.entries.toSet(),
+            avatarUrl = profile.avatarUrl,
+            role = restoredRole,
+            permissions = Permission.DEFAULT_ROLE_PERMISSIONS[restoredRole] ?: Permission.entries.toSet(),
             accessToken = current.id,
             refreshToken = null,
             expiresAt = System.currentTimeMillis() + 3_600_000L,
-            locale = profile?.locale ?: "fr",
+            locale = profile.locale ?: "fr",
         )
         _sessionState.value = session
         return Result.Ok(session)
@@ -394,11 +388,6 @@ class LocalStudentRepository @Inject constructor(
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 
-    /**
-     * Atomic batch registration — creates parent + N students + ledger charges
-     * + installments in a single transaction. Mirrors the desktop's
-     * `batch_register_family` RPC and `compute-billing.ts` single-pass pricing.
-     */
     override suspend fun batchRegister(parent: CreateParentInput, students: List<CreateStudentInput>, actorId: String, actorName: String): Result<BatchRegisterResult> {
         if (students.isEmpty()) return Result.Err(Errors.validation("At least one student is required"))
         val now = Instant.now().toString()
@@ -523,7 +512,7 @@ class LocalStudentRepository @Inject constructor(
     }
 }
 
-// ─── Payment Repository (with waterfall allocation) ─────────────────────────
+// ─── Payment Repository ─────────────────────────────────────────────────────
 
 @Singleton
 class LocalPaymentRepository @Inject constructor(
@@ -546,14 +535,6 @@ class LocalPaymentRepository @Inject constructor(
     override fun observeById(id: String): Flow<Payment?> =
         paymentDao.observeById(id).map { it?.let { e -> LocalMappers.run { e.toDomain() } } }
 
-    /**
-     * Collect a payment — mirrors the desktop's `collect_and_allocate_payment` RPC:
-     *   1. Validate amount + method + proof requirement.
-     *   2. Create payment record (cash=paid, check/transfer=pending).
-     *   3. Append signed ledger entry (negative = credit).
-     *   4. Waterfall-allocate against unpaid installments.
-     *   5. Overpayment → parent_credit adjustment.
-     */
     override suspend fun collect(input: CollectPaymentInput, actorId: String, actorName: String): Result<Payment> {
         if (input.amount <= 0L) return Result.Err(Errors.validation("Amount must be > 0"))
         if (input.method.requiresProof && input.proofPath.isNullOrBlank())
