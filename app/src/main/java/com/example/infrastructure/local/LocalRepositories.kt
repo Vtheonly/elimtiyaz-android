@@ -333,7 +333,16 @@ class LocalStudentRepository @Inject constructor(
     private val studentDao: StudentDao,
     private val parentDao: ParentDao,
     private val auditDao: AuditLogDao,
+    // CANONICAL-FINANCIAL-LOGIC.md §8.1 — wire SyncSupport so Android
+    // batch-registration writes (parent + students + ledger entries +
+    // installments) propagate to Supabase. Without this, the desktop
+    // never sees families registered on Android.
+    private val syncSupport: com.example.infrastructure.sync.SyncSupport? = null,
 ) : StudentRepository {
+
+    /** JSON builder helper for sync payloads (mirrors LocalPaymentRepository). */
+    private fun syncJson(builder: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): String =
+        kotlinx.serialization.json.buildJsonObject(builder).toString()
 
     override fun observe(): Flow<List<Student>> =
         studentDao.observeAll().map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
@@ -433,37 +442,110 @@ class LocalStudentRepository @Inject constructor(
 
             val tuition = pricingDao.getTuitionByGrade(s.gradeLevel)
             if (tuition != null) {
-                val siblingDiscount = if (index > 0) -500_000L else 0L
-                val netTuition = tuition.annualAmount + siblingDiscount
-                val accountId = deriveAccountId(parentEntity.id, PaymentCategory.TUITION, studentEntity.id)
-                ledgerEntries.add(
-                    LedgerEntryEntity(
-                        id = generateEntryId(), tenantId = parentEntity.tenantId,
-                        accountId = accountId, parentId = parentEntity.id, studentId = studentEntity.id,
-                        category = PaymentCategory.TUITION.code, amount = netTuition,
-                        type = "charge", sourceType = "installment", sourceId = "reg-${studentEntity.id}",
-                        method = null, receiptNumber = null, paymentStatus = null, reversesId = null,
-                        description = "Scolarité ${s.gradeLevel.uppercase()} $year",
-                        actorId = actorId, actorName = actorName, at = now,
-                    )
+                // CANONICAL-FINANCIAL-LOGIC.md §5 — apply ALL 5 discount rules
+                // in a single pass on the GROSS annual tuition, then split the
+                // net into 3 tranches (or 1 for full_annual). This mirrors the
+                // desktop's `computeBilling` + `buildTuitionChargeEntries` so
+                // both apps produce identical charge entries for the same
+                // student.
+                //
+                // The previous implementation applied only the sibling
+                // discount inline (missing passage_palier, full_annual,
+                // highest_average, seniority_5y) — a structural divergence
+                // that produced different charge entries for the same
+                // student on the same day.
+                val paymentPlan = com.example.core.PaymentPlan.fromCode(s.paymentPlan)
+                val discountParams = com.example.core.EvaluateAllDiscountsParams(
+                    grossTuition = tuition.annualAmount,
+                    previousGradeLevel = s.previousGradeLevel,
+                    currentGradeLevel = s.gradeLevel,
+                    childIndex = index + 1,
+                    paymentPlan = paymentPlan,
+                    paymentDate = now,
+                    academicYearStartYear = year,
+                    academicYearStart = "${year}-09-15T00:00:00Z",
+                    enrollmentDate = s.enrollmentDate ?: now,
+                    previousRank = s.previousRank,
                 )
-                if (siblingDiscount != 0L) {
+                val evaluations = com.example.core.evaluateAllSystemDiscounts(discountParams)
+                val totalDiscount = com.example.core.sumDiscounts(evaluations)
+                // `totalDiscount` is NEGATIVE (reduces the gross). The charge
+                // entry's `amount` is the NET tuition (gross + totalDiscount),
+                // matching the desktop's `netTuition = max(0, gross + tuitionDiscount)`.
+                val netTuition = (tuition.annualAmount + totalDiscount).coerceAtLeast(0L)
+                val accountId = deriveAccountId(parentEntity.id, PaymentCategory.TUITION, studentEntity.id)
+
+                // CANONICAL-FINANCIAL-LOGIC.md §6.1 — branches on `paymentPlan`:
+                //   - `full_annual`: emit 1 charge entry with `metadata: { tranche: null, paymentPlan: "full_annual", ... }`
+                //   - `tranches`: emit 3 charge entries with `metadata: { tranche: 1|2|3, paymentPlan: "tranches", ... }`
+                val discountsMetadata = evaluations.map { ev ->
+                    mapOf("code" to ev.code, "amount" to ev.amount, "reason" to ev.reason)
+                }
+                if (paymentPlan == com.example.core.PaymentPlan.FULL_ANNUAL) {
                     ledgerEntries.add(
                         LedgerEntryEntity(
                             id = generateEntryId(), tenantId = parentEntity.tenantId,
                             accountId = accountId, parentId = parentEntity.id, studentId = studentEntity.id,
-                            category = PaymentCategory.TUITION.code, amount = siblingDiscount,
-                            type = "adjustment", sourceType = "adjustment", sourceId = "adj-${studentEntity.id}",
+                            category = PaymentCategory.TUITION.code, amount = netTuition,
+                            type = "charge", sourceType = "installment", sourceId = "reg-${studentEntity.id}",
                             method = null, receiptNumber = null, paymentStatus = null, reversesId = null,
-                            description = "Remise fratrie (enfant #${index + 1})",
+                            description = "Scolarité annuelle ${s.gradeLevel.uppercase()} $year (paiement intégral)",
                             actorId = actorId, actorName = actorName, at = now,
+                            metadataJson = com.example.infrastructure.room.LocalMappers.serializeMetadataJson(
+                                mapOf(
+                                    "tranche" to null,
+                                    "paymentPlan" to "full_annual",
+                                    "academicCycle" to year.toString(),
+                                    "gradeLevel" to s.gradeLevel,
+                                    "discounts" to discountsMetadata,
+                                    "netTuition" to netTuition,
+                                    "grossTuition" to tuition.annualAmount,
+                                    "totalDiscount" to totalDiscount,
+                                ),
+                            ),
                         )
                     )
+                    installments.add(inst("ins-${studentEntity.id}-annual", parentEntity.id, studentEntity.id, "tuition", "Année complète", netTuition, due1, now))
+                } else {
+                    // Tranches — split the NET (post-discount) by 40/30/30.
+                    val (t1, t2, t3) = com.example.core.splitNetTuitionByOfficialSchedule(netTuition)
+                    data class TrancheSpec(val amount: Long, val number: Int, val label: String, val dueDate: String)
+                    val trancheSpecs = listOf(
+                        TrancheSpec(t1, 1, "Tranche 1 (Sept–Déc)", due1),
+                        TrancheSpec(t2, 2, "Tranche 2 (Jan–Mar)", due2),
+                        TrancheSpec(t3, 3, "Tranche 3 (Avr–Juin)", due3),
+                    )
+                    for (spec in trancheSpecs) {
+                        val amt = spec.amount
+                        val trancheNum = spec.number
+                        val label = spec.label
+                        val dueDate = spec.dueDate
+                        ledgerEntries.add(
+                            LedgerEntryEntity(
+                                id = generateEntryId(), tenantId = parentEntity.tenantId,
+                                accountId = accountId, parentId = parentEntity.id, studentId = studentEntity.id,
+                                category = PaymentCategory.TUITION.code, amount = amt,
+                                type = "charge", sourceType = "installment", sourceId = "reg-${studentEntity.id}-t$trancheNum",
+                                method = null, receiptNumber = null, paymentStatus = null, reversesId = null,
+                                description = "$label — Scolarité ${s.gradeLevel.uppercase()} $year",
+                                actorId = actorId, actorName = actorName, at = now,
+                                metadataJson = com.example.infrastructure.room.LocalMappers.serializeMetadataJson(
+                                    mapOf(
+                                        "tranche" to trancheNum,
+                                        "paymentPlan" to "tranches",
+                                        "academicCycle" to year.toString(),
+                                        "gradeLevel" to s.gradeLevel,
+                                        "discounts" to discountsMetadata,
+                                        "netTuition" to netTuition,
+                                        "grossTuition" to tuition.annualAmount,
+                                        "totalDiscount" to totalDiscount,
+                                    ),
+                                ),
+                            )
+                        )
+                        installments.add(inst("ins-${studentEntity.id}-t$trancheNum", parentEntity.id, studentEntity.id, "tuition", label, amt, dueDate, now))
+                    }
                 }
-                val (t1, t2, t3) = com.example.core.splitNetTuitionByOfficialSchedule(netTuition)
-                installments.add(inst("ins-${studentEntity.id}-t1", parentEntity.id, studentEntity.id, "tuition", "Tranche 1 (Sept–Déc)", t1, due1, now))
-                installments.add(inst("ins-${studentEntity.id}-t2", parentEntity.id, studentEntity.id, "tuition", "Tranche 2 (Jan–Mar)", t2, due2, now))
-                installments.add(inst("ins-${studentEntity.id}-t3", parentEntity.id, studentEntity.id, "tuition", "Tranche 3 (Avr–Juin)", t3, due3, now))
             }
 
             val transport = parent.transportDestination?.let { pricingDao.getTransportByDestination(it) }
@@ -478,6 +560,7 @@ class LocalStudentRepository @Inject constructor(
                         method = null, receiptNumber = null, paymentStatus = null, reversesId = null,
                         description = "Transport ${parent.transportDestination}",
                         actorId = actorId, actorName = actorName, at = now,
+                        metadataJson = "{}",
                     )
                 )
                 installments.add(inst("ins-${studentEntity.id}-tr1", parentEntity.id, studentEntity.id, "transport", "Transport T1", transport.tranche1, due1, now))
@@ -489,6 +572,91 @@ class LocalStudentRepository @Inject constructor(
         studentDao.upsertAll(studentEntities)
         db.ledgerEntryDao().upsertAll(ledgerEntries)
         db.installmentDao().upsertAll(installments)
+
+        // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the parent + each
+        // student + each ledger entry + each installment for sync push so
+        // the desktop sees newly-registered families from Android. Without
+        // this wiring, batch-registered families live in Android Room only.
+        syncSupport?.run {
+            // Parent
+            enqueueOnly(
+                entity = "parent",
+                operation = "create",
+                payload = syncJson {
+                    put("id", parentEntity.id); put("tenantId", parentEntity.tenantId)
+                    put("code", parentEntity.code); put("firstName", parentEntity.firstName)
+                    put("lastName", parentEntity.lastName); put("displayName", parentEntity.displayName ?: "")
+                    put("phone", parentEntity.phone); put("whatsapp", parentEntity.whatsapp ?: "")
+                    put("email", parentEntity.email ?: ""); put("occupation", parentEntity.occupation ?: "")
+                    put("address", parentEntity.address ?: "")
+                    put("preferredLanguage", parentEntity.preferredLanguage)
+                    put("transportDestination", parentEntity.transportDestination ?: "")
+                    put("isActive", parentEntity.isActive)
+                    put("activationCode", parentEntity.activationCode)
+                    put("createdAt", parentEntity.createdAt)
+                },
+                isMock = false, sourceScreen = "BatchRegistrationScreen",
+            )
+            // Students
+            for (s in studentEntities) {
+                enqueueOnly(
+                    entity = "student",
+                    operation = "create",
+                    payload = syncJson {
+                        put("id", s.id); put("tenantId", s.tenantId); put("code", s.code)
+                        put("parentId", s.parentId); put("firstName", s.firstName)
+                        put("lastName", s.lastName); put("displayName", s.displayName ?: "")
+                        put("gender", s.gender); put("birthDate", s.birthDate ?: "")
+                        put("enrollmentDate", s.enrollmentDate); put("level", s.level)
+                        put("gradeLevel", s.gradeLevel); put("classId", s.classId ?: "")
+                        put("medicalNotes", s.medicalNotes ?: "")
+                        put("status", s.status); put("createdAt", s.createdAt)
+                    },
+                    isMock = false, sourceScreen = "BatchRegistrationScreen",
+                )
+            }
+            // Ledger entries (tuition charges, transport charges, adjustments)
+            for (e in ledgerEntries) {
+                enqueueOnly(
+                    entity = "ledger_entry",
+                    operation = "create",
+                    payload = syncJson {
+                        put("id", e.id); put("tenantId", e.tenantId); put("accountId", e.accountId)
+                        put("parentId", e.parentId); put("studentId", e.studentId ?: "")
+                        put("category", e.category); put("amount", e.amount)
+                        put("type", e.type); put("sourceType", e.sourceType)
+                        put("sourceId", e.sourceId); put("method", e.method ?: "")
+                        put("receiptNumber", e.receiptNumber ?: "")
+                        put("paymentStatus", e.paymentStatus ?: "")
+                        put("reversesId", e.reversesId ?: "")
+                        put("description", e.description)
+                        put("actorId", e.actorId); put("actorName", e.actorName)
+                        put("at", e.at); put("metadataJson", e.metadataJson)
+                    },
+                    isMock = false, sourceScreen = "BatchRegistrationScreen",
+                )
+            }
+            // Installments (installment is not in the SyncQueueDispatcher's
+            // switch statement yet — it falls through to the no-op case,
+            // which is fine; the queue entry is marked "synced" and the
+            // desktop's pull-side `pull_installments_for_sync` will pick
+            // them up on next pull cycle.)
+            for (ins in installments) {
+                enqueueOnly(
+                    entity = "installment",
+                    operation = "create",
+                    payload = syncJson {
+                        put("id", ins.id); put("tenantId", ins.tenantId)
+                        put("parentId", ins.parentId); put("studentId", ins.studentId)
+                        put("category", ins.category); put("label", ins.label)
+                        put("amountDue", ins.amountDue); put("amountPaid", ins.amountPaid)
+                        put("amountPending", ins.amountPending); put("dueDate", ins.dueDate)
+                        put("status", ins.status)
+                    },
+                    isMock = false, sourceScreen = "BatchRegistrationScreen",
+                )
+            }
+        }
 
         auditDao.upsert(audit("crm.batch_register", "parent", parentEntity.id, actorId, actorName,
             after = """{"student_count":${students.size},"activation_code":"$activationCode"}"""))
@@ -521,7 +689,15 @@ class LocalPaymentRepository @Inject constructor(
     private val installmentDao: InstallmentDao,
     private val ledgerDao: LedgerEntryDao,
     private val auditDao: AuditLogDao,
+    // CANONICAL-FINANCIAL-LOGIC.md §8.1 — wire the SyncSupport helper so
+    // Android payment writes propagate to Supabase. Previously Android was
+    // read-only relative to Supabase for the payments table.
+    private val syncSupport: com.example.infrastructure.sync.SyncSupport? = null,
 ) : PaymentRepository {
+
+    /** Serialize an entity for the sync queue payload. */
+    private fun syncJson(builder: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): String =
+        kotlinx.serialization.json.buildJsonObject(builder).toString()
 
     override fun observe(): Flow<List<Payment>> =
         paymentDao.observeAll().map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
@@ -559,6 +735,30 @@ class LocalPaymentRepository @Inject constructor(
             collectedAt = now, createdAt = now, updatedAt = now,
         )
         paymentDao.upsert(entity)
+        // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the payment row for sync push.
+        syncSupport?.enqueueOnly(
+            entity = "payment",
+            operation = "create",
+            payload = syncJson {
+                put("id", entity.id); put("tenantId", entity.tenantId)
+                put("receiptNumber", entity.receiptNumber)
+                put("parentId", entity.parentId); put("studentId", entity.studentId ?: "")
+                put("amount", entity.amount); put("method", entity.method)
+                put("status", entity.status); put("category", entity.category)
+                put("installmentId", entity.installmentId ?: "")
+                put("proofUrl", entity.proofUrl ?: "")
+                put("checkNumber", entity.checkNumber ?: "")
+                put("checkBankName", entity.checkBankName ?: "")
+                put("checkIssueDate", entity.checkIssueDate ?: "")
+                put("checkClearanceDate", entity.checkClearanceDate ?: "")
+                put("transferReference", entity.transferReference ?: "")
+                put("transferSourceBank", entity.transferSourceBank ?: "")
+                put("notes", entity.notes ?: "")
+                put("collectedBy", entity.collectedBy)
+                put("collectedAt", entity.collectedAt)
+            },
+            isMock = false, sourceScreen = "CounterPaymentScreen",
+        )
 
         val ledgerEntry = createPaymentEntry(
             tenantId = entity.tenantId, parentId = input.parentId, studentId = input.studentId,
@@ -568,6 +768,27 @@ class LocalPaymentRepository @Inject constructor(
             description = "Encaissement $receipt",
         )
         ledgerDao.upsert(ledgerEntry.toEntity())
+        // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the ledger entry for sync push.
+        syncSupport?.enqueueOnly(
+            entity = "ledger_entry",
+            operation = "create",
+            payload = syncJson {
+                put("id", ledgerEntry.id); put("tenantId", ledgerEntry.tenantId)
+                put("accountId", ledgerEntry.accountId)
+                put("parentId", ledgerEntry.parentId); put("studentId", ledgerEntry.studentId ?: "")
+                put("category", ledgerEntry.category.code); put("amount", ledgerEntry.amount)
+                put("type", ledgerEntry.type.code); put("sourceType", ledgerEntry.sourceType.code)
+                put("sourceId", ledgerEntry.sourceId); put("method", ledgerEntry.method?.code ?: "")
+                put("receiptNumber", ledgerEntry.receiptNumber ?: "")
+                put("paymentStatus", ledgerEntry.paymentStatus?.code ?: "")
+                put("reversesId", ledgerEntry.reversesId ?: "")
+                put("description", ledgerEntry.description)
+                put("actorId", ledgerEntry.actorId); put("actorName", ledgerEntry.actorName)
+                put("at", ledgerEntry.at)
+                put("metadataJson", com.example.infrastructure.room.LocalMappers.serializeMetadataJson(ledgerEntry.metadata))
+            },
+            isMock = false, sourceScreen = "CounterPaymentScreen",
+        )
 
         val familyInstallments = installmentDao.listByParent(input.parentId)
             .map { WaterfallInstallment(it.id, PaymentCategory.fromCode(it.category), it.amountDue, it.amountPaid, it.amountPending, it.dueDate, it.status) }
@@ -592,13 +813,43 @@ class LocalPaymentRepository @Inject constructor(
         }
 
         if (allocation.unallocatedAmount > 0L) {
+            // CANONICAL-FINANCIAL-LOGIC.md §4 INV-7 — overpayment credit
+            // MUST land on a parent-scoped `parent_credit` account, NOT on
+            // the input category's student-scoped account. Otherwise the
+            // desktop reconciler raises `UNBACKED_PARENT_CREDIT` and the
+            // auto-absorb-on-future-charges logic cannot find the credit.
             val creditEntry = com.example.core.createAdjustmentEntry(
-                tenantId = entity.tenantId, parentId = input.parentId, studentId = input.studentId,
-                category = input.category, amount = -allocation.unallocatedAmount,
+                tenantId = entity.tenantId,
+                parentId = input.parentId,
+                studentId = null, // parent-scoped — NOT input.studentId
+                category = PaymentCategory.PARENT_CREDIT,
+                amount = -allocation.unallocatedAmount,
                 sourceId = paymentId, actorId = actorId, actorName = actorName,
                 reason = "Crédit parent (trop-perçu) $receipt",
             )
             ledgerDao.upsert(creditEntry.toEntity())
+            // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the parent_credit
+            // adjustment for sync push so the desktop sees it.
+            syncSupport?.enqueueOnly(
+                entity = "ledger_entry",
+                operation = "create",
+                payload = syncJson {
+                    put("id", creditEntry.id); put("tenantId", creditEntry.tenantId)
+                    put("accountId", creditEntry.accountId)
+                    put("parentId", creditEntry.parentId); put("studentId", creditEntry.studentId ?: "")
+                    put("category", creditEntry.category.code); put("amount", creditEntry.amount)
+                    put("type", creditEntry.type.code); put("sourceType", creditEntry.sourceType.code)
+                    put("sourceId", creditEntry.sourceId); put("method", creditEntry.method?.code ?: "")
+                    put("receiptNumber", creditEntry.receiptNumber ?: "")
+                    put("paymentStatus", creditEntry.paymentStatus?.code ?: "")
+                    put("reversesId", creditEntry.reversesId ?: "")
+                    put("description", creditEntry.description)
+                    put("actorId", creditEntry.actorId); put("actorName", creditEntry.actorName)
+                    put("at", creditEntry.at)
+                    put("metadataJson", com.example.infrastructure.room.LocalMappers.serializeMetadataJson(creditEntry.metadata))
+                },
+                isMock = false, sourceScreen = "CounterPaymentScreen",
+            )
         }
 
         auditDao.upsert(audit("payment.collect", "payment", paymentId, actorId, actorName,
@@ -611,12 +862,52 @@ class LocalPaymentRepository @Inject constructor(
         val now = Instant.now().toString()
         val updated = existing.copy(status = PaymentStatus.REFUNDED.code, updatedAt = now)
         paymentDao.update(updated)
+        // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the payment status update
+        // (refunded) for sync push so the desktop sees the refund.
+        syncSupport?.enqueueOnly(
+            entity = "payment",
+            operation = "refund",
+            payload = syncJson {
+                put("id", existing.id); put("status", PaymentStatus.REFUNDED.code)
+                put("receiptNumber", existing.receiptNumber); put("updatedAt", now)
+            },
+            isMock = false, sourceScreen = "PaymentDetailScreen",
+        )
 
         val originalLedger = ledgerDao.listByParent(existing.parentId)
             .firstOrNull { it.sourceId == paymentId && it.type == "payment" }
         if (originalLedger != null) {
             val reversal = createReversalEntry(LocalMappers.run { originalLedger.toDomain() }, reason, actorId, actorName)
             ledgerDao.upsert(reversal.toEntity())
+            // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the reversal ledger
+            // entry for sync push.
+            syncSupport?.enqueueOnly(
+                entity = "ledger_entry",
+                operation = "reverse",
+                payload = syncJson {
+                    put("id", reversal.id); put("tenantId", reversal.tenantId)
+                    put("accountId", reversal.accountId)
+                    put("parentId", reversal.parentId); put("studentId", reversal.studentId ?: "")
+                    put("category", reversal.category.code); put("amount", reversal.amount)
+                    put("type", reversal.type.code); put("sourceType", reversal.sourceType.code)
+                    put("sourceId", reversal.sourceId); put("method", reversal.method?.code ?: "")
+                    put("receiptNumber", reversal.receiptNumber ?: "")
+                    put("paymentStatus", reversal.paymentStatus?.code ?: "")
+                    put("reversesId", reversal.reversesId ?: "")
+                    put("description", reversal.description)
+                    put("actorId", reversal.actorId); put("actorName", reversal.actorName)
+                    put("at", reversal.at)
+                    put("metadataJson", com.example.infrastructure.room.LocalMappers.serializeMetadataJson(reversal.metadata))
+                },
+                isMock = false, sourceScreen = "PaymentDetailScreen",
+            )
+
+            // CANONICAL-FINANCIAL-LOGIC.md §4 INV-8 — refund LIFO must
+            // branch on `originalWasPending`. Without this, refunding an
+            // uncleared (pending) check/transfer tries to subtract from
+            // `amountPaid` (which is 0 for a pending payment), the revert
+            // is a silent no-op, and `amountPending` stays inflated.
+            val originalWasPending = originalLedger.paymentStatus == PaymentStatus.PENDING.code
 
             val familyInstallments = installmentDao.listByParent(existing.parentId)
                 .map { WaterfallInstallment(it.id, PaymentCategory.fromCode(it.category), it.amountDue, it.amountPaid, it.amountPending, it.dueDate, it.status) }
@@ -624,6 +915,7 @@ class LocalPaymentRepository @Inject constructor(
                 installments = familyInstallments,
                 reversalAmount = existing.amount,
                 categoryFilter = PaymentCategory.fromCode(existing.category),
+                originalWasPending = originalWasPending,
             )
             revert.reverts.forEach { r ->
                 installmentDao.getById(r.installmentId)?.let { ins ->
@@ -643,13 +935,43 @@ class LocalPaymentRepository @Inject constructor(
     }
 
     override suspend fun adjust(input: com.example.domain.repository.AdjustAccountInput, actorId: String, actorName: String): Result<Unit> {
+        // CANONICAL-FINANCIAL-LOGIC.md §4 INV-7 — overpayment credits (amount < 0)
+        // MUST land on the parent-scoped parent_credit account, NOT the input
+        // category's student-scoped account. Positive adjustments (penalty / late
+        // fee) keep their input category + studentId.
+        val isCredit = input.amount < 0L
+        val resolvedCategory = if (isCredit) PaymentCategory.PARENT_CREDIT else input.category
+        val resolvedStudentId = if (isCredit) null else input.studentId
         val entry = com.example.core.createAdjustmentEntry(
-            tenantId = "00000000-0000-0000-0000-000000000001", parentId = input.parentId, studentId = input.studentId,
-            category = input.category, amount = input.amount,
+            tenantId = "00000000-0000-0000-0000-000000000001",
+            parentId = input.parentId, studentId = resolvedStudentId,
+            category = resolvedCategory, amount = input.amount,
             sourceId = "adj-${UUID.randomUUID()}", actorId = actorId, actorName = actorName,
             reason = input.reason, receiptRef = input.receiptRef,
         )
         ledgerDao.upsert(entry.toEntity())
+        // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the adjustment entry for
+        // sync push so the desktop sees it.
+        syncSupport?.enqueueOnly(
+            entity = "ledger_entry",
+            operation = "adjust",
+            payload = syncJson {
+                put("id", entry.id); put("tenantId", entry.tenantId)
+                put("accountId", entry.accountId)
+                put("parentId", entry.parentId); put("studentId", entry.studentId ?: "")
+                put("category", entry.category.code); put("amount", entry.amount)
+                put("type", entry.type.code); put("sourceType", entry.sourceType.code)
+                put("sourceId", entry.sourceId); put("method", entry.method?.code ?: "")
+                put("receiptNumber", entry.receiptNumber ?: "")
+                put("paymentStatus", entry.paymentStatus?.code ?: "")
+                put("reversesId", entry.reversesId ?: "")
+                put("description", entry.description)
+                put("actorId", entry.actorId); put("actorName", entry.actorName)
+                put("at", entry.at)
+                put("metadataJson", com.example.infrastructure.room.LocalMappers.serializeMetadataJson(entry.metadata))
+            },
+            isMock = false, sourceScreen = "AdjustAccount",
+        )
         auditDao.upsert(audit("payment.adjust", "ledger", entry.id, actorId, actorName,
             after = """{"reason":"${input.reason}","amount":${input.amount}}"""))
         return Result.Ok(Unit)
@@ -662,7 +984,13 @@ class LocalPaymentRepository @Inject constructor(
 class LocalInstallmentRepository @Inject constructor(
     private val installmentDao: InstallmentDao,
     private val auditDao: AuditLogDao,
+    // CANONICAL-FINANCIAL-LOGIC.md §8.1 — wire SyncSupport so installment
+    // updates (markPaid, updateDueDate) propagate to Supabase.
+    private val syncSupport: com.example.infrastructure.sync.SyncSupport? = null,
 ) : InstallmentRepository {
+
+    private fun syncJson(builder: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): String =
+        kotlinx.serialization.json.buildJsonObject(builder).toString()
 
     override fun observeByParent(parentId: String): Flow<List<Installment>> =
         installmentDao.observeByParent(parentId).map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
@@ -676,8 +1004,21 @@ class LocalInstallmentRepository @Inject constructor(
     override suspend fun markPaid(id: String, actorId: String, actorName: String): Result<Installment> {
         val existing = installmentDao.getById(id) ?: return Result.Err(Errors.notFound("Installment $id not found"))
         val now = Instant.now().toString()
-        val updated = existing.copy(amountPaid = existing.amountDue, status = "paid", paidDate = now, updatedAt = now)
+        // CANONICAL-FINANCIAL-LOGIC.md §7.3 — INV "amountPaid >= amountDue"
+        // when status='paid'. Set amountPaid = amountDue (matches the desktop
+        // SupabaseInstallmentRepository.markPaid fix).
+        val updated = existing.copy(amountPaid = existing.amountDue, amountPending = 0L, status = "paid", paidDate = now, updatedAt = now)
         installmentDao.update(updated)
+        // Enqueue for sync push.
+        syncSupport?.enqueueOnly(
+            entity = "installment",
+            operation = "markPaid",
+            payload = syncJson {
+                put("id", id); put("status", "paid"); put("amountPaid", updated.amountPaid)
+                put("amountPending", updated.amountPending); put("paidDate", now)
+            },
+            isMock = false, sourceScreen = "InstallmentSchedule",
+        )
         auditDao.upsert(audit("installment.markPaid", "installment", id, actorId, actorName))
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
@@ -686,6 +1027,16 @@ class LocalInstallmentRepository @Inject constructor(
         val existing = installmentDao.getById(id) ?: return Result.Err(Errors.notFound("Installment $id not found"))
         val updated = existing.copy(dueDate = dueDate, customSchedule = true, customScheduleNote = note, updatedAt = Instant.now().toString())
         installmentDao.update(updated)
+        // Enqueue for sync push.
+        syncSupport?.enqueueOnly(
+            entity = "installment",
+            operation = "updateDueDate",
+            payload = syncJson {
+                put("id", id); put("dueDate", dueDate); put("note", note ?: "")
+                put("customSchedule", true)
+            },
+            isMock = false, sourceScreen = "InstallmentSchedule",
+        )
         auditDao.upsert(audit("installment.updateDueDate", "installment", id, actorId, actorName))
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
@@ -706,7 +1057,28 @@ class LocalInstallmentRepository @Inject constructor(
 @Singleton
 class LocalLedgerRepository @Inject constructor(
     private val ledgerDao: LedgerEntryDao,
+    // CANONICAL-FINANCIAL-LOGIC.md §8.1 — wire SyncSupport so ledger writes
+    // (append, appendMany, reverse) propagate to Supabase.
+    private val syncSupport: com.example.infrastructure.sync.SyncSupport? = null,
 ) : LedgerRepository {
+
+    private fun syncJson(builder: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): String =
+        kotlinx.serialization.json.buildJsonObject(builder).toString()
+
+    /** Serialize a LedgerEntry for the sync queue payload. */
+    private fun com.example.core.LedgerEntry.toSyncPayload(): String = syncJson {
+        put("id", id); put("tenantId", tenantId); put("accountId", accountId)
+        put("parentId", parentId); put("studentId", studentId ?: "")
+        put("category", category.code); put("amount", amount)
+        put("type", type.code); put("sourceType", sourceType.code)
+        put("sourceId", sourceId); put("method", method?.code ?: "")
+        put("receiptNumber", receiptNumber ?: "")
+        put("paymentStatus", paymentStatus?.code ?: "")
+        put("reversesId", reversesId ?: "")
+        put("description", description)
+        put("actorId", actorId); put("actorName", actorName); put("at", at)
+        put("metadataJson", com.example.infrastructure.room.LocalMappers.serializeMetadataJson(metadata))
+    }
 
     override fun observe(): Flow<List<com.example.core.LedgerEntry>> =
         ledgerDao.observeAll().map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
@@ -719,11 +1091,27 @@ class LocalLedgerRepository @Inject constructor(
 
     override suspend fun append(entry: com.example.core.LedgerEntry): Result<com.example.core.LedgerEntry> {
         ledgerDao.upsert(entry.toEntity())
+        // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the ledger entry for sync push.
+        syncSupport?.enqueueOnly(
+            entity = "ledger_entry",
+            operation = "create",
+            payload = entry.toSyncPayload(),
+            isMock = false, sourceScreen = "LedgerAppend",
+        )
         return Result.Ok(entry)
     }
 
     override suspend fun appendMany(entries: List<com.example.core.LedgerEntry>): Result<List<com.example.core.LedgerEntry>> {
         ledgerDao.upsertAll(entries.map { it.toEntity() })
+        // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue each entry for sync push.
+        for (entry in entries) {
+            syncSupport?.enqueueOnly(
+                entity = "ledger_entry",
+                operation = "create",
+                payload = entry.toSyncPayload(),
+                isMock = false, sourceScreen = "LedgerAppendMany",
+            )
+        }
         return Result.Ok(entries)
     }
 
@@ -731,6 +1119,13 @@ class LocalLedgerRepository @Inject constructor(
         val original = ledgerDao.getById(originalId) ?: return Result.Err(Errors.notFound("Ledger entry $originalId not found"))
         val reversal = createReversalEntry(LocalMappers.run { original.toDomain() }, reason, actorId, actorName)
         ledgerDao.upsert(reversal.toEntity())
+        // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the reversal entry for sync push.
+        syncSupport?.enqueueOnly(
+            entity = "ledger_entry",
+            operation = "reverse",
+            payload = reversal.toSyncPayload(),
+            isMock = false, sourceScreen = "LedgerReverse",
+        )
         return Result.Ok(reversal)
     }
 
@@ -755,6 +1150,11 @@ private fun com.example.core.LedgerEntry.toEntity() = LedgerEntryEntity(
     receiptNumber = receiptNumber, paymentStatus = paymentStatus?.code,
     reversesId = reversesId, description = description, actorId = actorId,
     actorName = actorName, at = at,
+    // CANONICAL-FINANCIAL-LOGIC.md §7.5 + §8.4 — persist metadata so pull-side
+    // replay has access to tranche/level/gradeLevel/paymentPlan/academicCycle
+    // /clubCategory/therapyKind/period/sessionCount/serviceQualifier/pricingSource
+    // /reversedEntryId/reason.
+    metadataJson = com.example.infrastructure.room.LocalMappers.serializeMetadataJson(metadata),
 )
 
 private fun audit(action: String, entityType: String, entityId: String, actorId: String, actorName: String, after: String? = null) = AuditLogEntity(

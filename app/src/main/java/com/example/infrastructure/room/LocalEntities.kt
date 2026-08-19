@@ -256,6 +256,10 @@ data class LedgerEntryEntity(
     val actorId: String,
     val actorName: String,
     val at: String,
+    // CANONICAL-FINANCIAL-LOGIC.md §7.5 + §8.4 — metadata MUST be preserved
+    // through the full sync cycle. Stored as TEXT (JSON-serialized);
+    // mappers parse it back to a Map<String, Any?> on domain conversion.
+    val metadataJson: String = "{}",
 )
 
 @Entity(tableName = "expenses", indices = [Index("requestCode", unique = true), Index("status"), Index("submittedBy")])

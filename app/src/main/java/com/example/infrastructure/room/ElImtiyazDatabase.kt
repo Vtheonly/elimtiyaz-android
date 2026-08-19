@@ -48,7 +48,7 @@ import androidx.room.RoomDatabase
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class ElImtiyazDatabase : RoomDatabase() {
@@ -79,4 +79,26 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
     abstract fun tripLogDao(): TripLogDao
     abstract fun releveEntryDao(): ReleveEntryDao
     abstract fun workflowRunDao(): WorkflowRunDao
+
+    companion object {
+        /**
+         * Room migration v3 → v4 (CANONICAL-FINANCIAL-LOGIC.md §7.5 + §8.4).
+         *
+         * Adds the `metadataJson` TEXT column to `ledger_entries` so that
+         * pull-side metadata (tranche, level, gradeLevel, paymentPlan,
+         * academicCycle, clubCategory, therapyKind, period, sessionCount,
+         * serviceQualifier, pricingSource, reversedEntryId, reason) is
+         * preserved across the full sync cycle instead of being dropped.
+         *
+         * Default value `'{}'` so existing rows continue to map to an empty
+         * metadata map (matching the previous `metadata = emptyMap()` behavior).
+         */
+        val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE ledger_entries ADD COLUMN metadataJson TEXT NOT NULL DEFAULT '{}'"
+                )
+            }
+        }
+    }
 }

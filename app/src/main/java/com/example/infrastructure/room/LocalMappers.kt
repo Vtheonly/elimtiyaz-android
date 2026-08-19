@@ -23,6 +23,12 @@ import com.example.domain.model.PricingConfig
 import com.example.domain.model.PricingDiscount
 import com.example.domain.model.Subject
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * Mappers between Room entities and domain models.
@@ -91,7 +97,8 @@ object LocalMappers {
     fun PaymentEntity.toDomain() = Payment(
         id = id, tenantId = tenantId, receiptNumber = receiptNumber,
         parentId = parentId, studentId = studentId, amount = amount,
-        method = PaymentMethod.fromCode(method), status = PaymentStatus.fromCode(status),
+        method = PaymentMethod.fromCode(method),
+        status = PaymentStatus.fromCodeOrDefault(status),
         category = PaymentCategory.fromCode(category), installmentId = installmentId,
         proofUrl = proofUrl, notes = notes,
         collectedBy = collectedBy, collectedAt = collectedAt,
@@ -103,7 +110,7 @@ object LocalMappers {
         category = PaymentCategory.fromCode(category), label = label,
         amountDue = amountDue, amountPaid = amountPaid,
         dueDate = dueDate, paidDate = paidDate,
-        status = PaymentStatus.fromCode(status),
+        status = PaymentStatus.fromCodeOrDefault(status),
         academicCycle = academicCycle, customSchedule = customSchedule,
         customScheduleNote = customScheduleNote,
     )
@@ -118,7 +125,9 @@ object LocalMappers {
         paymentStatus = paymentStatus?.let { PaymentStatus.fromCode(it) },
         reversesId = reversesId, description = description,
         actorId = actorId, actorName = actorName, at = at,
-        metadata = emptyMap(),
+        // CANONICAL-FINANCIAL-LOGIC.md §7.5 — metadata MUST be preserved.
+        // Parsed from the metadataJson column; defaults to empty map on error.
+        metadata = parseMetadataJson(metadataJson),
     )
 
     fun ExpenseEntity.toDomain() = Expense(
@@ -180,4 +189,97 @@ object LocalMappers {
         readAt = if (isRead) createdAt else null, createdAt = createdAt,
         createdBy = "system",
     )
+
+    // ── metadata JSON helpers ────────────────────────────────────────────
+    //
+    // CANONICAL-FINANCIAL-LOGIC.md §7.5 + §8.4 — the ledger entry's
+    // metadata (tranche / level / gradeLevel / paymentPlan / academicCycle
+    // / clubCategory / therapyKind / period / sessionCount / serviceQualifier
+    // / pricingSource / reversedEntryId / reason) MUST survive the full
+    // sync cycle: domain → entity → push → Supabase → pull → entity → domain.
+
+    private val metadataJson = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = false
+        prettyPrint = false
+    }
+
+    fun parseMetadataJson(raw: String?): Map<String, Any?> {
+        if (raw.isNullOrBlank()) return emptyMap()
+        return runCatching {
+            val obj = metadataJson.parseToJsonElement(raw).let {
+                (it as? kotlinx.serialization.json.JsonObject) ?: return@runCatching emptyMap()
+            }
+            obj.toDomainMap()
+        }.getOrDefault(emptyMap())
+    }
+
+    fun serializeMetadataJson(metadata: Map<String, Any?>): String {
+        if (metadata.isEmpty()) return "{}"
+        return runCatching {
+            val obj = buildJsonObject {
+                for ((k, v) in metadata) {
+                    when (v) {
+                        null -> put(k, JsonNull)
+                        is Boolean -> put(k, v)
+                        is Number -> put(k, v)
+                        is String -> put(k, v)
+                        is Collection<*> -> {
+                            val arr = kotlinx.serialization.json.buildJsonArray {
+                                v.forEach { el ->
+                                    when (el) {
+                                        null -> add(JsonNull)
+                                        is Boolean -> add(el)
+                                        is Number -> add(el)
+                                        is String -> add(el)
+                                        else -> add(el.toString())
+                                    }
+                                }
+                            }
+                            put(k, arr)
+                        }
+                        is Map<*, *> -> {
+                            // nested map — flatten by re-encoding as a JSON object via recursion
+                            val nested = serializeMetadataJson(v.entries.associate { (k2, v2) -> k2.toString() to v2 })
+                            put(k, metadataJson.parseToJsonElement(nested))
+                        }
+                        else -> put(k, v.toString())
+                    }
+                }
+            }
+            metadataJson.encodeToString(JsonObject.serializer(), obj)
+        }.getOrDefault("{}")
+    }
 }
+
+// ── Kotlin serialization helpers for metadata JSON ──────────────────────
+// Renamed `toMap()` → `toDomainMap()` to avoid shadowing JsonObject's
+// built-in `Map<String, JsonElement>.toMap()` which returns the raw JSON model.
+private fun kotlinx.serialization.json.JsonObject.toDomainMap(): Map<String, Any?> =
+    this.entries.associate { (k, v) ->
+        k to when (v) {
+            is kotlinx.serialization.json.JsonNull -> null
+            is kotlinx.serialization.json.JsonPrimitive -> {
+                v.contentOrNull?.let { c ->
+                    c.toBooleanOrNull() ?: c.toLongOrNull() ?: c.toDoubleOrNull() ?: c
+                }
+            }
+            is kotlinx.serialization.json.JsonObject -> v.toDomainMap()
+            is kotlinx.serialization.json.JsonArray ->
+                v.map { el ->
+                    when (el) {
+                        is kotlinx.serialization.json.JsonPrimitive -> el.contentOrNull
+                        is kotlinx.serialization.json.JsonObject -> el.toDomainMap()
+                        else -> null
+                    }
+                }
+            else -> null
+        }
+    }
+
+private val kotlinx.serialization.json.JsonPrimitive.contentOrNull: String?
+    get() = if (this is kotlinx.serialization.json.JsonNull) null
+            else this.content.ifEmpty { null }
+
+private fun String.toBooleanOrNull(): Boolean? =
+    when (this.lowercase()) { "true" -> true; "false" -> false; else -> null }

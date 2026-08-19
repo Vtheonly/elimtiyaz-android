@@ -269,6 +269,17 @@ fun LedgerEntryDto.toEntity(): com.example.infrastructure.room.LedgerEntryEntity
     actorId = actorId ?: "per-admin",
     actorName = actorName ?: "Administrateur",
     at = at ?: createdAt ?: "",
+    // CANONICAL-FINANCIAL-LOGIC.md §7.5 + §8.4 — preserve pull-side metadata
+    // verbatim. The DTO stores it as a JsonElement (so any structure the
+    // server sends is accepted); we serialize back to a string for Room.
+    metadataJson = metadata?.let { element ->
+        runCatching {
+            kotlinx.serialization.json.Json.encodeToString(
+                kotlinx.serialization.json.JsonElement.serializer(),
+                element,
+            )
+        }.getOrDefault("{}")
+    } ?: "{}",
 )
 
 

@@ -302,6 +302,11 @@ data class LedgerEntryDto(
     @SerialName("actor_name") val actorName: String? = null,
     @SerialName("at") val at: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
+    // CANONICAL-FINANCIAL-LOGIC.md §7.5 + §8.4 — pull-side metadata.
+    // The Supabase `ledger_entries.metadata` JSONB column is parsed as a
+    // raw JsonElement to preserve any field the server stores; the entity
+    // mapper stores the verbatim JSON string in `metadataJson`.
+    @SerialName("metadata") val metadata: kotlinx.serialization.json.JsonElement? = null,
 )
 
 @Serializable

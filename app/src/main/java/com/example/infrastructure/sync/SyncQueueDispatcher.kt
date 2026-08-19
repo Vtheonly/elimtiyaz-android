@@ -140,12 +140,21 @@ class SyncQueueDispatcher @Inject constructor(
         actorId: String,
     ) {
         val parentId = p.str("parentId") ?: p.str("parent_id") ?: return
+        // CANONICAL-FINANCIAL-LOGIC.md §8.3 — Android domain stores money as
+        // Long CENTIMES; the Supabase `payments.amount` column is NUMERIC(12,2)
+        // DZD. Without `/100.0` conversion, a 150,000 DZD payment (15,000,000
+        // centimes) is pushed as 15,000,000.00 DZD — a 100× inflation.
+        val amountCentimes = p.str("amount")?.toLongOrNull() ?: return
+        val amountDzd = amountCentimes / 100.0
         val params = buildJsonObject {
             put("p_tenant_id", entry.tenantId)
             put("p_payment_number", p.str("receiptNumber") ?: p.str("payment_number") ?: generatePaymentNumber())
             put("p_parent_id", parentId)
-            put("p_student_id", p.str("studentId") ?: p.str("student_id"))
-            put("p_amount", p.str("amount")?.toDoubleOrNull() ?: 0.0)
+            // p_student_id — nullable; send null for parent-scoped payments.
+            val studentId = p.str("studentId") ?: p.str("student_id")
+            if (studentId != null) put("p_student_id", studentId) else put("p_student_id", JsonNull)
+            // CANONICAL-FINANCIAL-LOGIC.md §8.3 — centimes → DZD.
+            put("p_amount", amountDzd)
             put("p_method", p.str("method") ?: "cash")
             put("p_category", p.str("category") ?: "other")
             put("p_status", p.str("status"))
@@ -153,6 +162,14 @@ class SyncQueueDispatcher @Inject constructor(
             put("p_collected_at", p.str("collectedAt") ?: p.str("collected_at"))
             put("p_collected_by", p.str("collectedBy") ?: p.str("collected_by") ?: actorId)
             put("p_notes", p.str("notes"))
+            // CANONICAL-FINANCIAL-LOGIC.md §8.5 — check / transfer metadata.
+            p.str("installmentId") ?: p.str("installment_id")?.let { put("p_installment_id", it) }
+            p.str("checkNumber") ?: p.str("check_number")?.let { put("p_check_number", it) }
+            p.str("checkBankName") ?: p.str("check_bank_name")?.let { put("p_check_bank_name", it) }
+            p.str("checkIssueDate") ?: p.str("check_issue_date")?.let { put("p_check_issue_date", it) }
+            p.str("checkClearanceDate") ?: p.str("check_clearance_date")?.let { put("p_check_clearance_date", it) }
+            p.str("transferReference") ?: p.str("transfer_reference")?.let { put("p_transfer_reference", it) }
+            p.str("transferSourceBank") ?: p.str("transfer_source_bank")?.let { put("p_transfer_source_bank", it) }
         }
         NetworkTimeouts.guard<Unit>("sync.pushPayment", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.rpc("upsert_payment_from_import", params)
@@ -165,14 +182,26 @@ class SyncQueueDispatcher @Inject constructor(
         actorId: String,
     ) {
         val parentId = p.str("parentId") ?: p.str("parent_id") ?: return
+        // CANONICAL-FINANCIAL-LOGIC.md §8.3 — centimes → DZD.
+        val amountCentimes = p.str("amount")?.toLongOrNull() ?: return
+        val amountDzd = amountCentimes / 100.0
+        // CANONICAL-FINANCIAL-LOGIC.md §8.4 — `p_metadata` MUST be sent on every
+        // ledger_entry push. Preserve verbatim from the source entity.
+        val metadataJsonStr = p.str("metadataJson") ?: p.str("metadata_json") ?: "{}"
+        val metadataElement = runCatching {
+            json.parseToJsonElement(metadataJsonStr)
+        }.getOrNull() ?: JsonNull
         val params = buildJsonObject {
             put("p_tenant_id", entry.tenantId)
             put("p_entry_number", p.str("id") ?: p.str("entry_number"))
             put("p_parent_id", parentId)
-            put("p_student_id", p.str("studentId") ?: p.str("student_id"))
+            // p_student_id — nullable (parent_credit entries have studentId=null).
+            val studentId = p.str("studentId") ?: p.str("student_id")
+            if (studentId != null) put("p_student_id", studentId) else put("p_student_id", JsonNull)
             put("p_account_id", p.str("accountId") ?: p.str("account_id"))
             put("p_entry_type", p.str("type") ?: p.str("entry_type") ?: "charge")
-            put("p_amount", p.str("amount")?.toDoubleOrNull() ?: 0.0)
+            // CANONICAL-FINANCIAL-LOGIC.md §8.3 — centimes → DZD.
+            put("p_amount", amountDzd)
             put("p_category", p.str("category") ?: "other")
             put("p_description", p.str("description"))
             put("p_source_type", p.str("sourceType") ?: p.str("source_type") ?: "bulk_import")
@@ -184,6 +213,8 @@ class SyncQueueDispatcher @Inject constructor(
             put("p_actor_id", p.str("actorId") ?: p.str("actor_id") ?: actorId)
             put("p_actor_name", p.str("actorName") ?: p.str("actor_name") ?: "Android")
             put("p_at", p.str("at"))
+            // CANONICAL-FINANCIAL-LOGIC.md §8.4 — send p_metadata as a JSON object.
+            put("p_metadata", metadataElement)
         }
         NetworkTimeouts.guard<Unit>("sync.pushLedgerEntry", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.rpc("upsert_ledger_entry_from_import", params)

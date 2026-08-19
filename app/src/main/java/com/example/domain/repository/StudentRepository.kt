@@ -26,6 +26,16 @@ data class CreateStudentInput(
     val birthDate: String, val level: String, val gradeLevel: String,
     val classId: String? = null, val parentId: String? = null,
     val medicalNotes: String? = null,
+    // ── CANONICAL-FINANCIAL-LOGIC.md §5 + §2.6 — fields needed by the
+    // 5-rule discount engine. All optional so legacy callers keep working.
+    /** The student's previous grade level (for `passage_palier` discount). */
+    val previousGradeLevel: String? = null,
+    /** Payment plan: `"full_annual"` or `"tranches"`. Defaults to `tranches`. */
+    val paymentPlan: String? = null,
+    /** Original enrollment date (ISO-8601) for `seniority_5y` discount. */
+    val enrollmentDate: String? = null,
+    /** Previous-year class rank (1 = top of palier) for `highest_average` discount. */
+    val previousRank: Int? = null,
 )
 
 /** Input payload for [StudentRepository.updateStudent]. */

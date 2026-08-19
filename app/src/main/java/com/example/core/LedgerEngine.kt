@@ -45,7 +45,7 @@ object LedgerEngine {
                 accountId = accountId, parentId = "", studentId = null,
                 category = PaymentCategory.OTHER, balance = 0L,
                 totalCharged = 0L, totalPaid = 0L, totalAdjusted = 0L, totalRefunded = 0L,
-                totalCleared = 0L, totalPending = 0L,
+                totalCleared = 0L, totalPending = 0L, unallocatedCredit = 0L,
                 entryCount = 0, lastActivityAt = null,
             )
         }
@@ -59,6 +59,8 @@ object LedgerEngine {
         var totalRefunded = 0L
         var totalCleared = 0L
         var totalPending = 0L
+        // CANONICAL-FINANCIAL-LOGIC.md §4 INV-3 — parent_credit rollup.
+        var unallocatedCredit = 0L
         var lastActivityAt: String? = null
 
         for (e in accountEntries) {
@@ -77,7 +79,15 @@ object LedgerEngine {
                         else -> {}
                     }
                 }
-                LedgerEntryType.ADJUSTMENT -> totalAdjusted += e.amount
+                LedgerEntryType.ADJUSTMENT -> {
+                    totalAdjusted += e.amount
+                    // CANONICAL-FINANCIAL-LOGIC.md §4 INV-3 — parent_credit
+                    // adjustments are tracked separately so callers can auto-
+                    // absorb them on future charges.
+                    if (e.category == PaymentCategory.PARENT_CREDIT) {
+                        unallocatedCredit += e.amount
+                    }
+                }
                 LedgerEntryType.REFUND -> totalRefunded += kotlin.math.abs(e.amount)
                 LedgerEntryType.REVERSAL, LedgerEntryType.TRANSFER -> {}
             }
@@ -90,6 +100,7 @@ object LedgerEngine {
             category = first.category, balance = balance,
             totalCharged = totalCharged, totalPaid = totalPaid, totalAdjusted = totalAdjusted,
             totalRefunded = totalRefunded, totalCleared = totalCleared, totalPending = totalPending,
+            unallocatedCredit = unallocatedCredit,
             entryCount = accountEntries.size, lastActivityAt = lastActivityAt,
         )
     }
@@ -112,6 +123,8 @@ object LedgerEngine {
         var totalPending = 0L
         var totalAdjusted = 0L
         var totalRefunded = 0L
+        // CANONICAL-FINANCIAL-LOGIC.md §4 INV-3 — parent-wide rollup.
+        var totalUnallocatedCredit = 0L
         var entryCount = 0
         var lastActivityAt: String? = null
 
@@ -123,11 +136,16 @@ object LedgerEngine {
             totalPending += acc.totalPending
             totalAdjusted += acc.totalAdjusted
             totalRefunded += acc.totalRefunded
+            totalUnallocatedCredit += acc.unallocatedCredit
             entryCount += acc.entryCount
             lastActivityAt = maxOf(lastActivityAt ?: "", acc.lastActivityAt ?: "")
 
             val dueDate = overdueCategoryDueDates[acc.accountId]
-            if (dueDate != null && acc.balance > 100L && dueDate.isBefore(now)) {
+            // CANONICAL-FINANCIAL-LOGIC.md §4 INV-4 — overdue threshold is
+            // 0.001 DZD (= 1 millime). Since we store centimes, use `> 0L`
+            // so even a 1-centime outstanding is flagged overdue. This
+            // matches the desktop's `> 0.001 DZD` threshold.
+            if (dueDate != null && acc.balance > 0L && dueDate.isBefore(now)) {
                 totalOverdue += acc.balance
             }
         }
@@ -137,6 +155,7 @@ object LedgerEngine {
             totalOutstanding = totalOutstanding, totalOverdue = totalOverdue,
             totalCharged = totalCharged, totalPaid = totalPaid, totalCleared = totalCleared,
             totalPending = totalPending, totalAdjusted = totalAdjusted, totalRefunded = totalRefunded,
+            totalUnallocatedCredit = totalUnallocatedCredit,
             accounts = accounts, entryCount = entryCount, lastActivityAt = lastActivityAt,
         )
     }

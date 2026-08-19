@@ -97,6 +97,32 @@ class SyncSupport @Inject constructor(
     // ── Writes: try-then-enqueue ────────────────────────────────────────
 
     /**
+     * Enqueue a mutation for later sync push, WITHOUT trying a network call
+     * first. Use this when the local Room write already happened (the local
+     * database is the source of truth) and we just need to enqueue the same
+     * operation for the Supabase push side of the cycle.
+     *
+     * CANONICAL-FINANCIAL-LOGIC.md §8.1 — the canonical sync pattern:
+     *   1. Local write to Room (synchronous, source of truth).
+     *   2. Enqueue the same operation to the sync queue.
+     *   3. SyncWorker drains the queue in the background → calls upsert RPC.
+     *
+     * Returns the queue entry ID on success, null on failure (best-effort).
+     */
+    suspend fun enqueueOnly(
+        entity: String,
+        operation: String,
+        payload: String,
+        isMock: Boolean = false,
+        sourceScreen: String? = null,
+    ): String? = runCatching {
+        syncService.enqueue(
+            entity = entity, operation = operation, payload = payload,
+            isMock = isMock, sourceScreen = sourceScreen,
+        )
+    }.getOrNull()
+
+    /**
      * Attempt [mutation]. If it throws a network/offline error AND the
      * device is currently offline, enqueue the operation to [SyncService]
      * and return [Result.Err] with [AppError.CODE_OFFLINE] so the UI can
