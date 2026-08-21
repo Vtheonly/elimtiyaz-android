@@ -82,6 +82,17 @@ fun createAdjustmentEntry(
     category: PaymentCategory, amount: Long,
     sourceId: String, actorId: String, actorName: String, reason: String,
     receiptRef: String? = null,
+    /**
+     * TIER 2 R14 — caller-supplied source type.
+     *
+     * Mirrors the desktop's `createAdjustmentEntry` signature, which accepts
+     * a `sourceType` parameter so adjustment entries can be tagged with
+     * `manual_entry` or `bulk_import` rather than always saying `adjustment`.
+     *
+     * Default `LedgerSourceType.ADJUSTMENT` preserves the legacy behavior
+     * for existing callers that don't pass an explicit value.
+     */
+    sourceType: LedgerSourceType = LedgerSourceType.ADJUSTMENT,
     at: Instant = Instant.now(), metadata: Map<String, Any?> = emptyMap(),
 ): LedgerEntry {
     require(amount != 0L) { "Adjustment amount must be != 0 (got $amount)" }
@@ -91,7 +102,7 @@ fun createAdjustmentEntry(
         accountId = deriveAccountId(parentId, category, studentId),
         parentId = parentId, studentId = studentId, category = category,
         amount = amount, type = LedgerEntryType.ADJUSTMENT,
-        sourceType = LedgerSourceType.ADJUSTMENT, sourceId = sourceId,
+        sourceType = sourceType, sourceId = sourceId,
         method = null, receiptNumber = receiptRef, paymentStatus = null,
         reversesId = null, description = reason,
         actorId = actorId, actorName = actorName, at = at.toString(),
@@ -103,7 +114,26 @@ fun createRefundEntry(
     tenantId: String, parentId: String, studentId: String?,
     category: PaymentCategory, amount: Long,
     sourceId: String, actorId: String, actorName: String, reason: String,
-    method: PaymentMethod, receiptNumber: String?,
+    /**
+     * TIER 2 R14 — method + receiptNumber params are now OPTIONAL.
+     *
+     * The desktop canonical factory sets `method = null` and
+     * `paymentStatus = null` on refund entries. The Android factory
+     * previously required a `method` parameter and wrote
+     * `paymentStatus = REFUNDED`. The desktop's `crossCheckPayments`
+     * compares `entry.paymentStatus !== p.status` — for a refund, the
+     * desktop stores `paymentStatus = null` but Android stored
+     * `REFUNDED`, triggering a `PAYMENT_STATUS_MISMATCH` warning on
+     * every Android-originated refund when the desktop sync pulled it.
+     *
+     * The signature is backward-compatible: existing callers that pass
+     * `method = X` and `receiptNumber = Y` still work — but `method` is
+     * now stored on the **payment row** (the source of truth for the
+     * payment's method), NOT on the refund ledger entry, and the refund
+     * entry's `paymentStatus` is null (matching the desktop).
+     */
+    method: PaymentMethod? = null,
+    receiptNumber: String? = null,
     at: Instant = Instant.now(), metadata: Map<String, Any?> = emptyMap(),
 ): LedgerEntry {
     require(amount > 0) { "Refund amount must be > 0 (got $amount)" }
@@ -114,7 +144,11 @@ fun createRefundEntry(
         parentId = parentId, studentId = studentId, category = category,
         amount = -amount, type = LedgerEntryType.REFUND,
         sourceType = LedgerSourceType.REFUND, sourceId = sourceId,
-        method = method, receiptNumber = receiptNumber, paymentStatus = PaymentStatus.REFUNDED,
+        method = method, receiptNumber = receiptNumber,
+        // TIER 2 R14 — null paymentStatus matches the desktop's canonical
+        // `createRefundEntry` factory. The desktop's `crossCheckPayments`
+        // would otherwise flag `PAYMENT_STATUS_MISMATCH` on every refund.
+        paymentStatus = null,
         reversesId = null, description = reason,
         actorId = actorId, actorName = actorName, at = at.toString(),
         metadata = metadata.toMap(),

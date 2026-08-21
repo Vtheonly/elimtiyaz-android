@@ -279,8 +279,28 @@ class LocalParentRepository @Inject constructor(
     override suspend fun createParent(input: CreateParentInput, actorId: String, actorName: String): Result<Parent> {
         val now = Instant.now().toString()
         val year = java.time.LocalDate.now().year
-        val code = "PAR-$year-${UUID.randomUUID().toString().takeLast(4).uppercase()}"
-        val activationCode = (100_000..999_999).random().toString()
+        // TIER 2 R15 — deterministic parent_code via FNV-1a hash.
+        // Re-creating the same parent (or re-importing the same Excel row)
+        // produces the SAME code → the `upsert_parent_from_import` RPC's
+        // primary identity match (tenant_id, parent_code) succeeds →
+        // idempotent upsert, no duplicate parents.
+        val code = com.example.core.deterministicParentCode(
+            year = year,
+            input = com.example.core.ParentCodeInput(
+                phone = input.phone,
+                displayName = input.displayName,
+                firstName = input.firstName,
+                lastName = input.lastName,
+            ),
+        )
+        // TIER 2 R15 — deterministic activation_code derived from
+        // (parentCode, tenantId) so re-creating the same parent produces
+        // the same code → the `bind-activation-code` edge function's
+        // idempotency contract holds.
+        val activationCode = com.example.core.deterministicActivationCode(
+            parentCode = code,
+            tenantId = "00000000-0000-0000-0000-000000000001",
+        )
         val entity = ParentEntity(
             id = "par-${UUID.randomUUID()}",
             tenantId = "00000000-0000-0000-0000-000000000001", code = code,
@@ -402,8 +422,20 @@ class LocalStudentRepository @Inject constructor(
         val now = Instant.now().toString()
         val year = java.time.LocalDate.now().year
 
-        val parentCode = "PAR-$year-${UUID.randomUUID().toString().takeLast(4).uppercase()}"
-        val activationCode = (100_000..999_999).random().toString()
+        val parentCode = com.example.core.deterministicParentCode(
+            year = year,
+            input = com.example.core.ParentCodeInput(
+                phone = parent.phone,
+                displayName = parent.displayName,
+                firstName = parent.firstName,
+                lastName = parent.lastName,
+            ),
+        )
+        // TIER 2 R15 — deterministic activation_code derived from (parentCode, tenantId).
+        val activationCode = com.example.core.deterministicActivationCode(
+            parentCode = parentCode,
+            tenantId = "00000000-0000-0000-0000-000000000001",
+        )
         val parentEntity = ParentEntity(
             id = "par-${UUID.randomUUID()}",
             tenantId = "00000000-0000-0000-0000-000000000001", code = parentCode,
@@ -1137,7 +1169,64 @@ class LocalLedgerRepository @Inject constructor(
 
     override suspend fun reconcile(): Result<com.example.core.Reconcile.Report> {
         val entries = ledgerDao.listAll().map { LocalMappers.run { it.toDomain() } }
-        return Result.Ok(com.example.core.Reconcile.reconcileLedger(entries))
+        // TIER 2 R10 — pass real cross-check inputs so the 3 new unified-architecture
+        // cross-checks (UNBACKED_TRANCHE_SATISFACTION, PAYMENT_LEDGER_MISMATCH,
+        // UNBACKED_PARENT_CREDIT) have data to verify against. Previously the
+        // call passed an empty CrossCheckInputs() — those 3 checks were no-ops.
+        val payments = paymentDao.listAll().map { LocalMappers.run { it.toDomain() } }
+        val installments = installmentDao.listAll().map { LocalMappers.run { it.toDomain() } }
+        val parents = parentDao.listAll()
+
+        val paymentInputs = payments.map { p ->
+            com.example.core.Reconcile.PaymentCrossCheck(
+                id = p.id, amount = p.amount, status = p.status,
+            )
+        }
+        val installmentInputs = installments.map { i ->
+            com.example.core.Reconcile.InstallmentCrossCheck(
+                id = i.id,
+                parentId = i.parentId,
+                studentId = i.studentId,
+                category = i.category.code,
+                amountDue = i.amountDue,
+                amountPaid = i.amountPaid,
+                label = i.label,
+                status = i.status.code,
+            )
+        }
+        // Build parent summaries — one entry per parent with outstanding + accounts.
+        // We group by parentId and compute the canonical summary via LedgerEngine.
+        val parentSummaries = parents.map { p ->
+            val parentEntries = entries.filter { it.parentId == p.id }
+            val summary = com.example.core.LedgerEngine.computeParentSummary(
+                parentEntries, p.id, p.fullName,
+            )
+            com.example.core.Reconcile.ParentSummaryCrossCheck(
+                parentId = p.id,
+                parentName = p.fullName,
+                totalOutstanding = summary.totalOutstanding,
+                accounts = summary.accounts.map { acc ->
+                    com.example.core.Reconcile.ParentAccountCrossCheck(
+                        accountId = acc.accountId,
+                        category = acc.category.code,
+                        studentId = acc.studentId,
+                        balance = acc.balance,
+                        unallocatedCredit = acc.unallocatedCredit,
+                    )
+                },
+            )
+        }
+        // paymentToInstallmentId lookup — payments carry `installmentId` field.
+        val payToInst = payments.filter { it.installmentId != null }
+            .associate { it.id to it.installmentId!! }
+
+        val inputs = com.example.core.Reconcile.CrossCheckInputs(
+            payments = paymentInputs,
+            installments = installmentInputs,
+            parentSummaries = parentSummaries,
+            paymentToInstallmentId = payToInst,
+        )
+        return Result.Ok(com.example.core.Reconcile.reconcileLedger(entries, inputs))
     }
 }
 

@@ -94,6 +94,10 @@ fun StudentDto.toDomain(): Student = Student(
     photoUrl = null,
     medicalNotes = medicalNotes,
     status = enrollmentStatus ?: "active",
+    // TIER 2 R12 — pass through `paymentPlan` from the shared Supabase
+    // schema (migration 0028 added the `payment_plan` column). The DTO
+    // already parsed the field — the domain layer was just dropping it.
+    paymentPlan = com.example.core.PaymentPlan.fromCode(paymentPlan),
     createdAt = createdAt ?: "",
     updatedAt = updatedAt ?: "",
 )
@@ -116,6 +120,10 @@ fun StudentDto.toEntity(): StudentEntity = StudentEntity(
     photoUrl = null,
     medicalNotes = medicalNotes,
     status = enrollmentStatus ?: "active",
+    // TIER 2 R12 — store `paymentPlan` in the Room entity so the domain
+    // layer's `StudentEntity.toDomain()` can pass it through. The column
+    // was added by `MIGRATION_4_5`.
+    paymentPlan = paymentPlan ?: "tranches",
     createdAt = createdAt ?: "",
     updatedAt = updatedAt ?: "",
 )

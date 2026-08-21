@@ -48,7 +48,7 @@ import androidx.room.RoomDatabase
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class ElImtiyazDatabase : RoomDatabase() {
@@ -97,6 +97,27 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
             override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE ledger_entries ADD COLUMN metadataJson TEXT NOT NULL DEFAULT '{}'"
+                )
+            }
+        }
+
+        /**
+         * Room migration v4 → v5 (TIER 2 R12).
+         *
+         * Adds the `paymentPlan` TEXT column to `students` so the Android
+         * domain layer can represent + apply the 10% early-annual discount
+         * (CANONICAL-FINANCIAL-LOGIC.md §5 rule 3). The Supabase schema has
+         * had this column since migration 0028 — this migration brings the
+         * local Room schema in line.
+         *
+         * Default value `'tranches'` so existing students default to the
+         * 3-tranche schedule (matching the desktop's default for imported
+         * students without an explicit `payment_plan`).
+         */
+        val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE students ADD COLUMN paymentPlan TEXT NOT NULL DEFAULT 'tranches'"
                 )
             }
         }

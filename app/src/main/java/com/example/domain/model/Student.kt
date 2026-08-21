@@ -1,5 +1,6 @@
 package com.example.domain.model
 
+import com.example.core.PaymentPlan
 import kotlinx.serialization.Serializable
 
 /**
@@ -11,6 +12,12 @@ import kotlinx.serialization.Serializable
  *
  * `gradeLevel` is one of 14 canonical codes (`prescolaire_1` ... `3eme_annee`).
  * `status` is the student lifecycle state.
+ *
+ * TIER 2 (R12) — `paymentPlan` added. Mirrors desktop
+ * `Student.paymentPlan: PaymentPlan`. The 10% early-annual discount
+ * (INV §5 rule 3) cannot be evaluated or displayed without this field.
+ * Default `PaymentPlan.TRANCHES` matches the desktop's default for
+ * students imported without an explicit plan.
  */
 @Serializable
 data class Student(
@@ -31,6 +38,8 @@ data class Student(
     val photoUrl: String? = null,
     val medicalNotes: String? = null,
     val status: String = "active",       // active | graduated | transferred | suspended | withdrawn
+    /** TIER 2 R12 — billing plan. Mirrors desktop `Student.paymentPlan`. */
+    val paymentPlan: PaymentPlan = PaymentPlan.TRANCHES,
     val createdAt: String,
     val updatedAt: String,
 ) {

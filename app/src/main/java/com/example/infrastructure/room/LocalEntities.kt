@@ -86,6 +86,17 @@ data class StudentEntity(
     val photoUrl: String?,
     val medicalNotes: String?,
     val status: String,
+    /**
+     * TIER 2 R12 — billing plan. Mirrors `StudentEntity.payment_plan`
+     * in the Supabase schema (migration 0028) and the desktop's
+     * `Student.paymentPlan` field. Default `"tranches"` matches the
+     * desktop's default for students imported without an explicit plan.
+     *
+     * The 10% early-annual discount (CANONICAL-FINANCIAL-LOGIC.md §5
+     * rule 3) cannot be evaluated without this field — students on
+     * the `full_annual` plan who pay before June 30 qualify.
+     */
+    val paymentPlan: String = "tranches",
     val createdAt: String,
     val updatedAt: String,
 ) {

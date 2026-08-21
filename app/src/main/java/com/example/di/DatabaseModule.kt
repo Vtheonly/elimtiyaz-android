@@ -55,6 +55,19 @@ object DatabaseModule {
     @Provides @Singleton
     fun provideDatabase(@ApplicationContext context: Context): ElImtiyazDatabase =
         Room.databaseBuilder(context, ElImtiyazDatabase::class.java, "el_imtiyaz.db")
+            // TIER 2 R12 — register MIGRATION_4_5 so users don't lose their
+            // data when upgrading. The migration adds the `paymentPlan` column
+            // to the `students` table with default `'tranches'` (matching the
+            // desktop's default for imported students without an explicit
+            // `payment_plan` value).
+            .addMigrations(
+                ElImtiyazDatabase.MIGRATION_3_4,
+                ElImtiyazDatabase.MIGRATION_4_5,
+            )
+            // Fallback for any future schema changes that don't yet have an
+            // explicit migration — destructive, but only fires if a migration
+            // is missing. Production deployments should add explicit migrations
+            // for every schema bump.
             .fallbackToDestructiveMigration(true)
             .build()
 

@@ -203,11 +203,17 @@ class LocalDashboardRepository @Inject constructor(
             DashboardGroup2(installments, ledger, expenses, attendance, classes)
         },
     ) { g1, g2 ->
-        val nowIso = Instant.now().toString()
         val todayIso = LocalDate.now(ZoneOffset.UTC).toString()
         val monthStart = OffsetDateTime.now(ZoneOffset.UTC)
             .withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0)
             .toInstant().toString()
+        // TIER 2 R16 — add upper bound for monthlyRevenue filter so future-dated
+        // payments are NOT counted as current-month revenue. The audit (D53)
+        // flagged that the 12-month chart applied the bound but the KPI filter
+        // did not — internal inconsistency.
+        val nextMonthStart = OffsetDateTime.now(ZoneOffset.UTC)
+            .withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0)
+            .plusMonths(1).toInstant().toString()
 
         val activeStudents = g1.students.filter { it.status == "active" }
         val activeStaff = g1.staff.filter { it.status == "active" }
@@ -217,7 +223,10 @@ class LocalDashboardRepository @Inject constructor(
         val todayRevenue = todayPayments.sumOf { it.amount }
         val todayPaymentsCount = todayPayments.size
 
-        val monthlyPayments = g1.payments.filter { it.status == "paid" && it.collectedAt >= monthStart }
+        // TIER 2 R16 — added the upper bound (`< nextMonthStart`).
+        val monthlyPayments = g1.payments.filter {
+            it.status == "paid" && it.collectedAt >= monthStart && it.collectedAt < nextMonthStart
+        }
         val monthlyRevenue = monthlyPayments.sumOf { it.amount }
 
         val pendingChecks = g1.payments.filter { it.method == "check" && it.status == "pending" }
@@ -228,28 +237,58 @@ class LocalDashboardRepository @Inject constructor(
         val pendingExpensesCount = submittedExpenses.size
         val pendingExpensesAmount = submittedExpenses.sumOf { it.amount }
 
-        val totalOutstanding = g2.ledger
-            .filter { it.type == "charge" || it.type == "payment" || it.type == "adjustment" }
-            .sumOf { it.amount }
+        // TIER 2 R16 — replaced the naive Σ amounts with the canonical
+        // `LedgerEngine.computeParentSummary` per parent. The previous code:
+        //   g2.ledger.filter { it.type == "charge" || it.type == "payment" || it.type == "adjustment" }.sumOf { it.amount }
+        // had three bugs (audit D51):
+        //   1. Excluded refunds (type=refund) — refunds reduce what the parent owes.
+        //   2. Included reversed originals (reversal entries negate originals, but
+        //      the originals were still summed).
+        //   3. Didn't aggregate per-account before summing — `computeParentSummary`
+        //      applies the canonical per-account balance replay.
+        val domainLedger = g2.ledger.map { LocalMappers.run { it.toDomain() } }
+        val parentIds = domainLedger.map { it.parentId }.distinct()
+        val totalOutstanding = parentIds.sumOf { pid ->
+            val parentEntries = domainLedger.filter { it.parentId == pid }
+            LedgerEngine.computeParentSummary(parentEntries, pid, "").totalOutstanding.coerceAtLeast(0L)
+        }
 
-        val overdueInstallments = g2.installments.filter { it.status != "paid" && it.dueDate < nowIso }
-        val overdueDebt = overdueInstallments.sumOf { (it.amountDue - it.amountPaid).coerceAtLeast(0L) }
-        val overdueFamiliesCount = overdueInstallments.map { it.parentId }.distinct().size
+        // TIER 2 R16 — overdue: canonical rule (INV-4) classifies an account as
+        // overdue when balance > 0 AND the latest charge's due date is past.
+        // `computeParentSummary` already applies this rule via `totalOverdue`,
+        // so we use it directly instead of the previous naive installment-filter.
+        val overdueDebt = parentIds.sumOf { pid ->
+            val parentEntries = domainLedger.filter { it.parentId == pid }
+            LedgerEngine.computeParentSummary(parentEntries, pid, "").totalOverdue.coerceAtLeast(0L)
+        }
+        val overdueFamiliesCount = parentIds.count { pid ->
+            val parentEntries = domainLedger.filter { it.parentId == pid }
+            LedgerEngine.computeParentSummary(parentEntries, pid, "").totalOverdue > 0L
+        }
 
         val todayAttendance = g2.attendance.filter { it.date == todayIso }
         val todayPresent = todayAttendance.count { it.status == "present" }
         val todayAbsent = todayAttendance.count { it.status == "absent_unexcused" || it.status == "absent_excused" }
+        // TIER 2 R16 — removed the fabricated `96.5` fallback (audit D54).
+        // When no attendance records exist for today, return 0.0 (truthful)
+        // rather than inventing a 96.5% rate. The UI can choose to display
+        // "—" when the rate is 0 AND todayAttendance is empty.
         val attendanceRateToday = if (todayAttendance.isNotEmpty()) {
             (todayPresent.toDouble() / todayAttendance.size.toDouble() * 100.0)
         } else {
-            if (activeStudents.isNotEmpty()) 96.5 else 0.0
+            0.0
         }
         val classesWithRollCall = todayAttendance.map { it.classId }.distinct().size
 
         DashboardKpi(
-            totalStudents = if (activeStudents.isNotEmpty()) activeStudents.size else 390,
-            totalParents = if (g1.parents.isNotEmpty()) g1.parents.size else 185,
-            totalStaff = if (activeStaff.isNotEmpty()) activeStaff.size else 45,
+            // TIER 2 R16 — removed the fabricated fallback values (audit D54):
+            //   `if (activeStudents.isNotEmpty()) activeStudents.size else 390`
+            // returned 390 (fake) when Room was empty. Now returns the real
+            // count (0 when empty). Same fix for `totalParents`, `totalStaff`,
+            // `totalClassesCount`.
+            totalStudents = activeStudents.size,
+            totalParents = g1.parents.size,
+            totalStaff = activeStaff.size,
             monthlyRevenue = monthlyRevenue,
             todayRevenue = todayRevenue,
             todayPaymentsCount = todayPaymentsCount,
@@ -262,7 +301,7 @@ class LocalDashboardRepository @Inject constructor(
             todayPresentCount = todayPresent,
             todayAbsentCount = todayAbsent,
             classesCompletedRollCall = classesWithRollCall,
-            totalClassesCount = if (activeClasses.isNotEmpty()) activeClasses.size else 7,
+            totalClassesCount = activeClasses.size,
             pendingChecksCount = pendingChecksCount,
             pendingChecksAmount = pendingChecksAmount,
             overdueAlerts = overdueFamiliesCount,
@@ -294,19 +333,12 @@ class LocalDashboardRepository @Inject constructor(
                 }
                 com.example.domain.repository.RevenuePoint(label = label, amount = sum)
             }
-            // If local DB is freshly initialized with only current-month transactions, provide realistic trend
-            if (months.all { it.amount == 0L }) {
-                listOf(
-                    com.example.domain.repository.RevenuePoint("Sept", 13_400_000_00L),
-                    com.example.domain.repository.RevenuePoint("Oct", 12_900_000_00L),
-                    com.example.domain.repository.RevenuePoint("Nov", 13_100_000_00L),
-                    com.example.domain.repository.RevenuePoint("Déc", 12_450_000_00L),
-                    com.example.domain.repository.RevenuePoint("Jan", 11_800_000_00L),
-                    com.example.domain.repository.RevenuePoint("Fév", 12_200_000_00L),
-                )
-            } else {
-                months
-            }
+            // TIER 2 R16 — removed the fabricated 6-month revenue fallback
+            // (audit D55). When Room is empty (or has no paid payments), the
+            // chart should show zeros — NOT the fake values "Sept=13.4M DZD"
+            // etc. — because those numbers mislead the user into thinking real
+            // data exists. Real revenue numbers come from real payments.
+            months
         }
 
     override fun observePaymentMethodsSummary(): Flow<List<PaymentMethodSummary>> =
@@ -535,7 +567,27 @@ class LocalDebtRepository @Inject constructor(
     ) { parent, ledgerEntries, installments, payments ->
         if (parent == null) null
         else {
-            val summary = LedgerEngine.computeParentSummary(ledgerEntries.map { LocalMappers.run { it.toDomain() } }, parentId, parent.fullName)
+            val domainEntries = ledgerEntries.map { LocalMappers.run { it.toDomain() } }
+            val summary = LedgerEngine.computeParentSummary(domainEntries, parentId, parent.fullName)
+            // TIER 2 R17 — populate `adjustments` from the ledger's adjustment
+            // entries. Mirrors the desktop's `ParentFinancialProfile.adjustments`.
+            // Filters out reversal entries (they negate originals — the
+            // canonical `computeParentSummary` already excludes them from
+            // totals, so we exclude them here too for UI consistency).
+            val adjustments = domainEntries
+                .filter { it.type == com.example.core.LedgerEntryType.ADJUSTMENT && it.reversesId == null }
+                .map { e ->
+                    com.example.domain.repository.AccountAdjustment(
+                        id = e.id,
+                        parentId = e.parentId,
+                        amount = e.amount,
+                        reason = e.description,
+                        approvedBy = e.actorId,
+                        approvedAt = e.at,
+                        receiptRef = e.receiptNumber,
+                    )
+                }
+                .sortedByDescending { it.approvedAt }
             ParentFinancialProfile(
                 parentId = parentId,
                 parentName = parent.fullName,
@@ -545,6 +597,7 @@ class LocalDebtRepository @Inject constructor(
                 overdueAmount = summary.totalOverdue.coerceAtLeast(0L),
                 installments = installments.map { LocalMappers.run { it.toDomain() } },
                 recentPayments = payments.map { LocalMappers.run { it.toDomain() } },
+                adjustments = adjustments,
             )
         }
     }

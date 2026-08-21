@@ -53,6 +53,10 @@ object LocalMappers {
         birthDate = birthDate, enrollmentDate = enrollmentDate,
         level = level, gradeLevel = gradeLevel, classId = classId,
         photoUrl = photoUrl, medicalNotes = medicalNotes, status = status,
+        // TIER 2 R12 — pass through paymentPlan from Room entity to domain.
+        // The column was added in MIGRATION_4_5; the desktop's Student model
+        // has the same field.
+        paymentPlan = com.example.core.PaymentPlan.fromCode(paymentPlan),
         createdAt = createdAt, updatedAt = updatedAt,
     )
 
