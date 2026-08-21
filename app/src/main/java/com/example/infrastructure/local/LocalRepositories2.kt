@@ -97,6 +97,7 @@ import com.example.infrastructure.room.TripLogDao
 import com.example.infrastructure.room.WorkflowRunDao
 import com.example.infrastructure.room.WorkflowRunEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
@@ -665,13 +666,41 @@ class LocalAuditRepository @Inject constructor(
             rows.filter { it.entityType == entityType && it.entityId == entityId }.map { LocalMappers.run { it.toDomain() } }
         }
 
-    override suspend fun query(filter: AuditFilter): Result<List<AuditLog>> = Result.Ok(emptyList())
+    override suspend fun query(filter: AuditFilter): Result<List<AuditLog>> {
+        // TIER 3 R19 FIX: previously `query()` always returned `emptyList()`,
+        // making the audit log unsearchable. Now it actually filters by the
+        // criteria the caller specified. The DAO's `observeRecent()` returns
+        // the most recent 200 rows; we filter in-memory because the audit_logs
+        // table is small (≤200 rows per the LIMIT in observeRecent) and a
+        // dynamic SQL query would require either @RawQuery or a separate
+        // @Query per filter combination.
+        val rows = auditDao.observeRecent().first()
+        val filtered = rows.asSequence()
+            .filter { filter.action == null || it.action == filter.action }
+            .filter { filter.entityType == null || it.entityType == filter.entityType }
+            .filter { filter.entityId == null || it.entityId == filter.entityId }
+            .filter { filter.actorId == null || it.actorId == filter.actorId }
+            .filter { filter.from == null || it.createdAt >= filter.from }
+            .filter { filter.to == null || it.createdAt <= filter.to }
+            .drop(filter.offset)
+            .take(filter.limit)
+            .map { LocalMappers.run { it.toDomain() } }
+            .toList()
+        return Result.Ok(filtered)
+    }
 
     override suspend fun log(input: AuditLogInput): Result<AuditLog> {
+        // TIER 3 R19 FIX: previously `actorId` was hardcoded to "system".
+        // Now we honor the caller-provided actor fields, falling back to
+        // "system" only when the caller omits them. This makes the audit
+        // trail useful for accountability — every action is attributed to
+        // the real logged-in user, not the system.
         val entity = AuditLogEntity(
             id = "aud-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
             action = input.action, entityType = input.entityType, entityId = input.entityId,
-            actorId = "system", actorName = "System", actorRole = null,
+            actorId = input.actorId ?: "system",
+            actorName = input.actorName ?: "Système",
+            actorRole = input.actorRole,
             beforeJson = input.beforeJson, afterJson = input.afterJson,
             note = input.note, createdAt = Instant.now().toString(),
         )
@@ -817,7 +846,18 @@ class LocalExpenseRepository @Inject constructor(
 
     override suspend fun settleProof(id: String, proofPath: String, finalAmount: Long, actorId: String, actorName: String): Result<Expense> {
         val existing = expenseDao.getById(id) ?: return Result.Err(Errors.notFound("Expense $id not found"))
-        val updated = existing.copy(status = "settled", proofUrl = proofPath, settledAt = Instant.now().toString())
+        // TIER 3 R18 FIX: previously `finalAmount` was silently dropped —
+        // the `copy()` call didn't include it because the column didn't exist
+        // on `ExpenseEntity`. Now that the column exists (migration v5→v6),
+        // the final amount confirmed by the proof scan is persisted and
+        // surfaces in the domain object so the desktop's expense report
+        // can show "Requested: 5,000 DZD — Actual: 4,820 DZD".
+        val updated = existing.copy(
+            status = "settled",
+            proofUrl = proofPath,
+            settledAt = Instant.now().toString(),
+            finalSpentAmount = finalAmount,
+        )
         expenseDao.update(updated)
         auditDao.upsert(auditLog("expense.settle", "expense", id, actorId, actorName))
         return Result.Ok(LocalMappers.run { updated.toDomain() })

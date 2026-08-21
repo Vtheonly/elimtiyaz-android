@@ -29,4 +29,9 @@ data class Expense(
     val proofUploadedAt: String? = null,
     val anomalyScore: Double? = null,
     val anomalyNote: String? = null,
+    // TIER 3 R18 FIX: when an expense is settled, the actual spent amount
+    // may differ from the requested `amount` (e.g. receipt total was higher
+    // or lower than the request). This field captures the final amount
+    // confirmed by the proof scan, matching the desktop's behavior.
+    val finalSpentAmount: Long? = null,
 )

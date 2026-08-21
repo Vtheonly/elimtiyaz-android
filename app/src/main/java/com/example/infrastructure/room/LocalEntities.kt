@@ -297,6 +297,11 @@ data class ExpenseEntity(
     val notes: String?,
     val createdAt: String,
     val updatedAt: String,
+    // TIER 3 R18 FIX: previously `settleProof()` accepted a `finalAmount`
+    // parameter but silently dropped it — the column didn't exist on the
+    // entity. The local Room schema now matches the Supabase schema
+    // (which has had `final_spent_amount` since migration 0028).
+    val finalSpentAmount: Long? = null,
 )
 
 // ─── Personnel ───────────────────────────────────────────────────────────────

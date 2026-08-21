@@ -25,4 +25,12 @@ data class AuditLogInput(
     val action: String, val entityType: String, val entityId: String,
     val beforeJson: String? = null, val afterJson: String? = null,
     val note: String? = null,
+    // TIER 3 R19 FIX: previously the audit log always recorded `actorId = "system"`
+    // even when the caller knew the real actor (the logged-in user). This made
+    // the audit trail useless for accountability — every action looked like it
+    // was performed by the system. The actor fields are now optional on the
+    // input; when the caller omits them, the repository falls back to "system".
+    val actorId: String? = null,
+    val actorName: String? = null,
+    val actorRole: String? = null,
 )

@@ -60,9 +60,16 @@ object DatabaseModule {
             // to the `students` table with default `'tranches'` (matching the
             // desktop's default for imported students without an explicit
             // `payment_plan` value).
+            //
+            // TIER 3 R18 — register MIGRATION_5_6 so the `finalSpentAmount`
+            // column is added to the `expenses` table. The column stores the
+            // actual spent amount confirmed by the proof scan at settlement
+            // time — previously `settleProof()` accepted the parameter but
+            // silently dropped it.
             .addMigrations(
                 ElImtiyazDatabase.MIGRATION_3_4,
                 ElImtiyazDatabase.MIGRATION_4_5,
+                ElImtiyazDatabase.MIGRATION_5_6,
             )
             // Fallback for any future schema changes that don't yet have an
             // explicit migration — destructive, but only fires if a migration

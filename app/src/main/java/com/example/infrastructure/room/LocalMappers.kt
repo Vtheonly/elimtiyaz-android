@@ -141,6 +141,7 @@ object LocalMappers {
         submittedAt = submittedAt, approvedBy = approvedBy, approvedAt = approvedAt,
         approvalNote = notes, disbursedBy = null, disbursedAt = disbursedAt,
         proofUrl = proofUrl, anomalyScore = anomalyScore,
+        finalSpentAmount = finalSpentAmount,
     )
 
     fun PersonnelEntity.toDomain() = Personnel(

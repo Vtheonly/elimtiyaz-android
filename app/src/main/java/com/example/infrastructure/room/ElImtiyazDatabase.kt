@@ -48,7 +48,7 @@ import androidx.room.RoomDatabase
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class ElImtiyazDatabase : RoomDatabase() {
@@ -118,6 +118,28 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
             override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE students ADD COLUMN paymentPlan TEXT NOT NULL DEFAULT 'tranches'"
+                )
+            }
+        }
+
+        /**
+         * Room migration v5 → v6 (TIER 3 R18).
+         *
+         * Adds the `finalSpentAmount` INTEGER column to `expenses` so the
+         * local Room schema matches the Supabase schema (which has had
+         * `final_spent_amount` since migration 0028). This column stores
+         * the actual spent amount confirmed by the proof scan at settlement
+         * time — previously `settleProof()` accepted the parameter but
+         * silently dropped it because the column didn't exist on the entity.
+         *
+         * Nullable (no default) so existing expense rows continue to map
+         * to `finalSpentAmount = null` (matching the previous behavior for
+         * expenses that were settled before this migration).
+         */
+        val MIGRATION_5_6 = object : androidx.room.migration.Migration(5, 6) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE expenses ADD COLUMN finalSpentAmount INTEGER"
                 )
             }
         }
