@@ -3,7 +3,6 @@ package com.example.ui.features.financials
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.LedgerEntry
-import com.example.core.PaymentStatus
 import com.example.domain.model.DashboardKpi
 import com.example.domain.model.DebtSummary
 import com.example.domain.model.Expense
@@ -22,9 +21,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.datetime.Clock
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.todayIn
 
 /**
  * Financials hub ViewModel — aggregates state from 4 repositories.
@@ -34,7 +30,8 @@ import kotlinx.datetime.todayIn
  *  - Recent payments (last 30, sorted by `collectedAt` DESC) from `PaymentRepository.observe()`.
  *  - Expenses (sorted by `submittedAt` DESC) from `ExpenseRepository.observe()`.
  *  - Top 20 debtors by outstanding from `DebtRepository.observeSummary()`.
- *  - Computed `collectedToday` = sum of today's paid/partial payments.
+ *  - `collectedToday` — derived from `kpis.todayRevenue` (TIER 4 FIX bypass #3:
+ *    previously re-computed inline from `recentPayments`).
  */
 @HiltViewModel
 class FinancialsHubViewModel @Inject constructor(
@@ -64,16 +61,19 @@ class FinancialsHubViewModel @Inject constructor(
     val error: StateFlow<String?> = _error.asStateFlow()
 
     /**
-     * Sum of today's `paid` + `partial` payments (in centimes).
-     * Computed client-side from [recentPayments] — mirrors the desktop
-     * `sumPaidPayments` helper applied to today's filter.
+     * Sum of today's `paid` payments (in centimes).
+     *
+     * TIER 4 FIX (bypass #3): the previous implementation re-computed this
+     * client-side from [recentPayments] using a `PAID + PARTIAL` filter —
+     * duplicating the canonical `DashboardKpi.todayRevenue` produced by
+     * `LocalDashboardRepository.observeKpis()` (which filters `paid` +
+     * `collectedAt.startsWith(todayIso)`). The duplicate filter could drift
+     * from the dashboard KPI (it included `PARTIAL` payments, which the
+     * canonical rule excludes from cleared revenue). Now derived directly
+     * from [kpis] so the hub and dashboard always agree.
      */
-    val collectedToday: StateFlow<Long> = recentPayments.map { payments ->
-        val todayIso = Clock.System.todayIn(TimeZone.currentSystemDefault()).toString()
-        payments
-            .filter { it.status in setOf(PaymentStatus.PAID, PaymentStatus.PARTIAL) && it.collectedAt.startsWith(todayIso) }
-            .sumOf { it.amount }
-    }.stateIn(viewModelScope, SharingStarted.Lazily, 0L)
+    val collectedToday: StateFlow<Long> = kpis.map { it?.todayRevenue ?: 0L }
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0L)
 
     /** Top 20 debtors by outstanding amount (mirrors desktop `top20Debtors`). */
     val topDebtors: StateFlow<List<DebtSummary>> = debtors.map { all ->

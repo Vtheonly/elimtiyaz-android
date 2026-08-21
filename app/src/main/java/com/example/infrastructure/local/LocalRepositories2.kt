@@ -180,6 +180,16 @@ private data class DashboardGroup2(
     val classes: List<AcademicClassEntity>,
 )
 
+// TIER 4 FIX (bypass #4) — 4-tuple for `observeOperationalAlerts`'s first
+// combine group (parents + installments + expenses + ledger). Kotlin's
+// stdlib doesn't ship a `Quadruple`, so we use a small local data class.
+private data class AlertOperationalGroup1(
+    val parents: List<ParentEntity>,
+    val installments: List<InstallmentEntity>,
+    val expenses: List<ExpenseEntity>,
+    val ledger: List<LedgerEntryEntity>,
+)
+
 @Singleton
 class LocalDashboardRepository @Inject constructor(
     private val db: ElImtiyazDatabase,
@@ -400,8 +410,13 @@ class LocalDashboardRepository @Inject constructor(
             db.parentDao().observeAll(),
             db.installmentDao().observeAll(),
             db.expenseDao().observeAll(),
-        ) { parents, installments, expenses ->
-            Triple(parents, installments, expenses)
+            // TIER 4 FIX (bypass #4) — add the ledger flow so the overdue-debt
+            // alert can compute `totalOverdue` via the canonical
+            // `LedgerEngine.computeParentSummary` instead of the inline
+            // `insts.sumOf { (it.amountDue - it.amountPaid) }`.
+            db.ledgerEntryDao().observeAll(),
+        ) { parents, installments, expenses, ledger ->
+            AlertOperationalGroup1(parents, installments, expenses, ledger)
         },
         combine(
             db.paymentDao().observeAll(),
@@ -410,7 +425,7 @@ class LocalDashboardRepository @Inject constructor(
         ) { payments, attendance, classes ->
             Triple(payments, attendance, classes)
         },
-    ) { (parents, installments, expenses), (payments, attendance, classes) ->
+    ) { (parents, installments, expenses, ledger), (payments, attendance, classes) ->
         val nowIso = Instant.now().toString()
         val todayIso = LocalDate.now(ZoneOffset.UTC).toString()
         val alerts = mutableListOf<DashboardOperationalAlert>()
@@ -418,10 +433,24 @@ class LocalDashboardRepository @Inject constructor(
         // 1. Overdue Debt Alerts (top overdue parents with phone numbers for 1-tap call)
         val overdueInstallments = installments.filter { it.status != "paid" && it.dueDate < nowIso }
         val overdueByParent = overdueInstallments.groupBy { it.parentId }
+        // TIER 4 FIX (bypass #4) — pre-compute per-parent ledger summaries
+        // using the canonical `LedgerEngine.computeParentSummary` (the same
+        // call used by `observeKpis` / `observeDebtByAging` in this file).
+        // Previously this branch computed
+        //   `insts.sumOf { (it.amountDue - it.amountPaid).coerceAtLeast(0L) }`
+        // which diverged from the canonical ledger when reversals /
+        // adjustments / credits were present.
+        val domainLedger = ledger.map { LocalMappers.run { it.toDomain() } }
+        val ledgerByParent = domainLedger.groupBy { it.parentId }
         overdueByParent.entries
             .mapNotNull { (parentId, insts) ->
                 val parent = parents.firstOrNull { it.id == parentId } ?: return@mapNotNull null
-                val totalOverdue = insts.sumOf { (it.amountDue - it.amountPaid).coerceAtLeast(0L) }
+                val parentEntries = ledgerByParent[parentId] ?: emptyList()
+                val dueDateMap = LedgerEngine.buildOverdueDueDateMap(parentEntries)
+                val totalOverdue = LedgerEngine
+                    .computeParentSummary(parentEntries, parentId, parent.fullName, dueDateMap)
+                    .totalOverdue
+                    .coerceAtLeast(0L)
                 val oldestDue = insts.minOfOrNull { it.dueDate } ?: nowIso
                 val daysOverdue = daysBetweenFloor(oldestDue)
                 Triple(parent, totalOverdue, daysOverdue)

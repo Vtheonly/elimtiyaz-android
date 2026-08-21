@@ -42,6 +42,9 @@ fun InstallmentScheduleScreen(
     val parents by viewModel.parents.collectAsState()
     val selectedParentId by viewModel.selectedParentId.collectAsState()
     val installments by viewModel.installments.collectAsState()
+    // TIER 4 FIX (bypass #2) — canonical parent summary from
+    // `LedgerEngine.computeParentSummary`, collected reactively.
+    val parentSummary by viewModel.parentSummary.collectAsState()
     val busy by viewModel.busy.collectAsState()
     val message by viewModel.message.collectAsState()
 
@@ -87,8 +90,12 @@ fun InstallmentScheduleScreen(
                 return@Column
             }
 
-            val totalDue = installments.sumOf { it.amountDue }
-            val totalPaid = installments.sumOf { it.amountPaid }
+            // TIER 4 FIX (bypass #2) — replaced inline `installments.sumOf`
+            // with canonical `ParentLedgerSummary` values from
+            // `LedgerEngine.computeParentSummary`. Falls back to 0L while the
+            // summary loads (the user just selected the parent).
+            val totalDue = parentSummary?.totalCharged ?: 0L
+            val totalPaid = parentSummary?.totalPaid ?: 0L
             val progress = if (totalDue > 0) totalPaid.toFloat() / totalDue.toFloat() else 0f
 
             ElCard(modifier = Modifier.fillMaxWidth(), accent = PrimaryBlue) {

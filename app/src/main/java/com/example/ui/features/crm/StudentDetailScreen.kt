@@ -194,6 +194,11 @@ fun StudentDetailScreen(
     val attendanceStats by viewModel.attendanceStats.collectAsState()
     val installments by viewModel.installments.collectAsState()
     val payments by viewModel.payments.collectAsState()
+    // TIER 4 FIX (bypass #1) — collect the canonical `ParentLedgerSummary`
+    // already materialized by the ViewModel from `ledgerRepository.summary()`
+    // (which calls `LedgerEngine.computeParentSummary`). Used by the
+    // Finances tab to avoid inline installment sums.
+    val familySummary by viewModel.familySummary.collectAsState()
     val context = LocalContext.current
     val tokens = elDesignTokens()
 
@@ -479,9 +484,16 @@ fun StudentDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     item {
-                        val studentDue = installments.sumOf { it.amountDue }
-                        val studentPaid = installments.sumOf { it.amountPaid }
-                        val studentRest = (studentDue - studentPaid).coerceAtLeast(0L)
+                        // TIER 4 FIX (bypass #1) — replace the inline
+                        // `installments.sumOf { amountDue / amountPaid }` with
+                        // the canonical `ParentLedgerSummary` (produced by
+                        // `LedgerEngine.computeParentSummary`). The canonical
+                        // engine correctly excludes reversed originals, applies
+                        // overdue rules, and includes adjustments/credits — the
+                        // inline sum missed all three.
+                        val studentDue = familySummary?.totalCharged ?: 0L
+                        val studentPaid = familySummary?.totalPaid ?: 0L
+                        val studentRest = (familySummary?.totalOutstanding ?: 0L).coerceAtLeast(0L)
 
                         ElCard(modifier = Modifier.fillMaxWidth(), accent = if (studentRest > 0) DangerRed else SuccessGreen) {
                             Column(modifier = Modifier.padding(14.dp)) {

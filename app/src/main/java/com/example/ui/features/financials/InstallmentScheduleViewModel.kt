@@ -2,9 +2,12 @@ package com.example.ui.features.financials
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.core.LedgerEngine
+import com.example.core.ParentLedgerSummary
 import com.example.domain.model.Installment
 import com.example.domain.model.Parent
 import com.example.domain.repository.InstallmentRepository
+import com.example.domain.repository.LedgerRepository
 import com.example.domain.repository.ParentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -25,11 +28,19 @@ import kotlinx.coroutines.launch
  *   - On parent selection, switches the installments flow to
  *     [InstallmentRepository.observeByParent].
  *   - Exposes the selected parent so the UI can show its name.
+ *
+ * TIER 4 FIX (bypass #2): added [ledgerRepository] + [parentSummary].
+ * The Progression card previously used inline `installments.sumOf { amountDue }
+ * / amountPaid`, which diverged from the canonical ledger when reversals /
+ * adjustments / credits were present. The summary is now derived from
+ * `LedgerEngine.computeParentSummary` (the canonical engine), collected
+ * reactively so it stays in sync as the ledger changes.
  */
 @HiltViewModel
 class InstallmentScheduleViewModel @Inject constructor(
     private val installmentRepository: InstallmentRepository,
     private val parentRepository: ParentRepository,
+    private val ledgerRepository: LedgerRepository,
 ) : ViewModel() {
 
     val parents: StateFlow<List<Parent>> = parentRepository.observe()
@@ -41,6 +52,10 @@ class InstallmentScheduleViewModel @Inject constructor(
     private val _installments = MutableStateFlow<List<Installment>>(emptyList())
     val installments: StateFlow<List<Installment>> = _installments.asStateFlow()
 
+    // TIER 4 FIX (bypass #2) — canonical parent-level summary.
+    private val _parentSummary = MutableStateFlow<ParentLedgerSummary?>(null)
+    val parentSummary: StateFlow<ParentLedgerSummary?> = _parentSummary.asStateFlow()
+
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy
 
@@ -49,8 +64,16 @@ class InstallmentScheduleViewModel @Inject constructor(
 
     fun selectParent(parentId: String) {
         _selectedParentId.value = parentId
+        // Reset the summary while the new one loads.
+        _parentSummary.value = null
         viewModelScope.launch {
             installmentRepository.observeByParent(parentId).collect { _installments.value = it }
+        }
+        // TIER 4 FIX (bypass #2) — collect the canonical parent summary.
+        viewModelScope.launch {
+            ledgerRepository.observeByParent(parentId).collect { entries ->
+                _parentSummary.value = LedgerEngine.computeParentSummary(entries, parentId, "")
+            }
         }
     }
 
