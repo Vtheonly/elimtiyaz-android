@@ -38,6 +38,8 @@ data class ParentEntity(
     val preferredLanguage: String,
     val avatarUrl: String?,
     val isActive: Boolean,
+    // TIER 4 FIX — cityTier persisted (0028 schema parity).
+    val cityTier: String? = null,
     val isFinanciallyRestricted: Boolean,
     val activationCode: String?,
     val createdAt: String,
@@ -125,7 +127,10 @@ data class AcademicClassEntity(
     val gradeLevel: String,
     val section: String?,
     val room: String?,
-    val capacity: Int,
+    // TIER 4 FIX — nullable: desktop models capacity as `number | null`
+    // (null = unlimited enrollment). The non-null Int column made a
+    // null-capacity class fail deserialization.
+    val capacity: Int?,
     val homeroomTeacherId: String?,
     val homeroomTeacherName: String?,
     val academicYear: String,
@@ -141,7 +146,9 @@ data class SubjectEntity(
     val code: String,
     val name: String,
     val category: String,
-    val coefficient: Int,
+    // TIER 4 FIX — Double (REAL): SQL is NUMERIC(4,2), desktop is `number`.
+    // The previous Int column silently truncated decimal coefficients.
+    val coefficient: Double,
     val weeklyHours: Double,
     val isExtracurricular: Boolean,
     val isActive: Boolean,
@@ -175,7 +182,10 @@ data class AssessmentEntity(
     val devoir1: Double?,
     val devoir2: Double?,
     val examen: Double?,
-    val coefficient: Int,
+    // TIER 4 FIX — Double coefficient (NUMERIC(4,2) parity) + isExtracurricular
+    // so computeOverallGpa can apply the canonical exclusion rule.
+    val coefficient: Double,
+    val isExtracurricular: Boolean = false,
     val subjectAverage: Double?,
     val enteredBy: String,
     val enteredAt: String,
@@ -219,6 +229,11 @@ data class PaymentEntity(
     val transferReference: String?,
     val transferSourceBank: String?,
     val notes: String?,
+    // TIER 4 FIX (v2 audit D13 / R13) — expected-vs-excess tracking for
+    // partial / overpayments. Amounts are centimes (Long), matching `amount`.
+    val expectedAmount: Long? = null,
+    val excessAmount: Long? = null,
+    val excessRemark: String? = null,
     val collectedBy: String,
     val collectedBy_name: String,
     val collectedAt: String,

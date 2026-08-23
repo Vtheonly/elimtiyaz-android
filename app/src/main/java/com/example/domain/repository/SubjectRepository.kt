@@ -12,17 +12,17 @@ interface SubjectRepository {
     suspend fun createSubject(input: CreateSubjectInput, actorId: String, actorName: String): Result<Subject>
     suspend fun updateSubject(id: String, input: UpdateSubjectInput, actorId: String, actorName: String): Result<Subject>
     suspend fun archiveSubject(id: String, actorId: String, actorName: String): Result<Unit>
-    suspend fun assignSubjectToClass(classId: String, subjectId: String, teacherId: String?, weeklyHours: Int, coefficient: Int, actorId: String, actorName: String): Result<Unit>
+    suspend fun assignSubjectToClass(classId: String, subjectId: String, teacherId: String?, weeklyHours: Int, coefficient: Double, actorId: String, actorName: String): Result<Unit>
 }
 
 /** Input payload for [SubjectRepository.createSubject]. */
 data class CreateSubjectInput(
     val name: String, val nameAr: String?, val code: String,
-    val level: String, val coefficient: Int, val isExtracurricular: Boolean,
+    val level: String, val coefficient: Double, val isExtracurricular: Boolean,
     val passingGrade: Double = 10.0,
 )
 
 /** Input payload for [SubjectRepository.updateSubject]. */
 data class UpdateSubjectInput(
-    val name: String? = null, val coefficient: Int? = null, val passingGrade: Double? = null,
+    val name: String? = null, val coefficient: Double? = null, val passingGrade: Double? = null,
 )

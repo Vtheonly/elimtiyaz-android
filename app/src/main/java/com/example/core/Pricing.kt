@@ -67,15 +67,25 @@ fun computeTuitionTotal(
  * Passing grade is 10.0/20.0 by default (see [isPassing]).
  */
 fun computeOverallGpa(assessments: List<Assessment>): Double? {
-    var weightedSum = 0.0
-    var coefSum = 0
+    // CANONICAL (cross-platform equivalence fix):
+    //   1. EXTRACURRICULAR modules are excluded from the official GPA —
+    //      matches desktop academic.ts and SQL fn_calculate_student_term_gpa.
+    //      Previously Android had no isExtracurricular flag on Assessment and
+    //      contaminated the GPA with chess / speech therapy / sports marks.
+    //   2. Integer-scaled math (centi-coefficients) with Math.round so the
+    //      result is bit-identical to the desktop engine AND the SQL
+    //      ROUND(numeric, 2) at .xx5 boundaries.
+    var weightedSumCents = 0L   // Σ(avg_cents × coef_cents)
+    var coefSumCents = 0L
     for (a in assessments) {
-        // Mirror desktop: compute subject average if not yet stored.
+        if (a.isExtracurricular) continue
         val avg = a.subjectAverage ?: computeSubjectAverage(a.devoir1, a.devoir2, a.examen) ?: continue
-        weightedSum += avg * a.coefficient
-        coefSum += a.coefficient
+        weightedSumCents += Math.round(avg * 100.0).toLong() * Math.round(a.coefficient * 100.0).toLong()
+        coefSumCents += Math.round(a.coefficient * 100.0).toLong()
     }
-    return if (coefSum == 0) null else weightedSum / coefSum
+    if (coefSumCents == 0L) return null
+    val gpaCents = Math.round(weightedSumCents.toDouble() / coefSumCents.toDouble())
+    return gpaCents / 100.0
 }
 
 /**
@@ -90,11 +100,20 @@ fun computeOverallGpa(assessments: List<Assessment>): Double? {
  *     instant UI preview before submit.
  */
 fun computeSubjectAverage(devoir1: Double?, devoir2: Double?, examen: Double?): Double? {
-    if (devoir1 == null && devoir2 == null && examen == null) return null
-    val d1 = devoir1 ?: 0.0
-    val d2 = devoir2 ?: 0.0
-    val ex = examen ?: 0.0
-    return (d1 + d2 + 2 * ex) / 4.0
+    // CANONICAL (cross-platform equivalence fix): the subject average is only
+    // computable when ALL THREE marks exist. This matches the SQL trigger
+    // compute_grade_subject_average() (the persistence-layer authority), which
+    // leaves subject_average NULL while any mark is missing. The previous
+    // coerce-nulls-to-0 rule deflated partial assessments and diverged from
+    // the backend.
+    if (devoir1 == null || devoir2 == null || examen == null) return null
+    // Integer-scaled rounding — matches desktop + SQL ROUND(numeric, 2) at
+    // .xx5 boundaries (score cents ÷ 4 is exact in binary).
+    val d1c = Math.round(devoir1 * 100.0)
+    val d2c = Math.round(devoir2 * 100.0)
+    val exc = Math.round(examen * 100.0)
+    val avgCents = Math.round((d1c + d2c + 2 * exc) / 4.0)
+    return avgCents / 100.0
 }
 
 /**

@@ -21,6 +21,19 @@ import java.time.ZoneOffset
  */
 
 // ── Canonical amounts (centimes — DZD value × 100) ──────────────────────
+/** Group thousands with a plain space (fr-FR style, canonical byte-identical
+ *  across desktop / Android / reports). Mirrors the desktop's groupAmountFr. */
+internal fun groupAmountFr(n: Long): String {
+    var rest = kotlin.math.abs(n)
+    if (rest == 0L) return "0"
+    val parts = mutableListOf<String>()
+    while (rest > 0) {
+        parts.add(0, (rest % 1000).toString())
+        rest /= 1000
+    }
+    return parts.joinToString(" ")
+}
+
 const val PASSAGE_DE_PALIER_AMOUNT: Long = -1_000_000L         // −10,000 DZD
 const val SIBLING_PER_CHILD_AMOUNT: Long = 500_000L            // 5,000 DZD per additional child
 const val EARLY_ANNUAL_RATE: Double = 0.10                      // −10%
@@ -204,7 +217,9 @@ fun evaluateAllSystemDiscounts(params: EvaluateAllDiscountsParams): List<Discoun
     if (sibling != 0L) {
         out.add(DiscountEvaluation(
             code = "sibling_fixed",
-            label = "Fratrie — enfant #${params.childIndex} (−${Math.abs(sibling) / 100} DA)",
+            // CANONICAL (cross-platform equivalence): byte-identical to the
+            // desktop label — plain-space fr-FR grouping.
+            label = "Fratrie — enfant #${params.childIndex} (−${groupAmountFr(Math.abs(sibling) / 100)} DA)",
             amount = sibling,
             applied = true,
             reason = "Enfant ${params.childIndex} de la fratrie",

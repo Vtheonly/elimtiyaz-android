@@ -120,7 +120,12 @@ class SessionManagerTest {
 
         // Trigger restore
         sessionManager.restoreSession()
-        kotlinx.coroutines.delay(10)
+        // restoreSession dispatches onto Dispatchers.IO — a fixed 10ms delay
+        // races it in plain-JVM test runs. Poll deterministically instead.
+        val deadline = System.currentTimeMillis() + 5_000
+        while (!states.contains(demoSession) && System.currentTimeMillis() < deadline) {
+            kotlinx.coroutines.delay(20)
+        }
 
         // The state should now include the demo session
         assertTrue(states.contains(demoSession))

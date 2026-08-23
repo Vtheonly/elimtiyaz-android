@@ -43,9 +43,21 @@ class PricingCalculationTest {
         assertEquals(0.0, computeSubjectAverage(0.0, 0.0, 0.0)!!, 0.001)
     }
 
-    @Test fun `subject average handles nulls as zero`() {
-        assertEquals(5.0, computeSubjectAverage(null, null, 10.0)!!, 0.001) // (0+0+20)/4 = 5
-        assertEquals(2.5, computeSubjectAverage(5.0, null, 2.5)!!, 0.001) // (5+0+5)/4 = 2.5
+    @Test fun `subject average is null when ANY mark is missing - canonical all-3 rule`() {
+        // CANONICAL (cross-platform equivalence fix): the average is only
+        // computable when all three marks exist — mirrors the SQL trigger
+        // compute_grade_subject_average() (persistence authority).
+        assertNull(computeSubjectAverage(null, null, 10.0))
+        assertNull(computeSubjectAverage(5.0, null, 2.5))
+        assertNull(computeSubjectAverage(null, 16.0, 18.0))
+        assertNull(computeSubjectAverage(14.0, null, null))
+    }
+
+    @Test fun `subject average rounds xx5 boundaries with decimal half-up - SQL parity`() {
+        // (12 + 13 + 2*14.75)/4 = 54.5/4 = 13.625 → 13.63
+        assertEquals(13.63, computeSubjectAverage(12.0, 13.0, 14.75)!!, 1e-9)
+        // (11 + 13 + 2*14.775)/4 = 53.55/4 = 13.3875 → 13.39
+        assertEquals(13.39, computeSubjectAverage(11.0, 13.0, 14.775)!!, 1e-9)
     }
 
     @Test fun `subject average returns null when all null`() {
@@ -54,8 +66,8 @@ class PricingCalculationTest {
 
     @Test fun `overall GPA is weighted average of subject averages`() {
         val assessments = listOf(
-            Assessment("a1", "t", "s1", "sub1", "c1", "T1", "2026", 14.0, 10.0, 18.0, null, 4, "t", "now"),
-            Assessment("a2", "t", "s1", "sub2", "c1", "T1", "2026", 12.0, 12.0, 12.0, null, 2, "t", "now"),
+            Assessment("a1", "t", "s1", "sub1", "c1", "T1", "2026", 14.0, 10.0, 18.0, null, 4.0, false, "t", "now"),
+            Assessment("a2", "t", "s1", "sub2", "c1", "T1", "2026", 12.0, 12.0, 12.0, null, 2.0, false, "t", "now"),
         )
         // Subject averages: 15.0 (coef 4), 12.0 (coef 2)
         // GPA = (15×4 + 12×2) / (4+2) = (60+24)/6 = 14.0
@@ -64,8 +76,8 @@ class PricingCalculationTest {
 
     @Test fun `overall GPA skips null subject averages`() {
         val assessments = listOf(
-            Assessment("a1", "t", "s1", "sub1", "c1", "T1", "2026", 14.0, 10.0, 18.0, null, 4, "t", "now"),
-            Assessment("a2", "t", "s1", "sub2", "c1", "T1", "2026", null, null, null, null, 2, "t", "now"),
+            Assessment("a1", "t", "s1", "sub1", "c1", "T1", "2026", 14.0, 10.0, 18.0, null, 4.0, false, "t", "now"),
+            Assessment("a2", "t", "s1", "sub2", "c1", "T1", "2026", null, null, null, null, 2.0, false, "t", "now"),
         )
         // Only sub1 has a valid average (15.0, coef 4)
         assertEquals(15.0, computeOverallGpa(assessments)!!, 0.001)
@@ -73,7 +85,7 @@ class PricingCalculationTest {
 
     @Test fun `overall GPA returns null when no valid assessments`() {
         val assessments = listOf(
-            Assessment("a1", "t", "s1", "sub1", "c1", "T1", "2026", null, null, null, null, 4, "t", "now"),
+            Assessment("a1", "t", "s1", "sub1", "c1", "T1", "2026", null, null, null, null, 4.0, false, "t", "now"),
         )
         assertNull(computeOverallGpa(assessments))
     }

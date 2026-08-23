@@ -292,6 +292,9 @@ interface InstallmentDao {
     @Query("SELECT * FROM installments WHERE studentId = :studentId ORDER BY dueDate ASC")
     suspend fun listByStudent(studentId: String): List<InstallmentEntity>
 
+    @Query("SELECT * FROM installments ORDER BY dueDate ASC")
+    suspend fun listAll(): List<InstallmentEntity>
+
     @Query("SELECT * FROM installments WHERE id = :id")
     fun observeById(id: String): Flow<InstallmentEntity?>
 

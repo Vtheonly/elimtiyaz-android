@@ -77,7 +77,10 @@ fun PaymentCacheEntity.toDomain(): Payment = Payment(
     parentId = parentId, studentId = studentId, amount = amount,
     method = runCatching { PaymentMethod.valueOf(method) }.getOrDefault(PaymentMethod.CASH),
     status = runCatching { PaymentStatus.valueOf(status) }.getOrDefault(PaymentStatus.PENDING),
-    category = runCatching { PaymentCategory.valueOf(category) }.getOrDefault(PaymentCategory.OTHER),
+    // TIER 4 FIX (D50) — total `fromCode` (unknown → OTHER) instead of the
+    // valueOf+runCatching pattern (valueOf expects the ENUM name, not the
+    // wire code — every non-enum-name code silently coerced to OTHER).
+    category = PaymentCategory.fromCode(category),
     installmentId = installmentId, proofUrl = proofUrl, notes = notes,
     collectedBy = collectedBy, collectedAt = collectedAt,
     createdAt = createdAt, updatedAt = updatedAt,
@@ -101,16 +104,16 @@ fun LedgerCacheEntity.toDomain(): LedgerEntry = LedgerEntry(
     parentId = parentId, studentId = studentId,
     category = runCatching { PaymentCategory.valueOf(category) }.getOrDefault(PaymentCategory.OTHER),
     amount = amount,
-    type = runCatching { LedgerEntryType.valueOf(type) }
-        .getOrDefault(LedgerEntryType.CHARGE),
-    sourceType = runCatching { LedgerSourceType.valueOf(sourceType) }
-        .getOrDefault(LedgerSourceType.MANUAL_ENTRY),
+    type = LedgerEntryType.fromCode(type),
+    sourceType = LedgerSourceType.fromCode(sourceType),
     sourceId = sourceId,
-    method = method?.let { runCatching { PaymentMethod.valueOf(it) }.getOrNull() },
+    method = method?.let { PaymentMethod.fromCode(it) },
     receiptNumber = receiptNumber,
-    paymentStatus = paymentStatus?.let { runCatching { PaymentStatus.valueOf(it) }.getOrNull() },
+    paymentStatus = paymentStatus?.let { PaymentStatus.fromCode(it) },
     reversesId = reversesId,
     description = description, actorId = actorId, actorName = actorName,
     at = entryDate,
-    metadata = emptyMap(),
+    // TIER 4 FIX — parse the persisted metadata (added in MIGRATION_6_7)
+    // instead of dropping it. Falls back to an empty map for legacy rows.
+    metadata = com.example.infrastructure.room.LocalMappers.parseMetadataJson(metadataJson),
 )

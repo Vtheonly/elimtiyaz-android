@@ -9,7 +9,6 @@ import com.example.core.PaymentMethod
 import com.example.core.PaymentStatus
 import com.example.core.PaymentPlan
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -18,35 +17,38 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
-import kotlinx.serialization.builtins.ListSerializer
 import java.io.File
 import java.time.Instant
-import java.time.LocalDate
-import java.time.OffsetDateTime
-import java.time.ZoneOffset
 
 /**
  * Cross-Platform Equivalence Test Runner — Android (Kotlin).
  *
- * Reads the SAME canonical JSON scenarios as the desktop runner, runs each
- * through the Android's canonical financial engine (`LedgerEngine`,
- * `WaterfallAllocation`, `DiscountEngine`, `Reconcile`), captures the
- * complete domain result, and writes a normalized JSON result file to
- * `results/android/<scenario_id>.json`.
+ * Reads the SAME canonical JSON scenarios as the desktop and backend runners,
+ * runs each through the Android's canonical financial + academic engine
+ * (`LedgerEngine`, `WaterfallAllocation`, `DiscountEngine`, `Reconcile`,
+ * `Pricing`), captures the complete domain result, and writes a normalized
+ * JSON result file to `results/android/<scenario_id>.json`.
  *
- * The comparator (`comparison/comparator.ts`) then compares the desktop
- * and Android result sets.
+ * The comparator (`comparison/triple_comparator.ts`) then compares the three
+ * result sets.
  *
- * All monetary values are in CENTIMES (Long) — the Android engine's
- * native representation. No conversion needed.
+ * All monetary values are in CENTIMES (Long) — the Android engine's native
+ * representation.
  *
- * Usage (run from Android Studio or via gradle):
- *   ./gradlew :app:testDebugUnitTest --tests '*AndroidEquivalenceRunner*'
- *
- * Or as a standalone main():
- *   ./gradlew :app:runEquivalenceRunner --args='--scenarios /path/to/scenarios --output /path/to/results/android'
+ * TIER 4 FIX — this runner previously defined its own local
+ * `WaterfallInstallment` (String-typed `category`) and passed a String
+ * `categoryFilter` into the core engine, whose real signatures are typed
+ * `(List<WaterfallInstallment>, Long, PaymentCategory?, PaymentStatus)`.
+ * It did not compile against the current core (and `val when` / `List<...>`]
+ * typos meant it had never compiled at all). It now maps canonical scenarios
+ * onto the REAL core types.
  */
 object AndroidEquivalenceRunner {
+
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+    }
 
     // ───────────────────────────────────────────────────────────────────
     // JSON scenario DTOs — mirror the canonical schema exactly.
@@ -58,7 +60,7 @@ object AndroidEquivalenceRunner {
         val parentId: String,
         val studentId: String? = null,
         val category: String,
-        val amount: Long,                 // centimes
+        val amount: Long,
         val type: String,
         val sourceType: String,
         val sourceId: String,
@@ -110,7 +112,7 @@ object AndroidEquivalenceRunner {
         val category: String,
         val tags: List<String> = emptyList(),
         val given: Given,
-        val when: When,
+        val `when`: When,
         val then: JsonObject? = null,
     )
 
@@ -123,6 +125,9 @@ object AndroidEquivalenceRunner {
         val installments: List<CanonicalInstallment> = emptyList(),
         val payments: List<CanonicalPayment> = emptyList(),
         val academicYearStartYear: Int = 2025,
+        // Academic / CRM extension fields.
+        val assessment: CanonicalAssessment? = null,
+        val assessments: List<CanonicalAssessment> = emptyList(),
     )
 
     @Serializable
@@ -152,6 +157,32 @@ object AndroidEquivalenceRunner {
         val includeInstallments: Boolean = false,
         val includeParentSummaries: Boolean = false,
         val operations: List<Operation> = emptyList(),
+        // ── Academic / CRM extensions ──
+        val assessment: CanonicalAssessment? = null,
+        val assessments: List<CanonicalAssessment> = emptyList(),
+        val gradeLevel: String? = null,
+        val identity: CanonicalIdentity? = null,
+        val year: Int? = null,
+        val hashInput: String? = null,
+        val studentStatus: String? = null,
+    )
+
+    @Serializable
+    data class CanonicalAssessment(
+        val devoir1: Double? = null,
+        val devoir2: Double? = null,
+        val examen: Double? = null,
+        val subjectAverage: Double? = null,
+        val coefficient: Double = 1.0,
+        val isExtracurricular: Boolean = false,
+    )
+
+    @Serializable
+    data class CanonicalIdentity(
+        val phone: String? = null,
+        val displayName: String? = null,
+        val firstName: String? = null,
+        val lastName: String? = null,
     )
 
     @Serializable
@@ -182,9 +213,6 @@ object AndroidEquivalenceRunner {
 
     // ───────────────────────────────────────────────────────────────────
     // Conversions — canonical JSON (centimes) ↔ Android domain (centimes).
-    //
-    // The Android engine uses Long centimes throughout, so no precision
-    // conversion needed — just structuring.
     // ───────────────────────────────────────────────────────────────────
 
     private fun toDomainEntry(e: CanonicalLedgerEntry): LedgerEntry = LedgerEntry(
@@ -209,42 +237,39 @@ object AndroidEquivalenceRunner {
         metadata = e.metadata?.toDomainMap() ?: emptyMap(),
     )
 
-    private fun toDomainInstallment(i: CanonicalInstallment) = WaterfallInstallment(
+    /** Map a canonical scenario installment onto the REAL core engine type. */
+    private fun toCoreInstallment(i: CanonicalInstallment) = com.example.core.WaterfallInstallment(
         id = i.id,
-        parentId = i.parentId,
-        studentId = i.studentId,
-        category = i.category,
+        category = PaymentCategory.fromCode(i.category),
         amountDue = i.amountDue,
         amountPaid = i.amountPaid,
         amountPending = i.amountPending,
         dueDate = i.dueDate,
         status = i.status,
-        label = i.label,
     )
 
-    // Local installment shape (matches the canonical `WaterfallInstallment`
-    // used by the Android `allocatePaymentToInstallments` function).
-    data class WaterfallInstallment(
+    /**
+     * Post-state display record carrying amountDue so the derived
+     * `totalOutstanding` aggregate can be recomputed.
+     */
+    private data class InstallmentState(
         val id: String,
-        val parentId: String,
-        val studentId: String?,
-        val category: String,
         val amountDue: Long,
         val amountPaid: Long,
         val amountPending: Long,
-        val dueDate: String,
         val status: String,
-        val label: String,
     )
 
+    private fun com.example.core.WaterfallInstallment.toState() =
+        InstallmentState(id = id, amountDue = amountDue, amountPaid = amountPaid, amountPending = amountPending, status = status)
+
     // ───────────────────────────────────────────────────────────────────
-    // Operation dispatch — runs the scenario's `when` through the Android
-    // canonical engine and returns the result.
+    // Operation dispatch.
     // ───────────────────────────────────────────────────────────────────
 
     fun runOperation(scenario: CanonicalScenario): JsonObject {
         val given = scenario.given
-        val when_ = scenario.when
+        val when_ = scenario.`when`
         val entries = given.ledgerEntries.map { toDomainEntry(it) }
 
         return when (when_.type) {
@@ -263,6 +288,7 @@ object AndroidEquivalenceRunner {
             "computeParentSummary" -> {
                 val parentId = when_.parentId ?: given.parent?.id ?: "par-001"
                 val parentName = given.parent?.name ?: "Test Parent"
+                // NOTE: symmetric with the desktop runner (no overdue map).
                 val summary = LedgerEngine.computeParentSummary(entries, parentId, parentName)
                 buildJsonObject {
                     put("totalOutstanding", summary.totalOutstanding)
@@ -277,24 +303,28 @@ object AndroidEquivalenceRunner {
             }
 
             "allocatePayment" -> {
-                val installments = given.installments.map { toDomainInstallment(it) }
+                // CANONICAL RULE — zero/negative payment amounts are invalid
+                // operations (SQL RPC raises; Android collect() validates;
+                // desktop mock validates). Report the error like the backend.
+                when_.paymentAmount?.let { if (it <= 0L) return errorResult("Payment amount must be > 0 (got $it)") }
+                val coreInstallments = given.installments.map { toCoreInstallment(it) }
                 val paymentAmount = when_.paymentAmount ?: return errorResult("Missing paymentAmount")
                 val category = when_.category ?: "tuition"
                 val paymentStatus = when_.paymentStatus ?: "paid"
-                val paymentId = when_.paymentId ?: "pay-test"
 
                 val result = allocatePaymentToInstallments(
-                    installments = installments,
+                    installments = coreInstallments,
                     paymentAmount = paymentAmount,
-                    categoryFilter = category,
+                    categoryFilter = PaymentCategory.fromCode(category),
                     paymentStatus = if (paymentStatus == "paid") PaymentStatus.PAID else PaymentStatus.PENDING,
                 )
 
-                // Apply allocation to installments for post-state reporting.
-                val installmentsAfter = installments.map { i ->
+                val installmentsAfter = coreInstallments.map { i ->
                     val alloc = result.allocations.find { it.installmentId == i.id }
-                    if (alloc == null) i
-                    else i.copy(
+                    if (alloc == null) i.toState()
+                    else InstallmentState(
+                        id = i.id,
+                        amountDue = i.amountDue,
                         amountPaid = alloc.newAmountPaid,
                         amountPending = alloc.newAmountPending,
                         status = alloc.newStatus,
@@ -315,22 +345,24 @@ object AndroidEquivalenceRunner {
             }
 
             "revertPaymentAllocation" -> {
-                val installments = given.installments.map { toDomainInstallment(it) }
+                val coreInstallments = given.installments.map { toCoreInstallment(it) }
                 val reversalAmount = when_.reversalAmount ?: return errorResult("Missing reversalAmount")
                 val category = when_.category ?: "tuition"
                 val originalWasPending = when_.originalWasPending ?: false
 
                 val result = revertPaymentAllocation(
-                    installments = installments,
+                    installments = coreInstallments,
                     reversalAmount = reversalAmount,
-                    categoryFilter = category,
+                    categoryFilter = PaymentCategory.fromCode(category),
                     originalWasPending = originalWasPending,
                 )
 
-                val installmentsAfter = installments.map { i ->
+                val installmentsAfter = coreInstallments.map { i ->
                     val rev = result.reverts.find { it.installmentId == i.id }
-                    if (rev == null) i
-                    else i.copy(
+                    if (rev == null) i.toState()
+                    else InstallmentState(
+                        id = i.id,
+                        amountDue = i.amountDue,
                         amountPaid = rev.newAmountPaid,
                         amountPending = rev.newAmountPending,
                         status = rev.newStatus,
@@ -426,7 +458,27 @@ object AndroidEquivalenceRunner {
                 )
                 val report = Reconcile.reconcileLedger(entries, inputs)
                 buildJsonObject {
-                    put("violations", report.violations.map { mapOf("severity" to it.severity.name, "code" to it.code, "message" to it.message) })
+                    put("violations", kotlinx.serialization.json.buildJsonArray {
+                        for (v in report.violations) {
+                            add(buildJsonObject {
+                                // Canonical wire format: lowercase (matches desktop).
+                                put("severity", v.severity.name.lowercase())
+                                put("code", v.code)
+                                put("message", v.message)
+                                put("details", kotlinx.serialization.json.buildJsonObject {
+                                    for ((k, value) in v.details) {
+                                        when (value) {
+                                            null -> put(k, kotlinx.serialization.json.JsonNull)
+                                            is String -> put(k, value)
+                                            is Number -> put(k, value.toDouble())
+                                            is Boolean -> put(k, value)
+                                            else -> put(k, value.toString())
+                                        }
+                                    }
+                                })
+                            })
+                        }
+                    })
                     put("pass", report.passed)
                     put("errorCount", report.errorCount)
                     put("warningCount", report.warningCount)
@@ -435,18 +487,18 @@ object AndroidEquivalenceRunner {
             }
 
             "syncRoundTrip" -> {
-                var installments = given.installments.map { toDomainInstallment(it) }
+                var coreInstallments = given.installments.map { toCoreInstallment(it) }
                 val entriesAfter = entries.toList()
 
                 for (op in when_.operations) {
                     if (op.type == "allocatePayment") {
                         val result = allocatePaymentToInstallments(
-                            installments = installments,
+                            installments = coreInstallments,
                             paymentAmount = op.paymentAmount ?: continue,
-                            categoryFilter = op.category ?: "tuition",
+                            categoryFilter = PaymentCategory.fromCode(op.category ?: "tuition"),
                             paymentStatus = if (op.paymentStatus == "paid") PaymentStatus.PAID else PaymentStatus.PENDING,
                         )
-                        installments = installments.map { i ->
+                        coreInstallments = coreInstallments.map { i ->
                             val alloc = result.allocations.find { it.installmentId == i.id }
                             if (alloc == null) i
                             else i.copy(
@@ -457,12 +509,12 @@ object AndroidEquivalenceRunner {
                         }
                     } else if (op.type == "revertPaymentAllocation") {
                         val result = revertPaymentAllocation(
-                            installments = installments,
+                            installments = coreInstallments,
                             reversalAmount = op.reversalAmount ?: continue,
-                            categoryFilter = op.category ?: "tuition",
+                            categoryFilter = PaymentCategory.fromCode(op.category ?: "tuition"),
                             originalWasPending = op.originalWasPending ?: false,
                         )
-                        installments = installments.map { i ->
+                        coreInstallments = coreInstallments.map { i ->
                             val rev = result.reverts.find { it.installmentId == i.id }
                             if (rev == null) i
                             else i.copy(
@@ -477,14 +529,81 @@ object AndroidEquivalenceRunner {
                 val parentId = given.parent?.id ?: "par-001"
                 val parentName = given.parent?.name ?: "Test Parent"
                 val summary = LedgerEngine.computeParentSummary(entriesAfter, parentId, parentName)
+                val states = coreInstallments.map { it.toState() }
 
                 buildJsonObject {
-                    putInstallments("installments", installments)
-                    put("totalPaid", installments.sumOf { it.amountPaid })
-                    put("totalPending", installments.sumOf { it.amountPending })
-                    put("totalOutstanding", installments.sumOf { maxOf(0L, it.amountDue - it.amountPaid - it.amountPending) })
+                    putInstallments("installments", states)
+                    put("totalPaid", states.sumOf { it.amountPaid })
+                    put("totalPending", states.sumOf { it.amountPending })
+                    put("totalOutstanding", states.sumOf { maxOf(0L, it.amountDue - it.amountPaid - it.amountPending) })
                     put("totalCharged", summary.totalCharged)
                     put("totalUnallocatedCredit", summary.totalUnallocatedCredit)
+                }
+            }
+
+            // ── Academic / CRM canonical operations ──
+
+            "computeSubjectAverage" -> {
+                val a = when_.assessment ?: given.assessment ?: return errorResult("Missing assessment")
+                val avg = com.example.core.computeSubjectAverage(a.devoir1, a.devoir2, a.examen)
+                buildJsonObject {
+                    put("subjectAverage", avg)
+                    put("averageIsNotNull", avg != null)
+                }
+            }
+
+            "computeOverallGpa" -> {
+                val list = (if (when_.assessments.isNotEmpty()) when_.assessments else given.assessments).map { a ->
+                    com.example.domain.model.Assessment(
+                        id = "asm-${a.hashCode()}", tenantId = "t1", studentId = "stu-001",
+                        subjectId = "sub-001", classId = "cls-001", term = "T1",
+                        academicYear = "2025-2026",
+                        devoir1 = a.devoir1, devoir2 = a.devoir2, examen = a.examen,
+                        subjectAverage = a.subjectAverage, coefficient = a.coefficient,
+                        isExtracurricular = a.isExtracurricular,
+                        enteredBy = "u1", enteredAt = "2026-01-01T00:00:00Z",
+                    )
+                }
+                val gpa = com.example.core.computeOverallGpa(list)
+                buildJsonObject {
+                    put("gpa", gpa)
+                    put("gpaIsNotNull", gpa != null)
+                }
+            }
+
+            "getNextGradeProgression" -> {
+                val grade = when_.gradeLevel ?: return errorResult("Missing gradeLevel")
+                val prog = com.example.core.getNextGradeProgression(grade)
+                buildJsonObject {
+                    put("nextGradeCode", prog.nextGradeCode ?: "")
+                    put("nextLevel", prog.nextLevel ?: "")
+                    put("nextGradeYear", prog.nextGradeYear ?: -1)
+                    put("nextCycle", prog.nextCycle ?: "")
+                    put("isGraduation", prog.isGraduation)
+                }
+            }
+
+            "deterministicParentCode" -> {
+                val identity = when_.identity ?: return errorResult("Missing identity")
+                val year = when_.year ?: 2026
+                val code = com.example.core.deterministicParentCode(
+                    year = year,
+                    input = com.example.core.ParentCodeInput(
+                        phone = identity.phone,
+                        displayName = identity.displayName,
+                        firstName = identity.firstName,
+                        lastName = identity.lastName,
+                    ),
+                )
+                buildJsonObject {
+                    put("parentCode", code)
+                }
+            }
+
+            "stableHash" -> {
+                val input = when_.hashInput ?: return errorResult("Missing hashInput")
+                buildJsonObject {
+                    put("hash", com.example.core.stableHash(input))
                 }
             }
 
@@ -511,7 +630,7 @@ object AndroidEquivalenceRunner {
             val start = System.currentTimeMillis()
             try {
                 val scenarioText = file.readText()
-                val scenario = Json.decodeFromString(CanonicalScenario.serializer(), scenarioText)
+                val scenario = json.decodeFromString(CanonicalScenario.serializer(), scenarioText)
                 val result = runOperation(scenario)
                 val durationMs = System.currentTimeMillis() - start
 
@@ -523,13 +642,13 @@ object AndroidEquivalenceRunner {
                     put("category", scenario.category)
                     put("tags", scenario.tags)
                     put("description", scenario.description)
-                    put("operationType", scenario.when.type)
+                    put("operationType", scenario.`when`.type)
                     put("result", result)
                     put("expected", scenario.then ?: JsonObject(emptyMap()))
                     put("durationMs", durationMs)
                     put("timestamp", Instant.now().toString())
                 }
-                outputFile.writeText(Json.encodeToString(JsonObject.serializer(), output))
+                outputFile.writeText(json.encodeToString(JsonObject.serializer(), output))
 
                 if (result["error"] != null) {
                     errored++
@@ -560,15 +679,17 @@ object AndroidEquivalenceRunner {
             put("scenarioCount", scenarioFiles.size)
             put("passed", passed)
             put("errored", errored)
-            put("results", results.map { (id, status, ms) ->
-                buildJsonObject {
-                    put("id", id)
-                    put("status", status)
-                    put("durationMs", ms)
+            put("results", kotlinx.serialization.json.buildJsonArray {
+                for ((id, status, ms) in results) {
+                    add(buildJsonObject {
+                        put("id", id)
+                        put("status", status)
+                        put("durationMs", ms)
+                    })
                 }
             })
         }
-        summaryFile.writeText(Json.encodeToString(JsonObject.serializer(), summary))
+        summaryFile.writeText(json.encodeToString(JsonObject.serializer(), summary))
     }
 
     private fun errorResult(message: String): JsonObject = buildJsonObject {
@@ -588,10 +709,11 @@ object AndroidEquivalenceRunner {
         put(key, JsonPrimitive(value))
     private fun kotlinx.serialization.json.JsonObjectBuilder.put(key: String, value: String) =
         put(key, JsonPrimitive(value))
+    private fun kotlinx.serialization.json.JsonObjectBuilder.put(key: String, value: Double?) =
+        if (value == null) put(key, kotlinx.serialization.json.JsonNull)
+        else put(key, JsonPrimitive(value))
     private fun kotlinx.serialization.json.JsonObjectBuilder.put(key: String, value: List<String>) =
         put(key, kotlinx.serialization.json.buildJsonArray { value.forEach { add(JsonPrimitive(it)) } })
-    private fun kotlinx.serialization.json.JsonObjectBuilder.put(key: String, value: JsonObject) =
-        put(key, value)
 
     private fun kotlinx.serialization.json.JsonObjectBuilder.putAccounts(
         key: String, accounts: List<com.example.core.AccountBalance>,
@@ -613,7 +735,7 @@ object AndroidEquivalenceRunner {
     }
 
     private fun kotlinx.serialization.json.JsonObjectBuilder.putInstallments(
-        key: String, installments: List<WaterfallInstallment>,
+        key: String, installments: List<InstallmentState>,
     ) {
         put(key, kotlinx.serialization.json.buildJsonArray {
             for (i in installments) {
@@ -689,7 +811,7 @@ object AndroidEquivalenceRunner {
             }
         }
 
-    // ─── CLI entry point (for standalone execution) ────────────────────
+    // ─── CLI entry point ────────────────────────────────────────────────
 
     @JvmStatic
     fun main(args: Array<String>) {

@@ -71,6 +71,9 @@ class SyncQueueDispatcher @Inject constructor(
             "student" -> pushStudent(entry, payload, actorId)
             "payment" -> pushPayment(entry, payload, actorId)
             "ledger_entry" -> pushLedgerEntry(entry, payload, actorId)
+            // TIER 4 FIX (migration 0037) — installment mutations now push to
+            // the new idempotent `upsert_installment_from_import` RPC.
+            "installment" -> pushInstallment(entry, payload, actorId)
             // Other entity kinds (installment, expense, attendance, grade,
             // homework, audit_log, notification, calendar_event) are
             // currently local-only. The shared schema migration 0027
@@ -102,6 +105,9 @@ class SyncQueueDispatcher @Inject constructor(
             put("p_address", p.str("address"))
             put("p_preferred_language", p.str("preferredLanguage") ?: "fr")
             put("p_is_active", true)
+            // 0037 — canonical deterministic activation code so the server
+            // populates activation_codes (web-portal activation).
+            (p.str("activationCode") ?: p.str("activation_code"))?.let { put("p_activation_code", it) }
         }
         NetworkTimeouts.guard<Unit>("sync.pushParent", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.rpc("upsert_parent_from_import", params)
@@ -139,7 +145,9 @@ class SyncQueueDispatcher @Inject constructor(
         p: JsonObject,
         actorId: String,
     ) {
-        val parentId = p.str("parentId") ?: p.str("parent_id") ?: return
+        // TIER 4 FIX — canonical parent code preferred (server-side resolution).
+        val parentId = p.str("parentCode") ?: p.str("parent_code")
+            ?: p.str("parentId") ?: p.str("parent_id") ?: return
         // CANONICAL-FINANCIAL-LOGIC.md §8.3 — Android domain stores money as
         // Long CENTIMES; the Supabase `payments.amount` column is NUMERIC(12,2)
         // DZD. Without `/100.0` conversion, a 150,000 DZD payment (15,000,000
@@ -162,14 +170,19 @@ class SyncQueueDispatcher @Inject constructor(
             put("p_collected_at", p.str("collectedAt") ?: p.str("collected_at"))
             put("p_collected_by", p.str("collectedBy") ?: p.str("collected_by") ?: actorId)
             put("p_notes", p.str("notes"))
-            // CANONICAL-FINANCIAL-LOGIC.md §8.5 — check / transfer metadata.
-            p.str("installmentId") ?: p.str("installment_id")?.let { put("p_installment_id", it) }
-            p.str("checkNumber") ?: p.str("check_number")?.let { put("p_check_number", it) }
-            p.str("checkBankName") ?: p.str("check_bank_name")?.let { put("p_check_bank_name", it) }
-            p.str("checkIssueDate") ?: p.str("check_issue_date")?.let { put("p_check_issue_date", it) }
-            p.str("checkClearanceDate") ?: p.str("check_clearance_date")?.let { put("p_check_clearance_date", it) }
-            p.str("transferReference") ?: p.str("transfer_reference")?.let { put("p_transfer_reference", it) }
-            p.str("transferSourceBank") ?: p.str("transfer_source_bank")?.let { put("p_transfer_source_bank", it) }
+            // CANONICAL-FINANCIAL-LOGIC.md §8.5 — check / transfer metadata +
+            // installment linkage.
+            // TIER 4 FIX — the previous `p.str(k) ?: p.str(k2)?.let { … }` form
+            // suffered from elvis-precedence: when the camelCase key was
+            // present (Android's actual payload format), the right-hand `let`
+            // was never evaluated, so these params were silently never sent.
+            (p.str("installmentId") ?: p.str("installment_id"))?.let { put("p_installment_id", it) }
+            (p.str("checkNumber") ?: p.str("check_number"))?.let { put("p_check_number", it) }
+            (p.str("checkBankName") ?: p.str("check_bank_name"))?.let { put("p_check_bank_name", it) }
+            (p.str("checkIssueDate") ?: p.str("check_issue_date"))?.let { put("p_check_issue_date", it) }
+            (p.str("checkClearanceDate") ?: p.str("check_clearance_date"))?.let { put("p_check_clearance_date", it) }
+            (p.str("transferReference") ?: p.str("transfer_reference"))?.let { put("p_transfer_reference", it) }
+            (p.str("transferSourceBank") ?: p.str("transfer_source_bank"))?.let { put("p_transfer_source_bank", it) }
         }
         NetworkTimeouts.guard<Unit>("sync.pushPayment", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.rpc("upsert_payment_from_import", params)
@@ -181,7 +194,9 @@ class SyncQueueDispatcher @Inject constructor(
         p: JsonObject,
         actorId: String,
     ) {
-        val parentId = p.str("parentId") ?: p.str("parent_id") ?: return
+        // TIER 4 FIX — canonical parent code preferred (server-side resolution).
+        val parentId = p.str("parentCode") ?: p.str("parent_code")
+            ?: p.str("parentId") ?: p.str("parent_id") ?: return
         // CANONICAL-FINANCIAL-LOGIC.md §8.3 — centimes → DZD.
         val amountCentimes = p.str("amount")?.toLongOrNull() ?: return
         val amountDzd = amountCentimes / 100.0
@@ -218,6 +233,43 @@ class SyncQueueDispatcher @Inject constructor(
         }
         NetworkTimeouts.guard<Unit>("sync.pushLedgerEntry", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.rpc("upsert_ledger_entry_from_import", params)
+        }
+    }
+
+    /**
+     * TIER 4 FIX (migration 0037) — push installment mutations to the new
+     * idempotent `upsert_installment_from_import` RPC so Android-side
+     * waterfall allocation results reach the server. Amounts are converted
+     * centimes → DZD.
+     */
+    private suspend fun pushInstallment(
+        entry: SyncQueueEntity,
+        p: JsonObject,
+        actorId: String,
+    ) {
+        val parentId = p.str("parentCode") ?: p.str("parent_code")
+            ?: p.str("parentId") ?: p.str("parent_id") ?: return
+        val amountDueDzd = (p.str("amountDue") ?: p.str("amount_due"))?.toLongOrNull()?.let { it / 100.0 }
+        val amountPaidDzd = (p.str("amountPaid") ?: p.str("amount_paid"))?.toLongOrNull()?.let { it / 100.0 }
+        val amountPendingDzd = (p.str("amountPending") ?: p.str("amount_pending"))?.toLongOrNull()?.let { it / 100.0 }
+
+        val params = buildJsonObject {
+            put("p_tenant_id", entry.tenantId)
+            put("p_installment_ref", p.str("id") ?: p.str("installment_ref"))
+            put("p_parent_id", parentId)
+            (p.str("studentId") ?: p.str("student_id"))?.let { put("p_student_id", it) }
+            put("p_category", p.str("category") ?: "tuition")
+            put("p_label", p.str("label"))
+            amountDueDzd?.let { put("p_amount_due", it) }
+            amountPaidDzd?.let { put("p_amount_paid", it) }
+            amountPendingDzd?.let { put("p_amount_pending", it) }
+            put("p_due_date", p.str("dueDate") ?: p.str("due_date"))
+            put("p_paid_date", p.str("paidDate") ?: p.str("paid_date"))
+            put("p_status", p.str("status") ?: "unpaid")
+            put("p_academic_cycle", p.str("academicCycle") ?: p.str("academic_cycle"))
+        }
+        NetworkTimeouts.guard<Unit>("sync.pushInstallment", timeoutMs = 5_000L) {
+            supabaseProvider.postgrest.rpc("upsert_installment_from_import", params)
         }
     }
 

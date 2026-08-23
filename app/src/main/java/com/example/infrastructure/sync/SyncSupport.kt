@@ -116,11 +116,33 @@ class SyncSupport @Inject constructor(
         isMock: Boolean = false,
         sourceScreen: String? = null,
     ): String? = runCatching {
+        // TIER 4 FIX (mock seed leakage) — updates to SEEDED demo entities
+        // must never push to the live Supabase backend. Callers pass
+        // isMock = false uniformly, so the effective flag is derived from the
+        // payload's entity id: seeded ids follow the DatabaseSeeder's
+        // deterministic patterns while real ids embed random UUIDs.
+        val effectiveMock = isMock || isSeedPayloadId(payload)
         syncService.enqueue(
             entity = entity, operation = operation, payload = payload,
-            isMock = isMock, sourceScreen = sourceScreen,
+            isMock = effectiveMock, sourceScreen = sourceScreen,
         )
     }.getOrNull()
+
+    /** Regex forms of the DatabaseSeeder's deterministic demo entity ids. */
+    private val seedIdPatterns = listOf(
+        Regex("^par-\\d{3}$"),
+        Regex("^stu-\\d{3}$"),
+        Regex("^pay-\\d{3}$"),
+        Regex("^led-(par-|pay-|credit-)"),
+        Regex("^ins-stu-"),
+    )
+
+    /** True when the entity id embedded in the payload is a seeded demo id. */
+    fun isSeedPayloadId(payload: String): Boolean {
+        val id = payload.substringAfter("\"id\":\"").substringBefore("\"", "")
+        if (id.isEmpty()) return false
+        return seedIdPatterns.any { it.matches(id) }
+    }
 
     /**
      * Attempt [mutation]. If it throws a network/offline error AND the

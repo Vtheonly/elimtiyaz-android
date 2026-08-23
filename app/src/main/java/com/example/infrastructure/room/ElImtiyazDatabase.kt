@@ -48,7 +48,7 @@ import androidx.room.RoomDatabase
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class ElImtiyazDatabase : RoomDatabase() {
@@ -140,6 +140,79 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
             override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE expenses ADD COLUMN finalSpentAmount INTEGER"
+                )
+            }
+        }
+
+        /**
+         * Room migration v6 → v7 (TIER 4 cross-platform equivalence fixes).
+         *
+         * 1. subjects.coefficient + assessments.coefficient: INTEGER → REAL
+         *    (SQL NUMERIC(4,2) parity — Int truncated decimal coefficients).
+         * 2. assessments.isExtracurricular: NEW — canonical GPA exclusion rule.
+         * 3. classes.capacity: nullable (null = unlimited; desktop parity).
+         * 4. parents.cityTier: NEW TEXT (0028 schema parity).
+         * 5. payments.expectedAmount / excessAmount / excessRemark: NEW
+         *    (v2 audit D13/R13 — partial/overpayment tracking).
+         * 6. ledger_cache.metadataJson — metadata survives the cache path.
+         */
+        val MIGRATION_6_7 = object : androidx.room.migration.Migration(6, 7) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS subjects_new (" +
+                        "id TEXT NOT NULL PRIMARY KEY, tenantId TEXT NOT NULL, code TEXT NOT NULL, " +
+                        "name TEXT NOT NULL, category TEXT NOT NULL, coefficient REAL NOT NULL, " +
+                        "weeklyHours REAL NOT NULL, isExtracurricular INTEGER NOT NULL, isActive INTEGER NOT NULL)"
+                )
+                database.execSQL(
+                    "INSERT INTO subjects_new (id, tenantId, code, name, category, coefficient, weeklyHours, isExtracurricular, isActive) " +
+                        "SELECT id, tenantId, code, name, category, CAST(coefficient AS REAL), weeklyHours, isExtracurricular, isActive FROM subjects"
+                )
+                database.execSQL("DROP TABLE subjects")
+                database.execSQL("ALTER TABLE subjects_new RENAME TO subjects")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_subjects_code ON subjects(code)")
+
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS assessments_new (" +
+                        "id TEXT NOT NULL PRIMARY KEY, tenantId TEXT NOT NULL, studentId TEXT NOT NULL, " +
+                        "subjectId TEXT NOT NULL, classId TEXT NOT NULL, term TEXT NOT NULL, academicYear TEXT NOT NULL, " +
+                        "devoir1 REAL, devoir2 REAL, examen REAL, coefficient REAL NOT NULL, " +
+                        "isExtracurricular INTEGER NOT NULL DEFAULT 0, subjectAverage REAL, " +
+                        "enteredBy TEXT NOT NULL, enteredAt TEXT NOT NULL)"
+                )
+                database.execSQL(
+                    "INSERT INTO assessments_new (id, tenantId, studentId, subjectId, classId, term, academicYear, devoir1, devoir2, examen, coefficient, isExtracurricular, subjectAverage, enteredBy, enteredAt) " +
+                        "SELECT id, tenantId, studentId, subjectId, classId, term, academicYear, devoir1, devoir2, examen, CAST(coefficient AS REAL), 0, subjectAverage, enteredBy, enteredAt FROM assessments"
+                )
+                database.execSQL("DROP TABLE assessments")
+                database.execSQL("ALTER TABLE assessments_new RENAME TO assessments")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_assessments_studentId ON assessments(studentId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_assessments_subjectId ON assessments(subjectId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_assessments_classId ON assessments(classId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_assessments_term ON assessments(term)")
+
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS classes_new (" +
+                        "id TEXT NOT NULL PRIMARY KEY, tenantId TEXT NOT NULL, code TEXT NOT NULL, " +
+                        "name TEXT NOT NULL, level TEXT NOT NULL, gradeYear INTEGER NOT NULL, gradeLevel TEXT NOT NULL, " +
+                        "section TEXT, room TEXT, capacity INTEGER, homeroomTeacherId TEXT, homeroomTeacherName TEXT, " +
+                        "academicYear TEXT NOT NULL, isActive INTEGER NOT NULL, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL)"
+                )
+                database.execSQL(
+                    "INSERT INTO classes_new (id, tenantId, code, name, level, gradeYear, gradeLevel, section, room, capacity, homeroomTeacherId, homeroomTeacherName, academicYear, isActive, createdAt, updatedAt) " +
+                        "SELECT id, tenantId, code, name, level, gradeYear, gradeLevel, section, room, capacity, homeroomTeacherId, homeroomTeacherName, academicYear, isActive, createdAt, updatedAt FROM classes"
+                )
+                database.execSQL("DROP TABLE classes")
+                database.execSQL("ALTER TABLE classes_new RENAME TO classes")
+                database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_classes_code ON classes(code)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_classes_gradeLevel ON classes(gradeLevel)")
+
+                database.execSQL("ALTER TABLE parents ADD COLUMN cityTier TEXT")
+                database.execSQL("ALTER TABLE payments ADD COLUMN expectedAmount INTEGER")
+                database.execSQL("ALTER TABLE payments ADD COLUMN excessAmount INTEGER")
+                database.execSQL("ALTER TABLE payments ADD COLUMN excessRemark TEXT")
+                database.execSQL(
+                    "ALTER TABLE ledger_cache ADD COLUMN metadataJson TEXT NOT NULL DEFAULT '{}'"
                 )
             }
         }

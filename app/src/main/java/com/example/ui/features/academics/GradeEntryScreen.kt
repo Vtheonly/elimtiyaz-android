@@ -216,7 +216,7 @@ fun GradeEntryScreen(
                     devoir1 = d1,
                     devoir2 = d2,
                     examen = ex,
-                    coefficient = selectedSubject?.coefficient ?: 1,
+                    coefficient = selectedSubject?.coefficient ?: 1.0,
                     actorId = session.userId,
                     actorName = session.displayName,
                 )

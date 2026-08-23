@@ -79,7 +79,7 @@ class GradeEntryViewModel @Inject constructor(
         devoir1: Double?,
         devoir2: Double?,
         examen: Double?,
-        coefficient: Int,
+        coefficient: Double,
         actorId: String,
         actorName: String,
     ) {

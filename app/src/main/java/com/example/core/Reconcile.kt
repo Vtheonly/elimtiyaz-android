@@ -190,7 +190,12 @@ object Reconcile {
             val revId = e.reversesId ?: continue
             val original = byId[revId]
             if (original == null) {
-                out += Violation(Severity.ERROR, CODE_ORPHAN_REVERSAL, "Reversal ${e.id} references non-existent entry $revId", entryId = e.id)
+                out += Violation(
+                    Severity.ERROR, CODE_ORPHAN_REVERSAL,
+                    "Reversal entry ${e.id} references non-existent original $revId.",
+                    entryId = e.id,
+                    details = mapOf("reversesId" to revId),
+                )
                 continue
             }
             reversedOriginals[revId] = (reversedOriginals[revId] ?: 0) + 1

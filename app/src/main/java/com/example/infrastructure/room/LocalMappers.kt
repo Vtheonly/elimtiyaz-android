@@ -42,6 +42,8 @@ object LocalMappers {
         phone = phone,
         whatsapp = whatsapp, email = email, occupation = occupation,
         address = address, transportDestination = transportDestination,
+        // TIER 4 FIX — cityTier surfaced to the domain (0028 parity).
+        cityTier = cityTier,
         preferredLanguage = preferredLanguage, avatarUrl = avatarUrl,
         createdAt = createdAt, updatedAt = updatedAt,
     )
@@ -85,6 +87,7 @@ object LocalMappers {
         classId = classId, term = term, academicYear = academicYear,
         devoir1 = devoir1, devoir2 = devoir2, examen = examen,
         coefficient = coefficient, subjectAverage = subjectAverage,
+        isExtracurricular = isExtracurricular,
         enteredBy = enteredBy, enteredAt = enteredAt,
     )
 
@@ -113,6 +116,8 @@ object LocalMappers {
         id = id, tenantId = tenantId, parentId = parentId, studentId = studentId,
         category = PaymentCategory.fromCode(category), label = label,
         amountDue = amountDue, amountPaid = amountPaid,
+        // TIER 4 FIX (D14/R12) — pending-clearance bucket no longer dropped.
+        amountPending = amountPending,
         dueDate = dueDate, paidDate = paidDate,
         status = PaymentStatus.fromCodeOrDefault(status),
         academicCycle = academicCycle, customSchedule = customSchedule,

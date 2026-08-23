@@ -16,5 +16,5 @@ data class EnterGradeInput(
     val studentId: String, val subjectId: String, val classId: String,
     val term: String, val academicYear: String,
     val devoir1: Double?, val devoir2: Double?, val examen: Double?,
-    val coefficient: Int,
+    val coefficient: Double,
 )

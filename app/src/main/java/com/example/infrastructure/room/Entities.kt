@@ -98,6 +98,8 @@ data class LedgerCacheEntity(
     val paymentStatus: String?,
     val reversesId: String?,
     val description: String,
+    // TIER 4 FIX — metadata on the cache path too (MIGRATION_6_7).
+    val metadataJson: String = "{}",
     val actorId: String,
     val actorName: String,
     val entryDate: String,

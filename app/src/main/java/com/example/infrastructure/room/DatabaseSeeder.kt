@@ -251,45 +251,42 @@ class DatabaseSeeder @Inject constructor(
         val actorName = "Yacine Benali"
         val entries = mutableListOf<LedgerEntryEntity>()
 
+        // Official tranche due dates (Sept 15 / Dec 15 / Mar 15 — canonical).
+        val dueDates = com.example.core.officialTuitionDueDates(
+            java.time.LocalDate.now().let { if (it.monthValue >= 9) it.year else it.year - 1 },
+        )
+
         students.forEachIndexed { index, (student, gltId) ->
             val tuition = db.pricingConfigDao().getTuitionByGrade(gltId) ?: return@forEachIndexed
-            // Sibling discount: child #2+ gets −5,000 DA per additional child
+            // CANONICAL (TIER 4 FIX): apply the sibling discount ONCE on the
+            // GROSS annual, then split the NET via the official 40/30/30
+            // schedule — exactly what the desktop's buildSeedLedger does
+            // after the R17 fix. Previously this seeder (a) charged
+            // net = gross − 5,000 AND wrote a separate −5,000 sibling
+            // adjustment (double discount), and (b) seeded GROSS installments,
+            // leaving installments exceeding ledger charges by 5,000 DZD
+            // per discounted child.
             val siblingDiscount = if (index > 0) -500_000L else 0L
-            val netTuition = tuition.annualAmount + siblingDiscount
+            val netTuition = (tuition.annualAmount + siblingDiscount).coerceAtLeast(0L)
+            val tranches = com.example.core.splitNetTuitionByOfficialSchedule(netTuition)
             val accountId = "parent:${parent.id}:category:tuition:student:${student.id}"
 
-            // Charge entry (positive = parent owes)
-            entries.add(
-                LedgerEntryEntity(
-                    id = "led-${parent.id}-${student.id}-tuition",
-                    tenantId = tenantId, accountId = accountId,
-                    parentId = parent.id, studentId = student.id,
-                    category = "tuition", amount = netTuition,
-                    type = "charge", sourceType = "installment",
-                    sourceId = "reg-${student.id}",
-                    method = null, receiptNumber = null, paymentStatus = null,
-                    reversesId = null,
-                    description = "Scolarité ${student.gradeLevel.uppercase()} ${academicYear}",
-                    actorId = actorId, actorName = actorName,
-                    at = Instant.now().toString(),
-                )
-            )
-
-            // Sibling discount adjustment (if applicable)
-            if (siblingDiscount != 0L) {
+            // Three NET tranche charge entries, `at` = canonical due date.
+            tranches.forEachIndexed { t, trancheAmount ->
                 entries.add(
                     LedgerEntryEntity(
-                        id = "led-${parent.id}-${student.id}-sibling",
+                        id = "led-${parent.id}-${student.id}-t${t + 1}",
                         tenantId = tenantId, accountId = accountId,
                         parentId = parent.id, studentId = student.id,
-                        category = "tuition", amount = siblingDiscount,
-                        type = "adjustment", sourceType = "adjustment",
-                        sourceId = "adj-${student.id}-sibling",
+                        category = "tuition", amount = trancheAmount,
+                        type = "charge", sourceType = "installment",
+                        sourceId = "reg-${student.id}-t${t + 1}",
                         method = null, receiptNumber = null, paymentStatus = null,
                         reversesId = null,
-                        description = "Remise fratrie (−5 000 DA, enfant #${index + 1})",
+                        description = "Scolarité ${student.gradeLevel.uppercase()} ${academicYear} — Tranche ${t + 1}",
                         actorId = actorId, actorName = actorName,
-                        at = Instant.now().toString(),
+                        at = dueDates[t].toString(),
+                        metadataJson = """ + TQ + """{"tranche":${t + 1},"gradeLevel":"${student.gradeLevel}","paymentPlan":"tranches"}""" + TQ + """,
                     )
                 )
             }
@@ -312,7 +309,7 @@ class DatabaseSeeder @Inject constructor(
                         reversesId = null,
                         description = "Transport ${parent.transportDestination}",
                         actorId = actorId, actorName = actorName,
-                        at = Instant.now().toString(),
+                        at = dueDates[0].toString(),
                     )
                 )
             }
@@ -329,13 +326,23 @@ class DatabaseSeeder @Inject constructor(
         val now = Instant.now().toString()
         val installments = mutableListOf<InstallmentEntity>()
 
-        students.forEach { (student, gltId) ->
+        students.forEachIndexed { index, (student, gltId) ->
             val tuition = db.pricingConfigDao().getTuitionByGrade(gltId) ?: return@forEach
 
-            // Tuition installments — 3 tranches (40/30/30)
-            installments.add(inst("ins-${student.id}-t1", parent.id, student.id, "tuition", "Tranche 1 (Sept–Déc)", tuition.tranche1, due1))
-            installments.add(inst("ins-${student.id}-t2", parent.id, student.id, "tuition", "Tranche 2 (Jan–Mar)", tuition.tranche2, due2))
-            installments.add(inst("ins-${student.id}-t3", parent.id, student.id, "tuition", "Tranche 3 (Avr–Juin)", tuition.tranche3, due3))
+            // CANONICAL (TIER 4 FIX): installments are split from the SAME
+            // NET annual amount as the ledger charges (gross minus the
+            // sibling discount applied once). Previously these came from the
+            // GROSS config tranches, so installments exceeded the ledger by
+            // 5,000 DZD per discounted child — UNBACKED_TRANCHE_SATISFACTION
+            // could never pass.
+            val siblingDiscount = if (index > 0) -500_000L else 0L
+            val netTuition = (tuition.annualAmount + siblingDiscount).coerceAtLeast(0L)
+            val tranches = com.example.core.splitNetTuitionByOfficialSchedule(netTuition)
+
+            // Tuition installments — 3 tranches (40/30/30) from NET
+            installments.add(inst("ins-${student.id}-t1", parent.id, student.id, "tuition", "Tranche 1 (Sept–Déc)", tranches[0], due1))
+            installments.add(inst("ins-${student.id}-t2", parent.id, student.id, "tuition", "Tranche 2 (Jan–Mar)", tranches[1], due2))
+            installments.add(inst("ins-${student.id}-t3", parent.id, student.id, "tuition", "Tranche 3 (Avr–Juin)", tranches[2], due3))
 
             // Transport installments (if applicable)
             val transport = parent.transportDestination?.let {
@@ -387,12 +394,18 @@ class DatabaseSeeder @Inject constructor(
             )
         )
 
-        // Ledger payment entry (negative = credit)
+        // Ledger payment entry (negative = credit).
+        // TIER 4 FIX — the payment lands on the FIRST student's tuition
+        // account (the demo payment targets the family's student-scoped
+        // tuition charges). The previous parent-scoped account left the
+        // student accounts unbacked by any cleared entry.
+        val firstStudent = students.firstOrNull()
         db.ledgerEntryDao().upsert(
             LedgerEntryEntity(
                 id = "led-pay-001", tenantId = tenantId,
-                accountId = "parent:${parent.id}:category:tuition",
-                parentId = parent.id, studentId = null,
+                accountId = "parent:${parent.id}:category:tuition" +
+                    (firstStudent?.let { ":student:${it.id}" } ?: ""),
+                parentId = parent.id, studentId = firstStudent?.id,
                 category = "tuition", amount = -amount,
                 type = "payment", sourceType = "payment",
                 sourceId = paymentId, method = "cash",
@@ -401,6 +414,7 @@ class DatabaseSeeder @Inject constructor(
                 description = "Encaissement comptoir $receipt",
                 actorId = "per-admin", actorName = "Yacine Benali",
                 at = now,
+                metadataJson = """ + TQ + """{"receiptNumber":"$receipt"}""" + TQ + """,
             )
         )
 
@@ -431,21 +445,26 @@ class DatabaseSeeder @Inject constructor(
             }
         }
 
-        // If there's unallocated overpayment, append a parent_credit adjustment
+        // If there's unallocated overpayment, append a parent_credit adjustment.
+        // TIER 4 FIX (INV-7) — the credit MUST land on the parent-scoped
+        // `parent_credit` account with studentId = null. The previous version
+        // wrote it on the parent-scoped TUITION account, so
+        // computeAccountBalance never recognized it as unallocated credit.
         if (allocation.unallocatedAmount > 0L) {
             db.ledgerEntryDao().upsert(
                 LedgerEntryEntity(
                     id = "led-credit-${parent.id}", tenantId = tenantId,
-                    accountId = "parent:${parent.id}:category:tuition",
+                    accountId = "parent:${parent.id}:category:parent_credit",
                     parentId = parent.id, studentId = null,
-                    category = "tuition", amount = -allocation.unallocatedAmount,
+                    category = "parent_credit", amount = -allocation.unallocatedAmount,
                     type = "adjustment", sourceType = "adjustment",
                     sourceId = paymentId, method = null,
-                    receiptNumber = receipt, paymentStatus = null,
+                    receiptNumber = null, paymentStatus = null,
                     reversesId = null,
                     description = "Crédit parent (trop-perçu) $receipt",
                     actorId = "per-admin", actorName = "Yacine Benali",
                     at = now,
+                    metadataJson = """ + TQ + """{"autoAbsorb":true,"paymentId":"$paymentId"}""" + TQ + """,
                 )
             )
         }

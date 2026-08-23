@@ -60,10 +60,14 @@ fun ParentDto.toEntity(): ParentEntity = ParentEntity(
     occupation = occupation,
     address = address,
     transportDestination = transportDestination,
+    // TIER 4 FIX — preserve the server values instead of hardcoding:
+    //   * cityTier drives transport pricing on desktop (0028 schema).
+    //   * isFinanciallyRestricted is a server-set CRM restriction flag.
+    cityTier = cityTier,
     preferredLanguage = "fr",
     avatarUrl = null,
     isActive = isActive,
-    isFinanciallyRestricted = false,
+    isFinanciallyRestricted = isFinanciallyRestricted,
     activationCode = null,
     createdAt = createdAt ?: "",
     updatedAt = updatedAt ?: "",

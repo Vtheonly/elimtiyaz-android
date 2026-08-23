@@ -36,6 +36,8 @@ data class Parent(
     val occupation: String? = null,
     val address: String? = null,
     val transportDestination: String? = null,
+    /** 0028 schema parity — city tier for transport pricing. */
+    val cityTier: String? = null,
     val preferredLanguage: String = "fr",
     val avatarUrl: String? = null,
     val createdAt: String,

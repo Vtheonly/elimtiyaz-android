@@ -13,7 +13,7 @@ data class Subject(
     val nameAr: String? = null,
     val code: String,
     val level: String,
-    val coefficient: Int,
+    val coefficient: Double,
     val isExtracurricular: Boolean,
     val passingGrade: Double = 10.0,
 )

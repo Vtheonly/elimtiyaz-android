@@ -12,7 +12,7 @@ import org.junit.Test
  * CANONICAL-FINANCIAL-LOGIC.md §9 + financial-tests/README.md — both
  * apps MUST produce the same domain state for the same operation.
  * This runner hardcodes the scenarios from
- * `financial-tests/scenarios/*.yml` and runs them through the canonical
+ * `financial-tests/scenarios` (the .yml files) and runs them through the canonical
  * Kotlin calc engine (LedgerEngine + DiscountEngine + WaterfallAllocation).
  *
  * The TypeScript runner in

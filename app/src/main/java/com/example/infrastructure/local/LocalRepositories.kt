@@ -261,6 +261,11 @@ class LocalAuthRepository @Inject constructor(
 
 // ─── Parent Repository ──────────────────────────────────────────────────────
 
+/** Canonical enrollment-status value set (SQL 0005 + migration 0037 superset). */
+val CANONICAL_STUDENT_STATUSES: Set<String> = setOf(
+    "inquiry", "quoted", "enrolled", "active", "suspended", "transferred", "withdrawn", "graduated",
+)
+
 @Singleton
 class LocalParentRepository @Inject constructor(
     private val parentDao: ParentDao,
@@ -404,6 +409,17 @@ class LocalStudentRepository @Inject constructor(
 
     override suspend fun updateStudent(id: String, input: UpdateStudentInput, actorId: String, actorName: String): Result<Student> {
         val existing = studentDao.getById(id) ?: return Result.Err(Errors.notFound("Student $id not found"))
+        // TIER 4 FIX — validate enrollment status against the canonical value
+        // set (mirrors the SQL CHECK after migration 0037). Previously any
+        // arbitrary string was accepted locally and later crashed the server
+        // CHECK on push.
+        input.status?.let { status ->
+            if (status !in CANONICAL_STUDENT_STATUSES) {
+                return Result.Err(Errors.validation(
+                    "Statut d'inscription invalide: '$status'. Valeurs autorisées: ${CANONICAL_STUDENT_STATUSES.joinToString(", ")}",
+                ))
+            }
+        }
         val updated = existing.copy(
             firstName = input.firstName ?: existing.firstName,
             lastName = input.lastName ?: existing.lastName,
@@ -636,7 +652,8 @@ class LocalStudentRepository @Inject constructor(
                     operation = "create",
                     payload = syncJson {
                         put("id", s.id); put("tenantId", s.tenantId); put("code", s.code)
-                        put("parentId", s.parentId); put("firstName", s.firstName)
+                        put("parentId", s.parentId); put("parentCode", parentEntity.code)
+                            put("firstName", s.firstName)
                         put("lastName", s.lastName); put("displayName", s.displayName ?: "")
                         put("gender", s.gender); put("birthDate", s.birthDate ?: "")
                         put("enrollmentDate", s.enrollmentDate); put("level", s.level)
@@ -654,8 +671,9 @@ class LocalStudentRepository @Inject constructor(
                     operation = "create",
                     payload = syncJson {
                         put("id", e.id); put("tenantId", e.tenantId); put("accountId", e.accountId)
-                        put("parentId", e.parentId); put("studentId", e.studentId ?: "")
-                        put("category", e.category); put("amount", e.amount)
+                        put("parentId", e.parentId); put("parentCode", parentEntity.code)
+                        put("studentId", e.studentId ?: "")
+                            put("category", e.category); put("amount", e.amount)
                         put("type", e.type); put("sourceType", e.sourceType)
                         put("sourceId", e.sourceId); put("method", e.method ?: "")
                         put("receiptNumber", e.receiptNumber ?: "")
@@ -679,7 +697,8 @@ class LocalStudentRepository @Inject constructor(
                     operation = "create",
                     payload = syncJson {
                         put("id", ins.id); put("tenantId", ins.tenantId)
-                        put("parentId", ins.parentId); put("studentId", ins.studentId)
+                        put("parentId", ins.parentId); put("parentCode", parentEntity.code)
+                            put("studentId", ins.studentId)
                         put("category", ins.category); put("label", ins.label)
                         put("amountDue", ins.amountDue); put("amountPaid", ins.amountPaid)
                         put("amountPending", ins.amountPending); put("dueDate", ins.dueDate)
@@ -701,12 +720,48 @@ class LocalStudentRepository @Inject constructor(
     }
 
     override suspend fun promoteStudents(academicYear: String, decisions: List<com.example.domain.repository.PromotionDecision>, actorId: String, actorName: String): Result<Unit> {
+        // TIER 4 FIX — the previous implementation was a stub: it bumped
+        // `updatedAt` and wrote an audit row WITHOUT changing gradeLevel or
+        // status, so mobile promotions silently diverged from the desktop's
+        // canonical state transitions. It now applies the canonical Algerian
+        // progression ladder (core/AcademicProgression.kt, ported 1:1 from the
+        // desktop's getNextGradeProgression).
+        val now = Instant.now().toString()
         decisions.forEach { d ->
             val existing = studentDao.getById(d.studentId) ?: return@forEach
-            val updated = existing.copy(updatedAt = Instant.now().toString())
+            val progression = com.example.core.getNextGradeProgression(existing.gradeLevel)
+            val updated = when (d.decision) {
+                com.example.core.PromotionDecisions.PROMOTED -> {
+                    val next = progression.nextGradeCode
+                        ?: return@forEach // unknown ladder position — keep state
+                    existing.copy(
+                        gradeLevel = next,
+                        level = progression.nextLevel ?: existing.level,
+                        status = "active",
+                        updatedAt = now,
+                    )
+                }
+                com.example.core.PromotionDecisions.GRADUATED ->
+                    existing.copy(status = "graduated", updatedAt = now)
+                else -> existing.copy(status = "active", updatedAt = now) // repeated
+            }
             studentDao.update(updated)
             auditDao.upsert(audit("student.promote", "student", d.studentId, actorId, actorName,
-                after = """{"decision":"${d.decision}","year":"$academicYear"}"""))
+                after = """{"decision":"${d.decision}","year":"$academicYear","from":"${existing.gradeLevel}","to":"${updated.gradeLevel}","status":"${updated.status}"}"""))
+            // Propagate the promotion to Supabase so the desktop sees it.
+            syncSupport?.enqueueOnly(
+                entity = "student",
+                operation = "promote",
+                payload = syncJson {
+                    put("id", updated.id); put("tenantId", updated.tenantId)
+                    put("code", updated.code); put("parentId", updated.parentId)
+                    put("firstName", updated.firstName); put("lastName", updated.lastName)
+                    put("displayName", updated.displayName ?: "")
+                    put("gradeLevel", updated.gradeLevel); put("level", updated.level)
+                    put("status", updated.status)
+                },
+                isMock = false, sourceScreen = "PromotionScreen",
+            )
         }
         return Result.Ok(Unit)
     }
@@ -721,6 +776,10 @@ class LocalPaymentRepository @Inject constructor(
     private val installmentDao: InstallmentDao,
     private val ledgerDao: LedgerEntryDao,
     private val auditDao: AuditLogDao,
+    // TIER 4 FIX — parent lookup so sync payloads carry the canonical
+    // parent_code (the server resolves parent refs by UUID or code, never
+    // by mobile-local ids).
+    private val parentDao: ParentDao,
     // CANONICAL-FINANCIAL-LOGIC.md §8.1 — wire the SyncSupport helper so
     // Android payment writes propagate to Supabase. Previously Android was
     // read-only relative to Supabase for the payments table.
@@ -742,6 +801,10 @@ class LocalPaymentRepository @Inject constructor(
 
     override fun observeById(id: String): Flow<Payment?> =
         paymentDao.observeById(id).map { it?.let { e -> LocalMappers.run { e.toDomain() } } }
+
+    /** Resolve the canonical parent code for sync payloads (server-side ref). */
+    private suspend fun parentCodeFor(parentId: String): String? =
+        parentDao.getById(parentId)?.code
 
     override suspend fun collect(input: CollectPaymentInput, actorId: String, actorName: String): Result<Payment> {
         if (input.amount <= 0L) return Result.Err(Errors.validation("Amount must be > 0"))
@@ -768,13 +831,14 @@ class LocalPaymentRepository @Inject constructor(
         )
         paymentDao.upsert(entity)
         // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the payment row for sync push.
+        val parentCode = parentCodeFor(entity.parentId) ?: ""
         syncSupport?.enqueueOnly(
             entity = "payment",
             operation = "create",
             payload = syncJson {
                 put("id", entity.id); put("tenantId", entity.tenantId)
                 put("receiptNumber", entity.receiptNumber)
-                put("parentId", entity.parentId); put("studentId", entity.studentId ?: "")
+                put("parentId", entity.parentId); put("parentCode", parentCode); put("studentId", entity.studentId ?: "")
                 put("amount", entity.amount); put("method", entity.method)
                 put("status", entity.status); put("category", entity.category)
                 put("installmentId", entity.installmentId ?: "")
@@ -801,13 +865,14 @@ class LocalPaymentRepository @Inject constructor(
         )
         ledgerDao.upsert(ledgerEntry.toEntity())
         // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the ledger entry for sync push.
+        val parentCode = parentCodeFor(ledgerEntry.parentId) ?: ""
         syncSupport?.enqueueOnly(
             entity = "ledger_entry",
             operation = "create",
             payload = syncJson {
                 put("id", ledgerEntry.id); put("tenantId", ledgerEntry.tenantId)
                 put("accountId", ledgerEntry.accountId)
-                put("parentId", ledgerEntry.parentId); put("studentId", ledgerEntry.studentId ?: "")
+                put("parentId", ledgerEntry.parentId); put("parentCode", parentCode); put("studentId", ledgerEntry.studentId ?: "")
                 put("category", ledgerEntry.category.code); put("amount", ledgerEntry.amount)
                 put("type", ledgerEntry.type.code); put("sourceType", ledgerEntry.sourceType.code)
                 put("sourceId", ledgerEntry.sourceId); put("method", ledgerEntry.method?.code ?: "")
@@ -862,13 +927,14 @@ class LocalPaymentRepository @Inject constructor(
             ledgerDao.upsert(creditEntry.toEntity())
             // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the parent_credit
             // adjustment for sync push so the desktop sees it.
+        val parentCode = parentCodeFor(creditEntry.parentId) ?: ""
             syncSupport?.enqueueOnly(
                 entity = "ledger_entry",
                 operation = "create",
                 payload = syncJson {
                     put("id", creditEntry.id); put("tenantId", creditEntry.tenantId)
                     put("accountId", creditEntry.accountId)
-                    put("parentId", creditEntry.parentId); put("studentId", creditEntry.studentId ?: "")
+                    put("parentId", creditEntry.parentId); put("parentCode", parentCode); put("studentId", creditEntry.studentId ?: "")
                     put("category", creditEntry.category.code); put("amount", creditEntry.amount)
                     put("type", creditEntry.type.code); put("sourceType", creditEntry.sourceType.code)
                     put("sourceId", creditEntry.sourceId); put("method", creditEntry.method?.code ?: "")
@@ -913,13 +979,14 @@ class LocalPaymentRepository @Inject constructor(
             ledgerDao.upsert(reversal.toEntity())
             // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the reversal ledger
             // entry for sync push.
+        val parentCode = parentCodeFor(reversal.parentId) ?: ""
             syncSupport?.enqueueOnly(
                 entity = "ledger_entry",
                 operation = "reverse",
                 payload = syncJson {
                     put("id", reversal.id); put("tenantId", reversal.tenantId)
                     put("accountId", reversal.accountId)
-                    put("parentId", reversal.parentId); put("studentId", reversal.studentId ?: "")
+                    put("parentId", reversal.parentId); put("parentCode", parentCode); put("studentId", reversal.studentId ?: "")
                     put("category", reversal.category.code); put("amount", reversal.amount)
                     put("type", reversal.type.code); put("sourceType", reversal.sourceType.code)
                     put("sourceId", reversal.sourceId); put("method", reversal.method?.code ?: "")
@@ -984,13 +1051,14 @@ class LocalPaymentRepository @Inject constructor(
         ledgerDao.upsert(entry.toEntity())
         // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the adjustment entry for
         // sync push so the desktop sees it.
+        val parentCode = parentCodeFor(entry.parentId) ?: ""
         syncSupport?.enqueueOnly(
             entity = "ledger_entry",
             operation = "adjust",
             payload = syncJson {
                 put("id", entry.id); put("tenantId", entry.tenantId)
                 put("accountId", entry.accountId)
-                put("parentId", entry.parentId); put("studentId", entry.studentId ?: "")
+                put("parentId", entry.parentId); put("parentCode", parentCode); put("studentId", entry.studentId ?: "")
                 put("category", entry.category.code); put("amount", entry.amount)
                 put("type", entry.type.code); put("sourceType", entry.sourceType.code)
                 put("sourceId", entry.sourceId); put("method", entry.method?.code ?: "")
@@ -1089,6 +1157,13 @@ class LocalInstallmentRepository @Inject constructor(
 @Singleton
 class LocalLedgerRepository @Inject constructor(
     private val ledgerDao: LedgerEntryDao,
+    // TIER 4 FIX — reconcile()'s cross-checks (R10) need the payment,
+    // installment and parent tables as inputs. The constructor previously
+    // injected only ledgerDao, leaving paymentDao / installmentDao / parentDao
+    // as unresolved references — a compile error.
+    private val paymentDao: PaymentDao,
+    private val installmentDao: InstallmentDao,
+    private val parentDao: ParentDao,
     // CANONICAL-FINANCIAL-LOGIC.md §8.1 — wire SyncSupport so ledger writes
     // (append, appendMany, reverse) propagate to Supabase.
     private val syncSupport: com.example.infrastructure.sync.SyncSupport? = null,
@@ -1163,7 +1238,11 @@ class LocalLedgerRepository @Inject constructor(
 
     override suspend fun summary(parentId: String): Result<com.example.core.ParentLedgerSummary> {
         val entries = ledgerDao.listByParent(parentId).map { LocalMappers.run { it.toDomain() } }
-        val summary = LedgerEngine.computeParentSummary(entries, parentId, "")
+        // TIER 4 FIX — pass the overdue due-date map (canonical rule: an account
+        // is overdue when balance > 0 and its latest charge date is in the past).
+        // Without the map, computeParentSummary silently reports totalOverdue = 0.
+        val dueDates = com.example.core.LedgerEngine.buildOverdueDueDateMap(entries)
+        val summary = LedgerEngine.computeParentSummary(entries, parentId, "", dueDates)
         return Result.Ok(summary)
     }
 

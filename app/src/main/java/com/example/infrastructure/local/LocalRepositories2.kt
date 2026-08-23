@@ -784,6 +784,9 @@ class LocalAttendanceRepository @Inject constructor(
 class LocalGradeRepository @Inject constructor(
     private val assessmentDao: AssessmentDao,
     private val auditDao: AuditLogDao,
+    // TIER 4 FIX — subject lookup so entered assessments carry the canonical
+    // isExtracurricular flag (drives the GPA exclusion rule).
+    private val subjectDao: com.example.infrastructure.room.SubjectDao,
 ) : GradeRepository {
 
     override fun observeForStudent(studentId: String, term: String, academicYear: String): Flow<List<Assessment>> =
@@ -794,17 +797,24 @@ class LocalGradeRepository @Inject constructor(
 
     override suspend fun enterGrade(input: EnterGradeInput, actorId: String, actorName: String): Result<Assessment> {
         val now = Instant.now().toString()
+        // CANONICAL — the subject average is only computable when all three
+        // marks are present (matches the SQL trigger).
         val subjectAvg = com.example.core.computeSubjectAverage(input.devoir1, input.devoir2, input.examen)
+        // TIER 4 FIX — carry the subject's isExtracurricular flag onto the
+        // assessment so computeOverallGpa can apply the canonical exclusion.
+        val subjectIsExtracurricular = subjectDao.getById(input.subjectId)?.isExtracurricular ?: false
         val existing = assessmentDao.getByStudentSubjectTerm(input.studentId, input.subjectId, input.term, input.academicYear)
         val entity = (existing ?: AssessmentEntity(
             id = "asm-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
             studentId = input.studentId, subjectId = input.subjectId, classId = input.classId,
             term = input.term, academicYear = input.academicYear,
             devoir1 = null, devoir2 = null, examen = null, coefficient = input.coefficient,
+            isExtracurricular = subjectIsExtracurricular,
             subjectAverage = null, enteredBy = actorId, enteredAt = now,
         )).copy(
             devoir1 = input.devoir1, devoir2 = input.devoir2, examen = input.examen,
             coefficient = input.coefficient, subjectAverage = subjectAvg,
+            isExtracurricular = subjectIsExtracurricular,
             enteredBy = actorId, enteredAt = now,
         )
         assessmentDao.upsert(entity)
@@ -851,6 +861,14 @@ class LocalExpenseRepository @Inject constructor(
 
     override suspend fun approve(id: String, note: String, actorId: String, actorName: String): Result<Expense> {
         val existing = expenseDao.getById(id) ?: return Result.Err(Errors.notFound("Expense $id not found"))
+        // TIER 4 FIX — enforce the canonical no-self-approval rule (plan §08;
+        // desktop expense-ops.ts + SQL 0008 both enforce it).
+        if (existing.submittedBy == actorId) {
+            auditDao.upsert(auditLog("expense.approve.blocked", "expense", id, actorId, actorName))
+            return Result.Err(Errors.forbidden(
+                "Un demandeur ne peut pas approuver sa propre dépense (règle d'auto-approbation)",
+            ))
+        }
         val updated = existing.copy(status = "approved", approvedBy = actorId, approvedAt = Instant.now().toString(), notes = note)
         expenseDao.update(updated)
         auditDao.upsert(auditLog("expense.approve", "expense", id, actorId, actorName))
@@ -859,6 +877,12 @@ class LocalExpenseRepository @Inject constructor(
 
     override suspend fun reject(id: String, reason: String, actorId: String, actorName: String): Result<Expense> {
         val existing = expenseDao.getById(id) ?: return Result.Err(Errors.notFound("Expense $id not found"))
+        // TIER 4 FIX — the no-self-approval rule applies to reject too.
+        if (existing.submittedBy == actorId) {
+            return Result.Err(Errors.forbidden(
+                "Un demandeur ne peut pas rejeter sa propre dépense (règle d'auto-approbation)",
+            ))
+        }
         val updated = existing.copy(status = "rejected", approvedBy = actorId, approvedAt = Instant.now().toString(), notes = reason)
         expenseDao.update(updated)
         auditDao.upsert(auditLog("expense.reject", "expense", id, actorId, actorName))

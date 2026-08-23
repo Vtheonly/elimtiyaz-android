@@ -17,6 +17,10 @@ data class Installment(
     val label: String,
     val amountDue: Long,
     val amountPaid: Long,
+    // TIER 4 FIX (v2 audit D14 / R12) — pending-clearance bucket (uncleared
+    // checks / transfers). The Room entity has carried this column since the
+    // unified architecture, but toDomain() dropped it.
+    val amountPending: Long = 0L,
     val dueDate: String,
     val paidDate: String? = null,
     val status: PaymentStatus,
@@ -24,5 +28,5 @@ data class Installment(
     val customSchedule: Boolean = false,
     val customScheduleNote: String? = null,
 ) {
-    val remaining: Long get() = (amountDue - amountPaid).coerceAtLeast(0L)
+    val remaining: Long get() = (amountDue - amountPaid - amountPending).coerceAtLeast(0L)
 }

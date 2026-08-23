@@ -129,7 +129,10 @@ data class ClassDto(
     @SerialName("section") val section: String = "A",
     @SerialName("code") val code: String,
     @SerialName("name") val name: String? = null,
-    @SerialName("capacity") val capacity: Int = 30,
+    // TIER 4 FIX — nullable capacity (null = unlimited enrollment), matching
+    // the desktop model + SQL. The previous non-null default of 30 fabricated
+    // a limit the server never set.
+    @SerialName("capacity") val capacity: Int? = null,
     @SerialName("homeroom_teacher_id") val homeroomTeacherId: String? = null,
     @SerialName("homeroom_teacher_name") val homeroomTeacherName: String? = null,
     @SerialName("room") val room: String? = null,

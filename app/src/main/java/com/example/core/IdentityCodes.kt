@@ -68,12 +68,17 @@ data class ParentCodeInput(
  * sets at least one field) but matches the desktop's defensive behavior.
  */
 fun deterministicParentCode(year: Int, input: ParentCodeInput): String {
+    // CANONICAL (cross-platform equivalence fix): filter out BOTH null and
+    // EMPTY identity fields (after per-field trim) before joining. The
+    // desktop previously joined empty strings, so the same parent produced
+    // different parent_codes on each platform — breaking the idempotent
+    // (tenant_id, parent_code) upsert match.
     val identity = listOfNotNull(
-        input.phone,
-        input.displayName,
-        input.firstName,
-        input.lastName,
-    ).joinToString("|").trim()
+        input.phone?.trim()?.takeIf { it.isNotEmpty() },
+        input.displayName?.trim()?.takeIf { it.isNotEmpty() },
+        input.firstName?.trim()?.takeIf { it.isNotEmpty() },
+        input.lastName?.trim()?.takeIf { it.isNotEmpty() },
+    ).joinToString("|")
     val suffix = if (identity.isNotEmpty()) {
         stableHash(identity)
     } else {

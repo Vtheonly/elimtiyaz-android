@@ -21,7 +21,10 @@ data class Assessment(
     val devoir2: Double? = null,
     val examen: Double? = null,
     val subjectAverage: Double? = null,
-    val coefficient: Int,
+    val coefficient: Double,
+    /** Canonical rule (desktop academic.ts + SQL fn_calculate_student_term_gpa):
+     *  extracurricular modules are EXCLUDED from the official GPA. */
+    val isExtracurricular: Boolean = false,
     val enteredBy: String,
     val enteredAt: String,
 )
