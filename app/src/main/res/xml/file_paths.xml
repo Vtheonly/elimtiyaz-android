@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider paths: generated PDF documents live under {cacheDir}/pdf/
+     (see infrastructure/pdf/AndroidPdfRepository.kt). -->
+<paths>
+    <cache-path
+        name="pdf"
+        path="pdf/" />
+</paths>

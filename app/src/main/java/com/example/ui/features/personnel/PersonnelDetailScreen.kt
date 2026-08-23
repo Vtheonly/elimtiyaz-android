@@ -19,9 +19,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,6 +41,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,12 +56,14 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.Permission
+import com.example.core.Result
 import com.example.core.Role
 import com.example.core.formatDzd
 import com.example.domain.model.Personnel
 import com.example.domain.model.ReleveEntry
 import com.example.domain.repository.PersonnelRepository
 import com.example.domain.repository.ReleveRepository
+import com.example.domain.repository.UpdatePersonnelInput
 import com.example.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -111,6 +120,56 @@ class PersonnelDetailViewModel @Inject constructor(
             session.hasRole(Role.SUPER_ADMIN) || session.hasRole(Role.FINANCIAL_OFFICER) ||
                 session.can(Permission.VIEW_SALARY)
         } ?: false
+
+    /** Whether the current session may manage personnel (edit / delete). */
+    val canManage: Boolean
+        get() = sessionManager.current()?.can(Permission.MANAGE_PERSONNEL) == true ||
+            sessionManager.current()?.let { session ->
+                session.hasRole(Role.SUPER_ADMIN) || session.hasRole(Role.MANAGER)
+            } == true
+
+    private val _busy = MutableStateFlow(false)
+    val busy: StateFlow<Boolean> = _busy.asStateFlow()
+
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message.asStateFlow()
+
+    /** UI entry for [PersonnelRepository.updatePersonnel] (previously repo-only). */
+    fun updatePersonnel(id: String, input: UpdatePersonnelInput) {
+        viewModelScope.launch {
+            _busy.value = true
+            val actorId = sessionManager.currentUserId() ?: "system"
+            val actorName = sessionManager.currentDisplayName() ?: "System"
+            when (val result = personnelRepository.updatePersonnel(id, input, actorId, actorName)) {
+                is Result.Ok -> _message.value = "Employé mis à jour."
+                is Result.Err -> _error.value = result.error.userMessage
+            }
+            _busy.value = false
+        }
+    }
+
+    /**
+     * UI entry for [PersonnelRepository.deletePersonnel] — a SOFT delete:
+     * the repository marks the row `terminated` (preserving the Relevé
+     * history), mirroring the guard-free semantics of the repo contract.
+     */
+    fun deletePersonnel(id: String) {
+        viewModelScope.launch {
+            _busy.value = true
+            val actorId = sessionManager.currentUserId() ?: "system"
+            val actorName = sessionManager.currentDisplayName() ?: "System"
+            when (val result = personnelRepository.deletePersonnel(id, actorId, actorName)) {
+                is Result.Ok -> _message.value = "Employé marqué comme terminé."
+                is Result.Err -> _error.value = result.error.userMessage
+            }
+            _busy.value = false
+        }
+    }
+
+    fun clearMessages() {
+        _error.value = null
+        _message.value = null
+    }
 
     init {
         loadWeekReleve()
@@ -185,7 +244,13 @@ fun PersonnelDetailScreen(
     val perDay by viewModel.perDayBreakdown.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val busy by viewModel.busy.collectAsState()
+    val message by viewModel.message.collectAsState()
     val context = LocalContext.current
+
+    // Edit + delete dialog state (RBAC-gated actions).
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -193,6 +258,14 @@ fun PersonnelDetailScreen(
                 title = { Text(personnel?.fullName ?: "Personnel") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Retour") } },
                 actions = {
+                    if (viewModel.canManage) {
+                        IconButton(onClick = { showEditDialog = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Modifier l'employé")
+                        }
+                        IconButton(onClick = { showDeleteDialog = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Retirer l'employé")
+                        }
+                    }
                     IconButton(onClick = {
                         personnel?.phone?.let { phone ->
                             val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
@@ -256,6 +329,10 @@ fun PersonnelDetailScreen(
                             InfoRow("Salaire", "${(p.salary / 100).formatDzd()} DZD")
                         } else if (!viewModel.canViewSalary && p.salary != null) {
                             Text("Salaire masqué (permission requise)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        }
+                        message?.let {
+                            Spacer(Modifier.height(8.dp))
+                            Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
@@ -321,6 +398,127 @@ fun PersonnelDetailScreen(
                 }
             }
         }
+    }
+
+    // ── Edit dialog (RBAC: MANAGE_PERSONNEL) ──────────────────────────
+    if (showEditDialog && personnel != null) {
+        val p = personnel!!
+        var phone by remember { mutableStateOf(p.phone) }
+        var email by remember { mutableStateOf(p.email ?: "") }
+        var position by remember { mutableStateOf(p.position) }
+        var salaryDzd by remember { mutableStateOf(p.salary?.let { (it / 100).toString() } ?: "") }
+        var status by remember { mutableStateOf(if (p.status == "terminated") "terminated" else "active") }
+
+        val salaryCentimes = salaryDzd.replace(" ", "").toLongOrNull()?.let { it * 100L }
+
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = { Text("Modifier l'employé") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = phone,
+                        onValueChange = { phone = it },
+                        label = { Text("Téléphone") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Email") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = position,
+                        onValueChange = { position = it },
+                        label = { Text("Poste") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = salaryDzd,
+                        onValueChange = { raw -> salaryDzd = raw.filter { it.isDigit() }.take(12) },
+                        label = { Text("Salaire mensuel (DZD)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text("Statut", style = MaterialTheme.typography.labelMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { status = "active" }) {
+                            Text(
+                                "Actif",
+                                color = if (status == "active") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (status == "active") FontWeight.Bold else FontWeight.Normal,
+                            )
+                        }
+                        TextButton(onClick = { status = "terminated" }) {
+                            Text(
+                                "Terminé",
+                                color = if (status == "terminated") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (status == "terminated") FontWeight.Bold else FontWeight.Normal,
+                            )
+                        }
+                    }
+                    Text(
+                        "Nom et rôle (${p.staffCategory}) ne sont pas modifiables.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.updatePersonnel(
+                            p.id,
+                            UpdatePersonnelInput(
+                                position = position.trim().ifBlank { null },
+                                phone = phone.trim().ifBlank { null },
+                                email = email.trim().ifBlank { null },
+                                salary = salaryCentimes,
+                                status = status,
+                            ),
+                        )
+                        showEditDialog = false
+                    },
+                    enabled = !busy && phone.isNotBlank(),
+                ) { Text("Enregistrer") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) { Text("Annuler") }
+            },
+        )
+    }
+
+    // ── Delete confirmation (soft delete — mirrors repo semantics) ───
+    if (showDeleteDialog && personnel != null) {
+        val p = personnel!!
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Retirer ${p.fullName} ?") },
+            text = {
+                Text(
+                    "Suppression logique : l'employé sera marqué comme « terminé » et retiré " +
+                        "du registre actif, mais son dossier et son historique de relevés seront " +
+                        "conservés. Cette action ne peut pas être annulée depuis l'application.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deletePersonnel(p.id)
+                        showDeleteDialog = false
+                    },
+                    enabled = !busy,
+                ) { Text("Confirmer", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Annuler") }
+            },
+        )
     }
 }
 

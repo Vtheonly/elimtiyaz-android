@@ -15,6 +15,7 @@ import com.example.domain.repository.LedgerRepository
 import com.example.domain.repository.NotificationRepository
 import com.example.domain.repository.ParentRepository
 import com.example.domain.repository.PaymentRepository
+import com.example.domain.repository.PdfRepository
 import com.example.domain.repository.PersonnelRepository
 import com.example.domain.repository.PricingRepository
 import com.example.domain.repository.ReleveRepository
@@ -46,6 +47,7 @@ import com.example.infrastructure.local.LocalStorageRepository
 import com.example.infrastructure.local.LocalStudentRepository
 import com.example.infrastructure.local.LocalSubjectRepository
 import com.example.infrastructure.local.LocalWorkflowRepository
+import com.example.infrastructure.pdf.AndroidPdfRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -93,4 +95,5 @@ abstract class RepositoryModule {
     @Binds @Singleton abstract fun bindRoutingRepository(impl: LocalRoutingRepository): RoutingRepository
     @Binds @Singleton abstract fun bindReleveRepository(impl: LocalReleveRepository): ReleveRepository
     @Binds @Singleton abstract fun bindWorkflowRepository(impl: LocalWorkflowRepository): WorkflowRepository
+    @Binds @Singleton abstract fun bindPdfRepository(impl: AndroidPdfRepository): PdfRepository
 }

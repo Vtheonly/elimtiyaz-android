@@ -56,7 +56,10 @@ object NetworkTimeouts {
                 !key.equals("placeholder-anon-key", ignoreCase = true) &&
                 !key.equals("placeholder-publishable-key", ignoreCase = true) &&
                 !key.equals("demo-key", ignoreCase = true)
-            return buildConfigConfigured || SupabaseClientProvider.DEFAULT_URL.isNotBlank()
+            // SECURITY FIX — no hardcoded production fallback: the only valid
+            // sources are BuildConfig (`.env` via the secrets plugin) and the
+            // runtime override stored by SupabaseClientProvider (SharedPreferences).
+            return buildConfigConfigured
         }
 
     /**

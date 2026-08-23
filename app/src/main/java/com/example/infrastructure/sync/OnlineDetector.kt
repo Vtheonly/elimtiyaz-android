@@ -55,7 +55,15 @@ class OnlineDetector @Inject constructor(
 
     private val probeUrl: String by lazy {
         val raw = BuildConfig.SUPABASE_URL.trim().removeSurrounding("\"")
-        val base = if (raw.startsWith("http://") || raw.startsWith("https://")) raw else "https://hkvkefubghbbotgnteir.supabase.co"
+        // SECURITY FIX — no hardcoded production project URL: when BuildConfig
+        // carries a placeholder (fresh checkout without .env), probe a neutral
+        // public endpoint instead of leaking the real project ref.
+        val isReal = raw.startsWith("http://") || raw.startsWith("https://")
+        val base = if (isReal && !raw.contains("your-project", ignoreCase = true) && !raw.contains("placeholder", ignoreCase = true)) {
+            raw
+        } else {
+            "https://supabase.com"
+        }
         base.removeSuffix("/") + "/auth/v1/health"
     }
 

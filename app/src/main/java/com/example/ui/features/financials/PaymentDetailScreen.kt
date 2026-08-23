@@ -1,5 +1,6 @@
 package com.example.ui.features.financials
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,25 +16,30 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.core.Permission
+import com.example.core.Result
 import com.example.core.formatDzd
 import com.example.domain.model.Parent
 import com.example.domain.model.Payment
 import com.example.domain.model.Student
 import com.example.domain.repository.ParentRepository
 import com.example.domain.repository.PaymentRepository
+import com.example.domain.repository.PdfRepository
 import com.example.domain.repository.StudentRepository
-import com.example.core.Permission
 import com.example.session.SessionManager
 import com.example.ui.components.ElButton
 import com.example.ui.components.ElCard
@@ -44,6 +50,7 @@ import com.example.ui.components.ElTopBar
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.SuccessGreen
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.firstOrNull
@@ -57,13 +64,16 @@ import kotlinx.coroutines.launch
  *
  * Also exposes a [refund] action that calls [PaymentRepository.refund] —
  * mirrors the desktop's payment-detail drawer which allows reversing a
- * payment with a reason.
+ * payment with a reason — and a [generateReceiptPdf] action rendering the
+ * receipt via [PdfRepository] (parity with the desktop's auto-generated
+ * receipt PDFs).
  */
 @HiltViewModel
 class PaymentDetailViewModel @Inject constructor(
     private val paymentRepository: PaymentRepository,
     private val parentRepository: ParentRepository,
     private val studentRepository: StudentRepository,
+    private val pdfRepository: PdfRepository,
     private val sessionManager: SessionManager,
 ) : ViewModel() {
 
@@ -96,6 +106,18 @@ class PaymentDetailViewModel @Inject constructor(
                 com.example.core.Role.SUPER_ADMIN,
                 com.example.core.Role.FINANCIAL_OFFICER,
             )
+
+    /** Whether the current session may generate receipt PDFs. */
+    val canGenerateReceipt: Boolean
+        get() = sessionManager.current()?.can(Permission.GENERATE_RECEIPT) == true ||
+            sessionManager.current()?.role in listOf(
+                com.example.core.Role.SUPER_ADMIN,
+                com.example.core.Role.FINANCIAL_OFFICER,
+            )
+
+    /** One-shot share request: the freshly generated receipt file. */
+    private val _pdfFile = MutableStateFlow<File?>(null)
+    val pdfFile: StateFlow<File?> = _pdfFile.asStateFlow()
 
     fun load(paymentId: String) {
         viewModelScope.launch {
@@ -137,6 +159,23 @@ class PaymentDetailViewModel @Inject constructor(
         }
     }
 
+    /** Render the receipt PDF for the loaded payment and emit a share request. */
+    fun generateReceiptPdf(paymentId: String) {
+        viewModelScope.launch {
+            _busy.value = true
+            when (val result = pdfRepository.generatePaymentReceipt(paymentId)) {
+                is Result.Ok -> _pdfFile.value = result.value
+                is Result.Err -> _error.value = result.error.userMessage
+            }
+            _busy.value = false
+        }
+    }
+
+    /** Called by the UI once the share intent has been dispatched. */
+    fun consumePdf() {
+        _pdfFile.value = null
+    }
+
     fun clearMessages() {
         _error.value = null
         _message.value = null
@@ -164,10 +203,37 @@ fun PaymentDetailScreen(
     val parentName by viewModel.parentName.collectAsState()
     val studentName by viewModel.studentName.collectAsState()
     val actorName by viewModel.actorName.collectAsState()
+    val pdfFile by viewModel.pdfFile.collectAsState()
+    val context = LocalContext.current
 
     // Trigger load once on first composition
     androidx.compose.runtime.LaunchedEffect(paymentId) {
         viewModel.load(paymentId)
+    }
+
+    // Share the freshly generated receipt PDF (ACTION_SEND via FileProvider).
+    LaunchedEffect(pdfFile) {
+        val file = pdfFile ?: return@LaunchedEffect
+        try {
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file,
+            )
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/pdf"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(shareIntent, "Partager le reçu"))
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(
+                context,
+                "Impossible de partager le PDF.",
+                android.widget.Toast.LENGTH_SHORT,
+            ).show()
+        }
+        viewModel.consumePdf()
     }
 
     // FIX (unreachable feature): refund dialog — `refund()` was fully
@@ -253,6 +319,18 @@ fun PaymentDetailScreen(
                     onClick = { showRefundDialog = true },
                     fullWidth = true,
                     enabled = !busy,
+                )
+            }
+
+            // PDF receipt — renders the A4 receipt via the PdfRepository and
+            // opens the system share sheet (FileProvider + ACTION_SEND).
+            if (viewModel.canGenerateReceipt) {
+                ElButton(
+                    text = if (busy) "Génération…" else "Reçu PDF",
+                    onClick = { viewModel.generateReceiptPdf(paymentId) },
+                    fullWidth = true,
+                    enabled = !busy,
+                    icon = Icons.Default.Receipt,
                 )
             }
 

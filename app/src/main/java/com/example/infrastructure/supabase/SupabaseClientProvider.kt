@@ -1,6 +1,7 @@
 package com.example.infrastructure.supabase
 
 import android.content.Context
+import android.util.Log
 import com.example.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jan.supabase.SupabaseClient
@@ -58,40 +59,47 @@ class SupabaseClientProvider @Inject constructor(
 
     fun getActiveUrl(): String {
         val saved = prefs.getString(KEY_URL, "")?.trim() ?: ""
-        if (saved.isNotBlank() && !saved.contains("your-project", ignoreCase = true) && !saved.contains("placeholder", ignoreCase = true) && !saved.contains("demo.supabase.co", ignoreCase = true)) {
+        if (saved.isNotBlank() && !isPlaceholderUrl(saved)) {
             return saved
         }
         val buildUrl = BuildConfig.SUPABASE_URL.trim().removeSurrounding("\"")
-        if (buildUrl.startsWith("https://") && !buildUrl.contains("your-project", ignoreCase = true) && !buildUrl.contains("placeholder", ignoreCase = true) && !buildUrl.contains("demo.supabase.co", ignoreCase = true)) {
+        if (buildUrl.startsWith("https://") && !isPlaceholderUrl(buildUrl)) {
             return buildUrl
         }
-        return DEFAULT_URL
+        // SECURITY FIX — no hardcoded production fallback URL: the credentials
+        // MUST come from the runtime override (SharedPreferences) or from
+        // BuildConfig (`.env` via the secrets plugin). Surface a clear error
+        // instead of silently connecting to a committed project URL.
+        Log.e(
+            TAG,
+            "Supabase URL non configurée — définissez SUPABASE_URL dans le fichier .env " +
+                "(voir .env.example) ou saisissez-la dans Paramètres > Supabase.",
+        )
+        return ""
     }
 
     fun getActiveAnonKey(): String {
         val saved = prefs.getString(KEY_KEY, "")?.trim() ?: ""
-        if (saved.isNotBlank() && !saved.contains("your-anon-key", ignoreCase = true) && !saved.contains("placeholder", ignoreCase = true) && !saved.contains("demo-key", ignoreCase = true)) {
+        if (saved.isNotBlank() && !isPlaceholderKey(saved)) {
             return saved
         }
         val buildKey = BuildConfig.SUPABASE_ANON_KEY.ifBlank { BuildConfig.SUPABASE_PUBLISHABLE_KEY }.trim().removeSurrounding("\"")
-        if (buildKey.isNotBlank() && !buildKey.contains("your-anon-key", ignoreCase = true) && !buildKey.contains("placeholder", ignoreCase = true) && !buildKey.contains("demo-key", ignoreCase = true)) {
+        if (buildKey.isNotBlank() && !isPlaceholderKey(buildKey)) {
             return buildKey
         }
-        return DEFAULT_KEY
+        Log.e(
+            TAG,
+            "Clé anonyme Supabase non configurée — définissez SUPABASE_ANON_KEY dans le fichier " +
+                ".env (voir .env.example) ou saisissez-la dans Paramètres > Supabase.",
+        )
+        return ""
     }
 
     fun isConfigured(): Boolean {
         val url = getActiveUrl()
         val key = getActiveAnonKey()
-        return url.startsWith("https://") &&
-            !url.contains("your-project", ignoreCase = true) &&
-            !url.contains("demo.supabase.co", ignoreCase = true) &&
-            !url.contains("placeholder", ignoreCase = true) &&
-            key.isNotBlank() &&
-            !key.equals("your-anon-key", ignoreCase = true) &&
-            !key.equals("placeholder-anon-key", ignoreCase = true) &&
-            !key.equals("placeholder-publishable-key", ignoreCase = true) &&
-            !key.equals("demo-key", ignoreCase = true)
+        return url.startsWith("https://") && !isPlaceholderUrl(url) &&
+            key.isNotBlank() && !isPlaceholderKey(key)
     }
 
     fun saveConfig(url: String, anonKey: String) {
@@ -114,6 +122,16 @@ class SupabaseClientProvider @Inject constructor(
     private fun build(): SupabaseClient {
         val rawUrl = getActiveUrl()
         val rawKey = getActiveAnonKey()
+
+        // SECURITY FIX — never fall back to committed production credentials.
+        // When the app is unconfigured we build an inert client against a
+        // non-existent endpoint: requests fail loudly (and `isConfigured()`
+        // stays false so the Settings screen can prompt for values) instead
+        // of silently hitting the previous hardcoded project.
+        if (rawUrl.isBlank() || rawKey.isBlank()) {
+            Log.e(TAG, "Construction du client Supabase avec une configuration VIDE — " +
+                "les requêtes réseau échoueront jusqu'à ce que les identifiants soient fournis.")
+        }
 
         val validUrl = if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) {
             rawUrl
@@ -152,10 +170,23 @@ class SupabaseClientProvider @Inject constructor(
     }
 
     companion object {
+        private const val TAG = "SupabaseClientProvider"
         private const val KEY_URL = "custom_supabase_url"
         private const val KEY_KEY = "custom_supabase_anon_key"
-        const val DEFAULT_URL = "https://hkvkefubghbbotgnteir.supabase.co"
-        const val DEFAULT_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrdmtlZnViZ2hiYm90Z250ZWlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwMDQ2ODQsImV4cCI6MjEwMDU4MDY4NH0.GDQiKjp4YBbCpsgoJXeSUqUT8Ag67He2fmngy6NNPmk"
+
+        /** URL obviously meant as a template value (from .env.example). */
+        private fun isPlaceholderUrl(url: String): Boolean =
+            url.contains("your-project", ignoreCase = true) ||
+                url.contains("your_project", ignoreCase = true) ||
+                url.contains("placeholder", ignoreCase = true) ||
+                url.contains("demo.supabase.co", ignoreCase = true)
+
+        /** Key obviously meant as a template value (from .env.example). */
+        private fun isPlaceholderKey(key: String): Boolean =
+            key.contains("your-anon-key", ignoreCase = true) ||
+                key.contains("your_anon_key", ignoreCase = true) ||
+                key.contains("placeholder", ignoreCase = true) ||
+                key.equals("demo-key", ignoreCase = true)
     }
 }
 

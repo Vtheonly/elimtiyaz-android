@@ -17,10 +17,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Whatsapp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -43,16 +46,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.core.PaymentCategory
 import com.example.core.formatDzd
 import com.example.domain.model.Parent
 import com.example.ui.components.ElAvatar
+import com.example.ui.components.ElButton
 import com.example.ui.components.ElCard
 import com.example.ui.components.ElInfoRow
 import com.example.ui.components.ElSectionHeader
+import com.example.ui.components.ElTag
 import com.example.ui.components.ElTopBar
 import com.example.ui.theme.DangerRed
+import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.elDesignTokens
 
@@ -70,11 +79,41 @@ fun ParentDetailScreen(
     val summary by viewModel.summary.collectAsState()
     val error by viewModel.error.collectAsState()
     val saveMessage by viewModel.saveMessage.collectAsState()
+    val busy by viewModel.busy.collectAsState()
+    val pdfFile by viewModel.pdfFile.collectAsState()
     val context = LocalContext.current
     val tokens = elDesignTokens()
 
     // FIX (missing edit feature): edit dialog state.
     var showEditDialog by remember { mutableStateOf(false) }
+
+    // Manual account adjustment dialog state (PaymentRepository.adjust UI).
+    var showAdjustDialog by remember { mutableStateOf(false) }
+
+    // Share the freshly generated account-statement PDF (FileProvider + ACTION_SEND).
+    LaunchedEffect(pdfFile) {
+        val file = pdfFile ?: return@LaunchedEffect
+        try {
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file,
+            )
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/pdf"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(shareIntent, "Partager le relevé"))
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(
+                context,
+                "Impossible de partager le PDF.",
+                android.widget.Toast.LENGTH_SHORT,
+            ).show()
+        }
+        viewModel.consumePdf()
+    }
 
     LaunchedEffect(saveMessage) {
         if (saveMessage != null) {
@@ -199,6 +238,32 @@ fun ParentDetailScreen(
                         if (s.totalOverdue > 0) {
                             ElInfoRow(label = "En retard", value = "${(s.totalOverdue / 100).formatDzd()} DZD", valueColor = DangerRed)
                         }
+
+                        // Financial actions — account statement PDF export +
+                        // manual adjustment (both RBAC-gated in the ViewModel).
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (viewModel.canGenerateStatement) {
+                                ElButton(
+                                    text = if (busy) "Génération…" else "Relevé PDF",
+                                    onClick = { viewModel.generateStatementPdf(parentId) },
+                                    style = com.example.ui.components.ElButtonStyle.Secondary,
+                                    icon = Icons.Default.PictureAsPdf,
+                                    modifier = Modifier.weight(1f),
+                                    enabled = !busy,
+                                )
+                            }
+                            if (viewModel.canAdjust) {
+                                ElButton(
+                                    text = "Ajustement",
+                                    onClick = { showAdjustDialog = true },
+                                    style = com.example.ui.components.ElButtonStyle.Secondary,
+                                    icon = Icons.Default.Tune,
+                                    modifier = if (viewModel.canGenerateStatement) Modifier.weight(1f) else Modifier.fillMaxWidth(),
+                                    enabled = !busy,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -286,4 +351,131 @@ fun ParentDetailScreen(
             },
         )
     }
+
+    // Manual account adjustment dialog — UI entry for
+    // `PaymentRepository.adjust` (previously repository-only).
+    if (showAdjustDialog && parent != null) {
+        AdjustAccountDialog(
+            outstanding = summary?.totalOutstanding,
+            busy = busy,
+            onConfirm = { amountCentimes, category, reason ->
+                viewModel.adjustAccount(parentId, amountCentimes, category, reason)
+                showAdjustDialog = false
+            },
+            onDismiss = { showAdjustDialog = false },
+        )
+    }
+}
+
+/** Standard adjustment motifs (reason codes persisted in the ledger entry). */
+private val ADJUSTMENT_MOTIFS = listOf(
+    "Remise fratrie",
+    "Remise direction",
+    "Bourse / aide sociale",
+    "Pénalité de retard",
+    "Correction d'erreur de saisie",
+    "Autre",
+)
+
+/** Categories applicable to debit adjustments (credits auto-route to parent_credit). */
+private val ADJUSTMENT_CATEGORIES = listOf(
+    PaymentCategory.TUITION to "Scolarité",
+    PaymentCategory.TRANSPORT to "Transport",
+    PaymentCategory.CANTEEN to "Cantine",
+    PaymentCategory.UNIFORM to "Uniforme",
+    PaymentCategory.BOOKS to "Livres",
+    PaymentCategory.OTHER to "Autre",
+)
+
+/**
+ * Manual account adjustment dialog — mirrors the desktop's
+ * `AdjustAccountModal` (parent-detail-drawer.tsx): signed amount, mandatory
+ * motif (reason code for audit), category, and an optional note.
+ *
+ * Sign convention follows the CANONICAL engine (core/Ledger.kt):
+ * positive = debit (pénalité / majoration), negative = crédit (remise / avoir).
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun AdjustAccountDialog(
+    outstanding: Long?,
+    busy: Boolean,
+    onConfirm: (amountCentimes: Long, category: PaymentCategory, reason: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var amountText by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    var motif by remember { mutableStateOf(ADJUSTMENT_MOTIFS.first()) }
+    var category by remember { mutableStateOf(ADJUSTMENT_CATEGORIES.first().first) }
+
+    val amountDzd = amountText.replace(" ", "").replace(",", ".").toDoubleOrNull()
+    val validAmount = amountDzd != null && amountDzd != 0.0
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Ajustement de compte") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    if (outstanding != null) "Solde en cours : ${(outstanding / 100).formatDzd()} DZD" else "Solde en cours : —",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { raw ->
+                        amountText = raw.filter { it.isDigit() || it == '-' }.take(12)
+                    },
+                    label = { Text("Montant signé (DZD) *") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "Positif = débit (pénalité / majoration) · Négatif = crédit (remise / avoir)",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text("Motif *", style = MaterialTheme.typography.labelMedium)
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    ADJUSTMENT_MOTIFS.forEach { m ->
+                        ElTag(text = m, selected = motif == m, color = PrimaryBlue, onClick = { motif = m })
+                    }
+                }
+                Text("Catégorie (débits uniquement)", style = MaterialTheme.typography.labelMedium)
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    ADJUSTMENT_CATEGORIES.forEach { (c, label) ->
+                        ElTag(text = label, selected = category == c, color = PrimaryBlue, onClick = { category = c })
+                    }
+                }
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("Note (optionnel)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val dzd = amountText.replace(" ", "").replace(",", ".").toDoubleOrNull() ?: 0.0
+                    val centimes = kotlin.math.round(dzd * 100).toLong()
+                    val reason = if (note.isNotBlank()) "$motif — ${note.trim()}" else motif
+                    onConfirm(centimes, category, reason)
+                },
+                enabled = !busy && validAmount,
+            ) { Text("Appliquer") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Annuler") }
+        },
+    )
 }

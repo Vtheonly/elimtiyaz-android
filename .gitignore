@@ -7,3 +7,6 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+# Secrets (read by the secrets Gradle plugin) — NEVER commit real credentials.
+.env
+app/.env
