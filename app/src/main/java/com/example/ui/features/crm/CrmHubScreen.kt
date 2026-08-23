@@ -40,7 +40,20 @@ fun CrmHubScreen(
             when (selectedTab) {
                 0 -> ParentsDirectoryScreen(session = session, onParentClick = onNavigateToParent)
                 1 -> StudentRosterScreen(session = session, onStudentClick = onNavigateToStudent)
-                2 -> BatchRegistrationScreen(onSuccess = onNavigateToBatchRegistration)
+                // FIX (duplicate navigation): `onSuccess` was wired to
+                // `onNavigateToBatchRegistration`, which PUSHED a second
+                // standalone registration screen on top of the embedded one —
+                // after a successful registration the user landed on a blank
+                // duplicate form. Stay on the embedded screen (which shows
+                // its own success message and resets) and switch to the
+                // parents tab so the new family is visible.
+                2 -> BatchRegistrationScreen(
+                    onSuccess = {
+                        // The registration form shows its own success banner;
+                        // surface the fresh parent directory alongside it.
+                        selectedTab = 0
+                    },
+                )
             }
         }
     }

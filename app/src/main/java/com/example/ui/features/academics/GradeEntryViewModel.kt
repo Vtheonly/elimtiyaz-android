@@ -16,6 +16,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -67,6 +68,27 @@ class GradeEntryViewModel @Inject constructor(
     fun loadStudentsForClass(classId: String) {
         viewModelScope.launch {
             studentRepository.observeByClass(classId).collect { _students.value = it }
+        }
+    }
+
+    /**
+     * FIX (blind edit): fetch the existing assessment for a
+     * (student, subject, term, year) and hand it to the caller so the grade
+     * entry form can pre-fill the fields instead of silently overwriting.
+     */
+    fun loadExistingMark(
+        studentId: String,
+        subjectId: String,
+        term: String,
+        academicYear: String,
+        onLoaded: (com.example.domain.model.Assessment?) -> Unit,
+    ) {
+        viewModelScope.launch {
+            val existing = gradeRepository
+                .observeForStudent(studentId, term, academicYear)
+                .firstOrNull()
+                ?.firstOrNull { it.subjectId == subjectId }
+            onLoaded(existing)
         }
     }
 

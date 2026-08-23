@@ -152,6 +152,10 @@ data class SubjectEntity(
     val weeklyHours: Double,
     val isExtracurricular: Boolean,
     val isActive: Boolean,
+    // FIX (broken level filter): level was hardcoded to "all" in the mapper,
+    // so the directory's level chips always showed empty lists.
+    val level: String = "all",
+    val passingGrade: Double = 10.0,
 )
 
 @Entity(tableName = "attendance", indices = [Index("studentId"), Index("classId"), Index("date")])

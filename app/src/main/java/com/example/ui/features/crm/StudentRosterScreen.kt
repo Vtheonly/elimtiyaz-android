@@ -1,9 +1,7 @@
 package com.example.ui.features.crm
 
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,24 +18,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -155,8 +143,7 @@ fun StudentRosterScreen(
     val syncMessage by viewModel.syncMessage.collectAsState()
     val isConfigured by viewModel.isConfigured.collectAsState()
 
-    var showConfigDialog by remember { mutableStateOf(false) }
-
+    // Trigger load once on first composition
     LaunchedEffect(Unit) {
         if (isConfigured && students.size <= 6) {
             viewModel.syncFromCloud()
@@ -224,83 +211,22 @@ fun StudentRosterScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary,
                         )
-                    } else {
+                    } else if (isConfigured) {
+                        // FIX (out of context): the DB-config gear + banner were
+                        // removed from this teacher-facing roster — connection
+                        // setup now lives in Paramètres → Synchronisation. Only
+                        // a plain refresh action remains, and only when a
+                        // database is already configured.
                         IconButton(
-                            onClick = {
-                                if (isConfigured) {
-                                    viewModel.syncFromCloud()
-                                } else {
-                                    showConfigDialog = true
-                                }
-                            },
+                            onClick = { viewModel.syncFromCloud() },
                             modifier = Modifier.size(36.dp),
                         ) {
                             Icon(
-                                imageVector = if (isConfigured) Icons.Default.Refresh else Icons.Default.CloudOff,
-                                contentDescription = "Synchroniser avec Supabase",
-                                tint = if (isConfigured) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Rafraîchir depuis la base",
+                                tint = MaterialTheme.colorScheme.primary,
                             )
                         }
-
-                        IconButton(
-                            onClick = { showConfigDialog = true },
-                            modifier = Modifier.size(36.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Paramètres de base de données",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Prominent banner if running in local mode with demo data
-        if (!isConfigured || students.size < 50) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp)
-                    .clickable { showConfigDialog = true },
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                tonalElevation = 2.dp,
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CloudSync,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(24.dp),
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = if (!isConfigured) "Connecter la base de données (390 élèves)" else "Synchroniser la base complète",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                        Text(
-                            text = if (!isConfigured) "Touchez pour renseigner l'URL et la clé API Supabase de votre établissement" else "Touchez pour rafraîchir les 390 élèves depuis Supabase",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
-                        )
-                    }
-                    Spacer(Modifier.width(6.dp))
-                    Button(
-                        onClick = {
-                            if (isConfigured) viewModel.syncFromCloud() else showConfigDialog = true
-                        },
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                    ) {
-                        Text(if (isConfigured) "Sync" else "Connecter")
                     }
                 }
             }
@@ -320,7 +246,7 @@ fun StudentRosterScreen(
             ElEmptyState(
                 icon = Icons.Default.Person,
                 title = "Aucun élève trouvé",
-                message = if (query.isBlank()) "Appuyez sur synchroniser pour importer les 390 élèves depuis la base de données." else "Essayez de modifier votre recherche.",
+                message = if (query.isBlank()) "Aucun élève inscrit. Créez une inscription famille depuis l'onglet Inscription." else "Essayez de modifier votre recherche.",
                 modifier = Modifier.padding(top = 32.dp),
             )
         } else {
@@ -357,89 +283,5 @@ fun StudentRosterScreen(
             }
         }
     }
-
-    if (showConfigDialog) {
-        SupabaseConfigDialog(
-            currentUrl = viewModel.getSavedUrl(),
-            currentKey = viewModel.getSavedKey(),
-            onDismiss = { showConfigDialog = false },
-            onSave = { url, key ->
-                viewModel.saveConfig(url, key)
-                showConfigDialog = false
-            },
-        )
-    }
-}
-
-@Composable
-private fun SupabaseConfigDialog(
-    currentUrl: String,
-    currentKey: String,
-    onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit,
-) {
-    var url by remember { mutableStateOf(currentUrl) }
-    var anonKey by remember { mutableStateOf(currentKey) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.CloudSync,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text("Connexion Base de Données", style = MaterialTheme.typography.titleLarge)
-            }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "Configurez l'accès à Supabase pour synchroniser les 390 élèves, parents et paiements de votre établissement :",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-
-                OutlinedTextField(
-                    value = url,
-                    onValueChange = { url = it },
-                    label = { Text("Supabase Project URL") },
-                    placeholder = { Text("https://xyzcompany.supabase.co") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                OutlinedTextField(
-                    value = anonKey,
-                    onValueChange = { anonKey = it },
-                    label = { Text("Supabase Anon Key / API Key") },
-                    placeholder = { Text("eyJhbGciOiJIUzI1NiIsInR5c...") },
-                    singleLine = false,
-                    maxLines = 3,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                Text(
-                    text = "💡 Vous pouvez aussi configurer SUPABASE_URL et SUPABASE_ANON_KEY directement dans le panneau Secrets de Google AI Studio.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onSave(url, anonKey) },
-                enabled = url.isNotBlank() && anonKey.isNotBlank(),
-            ) {
-                Text("Enregistrer & Synchroniser")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Annuler")
-            }
-        },
-    )
 }
 

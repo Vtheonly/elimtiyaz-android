@@ -49,7 +49,9 @@ import com.example.infrastructure.room.PaymentEntity
 import com.example.infrastructure.room.StudentDao
 import com.example.infrastructure.room.StudentEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.put
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -270,6 +272,9 @@ val CANONICAL_STUDENT_STATUSES: Set<String> = setOf(
 class LocalParentRepository @Inject constructor(
     private val parentDao: ParentDao,
     private val auditDao: AuditLogDao,
+    // FIX (orphaned records): needed by deleteParent to refuse deleting a
+    // parent that still has linked students (desktop parity).
+    private val studentDao: StudentDao,
 ) : ParentRepository {
 
     override fun observe(): Flow<List<Parent>> =
@@ -330,6 +335,18 @@ class LocalParentRepository @Inject constructor(
         val updated = existing.copy(
             firstName = input.firstName ?: existing.firstName,
             lastName = input.lastName ?: existing.lastName,
+            // FIX (dropped field): `displayName` was accepted but never applied.
+            // Only recompute when first/last actually change so unrelated
+            // updates don't clobber an imported display name.
+            displayName = when {
+                input.displayName != null -> input.displayName
+                input.firstName != null || input.lastName != null ->
+                    listOfNotNull(
+                        input.firstName ?: existing.firstName,
+                        input.lastName ?: existing.lastName,
+                    ).joinToString(" ").trim().ifEmpty { existing.displayName }
+                else -> existing.displayName
+            },
             phone = input.phone ?: existing.phone,
             email = input.email ?: existing.email,
             occupation = input.occupation ?: existing.occupation,
@@ -344,6 +361,17 @@ class LocalParentRepository @Inject constructor(
     }
 
     override suspend fun deleteParent(id: String, actorId: String, actorName: String): Result<Unit> {
+        // FIX (orphaned records): deleting a parent left its students (and
+        // their payments/ledger entries) orphaned — dangling parent_id FKs.
+        // Mirrors the desktop semantics: refuse to delete a parent that still
+        // has linked students.
+        val children = studentDao.observeByParent(id).first()
+        if (children.isNotEmpty()) {
+            return Result.Err(Errors.conflict(
+                "Impossible de supprimer ce parent : ${children.size} élève(s) y sont encore rattachés. " +
+                    "Transférez ou retirez d'abord les élèves.",
+            ))
+        }
         parentDao.deleteById(id)
         auditDao.upsert(audit("parent.delete", "parent", id, actorId, actorName))
         return Result.Ok(Unit)
@@ -423,6 +451,23 @@ class LocalStudentRepository @Inject constructor(
         val updated = existing.copy(
             firstName = input.firstName ?: existing.firstName,
             lastName = input.lastName ?: existing.lastName,
+            // FIX (dropped field): `displayName` was accepted but never applied —
+            // since imported students store their complete name ONLY in
+            // displayName, those names could never be corrected.
+            // Only recompute the derived name when first/last actually change,
+            // so unrelated updates don't clobber an imported display name.
+            displayName = when {
+                input.displayName != null -> input.displayName
+                input.firstName != null || input.lastName != null ->
+                    listOfNotNull(
+                        input.firstName ?: existing.firstName,
+                        input.lastName ?: existing.lastName,
+                    ).joinToString(" ").trim().ifEmpty { existing.displayName }
+                else -> existing.displayName
+            },
+            birthDate = input.birthDate ?: existing.birthDate,
+            level = input.level ?: existing.level,
+            gradeLevel = input.gradeLevel ?: existing.gradeLevel,
             classId = input.classId ?: existing.classId,
             status = input.status ?: existing.status,
             medicalNotes = input.medicalNotes ?: existing.medicalNotes,
@@ -865,7 +910,8 @@ class LocalPaymentRepository @Inject constructor(
         )
         ledgerDao.upsert(ledgerEntry.toEntity())
         // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the ledger entry for sync push.
-        val parentCode = parentCodeFor(ledgerEntry.parentId) ?: ""
+        // FIX (duplicate declaration): `parentCode` was declared twice in the
+        // same scope — a compile error that broke the whole build.
         syncSupport?.enqueueOnly(
             entity = "ledger_entry",
             operation = "create",
@@ -1087,6 +1133,11 @@ class LocalInstallmentRepository @Inject constructor(
     // CANONICAL-FINANCIAL-LOGIC.md §8.1 — wire SyncSupport so installment
     // updates (markPaid, updateDueDate) propagate to Supabase.
     private val syncSupport: com.example.infrastructure.sync.SyncSupport? = null,
+    // FIX (ledger divergence): needed so an interactive "mark paid" also
+    // writes the backing payment + ledger entry — previously ONLY the
+    // installment row flipped, so the canonical ledger replay (Progression
+    // card, parent balances) never changed.
+    private val db: ElImtiyazDatabase,
 ) : InstallmentRepository {
 
     private fun syncJson(builder: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): String =
@@ -1109,6 +1160,83 @@ class LocalInstallmentRepository @Inject constructor(
         // SupabaseInstallmentRepository.markPaid fix).
         val updated = existing.copy(amountPaid = existing.amountDue, amountPending = 0L, status = "paid", paidDate = now, updatedAt = now)
         installmentDao.update(updated)
+
+        // FIX (ledger divergence): record the backing cash payment + ledger
+        // entry so the canonical ledger replay reflects the settlement.
+        // Without this, the tranche showed "paid" while the parent's balance
+        // and the Progression card ignored it entirely.
+        if (existing.status != "paid" && existing.amountDue > 0L) {
+            try {
+                val paymentDao = db.paymentDao()
+                val ledgerDao = db.ledgerEntryDao()
+                val year = java.time.LocalDate.now().year
+                val seq = (paymentDao.listAll().size + 1).toString().padStart(6, '0')
+                val receipt = "REC-$year-$seq"
+                val paymentId = "pay-${UUID.randomUUID()}"
+                val paymentEntity = com.example.infrastructure.room.PaymentEntity(
+                    id = paymentId,
+                    tenantId = "00000000-0000-0000-0000-000000000001",
+                    receiptNumber = receipt,
+                    parentId = existing.parentId,
+                    studentId = existing.studentId,
+                    amount = existing.amountDue,
+                    method = PaymentMethod.CASH.code,
+                    status = PaymentStatus.PAID.code,
+                    category = existing.category,
+                    installmentId = existing.id,
+                    proofUrl = null, checkNumber = null, checkBankName = null,
+                    checkIssueDate = null, checkClearanceDate = null,
+                    transferReference = null, transferSourceBank = null,
+                    notes = "Marqué payé (tranche ${existing.label})",
+                    collectedBy = actorId, collectedBy_name = actorName,
+                    collectedAt = now, createdAt = now, updatedAt = now,
+                )
+                paymentDao.upsert(paymentEntity)
+                val category = PaymentCategory.fromCode(existing.category)
+                    ?: PaymentCategory.OTHER
+                ledgerDao.upsert(
+                    createPaymentEntry(
+                        tenantId = paymentEntity.tenantId,
+                        parentId = existing.parentId,
+                        studentId = existing.studentId,
+                        category = category,
+                        amount = existing.amountDue,
+                        method = PaymentMethod.CASH,
+                        receiptNumber = receipt,
+                        paymentStatus = PaymentStatus.PAID,
+                        sourceId = paymentId,
+                        actorId = actorId,
+                        actorName = actorName,
+                        description = "Encaissement $receipt — tranche ${existing.label}",
+                    ).toEntity()
+                )
+                syncSupport?.enqueueOnly(
+                    entity = "payment",
+                    operation = "create",
+                    payload = syncJson {
+                        put("id", paymentId)
+                        put("tenantId", paymentEntity.tenantId)
+                        put("receiptNumber", receipt)
+                        put("parentId", existing.parentId)
+                        put("studentId", existing.studentId ?: "")
+                        put("amount", existing.amountDue)
+                        put("method", paymentEntity.method)
+                        put("status", paymentEntity.status)
+                        put("category", existing.category)
+                        put("installmentId", existing.id)
+                        put("collectedBy", actorId)
+                        put("collectedAt", now)
+                    },
+                    isMock = false, sourceScreen = "InstallmentSchedule",
+                )
+            } catch (t: Throwable) {
+                // Never fail the markPaid because of the companion entries —
+                // but record what happened for diagnosis.
+                auditDao.upsert(audit("installment.markPaid.companion_error", "installment", id, actorId, actorName,
+                    after = "{\"error\":\"" + (t.message ?: "unknown") + "\"}"))
+            }
+        }
+
         // Enqueue for sync push.
         syncSupport?.enqueueOnly(
             entity = "installment",

@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -43,6 +44,10 @@ import androidx.compose.runtime.setValue
 fun GradeEntryScreen(
     session: Session,
     onNavigateToGradeEntry: (String) -> Unit = {},
+    /** Pre-selected class when opened standalone from ClassDetail. */
+    initialClassId: String? = null,
+    /** Back affordance when pushed as a standalone route (hidden when embedded in the hub). */
+    onBack: (() -> Unit)? = null,
     viewModel: GradeEntryViewModel = hiltViewModel(),
 ) {
     val classes by viewModel.classes.collectAsState()
@@ -51,7 +56,7 @@ fun GradeEntryScreen(
     val busy by viewModel.busy.collectAsState()
     val message by viewModel.message.collectAsState()
 
-    var selectedClassId by remember { mutableStateOf<String?>(null) }
+    var selectedClassId by remember { mutableStateOf<String?>(initialClassId) }
     var selectedSubjectId by remember { mutableStateOf<String?>(null) }
     var selectedStudentId by remember { mutableStateOf<String?>(null) }
     var term by remember { mutableStateOf("T1") }
@@ -63,6 +68,9 @@ fun GradeEntryScreen(
     var devoir1Text by remember { mutableStateOf("") }
     var devoir2Text by remember { mutableStateOf("") }
     var examenText by remember { mutableStateOf("") }
+    // Whether an assessment already exists for the current selection — shown
+    // as an explicit "this will replace it" hint.
+    var hasExistingMark by remember { mutableStateOf(false) }
 
     val d1 = devoir1Text.toDoubleOrNull()
     val d2 = devoir2Text.toDoubleOrNull()
@@ -86,6 +94,25 @@ fun GradeEntryScreen(
         if (selectedStudentId == null && students.isNotEmpty()) selectedStudentId = students.first().id
     }
 
+    // FIX (blind overwrite): reset the mark fields whenever the student,
+    // subject, or term changes — previously student A's marks stayed in the
+    // fields after switching to student B, and one tap on "Enregistrer"
+    // silently overwrote B's assessment with A's marks.
+    androidx.compose.runtime.LaunchedEffect(selectedStudentId, selectedSubjectId, term) {
+        devoir1Text = ""
+        devoir2Text = ""
+        examenText = ""
+        // Pre-load the existing assessment so the edit is NOT blind.
+        val sid = selectedStudentId ?: return@LaunchedEffect
+        val subId = selectedSubjectId ?: return@LaunchedEffect
+        viewModel.loadExistingMark(sid, subId, term, academicYear) { existing ->
+            hasExistingMark = existing != null
+            devoir1Text = existing?.devoir1?.let { trimZero(it) } ?: ""
+            devoir2Text = existing?.devoir2?.let { trimZero(it) } ?: ""
+            examenText = existing?.examen?.let { trimZero(it) } ?: ""
+        }
+    }
+
     val selectedClass = classes.firstOrNull { it.id == selectedClassId }
     val selectedSubject = subjects.firstOrNull { it.id == selectedSubjectId }
     val selectedStudent = students.firstOrNull { it.id == selectedStudentId }
@@ -94,6 +121,12 @@ fun GradeEntryScreen(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        if (onBack != null) {
+            com.example.ui.components.ElTopBar(
+                title = "Saisie des notes — ${selectedClass?.name ?: "…"}",
+                onBack = onBack,
+            )
+        }
         ElGradientStatCard(
             title = "Saisie des Notes",
             value = subjectAverage?.let { "%.2f / 20".format(it) } ?: "— / 20",
@@ -153,6 +186,13 @@ fun GradeEntryScreen(
             ElCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     ElSectionHeader(title = "Évaluation: ${selectedStudent.fullName}")
+                    if (hasExistingMark) {
+                        Text(
+                            "Note existante chargée — l'enregistrement la remplacera.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ElTextField(
@@ -226,3 +266,7 @@ fun GradeEntryScreen(
         )
     }
 }
+
+/** Render a Double without a trailing ".0" (e.g. 15.0 -> "15"). */
+private fun trimZero(v: Double): String =
+    if (v == v.toLong().toDouble()) v.toLong().toString() else v.toString()

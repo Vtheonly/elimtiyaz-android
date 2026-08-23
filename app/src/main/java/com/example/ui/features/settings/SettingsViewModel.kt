@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.Session
 import com.example.domain.repository.AuthRepository
+import com.example.infrastructure.supabase.SupabaseClientProvider
 import com.example.infrastructure.sync.OnlineDetector
 import com.example.infrastructure.sync.SyncService
 import com.example.infrastructure.sync.SyncState
@@ -19,6 +20,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -31,6 +33,9 @@ class SettingsViewModel @Inject constructor(
     private val onlineDetector: OnlineDetector,
     private val dataStore: DataStore<Preferences>,
     @ApplicationContext private val context: Context,
+    // FIX (out of context): DB connection configuration moved here from the
+    // student roster — Settings is the canonical place for it.
+    private val supabaseProvider: SupabaseClientProvider,
 ) : ViewModel() {
 
     /** Active session (null when signed out). */
@@ -55,6 +60,20 @@ class SettingsViewModel @Inject constructor(
     /** Combined online flag from [OnlineDetector.observeOnline]. */
     val online: StateFlow<Boolean> = onlineDetector.observeOnline()
         .stateIn(viewModelScope, SharingStarted.Lazily, false)
+
+    /** Whether a Supabase database connection is configured. */
+    private val _supabaseConfigured = kotlinx.coroutines.flow.MutableStateFlow(supabaseProvider.isConfigured())
+    val supabaseConfigured: StateFlow<Boolean> = _supabaseConfigured.asStateFlow()
+
+    fun getSavedSupabaseUrl(): String = supabaseProvider.getActiveUrl()
+    fun getSavedSupabaseKey(): String = supabaseProvider.getActiveAnonKey()
+
+    /** Save the Supabase connection and trigger an immediate sync. */
+    fun saveSupabaseConfig(url: String, anonKey: String) {
+        supabaseProvider.saveConfig(url, anonKey)
+        _supabaseConfigured.value = supabaseProvider.isConfigured()
+        syncService.syncNow()
+    }
 
     /** Persist the dark-mode toggle. */
     fun setDarkMode(enabled: Boolean) = editAsync { it[DARK_MODE_KEY] = enabled }

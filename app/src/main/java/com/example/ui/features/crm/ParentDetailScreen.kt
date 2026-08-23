@@ -20,16 +20,23 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Whatsapp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +60,8 @@ import com.example.ui.theme.elDesignTokens
 fun ParentDetailScreen(
     parentId: String,
     onBack: () -> Unit,
+    /** Opens a child's dossier — the children list was previously not tappable. */
+    onOpenStudent: (String) -> Unit = {},
     viewModel: ParentDetailViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(parentId) { viewModel.load(parentId) }
@@ -60,11 +69,34 @@ fun ParentDetailScreen(
     val children by viewModel.children.collectAsState()
     val summary by viewModel.summary.collectAsState()
     val error by viewModel.error.collectAsState()
+    val saveMessage by viewModel.saveMessage.collectAsState()
     val context = LocalContext.current
     val tokens = elDesignTokens()
 
+    // FIX (missing edit feature): edit dialog state.
+    var showEditDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(saveMessage) {
+        if (saveMessage != null) {
+            kotlinx.coroutines.delay(3000)
+            viewModel.clearMessages()
+        }
+    }
+
     Scaffold(
-        topBar = { ElTopBar(title = parent?.fullName ?: "Parent", onBack = onBack) },
+        topBar = {
+            ElTopBar(
+                title = parent?.fullName ?: "Parent",
+                onBack = onBack,
+                actions = {
+                    if (parent != null) {
+                        IconButton(onClick = { showEditDialog = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Modifier le parent")
+                        }
+                    }
+                },
+            )
+        },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
@@ -174,18 +206,84 @@ fun ParentDetailScreen(
             ElCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ElSectionHeader(title = "Enfants (${children.size})")
+                    // FIX (not tappable): children rows now open the student
+                    // dossier (parity with GlobalSearch and the desktop).
                     children.forEach { kid ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.small)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { onOpenStudent(kid.id) },
+                                )
+                                .padding(vertical = 4.dp),
+                        ) {
                             ElAvatar(initials = kid.fullName, size = 36)
                             Spacer(Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(kid.fullName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
                                 Text(kid.gradeLevel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
+                            Text(">", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             }
+
+            saveMessage?.let {
+                Text(it, color = SuccessGreen, style = MaterialTheme.typography.bodySmall)
+            }
         }
+    }
+
+    // FIX (missing edit feature): edit dialog — first class UI for
+    // `updateParent` (identity + contact).
+    if (showEditDialog && parent != null) {
+        val p = parent!!
+        var firstName by remember { mutableStateOf(p.firstName) }
+        var lastName by remember { mutableStateOf(p.lastName) }
+        var phone by remember { mutableStateOf(p.phone) }
+        var email by remember { mutableStateOf(p.email ?: "") }
+        var occupation by remember { mutableStateOf(p.occupation ?: "") }
+        var address by remember { mutableStateOf(p.address ?: "") }
+
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = { Text("Modifier le parent") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Prénom") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Nom") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Téléphone") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = occupation, onValueChange = { occupation = it }, label = { Text("Profession") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Adresse") }, modifier = Modifier.fillMaxWidth())
+                    Text("Code ${p.code} — non modifiable.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.updateParent(
+                            parentId = p.id,
+                            firstName = firstName.trim(),
+                            lastName = lastName.trim(),
+                            phone = phone.trim(),
+                            email = email.trim().ifBlank { null },
+                            occupation = occupation.trim().ifBlank { null },
+                            address = address.trim().ifBlank { null },
+                        )
+                        showEditDialog = false
+                    },
+                    enabled = firstName.isNotBlank() && lastName.isNotBlank() && phone.isNotBlank(),
+                ) { Text("Enregistrer") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) { Text("Annuler") }
+            },
+        )
     }
 }

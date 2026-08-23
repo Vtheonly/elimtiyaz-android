@@ -43,6 +43,10 @@ import androidx.compose.runtime.setValue
 fun HomeworkPushScreen(
     session: Session,
     onNavigateToHomeworkPush: (String) -> Unit = {},
+    /** Pre-selected class when opened standalone from ClassDetail. */
+    initialClassId: String? = null,
+    /** Back affordance when pushed as a standalone route (hidden when embedded in the hub). */
+    onBack: (() -> Unit)? = null,
     viewModel: HomeworkPushViewModel = hiltViewModel(),
 ) {
     val classes by viewModel.classes.collectAsState()
@@ -50,7 +54,7 @@ fun HomeworkPushScreen(
     val busy by viewModel.busy.collectAsState()
     val message by viewModel.message.collectAsState()
 
-    var selectedClassId by remember { mutableStateOf<String?>(null) }
+    var selectedClassId by remember { mutableStateOf<String?>(initialClassId) }
     var selectedSubjectId by remember { mutableStateOf<String?>(null) }
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
@@ -79,6 +83,12 @@ fun HomeworkPushScreen(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        if (onBack != null) {
+            com.example.ui.components.ElTopBar(
+                title = "Diffusion de devoir — ${selectedClass?.name ?: "…"}",
+                onBack = onBack,
+            )
+        }
         ElGradientStatCard(
             title = "Diffusion des Devoirs",
             value = selectedClass?.name ?: "Sélectionnez une classe",

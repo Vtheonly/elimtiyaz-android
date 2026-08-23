@@ -11,6 +11,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.example.session.SessionManager
 import com.example.ui.features.academics.ClassDetailScreen
+import com.example.ui.features.academics.GradeEntryScreen
+import com.example.ui.features.academics.HomeworkPushScreen
+import com.example.ui.features.academics.RollCallScreen
 import com.example.ui.features.academics.SubjectsDirectoryScreen
 import com.example.ui.features.auth.ChangePasswordModal
 import com.example.ui.features.auth.LoginScreen
@@ -30,6 +33,7 @@ import com.example.ui.features.financials.PaymentDetailScreen
 import com.example.ui.features.financials.ProofScannerScreen
 import com.example.ui.features.main.MainScreen
 import com.example.ui.features.personnel.PersonnelDetailScreen
+import com.example.ui.features.personnel.ReleveScreen
 import com.example.ui.features.personnel.WorkflowMonitorScreen
 import com.example.ui.features.profile.ProfileScreen
 import com.example.ui.features.routing.RoutingMapScreen
@@ -163,12 +167,18 @@ fun AppNavHost() {
                 ParentDetailScreen(
                     parentId = route.parentId,
                     onBack = { navController.popBackStack() },
+                    // FIX (dead children list): tapping a child now opens its
+                    // dossier (parity with global search + desktop drawer).
+                    onOpenStudent = { id -> navController.navigate(Routes.StudentDetail(id)) },
                 )
             }
         }
         composable<Routes.BatchRegistration> {
             rbacGate(navController, Routes.BatchRegistration::class) {
-                BatchRegistrationScreen(onSuccess = { navController.popBackStack() })
+                BatchRegistrationScreen(
+                    onSuccess = { navController.popBackStack() },
+                    onBack = { navController.popBackStack() },
+                )
             }
         }
         composable<Routes.Profile> {
@@ -256,6 +266,19 @@ fun AppNavHost() {
             }
         }
 
+        // FIX (P0 crash): Routes.Releve was navigated to (from Main and from
+        // PersonnelDetail) but never registered — every tap crashed with
+        // "navigation destination cannot be found".
+        composable<Routes.Releve> {
+            rbacGate(navController, Routes.Releve::class) {
+                val session = LocalSession.current ?: return@rbacGate
+                ReleveScreen(
+                    session = session,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
+
         // ── Academics detail routes ──────────────────────────────────────
         composable<Routes.ClassDetail> { backStackEntry ->
             rbacGate(navController, Routes.ClassDetail::class) {
@@ -272,6 +295,44 @@ fun AppNavHost() {
         composable<Routes.SubjectsDirectory> {
             rbacGate(navController, Routes.SubjectsDirectory::class) {
                 SubjectsDirectoryScreen(onBack = { navController.popBackStack() })
+            }
+        }
+
+        // FIX (P0 crash): RollCall / GradeEntry / HomeworkPush were navigated
+        // to (from Main hub shortcuts and ClassDetail's action icons) but
+        // never registered — every tap crashed with
+        // "navigation destination cannot be found".
+        composable<Routes.RollCall> { backStackEntry ->
+            rbacGate(navController, Routes.RollCall::class) {
+                val route: Routes.RollCall = backStackEntry.toRoute()
+                val session = LocalSession.current ?: return@rbacGate
+                RollCallScreen(
+                    session = session,
+                    initialClassId = route.classId,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
+        composable<Routes.GradeEntry> { backStackEntry ->
+            rbacGate(navController, Routes.GradeEntry::class) {
+                val route: Routes.GradeEntry = backStackEntry.toRoute()
+                val session = LocalSession.current ?: return@rbacGate
+                GradeEntryScreen(
+                    session = session,
+                    initialClassId = route.classId,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
+        composable<Routes.HomeworkPush> { backStackEntry ->
+            rbacGate(navController, Routes.HomeworkPush::class) {
+                val route: Routes.HomeworkPush = backStackEntry.toRoute()
+                val session = LocalSession.current ?: return@rbacGate
+                HomeworkPushScreen(
+                    session = session,
+                    initialClassId = route.classId,
+                    onBack = { navController.popBackStack() },
+                )
             }
         }
 

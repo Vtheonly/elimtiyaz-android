@@ -195,6 +195,11 @@ dependencies {
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.robolectric)
+  // FIX (broken screenshot test): AppNavHost uses hiltViewModel() — the test
+  // needs the Hilt test environment or it crashes with
+  // "GeneratedComponentManager" IllegalStateException.
+  testImplementation(libs.hilt.android.testing)
+  kspTest(libs.hilt.compiler)
   testImplementation(libs.roborazzi)
   testImplementation(libs.roborazzi.compose)
   testImplementation(libs.roborazzi.junit.rule)

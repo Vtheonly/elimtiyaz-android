@@ -77,10 +77,13 @@ fun PaymentCacheEntity.toDomain(): Payment = Payment(
     parentId = parentId, studentId = studentId, amount = amount,
     method = runCatching { PaymentMethod.valueOf(method) }.getOrDefault(PaymentMethod.CASH),
     status = runCatching { PaymentStatus.valueOf(status) }.getOrDefault(PaymentStatus.PENDING),
-    // TIER 4 FIX (D50) — total `fromCode` (unknown → OTHER) instead of the
-    // valueOf+runCatching pattern (valueOf expects the ENUM name, not the
-    // wire code — every non-enum-name code silently coerced to OTHER).
-    category = PaymentCategory.fromCode(category),
+    // FIX (category round-trip): the write side stores the ENUM NAME
+    // ("TUITION") but this read used `fromCode(...)` which expects the WIRE
+    // CODE ("tuition") — every cached payment silently degraded to OTHER on
+    // restore. Try the enum name first (what the cache actually stores),
+    // then the wire code (tolerating caches written by other paths), then
+    // fall back to OTHER (D50 totality preserved).
+    category = PaymentCategory.fromEnumNameOrCode(category),
     installmentId = installmentId, proofUrl = proofUrl, notes = notes,
     collectedBy = collectedBy, collectedAt = collectedAt,
     createdAt = createdAt, updatedAt = updatedAt,

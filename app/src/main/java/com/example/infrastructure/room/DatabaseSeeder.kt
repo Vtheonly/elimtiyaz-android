@@ -125,18 +125,22 @@ class DatabaseSeeder @Inject constructor(
     // ─── Subjects ───────────────────────────────────────────────────────────
 
     private suspend fun seedSubjects() {
+        // FIX (broken level filter): seed subjects now carry their academic
+        // level so the directory's primaire/CEM/Lycée filter chips work —
+        // previously every subject was hardcoded `level = "all"` and each
+        // chip showed an empty list.
         val subs = listOf(
-            SubjectEntity("sub-math", tenantId, "MATH", "Mathématiques", "academic", 4, 5.0, false, true),
-            SubjectEntity("sub-fr", tenantId, "FR", "Français", "academic", 4, 5.0, false, true),
-            SubjectEntity("sub-ar", tenantId, "AR", "Arabe", "academic", 3, 4.0, false, true),
-            SubjectEntity("sub-en", tenantId, "EN", "Anglais", "academic", 2, 3.0, false, true),
-            SubjectEntity("sub-isl", tenantId, "ISL", "Éducation Islamique", "academic", 2, 2.0, false, true),
-            SubjectEntity("sub-histgeo", tenantId, "HG", "Histoire-Géographie", "academic", 2, 3.0, false, true),
-            SubjectEntity("sub-sci", tenantId, "SCI", "Sciences", "academic", 3, 4.0, false, true),
-            SubjectEntity("sub-sport", tenantId, "SPORT", "Éducation Physique", "academic", 1, 2.0, false, true),
-            SubjectEntity("sub-art", tenantId, "ART", "Arts Plastiques", "academic", 1, 1.5, false, true),
-            SubjectEntity("sub-chess", tenantId, "CHESS", "Club Échecs", "extracurricular", 1, 1.0, true, true),
-            SubjectEntity("sub-english-club", tenantId, "ENGClub", "Club Anglais", "extracurricular", 1, 1.0, true, true),
+            SubjectEntity("sub-math", tenantId, "MATH", "Mathématiques", "academic", 4.0, 5.0, false, true, level = "all"),
+            SubjectEntity("sub-fr", tenantId, "FR", "Français", "academic", 4.0, 5.0, false, true, level = "all"),
+            SubjectEntity("sub-ar", tenantId, "AR", "Arabe", "academic", 3.0, 4.0, false, true, level = "all"),
+            SubjectEntity("sub-en", tenantId, "EN", "Anglais", "academic", 2.0, 3.0, false, true, level = "all"),
+            SubjectEntity("sub-isl", tenantId, "ISL", "Éducation Islamique", "academic", 2.0, 2.0, false, true, level = "all"),
+            SubjectEntity("sub-histgeo", tenantId, "HG", "Histoire-Géographie", "academic", 2.0, 3.0, false, true, level = "all"),
+            SubjectEntity("sub-sci", tenantId, "SCI", "Sciences", "academic", 3.0, 4.0, false, true, level = "all"),
+            SubjectEntity("sub-sport", tenantId, "SPORT", "Éducation Physique", "academic", 1.0, 2.0, false, true, level = "all"),
+            SubjectEntity("sub-art", tenantId, "ART", "Arts Plastiques", "academic", 1.0, 1.5, false, true, level = "all"),
+            SubjectEntity("sub-chess", tenantId, "CHESS", "Club Échecs", "extracurricular", 1.0, 1.0, true, true, level = "all"),
+            SubjectEntity("sub-english-club", tenantId, "ENGClub", "Club Anglais", "extracurricular", 1.0, 1.0, true, true, level = "all"),
         )
         db.subjectDao().upsertAll(subs)
     }
@@ -195,8 +199,8 @@ class DatabaseSeeder @Inject constructor(
             avatarUrl = null, isActive = true, isFinanciallyRestricted = false,
             activationCode = "8492015", createdAt = now, updatedAt = now,
         )
-        val s1 = StudentEntity("stu-001", tenantId, "ELV-2026-000001", p1.id, "Yacine", "Benali", null, "M", "2016-03-15", sept, "primaire", "4ap", "cls-4ap", null, null, "active", now, now)
-        val s2 = StudentEntity("stu-002", tenantId, "ELV-2026-000002", p1.id, "Sara", "Benali", null, "F", "2018-07-22", sept, "primaire", "1ap", "cls-1ap", null, null, "active", now, now)
+        val s1 = StudentEntity("stu-001", tenantId, "ELV-2026-000001", p1.id, "Yacine", "Benali", null, "M", "2016-03-15", sept, "primaire", "4ap", "cls-4ap", null, null, "active", "tranches", now, now)
+        val s2 = StudentEntity("stu-002", tenantId, "ELV-2026-000002", p1.id, "Sara", "Benali", null, "F", "2018-07-22", sept, "primaire", "1ap", "cls-1ap", null, null, "active", "tranches", now, now)
 
         // ── Family 2: Khelifi — 1 child (Amine 1AM) ──
         val p2 = ParentEntity(
@@ -208,7 +212,7 @@ class DatabaseSeeder @Inject constructor(
             isFinanciallyRestricted = false, activationCode = "3728104",
             createdAt = now, updatedAt = now,
         )
-        val s3 = StudentEntity("stu-003", tenantId, "ELV-2026-000003", p2.id, "Amine", "Khelifi", null, "M", "2013-11-05", sept, "cem", "1am", "cls-1am", null, null, "active", now, now)
+        val s3 = StudentEntity("stu-003", tenantId, "ELV-2026-000003", p2.id, "Amine", "Khelifi", null, "M", "2013-11-05", sept, "cem", "1am", "cls-1am", null, null, "active", "tranches", now, now)
 
         // ── Family 3: Saidi — 3 children (multi-child sibling discount) ──
         val p3 = ParentEntity(
@@ -220,9 +224,9 @@ class DatabaseSeeder @Inject constructor(
             isFinanciallyRestricted = false, activationCode = "5039281",
             createdAt = now, updatedAt = now,
         )
-        val s4 = StudentEntity("stu-004", tenantId, "ELV-2026-000004", p3.id, "Lina", "Saidi", null, "F", "2017-02-10", sept, "primaire", "2ap", "cls-2ap", null, null, "active", now, now)
-        val s5 = StudentEntity("stu-005", tenantId, "ELV-2026-000005", p3.id, "Omar", "Saidi", null, "M", "2015-09-18", sept, "primaire", "4ap", "cls-4ap", null, null, "active", now, now)
-        val s6 = StudentEntity("stu-006", tenantId, "ELV-2026-000006", p3.id, "Rania", "Saidi", null, "F", "2012-06-30", sept, "cem", "1am", "cls-1am", null, null, "active", now, now)
+        val s4 = StudentEntity("stu-004", tenantId, "ELV-2026-000004", p3.id, "Lina", "Saidi", null, "F", "2017-02-10", sept, "primaire", "2ap", "cls-2ap", null, null, "active", "tranches", now, now)
+        val s5 = StudentEntity("stu-005", tenantId, "ELV-2026-000005", p3.id, "Omar", "Saidi", null, "M", "2015-09-18", sept, "primaire", "4ap", "cls-4ap", null, null, "active", "tranches", now, now)
+        val s6 = StudentEntity("stu-006", tenantId, "ELV-2026-000006", p3.id, "Rania", "Saidi", null, "F", "2012-06-30", sept, "cem", "1am", "cls-1am", null, null, "active", "tranches", now, now)
 
         db.parentDao().upsertAll(listOf(p1, p2, p3))
         db.studentDao().upsertAll(listOf(s1, s2, s3, s4, s5, s6))
@@ -252,9 +256,12 @@ class DatabaseSeeder @Inject constructor(
         val entries = mutableListOf<LedgerEntryEntity>()
 
         // Official tranche due dates (Sept 15 / Dec 15 / Mar 15 — canonical).
-        val dueDates = com.example.core.officialTuitionDueDates(
+        // FIX (compile): `officialTuitionDueDates` returns a Triple — the
+        // seeder indexed it like a list (`dueDates[t]`), which never compiled.
+        val (dueDate1, dueDate2, dueDate3) = com.example.core.officialTuitionDueDates(
             java.time.LocalDate.now().let { if (it.monthValue >= 9) it.year else it.year - 1 },
         )
+        val dueDates = listOf(dueDate1, dueDate2, dueDate3)
 
         students.forEachIndexed { index, (student, gltId) ->
             val tuition = db.pricingConfigDao().getTuitionByGrade(gltId) ?: return@forEachIndexed
@@ -272,7 +279,9 @@ class DatabaseSeeder @Inject constructor(
             val accountId = "parent:${parent.id}:category:tuition:student:${student.id}"
 
             // Three NET tranche charge entries, `at` = canonical due date.
-            tranches.forEachIndexed { t, trancheAmount ->
+            // FIX (compile): `splitNetTuitionByOfficialSchedule` returns a
+            // Triple — convert to a list before iterating with forEachIndexed.
+            tranches.toList().forEachIndexed { t, trancheAmount ->
                 entries.add(
                     LedgerEntryEntity(
                         id = "led-${parent.id}-${student.id}-t${t + 1}",
@@ -285,8 +294,8 @@ class DatabaseSeeder @Inject constructor(
                         reversesId = null,
                         description = "Scolarité ${student.gradeLevel.uppercase()} ${academicYear} — Tranche ${t + 1}",
                         actorId = actorId, actorName = actorName,
-                        at = dueDates[t].toString(),
-                        metadataJson = """ + TQ + """{"tranche":${t + 1},"gradeLevel":"${student.gradeLevel}","paymentPlan":"tranches"}""" + TQ + """,
+                        at = dueDates[t],
+                        metadataJson = """{"tranche":${t + 1},"gradeLevel":"${student.gradeLevel}","paymentPlan":"tranches"}""",
                     )
                 )
             }
@@ -309,7 +318,7 @@ class DatabaseSeeder @Inject constructor(
                         reversesId = null,
                         description = "Transport ${parent.transportDestination}",
                         actorId = actorId, actorName = actorName,
-                        at = dueDates[0].toString(),
+                        at = dueDates[0],
                     )
                 )
             }
@@ -327,7 +336,7 @@ class DatabaseSeeder @Inject constructor(
         val installments = mutableListOf<InstallmentEntity>()
 
         students.forEachIndexed { index, (student, gltId) ->
-            val tuition = db.pricingConfigDao().getTuitionByGrade(gltId) ?: return@forEach
+            val tuition = db.pricingConfigDao().getTuitionByGrade(gltId) ?: return@forEachIndexed
 
             // CANONICAL (TIER 4 FIX): installments are split from the SAME
             // NET annual amount as the ledger charges (gross minus the
@@ -339,10 +348,12 @@ class DatabaseSeeder @Inject constructor(
             val netTuition = (tuition.annualAmount + siblingDiscount).coerceAtLeast(0L)
             val tranches = com.example.core.splitNetTuitionByOfficialSchedule(netTuition)
 
-            // Tuition installments — 3 tranches (40/30/30) from NET
-            installments.add(inst("ins-${student.id}-t1", parent.id, student.id, "tuition", "Tranche 1 (Sept–Déc)", tranches[0], due1))
-            installments.add(inst("ins-${student.id}-t2", parent.id, student.id, "tuition", "Tranche 2 (Jan–Mar)", tranches[1], due2))
-            installments.add(inst("ins-${student.id}-t3", parent.id, student.id, "tuition", "Tranche 3 (Avr–Juin)", tranches[2], due3))
+            // Tuition installments — 3 tranches (40/30/30) from NET.
+            // FIX (compile): Triple destructuring (was indexed like a list).
+            val (t1, t2, t3) = tranches
+            installments.add(inst("ins-${student.id}-t1", parent.id, student.id, "tuition", "Tranche 1 (Sept–Déc)", t1, due1))
+            installments.add(inst("ins-${student.id}-t2", parent.id, student.id, "tuition", "Tranche 2 (Jan–Mar)", t2, due2))
+            installments.add(inst("ins-${student.id}-t3", parent.id, student.id, "tuition", "Tranche 3 (Avr–Juin)", t3, due3))
 
             // Transport installments (if applicable)
             val transport = parent.transportDestination?.let {
@@ -414,7 +425,7 @@ class DatabaseSeeder @Inject constructor(
                 description = "Encaissement comptoir $receipt",
                 actorId = "per-admin", actorName = "Yacine Benali",
                 at = now,
-                metadataJson = """ + TQ + """{"receiptNumber":"$receipt"}""" + TQ + """,
+                metadataJson = """{"receiptNumber":"$receipt"}""",
             )
         )
 
@@ -464,7 +475,7 @@ class DatabaseSeeder @Inject constructor(
                     description = "Crédit parent (trop-perçu) $receipt",
                     actorId = "per-admin", actorName = "Yacine Benali",
                     at = now,
-                    metadataJson = """ + TQ + """{"autoAbsorb":true,"paymentId":"$paymentId"}""" + TQ + """,
+                    metadataJson = """{"autoAbsorb":true,"paymentId":"$paymentId"}""",
                 )
             )
         }

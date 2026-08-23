@@ -133,15 +133,21 @@ class ClassDetailViewModel @Inject constructor(
                 }
                 _weekAttendance.value = records.sortedByDescending { it.date }
 
-                // Recent grades: fetch per-subject
+                // Recent grades: fetch per-subject.
+                // FIX: previously read `subjects.value` BEFORE the lazily-started
+                // shared flow had any subscriber — the list was always EMPTY at
+                // init, so the "Dernières notes" tab never showed anything until
+                // a manual reload. Await the first emission instead.
+                // FIX: also fetch ALL terms (T1/T2/T3), not just "T1".
                 val allGrades = mutableListOf<Assessment>()
-                val currentYear = Clock.System.todayIn(TimeZone.currentSystemDefault()).year.let {
-                    val m = Clock.System.todayIn(TimeZone.currentSystemDefault()).monthNumber
-                    if (m >= 9) "$it-${it + 1}" else "${it - 1}-$it"
-                }
-                subjects.value.forEach { subj ->
-                    val g = gradeRepository.observeForClass(classId, subj.id, "T1", currentYear).first()
-                    allGrades.addAll(g)
+                val now = Clock.System.todayIn(TimeZone.currentSystemDefault())
+                val currentYear = if (now.monthNumber >= 9) "${now.year}-${now.year + 1}" else "${now.year - 1}-${now.year}"
+                val subjectsList = subjectRepository.observeByClass(classId).first()
+                subjectsList.forEach { subj ->
+                    for (term in listOf("T1", "T2", "T3")) {
+                        val g = gradeRepository.observeForClass(classId, subj.id, term, currentYear).first()
+                        allGrades.addAll(g)
+                    }
                 }
                 _recentGrades.value = allGrades.sortedByDescending { it.enteredAt }
             } catch (t: Throwable) {
@@ -158,8 +164,6 @@ class ClassDetailViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
     }
 }
-
-private val kotlinx.datetime.LocalDate.monthNumber: Int get() = this.monthNumber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

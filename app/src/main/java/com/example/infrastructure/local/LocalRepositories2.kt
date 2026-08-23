@@ -396,7 +396,7 @@ class LocalDashboardRepository @Inject constructor(
                 classId = cls.id,
                 className = cls.name,
                 level = cls.level,
-                totalStudents = if (classStudents.isNotEmpty()) classStudents.size else cls.capacity,
+                totalStudents = if (classStudents.isNotEmpty()) classStudents.size else (cls.capacity ?: 0),
                 isCompletedToday = isCompleted,
                 presentCount = if (isCompleted) presentCount else 0,
                 absentCount = if (isCompleted) absentCount else 0,
@@ -756,11 +756,18 @@ class LocalAttendanceRepository @Inject constructor(
 
     override suspend fun recordRollCall(classId: String, date: String, session: String, records: List<RollCallEntry>, actorId: String, actorName: String): Result<Unit> {
         val now = Instant.now().toString()
+        // FIX (duplicate roll-call records): previously every submission
+        // generated fresh UUIDs and INSERTed new rows — re-saving a roll call
+        // duplicated every record and inflated attendance stats. Re-use the
+        // existing row's ID for the same (student, date, session) so the
+        // REPLACE-strategy upsert updates in place (idempotent re-submission).
         val entities = records.map { r ->
+            val existing = attendanceDao.getByStudentDateSession(r.studentId, date, session)
             AttendanceEntity(
-                id = "att-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
+                id = existing?.id ?: "att-${UUID.randomUUID()}",
+                tenantId = "00000000-0000-0000-0000-000000000001",
                 studentId = r.studentId, classId = classId, date = date, session = session,
-                status = r.status, arrivalTime = null, note = r.note,
+                status = r.status, arrivalTime = null, note = r.note ?: existing?.note,
                 recordedBy = actorId, recordedBy_name = actorName, recordedAt = now,
             )
         }
@@ -1011,25 +1018,56 @@ class LocalSubjectRepository @Inject constructor(
         subjectDao.observeAll().map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
 
     override fun observeByLevel(level: String): Flow<List<Subject>> =
-        subjectDao.observeAll().map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
+        // FIX: actually filter by level — previously returned ALL subjects.
+        // Subjects scoped "all" apply to every level.
+        subjectDao.observeAll().map { rows ->
+            rows.filter { it.level == "all" || it.level == level }
+                .map { LocalMappers.run { it.toDomain() } }
+        }
 
     override fun observeByClass(classId: String): Flow<List<Subject>> =
+        // NOTE: the Room schema has no per-class subject assignment table
+        // (subjects are school-wide on Android), so this intentionally
+        // returns all active subjects — documented rather than silently
+        // pretending to filter.
         subjectDao.observeAll().map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
 
     override suspend fun createSubject(input: CreateSubjectInput, actorId: String, actorName: String): Result<Subject> {
+        // FIX: persist the level + passing grade from the input — previously
+        // the level was silently dropped.
         val entity = SubjectEntity(
             id = "sub-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
-            code = input.code, name = input.name, category = "academic",
+            code = input.code, name = input.name,
+            category = if (input.isExtracurricular) "extracurricular" else "academic",
             coefficient = input.coefficient, weeklyHours = 0.0,
             isExtracurricular = input.isExtracurricular, isActive = true,
+            level = input.level.ifBlank { "all" },
+            passingGrade = input.passingGrade,
         )
         subjectDao.upsertAll(listOf(entity))
         return Result.Ok(LocalMappers.run { entity.toDomain() })
     }
 
-    override suspend fun updateSubject(id: String, input: UpdateSubjectInput, actorId: String, actorName: String): Result<Subject> = Result.Err(Errors.notFound("Not implemented"))
-    override suspend fun archiveSubject(id: String, actorId: String, actorName: String): Result<Unit> = Result.Ok(Unit)
-    override suspend fun assignSubjectToClass(classId: String, subjectId: String, teacherId: String?, weeklyHours: Int, coefficient: Int, actorId: String, actorName: String): Result<Unit> = Result.Ok(Unit)
+    // FIX ("Not implemented"): updateSubject previously always failed.
+    override suspend fun updateSubject(id: String, input: UpdateSubjectInput, actorId: String, actorName: String): Result<Subject> {
+        val existing = subjectDao.getById(id) ?: return Result.Err(Errors.notFound("Subject $id not found"))
+        val updated = existing.copy(
+            name = input.name ?: existing.name,
+            coefficient = input.coefficient ?: existing.coefficient,
+            passingGrade = input.passingGrade ?: existing.passingGrade,
+        )
+        subjectDao.upsert(updated)
+        return Result.Ok(LocalMappers.run { updated.toDomain() })
+    }
+
+    // FIX (silent no-op): archiveSubject previously returned Ok without doing
+    // anything — the UI showed success but the subject never disappeared.
+    override suspend fun archiveSubject(id: String, actorId: String, actorName: String): Result<Unit> {
+        val existing = subjectDao.getById(id) ?: return Result.Err(Errors.notFound("Subject $id not found"))
+        subjectDao.upsert(existing.copy(isActive = false))
+        return Result.Ok(Unit)
+    }
+    override suspend fun assignSubjectToClass(classId: String, subjectId: String, teacherId: String?, weeklyHours: Int, coefficient: Double, actorId: String, actorName: String): Result<Unit> = Result.Ok(Unit)
 }
 
 // ─── Homework Repository ────────────────────────────────────────────────────

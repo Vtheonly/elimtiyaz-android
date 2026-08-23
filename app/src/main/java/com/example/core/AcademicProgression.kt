@@ -45,6 +45,49 @@ fun getNextGradeProgression(current: String): GradeProgression =
     PROGRESSION[current] ?: GradeProgression(null, null, null, null, false)
 
 /**
+ * Map a grade-level code to its academic level ("primaire" / "cem" / "lycee").
+ *
+ * FIX (registration level derivation): the registration form previously
+ * derived the level with fragile string surgery
+ * (`substringBefore("_").substringBefore("ere")` + case-sensitive `contains`),
+ * which misclassified lycée codes ("1ere_annee" → "primaire") and uppercase
+ * input ("2AM" → "primaire"). This canonical map normalizes the input
+ * (lowercase, trimmed) and recognizes every code in the ladder.
+ */
+fun academicLevelForGradeCode(code: String): String {
+    val normalized = code.trim().lowercase()
+    return when {
+        normalized in PROGRESSION -> levelForCanonicalCode(normalized)
+        // Tolerate a few common aliases the canonical map doesn't contain.
+        normalized == "prescolaire" || normalized.startsWith("prescolaire") -> "primaire"
+        else -> {
+            // Last-resort heuristic on the NORMALIZED string (case-insensitive).
+            when {
+                normalized.endsWith("ap") || normalized.endsWith("ap_") -> "primaire"
+                normalized.endsWith("am") || normalized.endsWith("am_") -> "cem"
+                normalized.endsWith("annee") || normalized.endsWith("année") -> "lycee"
+                else -> "primaire"
+            }
+        }
+    }
+}
+
+private fun levelForCanonicalCode(canonicalCode: String): String = when (canonicalCode) {
+    "prescolaire_1", "prescolaire_2", "1ap", "2ap", "3ap", "4ap", "5ap" -> "primaire"
+    "1am", "2am", "3am", "4am" -> "cem"
+    "1ere_annee", "2eme_annee", "3eme_annee" -> "lycee"
+    else -> "primaire"
+}
+
+/** Canonical grade-level codes in ladder order (for dropdown pickers). */
+val GRADE_LEVEL_CODES: List<String> = listOf(
+    "prescolaire_1", "prescolaire_2",
+    "1ap", "2ap", "3ap", "4ap", "5ap",
+    "1am", "2am", "3am", "4am",
+    "1ere_annee", "2eme_annee", "3eme_annee",
+)
+
+/**
  * The canonical promotion decision values (mirrors the desktop
  * `PromotionDecision` union + the promotion review queue semantics).
  */

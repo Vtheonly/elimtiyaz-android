@@ -51,6 +51,10 @@ fun ClassesDirectoryScreen(
             items(classes) { klass ->
                 val fillRate = if (klass.capacity > 0) (klass.enrolledCount.toFloat() / klass.capacity * 100).toInt() else 0
                 ElListItem(
+                    // FIX (dead directory): the class rows had NO onClick, so
+                    // ClassDetailScreen was unreachable from the Academics hub
+                    // — tapping a class did nothing.
+                    onClick = { onNavigateToClassDetail(klass.id) },
                     title = klass.name,
                     subtitle = "Professeur: ${klass.homeroomTeacherName ?: "Non assigné"} · Salle: ${klass.room ?: "—"}",
                     leading = {

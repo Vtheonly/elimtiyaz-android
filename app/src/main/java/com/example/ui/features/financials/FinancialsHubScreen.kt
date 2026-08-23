@@ -96,9 +96,14 @@ fun FinancialsHubScreen(
             ) {
                 when (selectedTab) {
                     0 -> PaymentsList(recentPayments, onNavigateToPaymentDetail)
-                    1 -> ProofScannerScreen(onBack = onNavigateToProofScanner)
-                    2 -> InstallmentScheduleScreen(onBack = onNavigateToInstallmentSchedule)
-                    3 -> DebtDashboardScreen(onBack = onNavigateToDebtDashboard)
+                    // FIX (back pushes duplicate): the embedded screens' back
+                    // buttons were wired to `onNavigateTo*` — tapping back
+                    // PUSHED a second standalone copy of the same screen onto
+                    // the stack. Embedded tabs have no parent to return to, so
+                    // back now simply returns to the Encaissements tab.
+                    1 -> ProofScannerScreen(onBack = { selectedTab = 0 })
+                    2 -> InstallmentScheduleScreen(onBack = { selectedTab = 0 })
+                    3 -> DebtDashboardScreen(onBack = { selectedTab = 0 })
                     4 -> ExpensesList(expenses, onNavigateToExpenseDetail)
                     5 -> LedgerCirculationList(ledgerEntries)
                 }

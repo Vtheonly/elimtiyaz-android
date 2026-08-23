@@ -33,6 +33,7 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsState()
     val syncState by viewModel.syncState.collectAsState()
     val online by viewModel.online.collectAsState()
+    val dbConfigured by viewModel.supabaseConfigured.collectAsState()
     var showChangePassword by remember { mutableStateOf(false) }
 
     if (showChangePassword) {
@@ -68,6 +69,12 @@ fun SettingsScreen(
             SyncSection(
                 syncState = syncState,
                 onSyncNow = { viewModel.syncNow() },
+                // FIX (out of context): DB connection configuration moved from
+                // the student roster into Settings.
+                dbConfigured = dbConfigured,
+                savedUrl = viewModel.getSavedSupabaseUrl(),
+                savedKey = viewModel.getSavedSupabaseKey(),
+                onSaveDbConfig = { url, key -> viewModel.saveSupabaseConfig(url, key) },
             )
 
             DiagnosticsSection(

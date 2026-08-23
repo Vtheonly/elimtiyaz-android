@@ -74,7 +74,7 @@ interface StudentDao {
     @Query("SELECT * FROM students WHERE id = :id")
     suspend fun getById(id: String): StudentEntity?
 
-    @Query("SELECT * FROM students WHERE firstName LIKE '%' || :q || '%' OR lastName LIKE '%' || :q || '%' OR code LIKE '%' || :q || '%' ORDER BY lastName ASC LIMIT 50")
+    @Query("SELECT * FROM students WHERE firstName LIKE '%' || :q || '%' OR lastName LIKE '%' || :q || '%' OR code LIKE '%' || :q || '%' ORDER BY lastName ASC LIMIT 500")
     fun search(q: String): Flow<List<StudentEntity>>
 
     @Query("SELECT COUNT(*) FROM students WHERE status = 'active'")

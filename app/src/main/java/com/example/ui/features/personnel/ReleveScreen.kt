@@ -36,6 +36,8 @@ import androidx.compose.runtime.getValue
 fun ReleveScreen(
     session: Session,
     onNavigateToReleve: (String) -> Unit = {},
+    /** Back affordance when pushed as a standalone route. */
+    onBack: (() -> Unit)? = null,
     viewModel: ReleveViewModel = hiltViewModel(),
 ) {
     val personnel by viewModel.personnel.collectAsState()
@@ -45,6 +47,12 @@ fun ReleveScreen(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        if (onBack != null) {
+            com.example.ui.components.ElTopBar(
+                title = "Relevé d'activité",
+                onBack = onBack,
+            )
+        }
         ElGradientStatCard(
             title = "Relevé d'Activité",
             value = "${teachers.size} Enseignants",

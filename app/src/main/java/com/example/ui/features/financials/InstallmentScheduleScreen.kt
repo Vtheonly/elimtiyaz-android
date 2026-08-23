@@ -122,7 +122,10 @@ fun InstallmentScheduleScreen(
                     InstallmentCard(
                         installment = inst,
                         canMarkPaid = !busy && inst.status != PaymentStatus.PAID,
-                        onMarkPaid = { viewModel.markPaid(inst.id, selectedParentId ?: "", selectedParent?.fullName ?: "") },
+                        // FIX (actor mis-attribution): the ViewModel now derives
+                        // the actor from the session instead of receiving the
+                        // parent's id/name here.
+                        onMarkPaid = { viewModel.markPaid(inst.id) },
                     )
                 }
             }

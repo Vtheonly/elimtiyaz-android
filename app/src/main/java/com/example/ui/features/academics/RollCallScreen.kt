@@ -52,6 +52,10 @@ import androidx.compose.runtime.setValue
 fun RollCallScreen(
     session: Session,
     onNavigateToRollCall: (String) -> Unit = {},
+    /** Pre-selected class when opened standalone from ClassDetail. */
+    initialClassId: String? = null,
+    /** Back affordance when pushed as a standalone route (hidden when embedded in the hub). */
+    onBack: (() -> Unit)? = null,
     viewModel: RollCallViewModel = hiltViewModel(),
 ) {
     val classes by viewModel.classes.collectAsState()
@@ -59,19 +63,26 @@ fun RollCallScreen(
     val busy by viewModel.busy.collectAsState()
     val message by viewModel.message.collectAsState()
 
-    var selectedClassId by remember { mutableStateOf<String?>(null) }
+    var selectedClassId by remember { mutableStateOf<String?>(initialClassId) }
     val statuses = remember { mutableStateMapOf<String, AttendanceStatus>() }
     val lateTimes = remember { mutableStateMapOf<String, String>() }
     val today = remember { LocalDate.now().toString() }
 
-    // Auto-select first class when list loads
+    // Auto-select first class when list loads (skip when an initial class was
+    // provided — keep the caller's choice).
     androidx.compose.runtime.LaunchedEffect(classes) {
         if (selectedClassId == null && classes.isNotEmpty()) {
             selectedClassId = classes.first().id
         }
     }
-    // Load students when class changes
+    // Load students when class changes.
+    // FIX (cross-class contamination): previously the status/late maps were
+    // NEVER cleared when switching classes, so students of a previously
+    // selected class were submitted as "present" in the new class's roll
+    // call. The maps are now reset on every class switch.
     androidx.compose.runtime.LaunchedEffect(selectedClassId) {
+        statuses.clear()
+        lateTimes.clear()
         selectedClassId?.let { viewModel.loadStudentsForClass(it) }
     }
 
@@ -81,6 +92,12 @@ fun RollCallScreen(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        if (onBack != null) {
+            com.example.ui.components.ElTopBar(
+                title = "Appel — ${selectedClass?.name ?: "…"}",
+                onBack = onBack,
+            )
+        }
         ElGradientStatCard(
             title = "Appel — ${today}",
             value = selectedClass?.name ?: "Chargement…",
@@ -201,12 +218,17 @@ fun RollCallScreen(
             text = "Valider l'appel (${selectedClass?.name ?: ""})",
             onClick = {
                 val cid = selectedClassId ?: return@ElButton
+                // FIX (contamination): only submit statuses for students of the
+                // CURRENT class — never leftover entries from other classes.
+                val currentStudentIds = students.map { it.id }.toSet()
+                val scopedStatuses = statuses.filterKeys { it in currentStudentIds }
+                val scopedLateTimes = lateTimes.filterKeys { it in currentStudentIds }
                 viewModel.submitRollCall(
                     classId = cid,
                     date = today,
                     session = "morning",
-                    statuses = statuses.toMap(),
-                    lateTimes = lateTimes.toMap(),
+                    statuses = scopedStatuses,
+                    lateTimes = scopedLateTimes,
                     actorId = session.userId,
                     actorName = session.displayName,
                 )

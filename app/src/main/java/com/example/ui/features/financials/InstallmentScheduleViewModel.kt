@@ -9,6 +9,7 @@ import com.example.domain.model.Parent
 import com.example.domain.repository.InstallmentRepository
 import com.example.domain.repository.LedgerRepository
 import com.example.domain.repository.ParentRepository
+import com.example.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +42,7 @@ class InstallmentScheduleViewModel @Inject constructor(
     private val installmentRepository: InstallmentRepository,
     private val parentRepository: ParentRepository,
     private val ledgerRepository: LedgerRepository,
+    private val sessionManager: SessionManager,
 ) : ViewModel() {
 
     val parents: StateFlow<List<Parent>> = parentRepository.observe()
@@ -81,13 +83,19 @@ class InstallmentScheduleViewModel @Inject constructor(
      * Mark an installment as paid. Mirrors desktop's "Mark Paid" action —
      * calls [InstallmentRepository.markPaid] which invokes the
      * `mark_installment_paid` SECURITY DEFINER RPC.
+     *
+     * FIX (actor mis-attribution): the screen previously passed the PARENT's
+     * id/name as the audit actor — the audit trail blamed the parent for
+     * their own payment. The actor is now the logged-in user.
      */
-    fun markPaid(installmentId: String, actorId: String, actorName: String) {
+    fun markPaid(installmentId: String) {
         viewModelScope.launch {
             _busy.value = true
+            val actorId = sessionManager.currentUserId() ?: "system"
+            val actorName = sessionManager.currentDisplayName() ?: "System"
             val result = installmentRepository.markPaid(installmentId, actorId, actorName)
             _busy.value = false
-            result.onSuccess { _message.value = "Tranche marquée comme payée." }
+            result.onSuccess { _message.value = "Tranche marquée comme payée (paiement + écriture comptable enregistrés)." }
                 .onFailure { _message.value = it.userMessage }
         }
     }

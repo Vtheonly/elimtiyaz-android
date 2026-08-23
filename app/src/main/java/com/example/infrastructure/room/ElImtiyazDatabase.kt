@@ -48,7 +48,7 @@ import androidx.room.RoomDatabase
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class ElImtiyazDatabase : RoomDatabase() {
@@ -213,6 +213,27 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
                 database.execSQL("ALTER TABLE payments ADD COLUMN excessRemark TEXT")
                 database.execSQL(
                     "ALTER TABLE ledger_cache ADD COLUMN metadataJson TEXT NOT NULL DEFAULT '{}'"
+                )
+            }
+        }
+
+        /**
+         * Room migration v7 → v8 (subjects level + passing grade).
+         *
+         * FIX (broken level filter + fake archive):
+         *   1. subjects.level — NEW TEXT, default 'all'. The SubjectsDirectory
+         *      level filter chips (primaire/CEM/Lycée) previously filtered on
+         *      a hardcoded `level = "all"` so every chip showed an EMPTY list.
+         *   2. subjects.passingGrade — NEW REAL, default 10. The directory
+         *      showed a hardcoded "Seuil réussite: 10/20".
+         */
+        val MIGRATION_7_8 = object : androidx.room.migration.Migration(7, 8) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE subjects ADD COLUMN level TEXT NOT NULL DEFAULT 'all'"
+                )
+                database.execSQL(
+                    "ALTER TABLE subjects ADD COLUMN passingGrade REAL NOT NULL DEFAULT 10.0"
                 )
             }
         }

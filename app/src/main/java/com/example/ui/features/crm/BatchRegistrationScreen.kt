@@ -24,10 +24,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.core.GRADE_LEVEL_CODES
+import com.example.core.academicLevelForGradeCode
 import com.example.domain.repository.CreateParentInput
 import com.example.domain.repository.CreateStudentInput
 import com.example.ui.components.ElButton
 import com.example.ui.components.ElCard
+import com.example.ui.components.ElDropdown
 import com.example.ui.components.ElFab
 import com.example.ui.components.ElIconButton
 import com.example.ui.components.ElScaffold
@@ -36,12 +39,14 @@ import com.example.ui.components.ElTextField
 import com.example.ui.components.ElTopBar
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
 @Composable
 fun BatchRegistrationScreen(
     onSuccess: () -> Unit,
+    onBack: (() -> Unit)? = null,
     viewModel: BatchRegistrationViewModel = hiltViewModel(),
 ) {
     var parentFirstName by remember { mutableStateOf("") }
@@ -56,8 +61,30 @@ fun BatchRegistrationScreen(
     val error by viewModel.error.collectAsState()
     val activationCode by viewModel.activationCode.collectAsState()
 
+    // FIX (no form reset): clear the form after a successful registration so
+    // a second registration doesn't silently re-submit the previous family's
+    // pre-filled values.
+    LaunchedEffect(activationCode) {
+        if (activationCode != null) {
+            parentFirstName = ""
+            parentLastName = ""
+            parentPhone = ""
+            parentEmail = ""
+            parentOccupation = ""
+            parentAddress = ""
+            children.clear()
+            children.add(ChildFormState())
+        }
+    }
+
     ElScaffold(
-        topBar = { ElTopBar(title = "Inscription famille") },
+        // FIX (no back affordance): the standalone route had no way back.
+        topBar = {
+            ElTopBar(
+                title = "Inscription famille",
+                onBack = onBack,
+            )
+        },
         floatingActionButton = {
             ElFab(
                 icon = Icons.Default.Add,
@@ -101,7 +128,18 @@ fun BatchRegistrationScreen(
                         ElTextField(value = child.firstName, onValueChange = { children[index] = child.copy(firstName = it) }, label = "Prénom", modifier = Modifier.fillMaxWidth())
                         ElTextField(value = child.lastName, onValueChange = { children[index] = child.copy(lastName = it) }, label = "Nom", modifier = Modifier.fillMaxWidth())
                         ElTextField(value = child.birthDate, onValueChange = { children[index] = child.copy(birthDate = it) }, label = "Date de naissance (AAAA-MM-JJ)", modifier = Modifier.fillMaxWidth())
-                        ElTextField(value = child.gradeLevel, onValueChange = { children[index] = child.copy(gradeLevel = it) }, label = "Niveau (ex: 1AP, 2AM, 1ere_annee)", modifier = Modifier.fillMaxWidth())
+                        // FIX (broken level derivation): free-text level input
+                        // with string-surgery classification misclassified
+                        // lycée ("1ere_annee") and uppercase ("2AM") codes as
+                        // "primaire". Replaced with a canonical dropdown +
+                        // `academicLevelForGradeCode`.
+                        ElDropdown(
+                            label = "Niveau scolaire",
+                            selectedValue = child.gradeLevel,
+                            options = GRADE_LEVEL_CODES,
+                            onSelected = { children[index] = child.copy(gradeLevel = it) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                 }
             }
@@ -130,9 +168,7 @@ fun BatchRegistrationScreen(
                         CreateStudentInput(
                             firstName = c.firstName, lastName = c.lastName,
                             gender = "unspecified", birthDate = c.birthDate,
-                            level = c.gradeLevel.substringBefore("_").substringBefore("ere").let {
-                                when { it.contains("ap") -> "primaire"; it.contains("am") -> "cem"; it.contains("nnee") -> "lycee"; else -> "primaire" }
-                            },
+                            level = academicLevelForGradeCode(c.gradeLevel),
                             gradeLevel = c.gradeLevel,
                         )
                     }

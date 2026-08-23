@@ -80,6 +80,17 @@ enum class PaymentCategory(val code: String) {
         // was added in a future migration does not crash the client.
         fun fromCode(code: String): PaymentCategory =
             values().firstOrNull { it.code == code } ?: OTHER
+
+        /**
+         * FIX (cache round-trip): resolve a stored category string by BOTH the
+         * enum name ("TUITION" — what local caches write) and the wire code
+         * ("tuition" — what Supabase rows carry), falling back to OTHER so the
+         * function stays total (D50).
+         */
+        fun fromEnumNameOrCode(stored: String): PaymentCategory =
+            values().firstOrNull { it.name == stored }
+                ?: values().firstOrNull { it.code == stored }
+                ?: OTHER
         fun fromCodeOrNull(code: String?): PaymentCategory? =
             code?.let { c -> values().firstOrNull { it.code == c } }
     }

@@ -66,14 +66,14 @@ object LocalMappers {
         id = id, tenantId = tenantId, name = name, level = level,
         gradeYear = gradeYear, homeroomTeacherId = homeroomTeacherId,
         homeroomTeacherName = homeroomTeacherName, room = room,
-        capacity = capacity, enrolledCount = enrolledCount,
+        capacity = capacity ?: 0, enrolledCount = enrolledCount,
         academicYear = academicYear,
     )
 
     fun SubjectEntity.toDomain() = Subject(
         id = id, tenantId = tenantId, name = name, nameAr = null,
-        code = code, level = "all", coefficient = coefficient,
-        isExtracurricular = isExtracurricular,
+        code = code, level = level, coefficient = coefficient,
+        isExtracurricular = isExtracurricular, passingGrade = passingGrade,
     )
 
     fun AttendanceEntity.toDomain() = AttendanceRecord(
@@ -239,10 +239,12 @@ object LocalMappers {
                                 v.forEach { el ->
                                     when (el) {
                                         null -> add(JsonNull)
-                                        is Boolean -> add(el)
-                                        is Number -> add(el)
-                                        is String -> add(el)
-                                        else -> add(el.toString())
+                                        // FIX (compile): JsonArrayBuilder.add only accepts
+                                        // JsonElement — wrap primitives explicitly.
+                                        is Boolean -> add(kotlinx.serialization.json.JsonPrimitive(el))
+                                        is Number -> add(kotlinx.serialization.json.JsonPrimitive(el))
+                                        is String -> add(kotlinx.serialization.json.JsonPrimitive(el))
+                                        else -> add(kotlinx.serialization.json.JsonPrimitive(el.toString()))
                                     }
                                 }
                             }

@@ -90,6 +90,35 @@ class SubjectsDirectoryViewModel @Inject constructor(
             }
         }
     }
+
+    // FIX (dead create dialog): the "Nouvelle matière" dialog was labelled
+    // "Créer (mock)" and created NOTHING. Wired to the real repository.
+    fun createSubject(name: String, code: String, level: String, coefficient: Double) {
+        if (!canManage) { _error.value = "Permission manquante : MANAGE_SUBJECTS."; return }
+        if (name.isBlank() || code.isBlank()) {
+            _error.value = "Nom et code sont requis."
+            return
+        }
+        viewModelScope.launch {
+            val actorId = sessionManager.currentUserId() ?: "system"
+            val actorName = sessionManager.currentDisplayName() ?: "System"
+            val result = subjectRepository.createSubject(
+                com.example.domain.repository.CreateSubjectInput(
+                    name = name.trim(),
+                    nameAr = null,
+                    code = code.trim().uppercase(),
+                    level = level.trim().ifBlank { "all" },
+                    coefficient = coefficient,
+                    isExtracurricular = false,
+                ),
+                actorId, actorName,
+            )
+            when (result) {
+                is Result.Ok -> {}
+                is Result.Err -> _error.value = result.error.userMessage
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,7 +134,10 @@ fun SubjectsDirectoryScreen(
     var showCreateDialog by remember { mutableStateOf(false) }
     var archiveTarget by remember { mutableStateOf<Subject?>(null) }
 
-    val filtered = if (levelFilter == null) subjects else subjects.filter { it.level == levelFilter }
+    // FIX (broken level filter): subjects scoped "all" apply to every level —
+    // the previous strict equality filter showed an empty list under each chip.
+    val filtered = if (levelFilter == null) subjects
+        else subjects.filter { it.level == "all" || it.level == levelFilter }
 
     Scaffold(
         topBar = {
@@ -155,7 +187,7 @@ fun SubjectsDirectoryScreen(
     if (showCreateDialog) {
         var name by remember { mutableStateOf("") }
         var code by remember { mutableStateOf("") }
-        var level by remember { mutableStateOf("primaire") }
+        var level by remember { mutableStateOf("all") }
         var coef by remember { mutableStateOf("1") }
         AlertDialog(
             onDismissRequest = { showCreateDialog = false },
@@ -166,12 +198,20 @@ fun SubjectsDirectoryScreen(
                     Spacer(Modifier.height(8.dp))
                     androidx.compose.material3.OutlinedTextField(value = code, onValueChange = { code = it }, label = { Text("Code *") }, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
-                    androidx.compose.material3.OutlinedTextField(value = level, onValueChange = { level = it }, label = { Text("Niveau (primaire/cem/lycee)") }, modifier = Modifier.fillMaxWidth())
+                    androidx.compose.material3.OutlinedTextField(value = level, onValueChange = { level = it }, label = { Text("Niveau (all/primaire/cem/lycee)") }, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
                     androidx.compose.material3.OutlinedTextField(value = coef, onValueChange = { coef = it.filter { c -> c.isDigit() } }, label = { Text("Coefficient") }, modifier = Modifier.fillMaxWidth())
                 }
             },
-            confirmButton = { TextButton(onClick = { showCreateDialog = false }) { Text("Créer (mock)") } },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.createSubject(name, code, level, coef.toDoubleOrNull() ?: 1.0)
+                        showCreateDialog = false
+                    },
+                    enabled = name.isNotBlank() && code.isNotBlank(),
+                ) { Text("Créer") }
+            },
             dismissButton = { TextButton(onClick = { showCreateDialog = false }) { Text("Annuler") } },
         )
     }

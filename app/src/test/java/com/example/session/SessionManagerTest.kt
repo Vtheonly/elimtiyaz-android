@@ -109,7 +109,7 @@ class SessionManagerTest {
 
         // Subscribe to the state flow
         val states = mutableListOf<Session?>()
-        val job = kotlinx.coroutines.GlobalScope.launch {
+        val job = kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Unconfined) {
             sessionManager.state.collect { states.add(it) }
         }
         // Initial value is null

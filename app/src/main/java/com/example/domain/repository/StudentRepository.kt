@@ -38,10 +38,20 @@ data class CreateStudentInput(
     val previousRank: Int? = null,
 )
 
-/** Input payload for [StudentRepository.updateStudent]. */
+/**
+ * Input payload for [StudentRepository.updateStudent].
+ *
+ * FIX (incomplete edits): previously only identity/class/status/medical fields
+ * were accepted — `displayName` was silently dropped by the implementation
+ * and birth date / grade level could not be corrected at all. All fields are
+ * nullable; only set fields are mutated.
+ */
 data class UpdateStudentInput(
     val firstName: String? = null, val lastName: String? = null,
     val displayName: String? = null,
+    val birthDate: String? = null,
+    val level: String? = null,
+    val gradeLevel: String? = null,
     val classId: String? = null, val status: String? = null,
     val medicalNotes: String? = null,
 )
