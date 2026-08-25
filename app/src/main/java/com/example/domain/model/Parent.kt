@@ -38,6 +38,10 @@ data class Parent(
     val transportDestination: String? = null,
     /** 0028 schema parity — city tier for transport pricing. */
     val cityTier: String? = null,
+    /** Vault §04.03 — national identity number (backend `national_id`). */
+    val nationalId: String? = null,
+    /** Vault §04.03 — relationship to the child (Father | Mother | Guardian). */
+    val relationship: String? = null,
     val preferredLanguage: String = "fr",
     val avatarUrl: String? = null,
     val createdAt: String,

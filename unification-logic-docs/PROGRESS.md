@@ -575,3 +575,51 @@ The remaining Tier 4 items are UI parity (R22, R23), refactoring
 (R9 / R20), display fields (R13), and the Android port of the
 desktop's property-based test layer. None affect the cross-app
 business contract.
+
+---
+
+## 6. Vault Compliance Iteration (2026-08-25)
+
+**Authoritative source:** the Obsidian vault (sections 04 Parent & Student CRM,
+05 Academic Structure, 06 Grading & Progression). Full verification matrix in
+[`VAULT-COMPLIANCE.md`](VAULT-COMPLIANCE.md).
+
+Closed the gaps found by the vault audit — WITHOUT touching the canonical
+business logic (GPA engines, discount engine, waterfall, RPC contracts and the
+promotion ladder are byte-identical):
+
+1. **One-Click Batch Promotion Engine (vault §06.04)** — NEW
+   `PromotionReviewScreen` + ViewModel: yearly GPAs → auto-flag
+   (≥10 APPROVED_FOR_PROMOTION / <10 RETAINED_SAME_YEAR / no-grades → manual
+   arbitration) → admin override queue with audit notes → one-click execution
+   through the unchanged canonical `promoteStudents`. The blind
+   `promoteClass` shortcut (promote every ACTIVE student regardless of GPA —
+   a direct vault violation) was removed from the Classes directory.
+2. **Student Academic History (vault §04.07 / §06.05)** — new permanent
+   "Historique" tab inside the Student drawer: every past year with
+   term-by-term GPAs, full subject breakdown (D1/D2/Examen + coef), yearly
+   attendance rate, and the promotion outcome reconstructed from the
+   `student.promote` audit trail. Archived years are read-only (append-only).
+3. **Batch Registration (vault §04.03)** — parent block gains secondary phone,
+   national ID, relationship + transport destination; child blocks gain gender
+   (was hardcoded "unspecified"), cycle-filtered class assignment, payment plan
+   (drives the canonical discount engine) and medical notes. Room v9 → v10
+   (`parents.nationalId`, `parents.relationship` — backend parity).
+4. **Homework Engine (vault §06.06)** — REAL whiteboard photo capture (the
+   "Capturer" button was a fake boolean toggle), due-date validation (ISO,
+   never retro-dated), `academicYear` + `pushedAt` persisted (migration v10),
+   and the assignment is now enqueued + pushed to the shared `homework` table
+   via the SyncQueueDispatcher → Student Web Portal.
+5. **Parent Drawer (vault §04.05)** — itemized historic payments, installment
+   schedules, active services per child, and the "Add Another Child" action
+   (canonical `createStudent` — parent-first dependency enforced).
+6. **Subject Coefficients (vault §05.06)** — edit dialog wired to
+   `updateSubject`; changes are audited (`subject.update`) and trigger the
+   automatic GPA recompute for the CURRENT year (coefficient snapshot refresh;
+   archived years never touched).
+7. **Clubs & Therapy (vault §05.01/§05.07)** — domain filter chips
+   (Scolarité vs Clubs & Thérapie) + extracurricular creation toggle in the
+   Subjects directory (previously hardcoded `false`).
+
+Tests: `PromotionRecommendationTest` (14 JUnit4 cases) covers the new pure
+`derivePromotionRecommendation` auto-flag rules + ladder sanity.

@@ -104,6 +104,7 @@ fun MainScreen(
     onNavigateToRollCall: (String) -> Unit,
     onNavigateToGradeEntry: (String) -> Unit,
     onNavigateToHomeworkPush: (String) -> Unit,
+    onNavigateToPromotionReview: (String) -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToGlobalSearch: () -> Unit,
     onNavigateToReports: () -> Unit,
@@ -174,6 +175,7 @@ fun MainScreen(
                     onNavigateToRollCall = onNavigateToRollCall,
                     onNavigateToGradeEntry = onNavigateToGradeEntry,
                     onNavigateToHomeworkPush = onNavigateToHomeworkPush,
+                    onNavigateToPromotionReview = onNavigateToPromotionReview,
                 )
                 "Finances" -> FinancialsHubScreen(
                     session = session,

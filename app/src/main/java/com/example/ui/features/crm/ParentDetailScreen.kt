@@ -77,6 +77,9 @@ fun ParentDetailScreen(
     val parent by viewModel.parent.collectAsState()
     val children by viewModel.children.collectAsState()
     val summary by viewModel.summary.collectAsState()
+    val payments by viewModel.payments.collectAsState()
+    val installments by viewModel.installments.collectAsState()
+    val classes by viewModel.classes.collectAsState()
     val error by viewModel.error.collectAsState()
     val saveMessage by viewModel.saveMessage.collectAsState()
     val busy by viewModel.busy.collectAsState()
@@ -86,6 +89,9 @@ fun ParentDetailScreen(
 
     // FIX (missing edit feature): edit dialog state.
     var showEditDialog by remember { mutableStateOf(false) }
+
+    // Vault §04.05 — "Add Another Child" action embedded in the drawer.
+    var showAddChildDialog by remember { mutableStateOf(false) }
 
     // Manual account adjustment dialog state (PaymentRepository.adjust UI).
     var showAdjustDialog by remember { mutableStateOf(false) }
@@ -220,9 +226,26 @@ fun ParentDetailScreen(
                         Spacer(Modifier.height(4.dp))
                         ElInfoRow(label = "Code", value = p.code)
                         ElInfoRow(label = "Téléphone", value = p.phone)
+                        // Vault §04.03 — secondary phone shown when distinct.
+                        p.whatsapp?.takeIf { it.isNotBlank() && it != p.phone }?.let {
+                            ElInfoRow(label = "Téléphone secondaire", value = it)
+                        }
                         p.email?.let { ElInfoRow(label = "Email", value = it) }
+                        p.nationalId?.let { ElInfoRow(label = "N° pièce d'identité", value = it) }
                         p.address?.let { ElInfoRow(label = "Adresse", value = it) }
                         p.occupation?.let { ElInfoRow(label = "Profession", value = it) }
+                        p.relationship?.let { rel ->
+                            ElInfoRow(
+                                label = "Lien de parenté",
+                                value = when (rel) {
+                                    "father" -> "Père"
+                                    "mother" -> "Mère"
+                                    "guardian" -> "Tuteur"
+                                    else -> rel
+                                },
+                            )
+                        }
+                        p.transportDestination?.let { ElInfoRow(label = "Destination transport", value = it) }
                     }
                 }
             }
@@ -270,7 +293,22 @@ fun ParentDetailScreen(
 
             ElCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ElSectionHeader(title = "Enfants (${children.size})")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ElSectionHeader(title = "Enfants (${children.size})")
+                        // Vault §04.05 — "Add Another Child" direct action.
+                        if (viewModel.canAddChild) {
+                            com.example.ui.components.ElButton(
+                                text = "Ajouter un enfant",
+                                onClick = { showAddChildDialog = true },
+                                style = com.example.ui.components.ElButtonStyle.Secondary,
+                                enabled = !busy,
+                            )
+                        }
+                    }
                     // FIX (not tappable): children rows now open the student
                     // dossier (parity with GlobalSearch and the desktop).
                     children.forEach { kid ->
@@ -293,6 +331,126 @@ fun ParentDetailScreen(
                                 Text(kid.gradeLevel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(">", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+
+            // ── Vault §04.05 — Active services across all children ─────────
+            // Derived from the family's installments: every distinct service
+            // category with a remaining balance is an active service.
+            if (installments.isNotEmpty()) {
+                val childById = children.associateBy { it.id }
+                val activeServices = installments
+                    .filter { it.remaining > 0L || it.status == com.example.core.PaymentStatus.PAID }
+                    .groupBy { (it.studentId ?: "") to it.category }
+                    .map { (key, rows) ->
+                        Triple(key.first, key.second, rows.sumOf { it.remaining })
+                    }
+                    .sortedBy { it.first }
+                if (activeServices.isNotEmpty()) {
+                    ElCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            ElSectionHeader(title = "Services actifs (${activeServices.size})")
+                            activeServices.forEach { (studentId, category, remaining) ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "${childById[studentId]?.fullName ?: "Famille"} · " +
+                                            categoryFrenchLabel(category),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    Text(
+                                        if (remaining > 0L) "${(remaining / 100).formatDzd()} DZD restants" else "Réglé",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (remaining > 0L) MaterialTheme.colorScheme.onSurfaceVariant else SuccessGreen,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Vault §04.05 — Installment schedules (embedded, never a
+            // separate top-level tab) ────────────────────────────────────────
+            val upcoming = installments
+                .filter { it.status != com.example.core.PaymentStatus.PAID }
+                .sortedBy { it.dueDate }
+                .take(5)
+            if (upcoming.isNotEmpty()) {
+                ElCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ElSectionHeader(title = "Échéancier (${installments.count { it.status != com.example.core.PaymentStatus.PAID }} en cours)")
+                        upcoming.forEach { inst ->
+                            val statusColor = when (inst.status.name) {
+                                "OVERDUE" -> DangerRed
+                                "PARTIAL", "PENDING", "PENDING_CLEARANCE" -> com.example.ui.theme.WarmGold
+                                else -> PrimaryBlue
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(inst.label, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
+                                    Text(
+                                        "Échéance ${inst.dueDate} · ${(inst.amountDue / 100).formatDzd()} DZD",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                ElTag(text = inst.status.name, color = statusColor)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Vault §04.05 — Itemized ledger of historic payments ─────────
+            if (payments.isNotEmpty()) {
+                val recent = payments.sortedByDescending { it.collectedAt }.take(10)
+                ElCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ElSectionHeader(title = "Historique des paiements (${payments.size})")
+                        recent.forEach { pay ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(pay.receiptNumber, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
+                                    Text(
+                                        "${categoryFrenchLabel(pay.category)} · ${pay.method.name} · ${pay.collectedAt.take(10)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        "+${(pay.amount / 100).formatDzd()} DZD",
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = SuccessGreen,
+                                    )
+                                    Text(
+                                        pay.status.name,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (pay.status == com.example.core.PaymentStatus.PAID) SuccessGreen else com.example.ui.theme.WarmGold,
+                                    )
+                                }
+                            }
+                        }
+                        if (payments.size > recent.size) {
+                            Text(
+                                "+ ${payments.size - recent.size} paiement(s) antérieur(s)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
@@ -363,6 +521,21 @@ fun ParentDetailScreen(
                 showAdjustDialog = false
             },
             onDismiss = { showAdjustDialog = false },
+        )
+    }
+
+    // Vault §04.05 — "Add Another Child" dialog (canonical createStudent,
+    // parent-first dependency enforced by the repository).
+    if (showAddChildDialog && parent != null) {
+        AddChildDialog(
+            parentName = parent!!.fullName,
+            classes = classes,
+            busy = busy,
+            onConfirm = { firstName, lastName, birthDate, gender, gradeLevel, classId ->
+                viewModel.addChild(parentId, firstName, lastName, birthDate, gender, gradeLevel, classId)
+                showAddChildDialog = false
+            },
+            onDismiss = { showAddChildDialog = false },
         )
     }
 }
@@ -473,6 +646,111 @@ private fun AdjustAccountDialog(
                 },
                 enabled = !busy && validAmount,
             ) { Text("Appliquer") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Annuler") }
+        },
+    )
+}
+/** French display label for a payment category (vault §04.05 services list). */
+private fun categoryFrenchLabel(category: PaymentCategory): String = when (category) {
+    PaymentCategory.TUITION -> "Scolarité"
+    PaymentCategory.TRANSPORT -> "Transport"
+    PaymentCategory.CANTEEN -> "Cantine"
+    PaymentCategory.UNIFORM -> "Uniforme"
+    PaymentCategory.BOOKS -> "Livres"
+    PaymentCategory.EXTRACURRICULAR -> "Club / Activité"
+    PaymentCategory.THERAPY_PSYCHOLOGY -> "Psychologie"
+    PaymentCategory.THERAPY_SPEECH -> "Orthophonie"
+    PaymentCategory.PARENT_CREDIT -> "Crédit parent"
+    PaymentCategory.SECOND_APRON -> "Tablier"
+    PaymentCategory.OTHER -> "Autre"
+}
+
+/**
+ * Vault §04.05 / §04.01 — "Add Another Child" dialog embedded in the Parent
+ * drawer. The child is created through the canonical `createStudent`, which
+ * enforces the parent-first dependency (parentId is mandatory).
+ */
+@Composable
+private fun AddChildDialog(
+    parentName: String,
+    classes: List<com.example.domain.model.AcademicClass>,
+    busy: Boolean,
+    onConfirm: (
+        firstName: String,
+        lastName: String,
+        birthDate: String,
+        gender: String,
+        gradeLevel: String,
+        classId: String?,
+    ) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var firstName by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var birthDate by remember { mutableStateOf("") }
+    var genderLabel by remember { mutableStateOf("Non précisé") }
+    var gradeLevel by remember { mutableStateOf("") }
+    var className by remember { mutableStateOf("Aucune") }
+
+    val genderOptions = listOf("Non précisé", "Masculin", "Féminin")
+    val genderCode = when (genderLabel) {
+        "Masculin" -> "M"
+        "Féminin" -> "F"
+        else -> ""
+    }
+    val cycle = com.example.core.academicLevelForGradeCode(gradeLevel)
+    val cycleClasses = classes.filter { it.level == cycle }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Ajouter un enfant — $parentName") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Prénom *") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Nom") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = birthDate, onValueChange = { birthDate = it }, label = { Text("Date de naissance (AAAA-MM-JJ) *") }, modifier = Modifier.fillMaxWidth())
+                // Gender chips (vault §04.03 child block: Gender).
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    genderOptions.forEach { opt ->
+                        ElTag(text = opt, selected = genderLabel == opt, color = PrimaryBlue, onClick = { genderLabel = opt })
+                    }
+                }
+                com.example.ui.components.ElDropdown(
+                    label = "Niveau scolaire",
+                    selectedValue = gradeLevel,
+                    options = com.example.core.GRADE_LEVEL_CODES,
+                    onSelected = {
+                        gradeLevel = it
+                        className = "Aucune"
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (gradeLevel.isNotBlank() && cycleClasses.isNotEmpty()) {
+                    com.example.ui.components.ElDropdown(
+                        label = "Classe (optionnel)",
+                        selectedValue = className,
+                        options = listOf("Aucune") + cycleClasses.map { it.name },
+                        onSelected = { name -> className = name },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Text(
+                    "L'élève sera rattaché à ce parent (dépendance parent-first). La facturation est générée selon la tarification du niveau.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val classId = cycleClasses.firstOrNull { it.name == className }?.id
+                    onConfirm(firstName.trim(), lastName.trim(), birthDate.trim(), genderCode, gradeLevel, classId)
+                },
+                enabled = !busy && firstName.isNotBlank() && birthDate.isNotBlank() && gradeLevel.isNotBlank(),
+            ) { Text("Ajouter") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Annuler") }

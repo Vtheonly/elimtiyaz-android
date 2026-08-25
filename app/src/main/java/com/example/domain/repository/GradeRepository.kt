@@ -23,6 +23,13 @@ interface GradeRepository {
      * with the canonical `computeOverallGpa` engine on the consumer side.
      */
     fun observeForClass(classId: String, term: String, academicYear: String): Flow<List<Assessment>>
+
+    /**
+     * Vault §04.07 / §06.05 — Student Academic History. Every assessment of
+     * one student across ALL academic years and terms — the permanent,
+     * append-only record embedded in the Student Profile drawer.
+     */
+    fun observeAllForStudent(studentId: String): Flow<List<Assessment>>
     suspend fun enterGrade(input: EnterGradeInput, actorId: String, actorName: String): Result<Assessment>
 }
 

@@ -133,6 +133,7 @@ fun AppNavHost() {
                     onNavigateToRollCall = { id -> navController.navigate(Routes.RollCall(id)) },
                     onNavigateToGradeEntry = { id -> navController.navigate(Routes.GradeEntry(id)) },
                     onNavigateToHomeworkPush = { id -> navController.navigate(Routes.HomeworkPush(id)) },
+                    onNavigateToPromotionReview = { id -> navController.navigate(Routes.PromotionReview(id)) },
                     onNavigateToProfile = { navController.navigate(Routes.Profile) },
                     onNavigateToGlobalSearch = { navController.navigate(Routes.GlobalSearch) },
                     onNavigateToReports = { navController.navigate(Routes.Reports) },
@@ -331,6 +332,17 @@ fun AppNavHost() {
                 HomeworkPushScreen(
                     session = session,
                     initialClassId = route.classId,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
+        // Vault §06.04 — GPA-driven promotion review queue (admin overrides
+        // before the one-click batch execution).
+        composable<Routes.PromotionReview> { backStackEntry ->
+            rbacGate(navController, Routes.PromotionReview::class) {
+                val route: Routes.PromotionReview = backStackEntry.toRoute()
+                PromotionReviewScreen(
+                    classId = route.classId,
                     onBack = { navController.popBackStack() },
                 )
             }

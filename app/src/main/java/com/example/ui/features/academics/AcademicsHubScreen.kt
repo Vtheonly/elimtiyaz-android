@@ -30,6 +30,7 @@ fun AcademicsHubScreen(
     onNavigateToRollCall: (String) -> Unit = {},
     onNavigateToGradeEntry: (String) -> Unit = {},
     onNavigateToHomeworkPush: (String) -> Unit = {},
+    onNavigateToPromotionReview: (String) -> Unit = {},
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Présences", "Notes", "Devoirs", "Classes")
@@ -48,7 +49,12 @@ fun AcademicsHubScreen(
                 0 -> RollCallScreen(session, onNavigateToRollCall = onNavigateToRollCall)
                 1 -> GradeEntryScreen(session, onNavigateToGradeEntry = onNavigateToGradeEntry)
                 2 -> HomeworkPushScreen(session, onNavigateToHomeworkPush = onNavigateToHomeworkPush)
-                3 -> ClassesDirectoryScreen(session, onNavigateToClassDetail = onNavigateToClassDetail, onNavigateToSubjectsDirectory = onNavigateToSubjectsDirectory)
+                3 -> ClassesDirectoryScreen(
+                    session,
+                    onNavigateToClassDetail = onNavigateToClassDetail,
+                    onNavigateToSubjectsDirectory = onNavigateToSubjectsDirectory,
+                    onNavigateToPromotionReview = onNavigateToPromotionReview,
+                )
             }
         }
     }

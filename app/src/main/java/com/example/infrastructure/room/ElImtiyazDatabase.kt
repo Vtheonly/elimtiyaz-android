@@ -51,7 +51,7 @@ import androidx.room.RoomDatabase
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = false,
 )
 abstract class ElImtiyazDatabase : RoomDatabase() {
@@ -304,6 +304,37 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
                 )
                 database.execSQL(
                     "ALTER TABLE trip_logs ADD COLUMN stopsCompleted INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
+        /**
+         * Room migration v9 → v10 (vault-compliance batch registration +
+         * homework engine).
+         *
+         *   1. `parents.nationalId` + `parents.relationship` — vault §04.03
+         *      batch-registration master-info fields. The Supabase
+         *      `parents` table already carries `national_id` and
+         *      `relationship`; this brings the local cache to schema parity
+         *      (the pull-side ParentDto mapper fills them from the server).
+         *   2. `homework.academicYear` + `homework.pushedAt` — vault §06.06
+         *      Homework Assignment Engine: the academic year scopes the
+         *      assignment and `pushedAt` stamps the portal push (both columns
+         *      exist on the backend homework table).
+         */
+        val MIGRATION_9_10 = object : androidx.room.migration.Migration(9, 10) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE parents ADD COLUMN nationalId TEXT"
+                )
+                database.execSQL(
+                    "ALTER TABLE parents ADD COLUMN relationship TEXT"
+                )
+                database.execSQL(
+                    "ALTER TABLE homework ADD COLUMN academicYear TEXT"
+                )
+                database.execSQL(
+                    "ALTER TABLE homework ADD COLUMN pushedAt TEXT"
                 )
             }
         }

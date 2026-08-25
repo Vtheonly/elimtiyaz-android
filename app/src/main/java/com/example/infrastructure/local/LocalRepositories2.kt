@@ -912,6 +912,10 @@ class LocalGradeRepository @Inject constructor(
     override fun observeForClass(classId: String, term: String, academicYear: String): Flow<List<Assessment>> =
         assessmentDao.observeByClassTerm(classId, term, academicYear).map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
 
+    // Vault §04.07 / §06.05 — Student Academic History (all years, all terms).
+    override fun observeAllForStudent(studentId: String): Flow<List<Assessment>> =
+        assessmentDao.observeByStudent(studentId).map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
+
     override suspend fun enterGrade(input: EnterGradeInput, actorId: String, actorName: String): Result<Assessment> {
         val now = Instant.now().toString()
         // CANONICAL — the subject average is only computable when all three
@@ -1139,6 +1143,7 @@ class LocalDepartmentRepository @Inject constructor(
 class LocalSubjectRepository @Inject constructor(
     private val subjectDao: SubjectDao,
     private val classSubjectDao: ClassSubjectDao,
+    private val assessmentDao: AssessmentDao,
     private val auditDao: AuditLogDao,
 ) : SubjectRepository {
 
@@ -1187,18 +1192,60 @@ class LocalSubjectRepository @Inject constructor(
             passingGrade = input.passingGrade,
         )
         subjectDao.upsertAll(listOf(entity))
+        // Vault §05.05/§05.06 — subject configuration is admin-controlled and
+        // audited (create included).
+        auditDao.upsert(
+            auditLog(
+                action = com.example.core.AuditActions.SUBJECT_CREATE,
+                entityType = "subject",
+                entityId = entity.id,
+                actorId = actorId,
+                actorName = actorName,
+                after = """{"code":"${entity.code}","coefficient":${entity.coefficient},"isExtracurricular":${entity.isExtracurricular}}""",
+            )
+        )
         return Result.Ok(LocalMappers.run { entity.toDomain() })
     }
 
     // FIX ("Not implemented"): updateSubject previously always failed.
+    // Vault §05.06 — coefficient changes are AUDITED and trigger an automatic
+    // GPA recompute for affected students. Android computes GPAs on read
+    // (`computeOverallGpa` over assessment rows), so refreshing the
+    // coefficient snapshot on the CURRENT academic year's rows IS the
+    // recompute; archived years are append-only and never touched.
     override suspend fun updateSubject(id: String, input: UpdateSubjectInput, actorId: String, actorName: String): Result<Subject> {
         val existing = subjectDao.getById(id) ?: return Result.Err(Errors.notFound("Subject $id not found"))
+        val coefficientChanged = input.coefficient != null && input.coefficient != existing.coefficient
         val updated = existing.copy(
             name = input.name ?: existing.name,
             coefficient = input.coefficient ?: existing.coefficient,
             passingGrade = input.passingGrade ?: existing.passingGrade,
         )
         subjectDao.upsert(updated)
+
+        // Vault §05.06 — audit the coefficient change (see 12. Security and
+        // Audit: every mutation is traceable).
+        auditDao.upsert(
+            auditLog(
+                action = com.example.core.AuditActions.SUBJECT_UPDATE,
+                entityType = "subject",
+                entityId = id,
+                actorId = actorId,
+                actorName = actorName,
+                after = """{"coefficient":{"from":${existing.coefficient},"to":${updated.coefficient}},"name":"${updated.name}"}""",
+            )
+        )
+
+        // Vault §05.06 — automatic GPA recompute for affected students:
+        // refresh the coefficient snapshot on the CURRENT year's assessment
+        // rows only (past years are append-only). GPAs are derived on read,
+        // so the next read reflects the new coefficient immediately.
+        if (coefficientChanged) {
+            val now = java.time.LocalDate.now()
+            val currentYear =
+                if (now.monthValue >= 9) "${now.year}-${now.year + 1}" else "${now.year - 1}-${now.year}"
+            assessmentDao.updateCoefficientForSubjectYear(id, updated.coefficient, currentYear)
+        }
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 
@@ -1255,6 +1302,9 @@ class LocalSubjectRepository @Inject constructor(
 @Singleton
 class LocalHomeworkRepository @Inject constructor(
     private val homeworkDao: HomeworkDao,
+    // Vault §06.06 — the assignment must reach the Student Web Portal: the
+    // push enqueues a sync queue entry (dispatcher-side table upsert).
+    private val syncSupport: com.example.infrastructure.sync.SyncSupport? = null,
 ) : HomeworkRepository {
 
     override fun observeForClass(classId: String): Flow<List<Homework>> =
@@ -1264,6 +1314,24 @@ class LocalHomeworkRepository @Inject constructor(
         homeworkDao.observeAll().map { rows -> rows.filter { it.teacherId == teacherId }.map { LocalMappers.run { it.toDomain() } } }
 
     override suspend fun push(input: PushHomeworkInput, actorId: String, actorName: String): Result<Homework> {
+        // Vault §06.06 — the due date must be a valid ISO date that is not
+        // already past (late/retro-dated assignments confuse students and
+        // parents about what was actually assigned).
+        val due = try {
+            java.time.LocalDate.parse(input.dueDate)
+        } catch (e: Exception) {
+            null
+        } ?: return Result.Err(com.example.core.Errors.validation(
+            "Invalid due date: '${input.dueDate}' (expected AAAA-MM-JJ).",
+            userMessage = "Date de rendu invalide — format attendu AAAA-MM-JJ.",
+        ))
+        if (due.isBefore(java.time.LocalDate.now())) {
+            return Result.Err(com.example.core.Errors.validation(
+                "Due date '${input.dueDate}' is in the past.",
+                userMessage = "La date de rendu ne peut pas être antérieure à aujourd'hui.",
+            ))
+        }
+
         val now = Instant.now().toString()
         val entity = HomeworkEntity(
             id = "hwk-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
@@ -1272,10 +1340,44 @@ class LocalHomeworkRepository @Inject constructor(
             title = input.title, description = input.description, dueDate = input.dueDate,
             attachmentsJson = input.attachments.joinToString(",") { "\"$it\"" }.let { "[$it]" },
             createdAt = now,
+            // Vault §06.06 — academic year scoping + portal push stamp
+            // (persisted since MIGRATION_9_10, matching the backend columns).
+            academicYear = input.academicYear,
+            pushedAt = now,
         )
         homeworkDao.upsert(entity)
+
+        // Vault §06.06 — push flow: SAVE → PUSH TO STUDENT WEB PORTAL → ALERT.
+        // The sync queue entry carries the full row; the SyncQueueDispatcher
+        // upserts it into the shared `homework` table (single canonical
+        // record visible to students, parents and teachers).
+        syncSupport?.enqueueOnly(
+            entity = "homework",
+            operation = "create",
+            payload = buildHomeworkSyncPayload(entity),
+            isMock = false,
+            sourceScreen = "HomeworkPushScreen",
+        )
         return Result.Ok(LocalMappers.run { entity.toDomain() })
     }
+
+    private fun buildHomeworkSyncPayload(e: HomeworkEntity): String =
+        kotlinx.serialization.json.buildJsonObject {
+            put("id", e.id)
+            put("tenantId", e.tenantId)
+            put("classId", e.classId)
+            put("subjectId", e.subjectId)
+            put("subjectName", e.subjectName)
+            put("teacherId", e.teacherId)
+            put("teacherName", e.teacherName)
+            put("title", e.title)
+            put("description", e.description)
+            put("dueDate", e.dueDate)
+            put("attachments", kotlinx.serialization.json.JsonPrimitive(e.attachmentsJson))
+            put("academicYear", e.academicYear ?: "")
+            put("pushedAt", e.pushedAt ?: "")
+            put("createdAt", e.createdAt)
+        }.toString()
 }
 
 // ─── Notification Repository ────────────────────────────────────────────────

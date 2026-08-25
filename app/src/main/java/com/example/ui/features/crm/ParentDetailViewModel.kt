@@ -6,9 +6,14 @@ import com.example.core.ParentLedgerSummary
 import com.example.core.PaymentCategory
 import com.example.core.Permission
 import com.example.core.Result
+import com.example.domain.model.Installment
 import com.example.domain.model.Parent
+import com.example.domain.model.Payment
 import com.example.domain.model.Student
 import com.example.domain.repository.AdjustAccountInput
+import com.example.domain.repository.ClassRepository
+import com.example.domain.repository.CreateStudentInput
+import com.example.domain.repository.InstallmentRepository
 import com.example.domain.repository.LedgerRepository
 import com.example.domain.repository.ParentRepository
 import com.example.domain.repository.PaymentRepository
@@ -21,8 +26,10 @@ import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -31,7 +38,9 @@ class ParentDetailViewModel @Inject constructor(
     private val studentRepository: StudentRepository,
     private val ledgerRepository: LedgerRepository,
     private val paymentRepository: PaymentRepository,
+    private val installmentRepository: InstallmentRepository,
     private val pdfRepository: PdfRepository,
+    private val classRepository: ClassRepository,
     private val sessionManager: SessionManager,
 ) : ViewModel() {
 
@@ -43,6 +52,27 @@ class ParentDetailViewModel @Inject constructor(
 
     private val _summary = MutableStateFlow<ParentLedgerSummary?>(null)
     val summary: StateFlow<ParentLedgerSummary?> = _summary.asStateFlow()
+
+    /** Vault §04.05 — itemized ledger of ALL historic payments by the parent. */
+    private val _payments = MutableStateFlow<List<Payment>>(emptyList())
+    val payments: StateFlow<List<Payment>> = _payments.asStateFlow()
+
+    /** Vault §04.05 — installment schedules (upcoming + overdue tranches). */
+    private val _installments = MutableStateFlow<List<Installment>>(emptyList())
+    val installments: StateFlow<List<Installment>> = _installments.asStateFlow()
+
+    /** Whether the current session may add a child to an existing family. */
+    val canAddChild: Boolean
+        get() = sessionManager.current()?.can(Permission.CREATE_STUDENT) == true ||
+            sessionManager.current()?.can(Permission.CREATE_PARENT) == true ||
+            sessionManager.current()?.role in listOf(
+                com.example.core.Role.SUPER_ADMIN,
+                com.example.core.Role.MANAGER,
+            )
+
+    /** Vault §04.05 — class catalogue for the "Add Another Child" dialog. */
+    val classes: StateFlow<List<com.example.domain.model.AcademicClass>> = classRepository.observe()
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -73,10 +103,14 @@ class ParentDetailViewModel @Inject constructor(
     // FIX (coroutine leak): cancel previous collectors on re-load.
     private var parentJob: Job? = null
     private var childrenJob: Job? = null
+    private var paymentsJob: Job? = null
+    private var installmentsJob: Job? = null
 
     fun load(parentId: String) {
         parentJob?.cancel()
         childrenJob?.cancel()
+        paymentsJob?.cancel()
+        installmentsJob?.cancel()
         parentJob = viewModelScope.launch {
             parentRepository.observeById(parentId).collect { p ->
                 _parent.value = p
@@ -89,6 +123,14 @@ class ParentDetailViewModel @Inject constructor(
             studentRepository.observeByParent(parentId).collect { kids ->
                 _children.value = kids
             }
+        }
+        // Vault §04.05 — itemized payment ledger + installment schedules,
+        // embedded INSIDE the parent drawer (never a separate top-level tab).
+        paymentsJob = viewModelScope.launch {
+            paymentRepository.observeByParent(parentId).collect { _payments.value = it }
+        }
+        installmentsJob = viewModelScope.launch {
+            installmentRepository.observeByParent(parentId).collect { _installments.value = it }
         }
     }
 
@@ -111,6 +153,9 @@ class ParentDetailViewModel @Inject constructor(
         email: String?,
         occupation: String?,
         address: String?,
+        secondaryPhone: String? = null,
+        nationalId: String? = null,
+        relationship: String? = null,
     ) {
         viewModelScope.launch {
             val actorId = sessionManager.currentUserId() ?: "system"
@@ -124,12 +169,60 @@ class ParentDetailViewModel @Inject constructor(
                     email = email,
                     occupation = occupation,
                     address = address,
+                    secondaryPhone = secondaryPhone,
+                    nationalId = nationalId,
+                    relationship = relationship,
                 ),
                 actorId,
                 actorName,
             )
             when (result) {
                 is Result.Ok -> _saveMessage.value = "Parent mis à jour."
+                is Result.Err -> _error.value = result.error.userMessage
+            }
+        }
+    }
+
+    /**
+     * Vault §04.05 / §04.01 — "Add Another Child" action embedded in the
+     * Parent drawer. Uses the canonical [StudentRepository.createStudent]
+     * which enforces the parent-first dependency (the parentId is mandatory
+     * and passed explicitly — an orphan student can never be created).
+     */
+    fun addChild(
+        parentId: String,
+        firstName: String,
+        lastName: String,
+        birthDate: String,
+        gender: String,
+        gradeLevel: String,
+        classId: String?,
+    ) {
+        if (firstName.isBlank() || birthDate.isBlank()) {
+            _error.value = "Prénom et date de naissance sont requis."
+            return
+        }
+        viewModelScope.launch {
+            _busy.value = true
+            val actorId = sessionManager.currentUserId() ?: "system"
+            val actorName = sessionManager.currentDisplayName() ?: "System"
+            val result = studentRepository.createStudent(
+                CreateStudentInput(
+                    firstName = firstName.trim(),
+                    lastName = lastName.trim(),
+                    gender = gender.ifBlank { "unspecified" },
+                    birthDate = birthDate.trim(),
+                    level = com.example.core.academicLevelForGradeCode(gradeLevel),
+                    gradeLevel = gradeLevel,
+                    classId = classId,
+                    parentId = parentId,
+                ),
+                actorId,
+                actorName,
+            )
+            _busy.value = false
+            when (result) {
+                is Result.Ok -> _saveMessage.value = "${result.value.fullName} ajouté(e) à la famille."
                 is Result.Err -> _error.value = result.error.userMessage
             }
         }

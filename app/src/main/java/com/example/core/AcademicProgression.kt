@@ -96,3 +96,38 @@ object PromotionDecisions {
     const val REPEATED = "repeated"
     const val GRADUATED = "graduated"
 }
+
+/**
+ * Vault §06.04 — One-Click Batch Promotion Engine, Step 2 (auto-flag).
+ *
+ * Pure derivation of the SYSTEM recommendation for one student:
+ *   - `gpa == null`  → no grades on record → the queue must surface the
+ *     student for MANUAL review (the engine never guesses promotion).
+ *   - `gpa >= threshold` (default 10.00/20.00, configurable) →
+ *     [PromotionDecisions.PROMOTED] (final-year students graduate instead —
+ *     the Lycée cycle is strictly 3 years, no "Year 4").
+ *   - `gpa < threshold` → [PromotionDecisions.REPEATED] (retained same year,
+ *     re-enrolled in the current grade for the new calendar).
+ *
+ * The admin review queue (Step 3) may override any recommendation with a
+ * note (medical exception, family relocation, …) before batch execution
+ * (Step 4) — the overrides, not this function, produce the final decision.
+ *
+ * @param gpa the student's YEARLY GPA (canonical [computeOverallGpa] over the
+ *   full year's assessments) or null when no scolarite grades exist.
+ * @param isFinalYear true when the student sits at the top of the ladder
+ *   (`3eme_annee`) — graduation replaces promotion.
+ * @param passingGrade minimum passing GPA (default 10.00/20.00).
+ */
+fun derivePromotionRecommendation(
+    gpa: Double?,
+    isFinalYear: Boolean,
+    passingGrade: Double = 10.0,
+): String {
+    if (gpa == null) return PromotionDecisions.REPEATED // flagged for review upstream
+    return if (gpa >= passingGrade) {
+        if (isFinalYear) PromotionDecisions.GRADUATED else PromotionDecisions.PROMOTED
+    } else {
+        PromotionDecisions.REPEATED
+    }
+}

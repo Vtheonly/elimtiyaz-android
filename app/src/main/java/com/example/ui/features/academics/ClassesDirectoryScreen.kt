@@ -13,18 +13,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Class
 import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +40,7 @@ fun ClassesDirectoryScreen(
     session: Session,
     onNavigateToClassDetail: (String) -> Unit = {},
     onNavigateToSubjectsDirectory: () -> Unit = {},
+    onNavigateToPromotionReview: (String) -> Unit = {},
     viewModel: ClassesDirectoryViewModel = hiltViewModel(),
 ) {
     val classes by viewModel.classes.collectAsState()
@@ -52,8 +48,6 @@ fun ClassesDirectoryScreen(
     val message by viewModel.message.collectAsState()
     val busy by viewModel.busy.collectAsState()
 
-    // Promotion confirm dialog state (RBAC: PROMOTE_STUDENT).
-    var promotionTarget by remember { mutableStateOf<AcademicClass?>(null) }
     val canPromote = session.can(Permission.PROMOTE_STUDENT) || viewModel.canPromote
 
     Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -98,17 +92,20 @@ fun ClassesDirectoryScreen(
                     trailing = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             ElTag(text = "${klass.enrolledCount}/${klass.capacity} ($fillRate%)", color = if (fillRate >= 90) WarmGold else PrimaryBlue)
-                            // Promotion entry point — promotes every ACTIVE
-                            // student of the class up one level of the
-                            // canonical ladder (core/AcademicProgression.kt).
+                            // Vault §06.04 — promotion entry point. Opens the
+                            // GPA-driven REVIEW QUEUE (auto-flag + admin
+                            // overrides) instead of blindly promoting every
+                            // ACTIVE student. The vault explicitly forbids
+                            // running batch promotion without first reviewing
+                            // the queue.
                             if (canPromote) {
                                 IconButton(
-                                    onClick = { promotionTarget = klass },
+                                    onClick = { onNavigateToPromotionReview(klass.id) },
                                     enabled = !busy,
                                 ) {
                                     Icon(
                                         Icons.Default.TrendingUp,
-                                        contentDescription = "Promouvoir les élèves de ${klass.name}",
+                                        contentDescription = "File de promotion — ${klass.name}",
                                         tint = PrimaryBlue,
                                     )
                                 }
@@ -118,34 +115,5 @@ fun ClassesDirectoryScreen(
                 )
             }
         }
-    }
-
-    // Promotion confirmation — explains the ladder move before mutating.
-    promotionTarget?.let { klass ->
-        AlertDialog(
-            onDismissRequest = { promotionTarget = null },
-            title = { Text("Promotion — ${klass.name}") },
-            text = {
-                Text(
-                    "Tous les élèves ACTIFS de cette classe seront promus au niveau supérieur " +
-                        "selon l'échelle officielle (primaire → CEM → lycée). Les élèves de " +
-                        "3ème année seront marqués comme diplômés. " +
-                        "Cette action est enregistrée dans le journal d'audit et propagée à la synchronisation.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.promoteClass(klass)
-                        promotionTarget = null
-                    },
-                    enabled = !busy,
-                ) { Text("Promouvoir") }
-            },
-            dismissButton = {
-                TextButton(onClick = { promotionTarget = null }) { Text("Annuler") }
-            },
-        )
     }
 }

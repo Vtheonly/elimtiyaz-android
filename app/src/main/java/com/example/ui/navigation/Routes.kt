@@ -59,6 +59,8 @@ object Routes {
     @Serializable data class RollCall(val classId: String) : Route
     @Serializable data class GradeEntry(val classId: String) : Route
     @Serializable data class HomeworkPush(val classId: String) : Route
+    // Vault §06.04 — One-Click Batch Promotion Engine review queue.
+    @Serializable data class PromotionReview(val classId: String) : Route
 
     // CRM detail routes (additions)
     @Serializable object Profile : Route
@@ -129,6 +131,7 @@ val RoutePermissions: Map<KClass<out Route>, Permission> = mapOf(
     Routes.RollCall::class to Permission.ROLL_CALL,
     Routes.GradeEntry::class to Permission.ENTER_GRADES,
     Routes.HomeworkPush::class to Permission.ASSIGN_HOMEWORK,
+    Routes.PromotionReview::class to Permission.PROMOTE_STUDENT,
 
     // Dashboard detail routes
     Routes.Reports::class to Permission.VIEW_AUDIT_LOG,

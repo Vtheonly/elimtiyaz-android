@@ -103,6 +103,29 @@ data class AttendanceStats(
     val rate: Double = 100.0,
 )
 
+/**
+ * Vault §04.07 / §06.05 — one year of the permanent, append-only Student
+ * Academic History. Grade level + promotion outcome are reconstructed from
+ * the `student.promote` audit trail (each entry carries from/to/decision/year).
+ */
+data class AcademicYearHistory(
+    val academicYear: String,
+    /** Canonical GPA per term (T1/T2/T3) — null when the term has no grades. */
+    val termGpas: Map<String, Double?>,
+    /** Canonical yearly GPA over every term's assessments. */
+    val yearlyGpa: Double?,
+    /** Every assessment row of the year (subject breakdown + D1/D2/Examen). */
+    val assessments: List<Assessment>,
+    /** Grade level held during that year (from the promotion audit trail). */
+    val gradeLevel: String?,
+    /** Promotion outcome: promoted | repeated | graduated (null = pending). */
+    val promotionOutcome: String?,
+    /** Attendance rate for the year (0–100). */
+    val attendanceRate: Double?,
+    /** True when the year is closed (any promote audit exists for it). */
+    val isArchived: Boolean,
+)
+
 @HiltViewModel
 class StudentDetailViewModel @Inject constructor(
     private val studentRepository: StudentRepository,
@@ -113,6 +136,7 @@ class StudentDetailViewModel @Inject constructor(
     private val installmentRepository: InstallmentRepository,
     private val paymentRepository: PaymentRepository,
     private val ledgerRepository: LedgerRepository,
+    private val auditRepository: com.example.domain.repository.AuditRepository,
     private val pdfRepository: com.example.domain.repository.PdfRepository,
     private val sessionManager: com.example.session.SessionManager,
 ) : ViewModel() {
@@ -161,6 +185,10 @@ class StudentDetailViewModel @Inject constructor(
 
     private val _familySummary = MutableStateFlow<ParentLedgerSummary?>(null)
     val familySummary: StateFlow<ParentLedgerSummary?> = _familySummary.asStateFlow()
+
+    /** Vault §04.07 — permanent per-student academic history (all years). */
+    private val _academicHistory = MutableStateFlow<List<AcademicYearHistory>>(emptyList())
+    val academicHistory: StateFlow<List<AcademicYearHistory>> = _academicHistory.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -254,6 +282,8 @@ class StudentDetailViewModel @Inject constructor(
                                 _payments.value = it
                             }
                         }
+                        // Vault §04.07 — permanent academic history (all years).
+                        launch { loadAcademicHistory(studentId, s.gradeLevel) }
                     }
                 }
                 _isLoading.value = false
@@ -279,6 +309,75 @@ class StudentDetailViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Vault §04.07 / §06.05 — permanent academic history: every year the
+     * student has assessments for, with term-by-term GPAs (canonical engine),
+     * subject breakdown, attendance rate, and the promotion outcome
+     * reconstructed from the `student.promote` audit trail.
+     *
+     * READ-ONLY by construction — this loader never mutates anything; past
+     * years can only be superseded by a new audit-logged entry (append-only).
+     */
+    private suspend fun loadAcademicHistory(studentId: String, currentGradeLevel: String) {
+        val all = gradeRepository.observeAllForStudent(studentId).firstOrNull().orEmpty()
+        if (all.isEmpty()) {
+            _academicHistory.value = emptyList()
+            return
+        }
+        val attendance = attendanceRepository.observeByStudent(studentId).firstOrNull().orEmpty()
+
+        // Promotion audit trail: each `student.promote` entry carries
+        // after={"decision":…,"year":…,"from":…,"to":…} — `from` is the
+        // grade held DURING that year, `to` the next year's grade.
+        val promoteAudits = auditRepository
+            .observeByEntity("student", studentId)
+            .firstOrNull().orEmpty()
+            .filter { it.action == "student.promote" }
+        val outcomeByYear = mutableMapOf<String, Pair<String, String?>>() // year -> (decision, from)
+        promoteAudits.forEach { log ->
+            val after = log.afterJson ?: return@forEach
+            val decision = Regex("\\\"decision\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"").find(after)?.groupValues?.get(1)
+            val year = Regex("\\\"year\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"").find(after)?.groupValues?.get(1)
+            val from = Regex("\\\"from\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"").find(after)?.groupValues?.get(1)
+            if (decision != null && year != null) outcomeByYear[year] = decision to from
+        }
+
+        val currentYear = currentAcademicYear()
+        val history = all.groupBy { it.academicYear }
+            .map { (year, rows) ->
+                val termGpas = linkedMapOf<String, Double?>()
+                for (t in listOf("T1", "T2", "T3")) {
+                    val termRows = rows.filter { it.term == t }
+                    termGpas[t] = if (termRows.isEmpty()) null else com.example.core.computeOverallGpa(termRows)
+                }
+                val yearlyAttendance = attendance.filter {
+                    // Academic year "2026-2027" covers 2026-09 .. 2027-06.
+                    val y = it.date.take(4).toIntOrNull() ?: return@filter false
+                    val parts = year.split("-")
+                    val startYear = parts.getOrNull(0)?.toIntOrNull()
+                    val endYear = parts.getOrNull(1)?.takeLast(2)?.toIntOrNull()?.let { 2000 + it }
+                    if (startYear != null && endYear != null) y in startYear..endYear else y == startYear
+                }
+                val attRate = if (yearlyAttendance.isEmpty()) null
+                else yearlyAttendance.count { it.status == "present" }.toDouble() / yearlyAttendance.size * 100.0
+                val audit = outcomeByYear[year]
+                val gradeLevel = audit?.second
+                    ?: if (year == currentYear) currentGradeLevel else null
+                AcademicYearHistory(
+                    academicYear = year,
+                    termGpas = termGpas,
+                    yearlyGpa = com.example.core.computeOverallGpa(rows),
+                    assessments = rows,
+                    gradeLevel = gradeLevel,
+                    promotionOutcome = audit?.first,
+                    attendanceRate = attRate,
+                    isArchived = audit != null,
+                )
+            }
+            .sortedByDescending { it.academicYear }
+        _academicHistory.value = history
     }
 
     /**
@@ -389,13 +488,14 @@ fun StudentDetailScreen(
     val subjects by viewModel.subjects.collectAsState()
     val classAssessments by viewModel.classAssessments.collectAsState()
     val termGpas by viewModel.termGpas.collectAsState()
+    val academicHistory by viewModel.academicHistory.collectAsState()
     val bulletinBusy by viewModel.bulletinBusy.collectAsState()
     val bulletinShareRequest by viewModel.bulletinShareRequest.collectAsState()
     val context = LocalContext.current
     val tokens = elDesignTokens()
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Profil & Famille", "Notes & Bulletins", "Présences & Retards", "Finances & Échéances")
+    val tabs = listOf("Profil & Famille", "Notes & Bulletins", "Présences & Retards", "Finances & Échéances", "Historique")
     // FIX (hardcoded T1): term selector for the grades tab — previously only
     // "T1" of a hardcoded academic year was ever shown.
     var selectedTerm by remember { mutableStateOf("T1") }
@@ -995,6 +1095,18 @@ fun StudentDetailScreen(
                         }
                     }
                 }
+
+                // ── 5. HISTORIQUE ACADÉMIQUE (vault §04.07 / §06.05) ─────
+                // Permanent, append-only history embedded in the Student
+                // Profile drawer — NOT a separate top-level page.
+                4 -> AcademicHistoryTab(
+                    history = academicHistory,
+                    subjects = subjects,
+                    currentYear = run {
+                        val now = java.time.LocalDate.now()
+                        if (now.monthValue >= 9) "${now.year}-${now.year + 1}" else "${now.year - 1}-${now.year}"
+                    },
+                )
             }
 
             saveMessage?.let {
@@ -1217,3 +1329,203 @@ private fun MarkPill(label: String, value: Double?) {
         )
     }
 }
+
+// ── Vault §04.07 / §06.05 — Student Academic History (append-only) ──────────
+
+/**
+ * The permanent Academic History tab: term-by-term performance for every
+ * enrolled year. Clicking a year expands the complete report card (subject
+ * breakdown with Devoir 1 / Devoir 2 / Examen, coefficients, canonical
+ * averages), attendance rate, and the promotion outcome
+ * (APPROVED_FOR_PROMOTION / RETAINED_SAME_YEAR / GRADUATED).
+ *
+ * Archived years are strictly READ-ONLY (vault rule: corrections require a
+ * new audit-logged entry that supersedes the original — no in-place edits).
+ */
+@Composable
+private fun AcademicHistoryTab(
+    history: List<AcademicYearHistory>,
+    subjects: List<com.example.domain.model.Subject>,
+    currentYear: String,
+) {
+    val subjectById = subjects.associateBy { it.id }
+
+    if (history.isEmpty()) {
+        ElCard(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Historique académique", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                Text(
+                    "Aucun historique pour cet élève — les performances par trimestre apparaîtront ici au fil des années, avec le détail des bulletins et les décisions de promotion.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item {
+            ElCard(modifier = Modifier.fillMaxWidth(), accent = PrimaryBlue) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Parcours complet — ${history.size} année(s)", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                    Text(
+                        "Historique permanent en lecture seule : les années clôturées ne peuvent pas être modifiées (toute correction passe par une nouvelle entrée journalisée).",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        items(history, key = { it.academicYear }) { year ->
+            AcademicYearCard(year = year, subjectById = subjectById, currentYear = currentYear)
+        }
+    }
+}
+
+/** One academic year: summary row + expandable full report card. */
+@Composable
+private fun AcademicYearCard(
+    year: AcademicYearHistory,
+    subjectById: Map<String, com.example.domain.model.Subject>,
+    currentYear: String,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val isCurrent = year.academicYear == currentYear
+    val gpaColor = when {
+        year.yearlyGpa == null -> WarmGold
+        year.yearlyGpaSafe() >= 10.0 -> SuccessGreen
+        else -> DangerRed
+    }
+
+    ElCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded },
+        accent = gpaColor,
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Année ${year.academicYear}" + (if (isCurrent) " (en cours)" else ""),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    )
+                    Text(
+                        listOfNotNull(
+                            year.gradeLevel?.let { "Niveau ${it.uppercase()}" },
+                            year.attendanceRate?.let { "Présence %.0f%%".format(it) },
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        year.yearlyGpa?.let { "%.2f / 20".format(it) } ?: "—",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = gpaColor,
+                    )
+                    Text(
+                        if (expanded) "Bulletins ▲" else "Bulletins ▼",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = PrimaryBlue,
+                    )
+                }
+            }
+
+            // Term-by-term GPA chips.
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                year.termGpas.forEach { (term, gpa) ->
+                    val tColor = when {
+                        gpa == null -> MaterialTheme.colorScheme.outline
+                        gpa >= 10.0 -> SuccessGreen
+                        else -> DangerRed
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(tColor.copy(alpha = 0.10f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                    ) {
+                        Text(
+                            "$term ${gpa?.let { "%.2f".format(it) } ?: "—"}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = tColor,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+
+            // Promotion outcome (audit trail).
+            year.promotionOutcome?.let { outcome ->
+                when (outcome) {
+                    "promoted" -> ElTag(text = "APPROVED_FOR_PROMOTION", color = SuccessGreen)
+                    "graduated" -> ElTag(text = "DIPLÔMÉ", color = PrimaryBlue)
+                    else -> ElTag(text = "RETAINED_SAME_YEAR", color = DangerRed)
+                }
+            } ?: run {
+                if (!isCurrent) ElTag(text = "Année en attente de clôture", color = WarmGold)
+            }
+
+            if (expanded) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Bulletin complet — ${year.academicYear}",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                )
+                val bySubject = year.assessments.groupBy { it.subjectId }
+                bySubject.forEach { (subjectId, rows) ->
+                    val subject = subjectById[subjectId]
+                    val name = subject?.name ?: subjectId
+                    // Latest term row per subject shows the year's final marks.
+                    val last = rows.maxByOrNull { it.term } ?: rows.first()
+                    Column(modifier = Modifier.padding(vertical = 2.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                name + if (last.isExtracurricular) " (hors programme)" else "",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                last.subjectAverage?.let { "%.2f".format(it) } ?: "—",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                color = if (last.isExtracurricular) WarmGold else gpaColor,
+                            )
+                        }
+                        Text(
+                            "D1 ${last.devoir1 ?: "—"} · D2 ${last.devoir2 ?: "—"} · Examen ${last.examen ?: "—"} · Coef ${last.coefficient}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                if (year.isArchived) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Année clôturée — lecture seule (append-only).",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Null-safe yearly GPA accessor for color derivation. */
+private fun AcademicYearHistory.yearlyGpaSafe(): Double = yearlyGpa ?: 0.0

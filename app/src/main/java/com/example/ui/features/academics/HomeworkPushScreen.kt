@@ -1,16 +1,20 @@
 package com.example.ui.features.academics
 
+import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Class
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,6 +27,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Box
 import com.example.core.Session
 import com.example.ui.components.ElAlertBanner
 import com.example.ui.components.ElAlertSeverity
@@ -34,8 +45,10 @@ import com.example.ui.components.ElEmptyState
 import com.example.ui.components.ElGradientStatCard
 import com.example.ui.components.ElTextField
 import com.example.ui.theme.SuccessGreen
-import kotlinx.coroutines.flow.map
+import java.io.File
 import java.time.LocalDate
+import java.util.UUID
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
@@ -59,20 +72,46 @@ fun HomeworkPushScreen(
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var dueDate by remember { mutableStateOf(LocalDate.now().plusDays(7).toString()) }
-    var photoAttached by remember { mutableStateOf(false) }
+
+    // ── Vault §06.06 — REAL whiteboard photo capture ──────────────────────
+    // The previous implementation was a fake boolean toggle ("Capturer" just
+    // flipped `photoAttached` without opening any camera). We now use
+    // [ActivityResultContracts.TakePicture] — the system camera app captures
+    // a full-res photo to a cache file (same pattern as ProofScannerScreen),
+    // and the file name rides the homework's attachments list.
+    var capturedPhotoUri by remember { mutableStateOf<Uri?>(null) }
+    var capturedPhotoName by remember { mutableStateOf<String?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+    ) { success: Boolean ->
+        if (!success) {
+            capturedPhotoUri = null
+            capturedPhotoName = null
+        }
+    }
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+    ) { uri: Uri? ->
+        if (uri != null) {
+            capturedPhotoUri = uri
+            capturedPhotoName = "tableau_${UUID.randomUUID().toString().take(8)}.jpg"
+        }
+    }
 
     val academicYear = remember {
         val now = LocalDate.now()
         if (now.monthValue >= 9) "${now.year}-${now.year + 1}" else "${now.year - 1}-${now.year}"
     }
 
-    androidx.compose.runtime.LaunchedEffect(classes) {
+    LaunchedEffect(classes) {
         if (selectedClassId == null && classes.isNotEmpty()) selectedClassId = classes.first().id
     }
-    androidx.compose.runtime.LaunchedEffect(selectedClassId) {
+    LaunchedEffect(selectedClassId) {
         selectedClassId?.let { viewModel.loadSubjectsForClass(it) }
     }
-    androidx.compose.runtime.LaunchedEffect(subjects) {
+    LaunchedEffect(subjects) {
         if (selectedSubjectId == null && subjects.isNotEmpty()) selectedSubjectId = subjects.first().id
     }
 
@@ -129,27 +168,72 @@ fun HomeworkPushScreen(
         ElTextField(value = title, onValueChange = { title = it }, label = "Titre du Devoir", modifier = Modifier.fillMaxWidth())
         ElTextField(value = description, onValueChange = { description = it }, label = "Consignes et Détails", modifier = Modifier.fillMaxWidth(), singleLine = false)
         ElTextField(value = dueDate, onValueChange = { dueDate = it }, label = "Date de Rendu (AAAA-MM-JJ)", modifier = Modifier.fillMaxWidth())
+        Text(
+            "La date de rendu doit être aujourd'hui ou ultérieure (aucune diffusion rétroactive).",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
+        // ── Whiteboard photo card: REAL capture + preview + remove ─────────
         ElCard(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Photo du Tableau", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
-                    Text(
-                        if (photoAttached) "✓ Photo capturée (WebP)" else "Aucune photo jointe",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (photoAttached) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Photo du Tableau", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                        Text(
+                            if (capturedPhotoName != null) "✓ ${capturedPhotoName}" else "Aucune photo jointe",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (capturedPhotoName != null) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (capturedPhotoName != null) {
+                        ElButton(
+                            text = "Retirer",
+                            onClick = {
+                                capturedPhotoUri = null
+                                capturedPhotoName = null
+                            },
+                            style = ElButtonStyle.Secondary,
+                        )
+                    }
+                }
+                capturedPhotoUri?.let { uri ->
+                    AsyncImage(
+                        model = uri,
+                        contentDescription = "Photo du tableau",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop,
                     )
                 }
-                ElButton(
-                    text = if (photoAttached) "Retirer" else "Capturer",
-                    onClick = { photoAttached = !photoAttached },
-                    style = ElButtonStyle.Secondary,
-                    icon = Icons.Default.CameraAlt,
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ElButton(
+                        text = "Caméra",
+                        onClick = {
+                            val tempFile = File(context.cacheDir, "homework_board_${UUID.randomUUID()}.jpg")
+                            val uri = Uri.fromFile(tempFile)
+                            capturedPhotoUri = uri
+                            capturedPhotoName = tempFile.name
+                            cameraLauncher.launch(uri)
+                        },
+                        style = ElButtonStyle.Secondary,
+                        icon = Icons.Default.CameraAlt,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ElButton(
+                        text = "Galerie",
+                        onClick = { galleryLauncher.launch("image/*") },
+                        style = ElButtonStyle.Secondary,
+                        icon = Icons.Default.Image,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
 
@@ -171,7 +255,7 @@ fun HomeworkPushScreen(
                     title = title.ifBlank { "Devoir" },
                     description = description,
                     dueDate = dueDate,
-                    attachments = if (photoAttached) listOf("photo_tableau.webp") else emptyList(),
+                    attachments = capturedPhotoName?.let { listOf(it) } ?: emptyList(),
                     academicYear = academicYear,
                     actorId = session.userId,
                     actorName = session.displayName,

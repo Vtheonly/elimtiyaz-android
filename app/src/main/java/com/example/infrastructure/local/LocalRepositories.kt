@@ -385,8 +385,13 @@ class LocalParentRepository @Inject constructor(
             firstName = input.firstName, lastName = input.lastName,
             displayName = input.displayName ?: "${input.firstName} ${input.lastName}".trim().ifEmpty { null },
             phone = input.phone,
-            whatsapp = input.phone, email = input.email, occupation = input.occupation,
+            // Vault §04.03 — secondary phone / national ID / relationship from
+            // the batch-registration master info block.
+            whatsapp = input.secondaryPhone ?: input.phone,
+            email = input.email, occupation = input.occupation,
             address = input.address, transportDestination = input.transportDestination,
+            nationalId = input.nationalId,
+            relationship = input.relationship,
             preferredLanguage = input.preferredLanguage, avatarUrl = null,
             isActive = true, isFinanciallyRestricted = false,
             activationCode = activationCode, createdAt = now, updatedAt = now,
@@ -420,6 +425,11 @@ class LocalParentRepository @Inject constructor(
             occupation = input.occupation ?: existing.occupation,
             address = input.address ?: existing.address,
             transportDestination = input.transportDestination ?: existing.transportDestination,
+            // Vault §04.03 — master-info edits (secondary phone / national ID /
+            // relationship). Nullable elvis keeps unset fields untouched.
+            whatsapp = input.secondaryPhone ?: existing.whatsapp,
+            nationalId = input.nationalId ?: existing.nationalId,
+            relationship = input.relationship ?: existing.relationship,
             preferredLanguage = input.preferredLanguage ?: existing.preferredLanguage,
             updatedAt = Instant.now().toString(),
         )
@@ -571,8 +581,13 @@ class LocalStudentRepository @Inject constructor(
             firstName = parent.firstName, lastName = parent.lastName,
             displayName = parent.displayName ?: "${parent.firstName} ${parent.lastName}".trim().ifEmpty { null },
             phone = parent.phone,
-            whatsapp = parent.phone, email = parent.email, occupation = parent.occupation,
+            // Vault §04.03 — secondary phone / national ID / relationship from
+            // the registration master-info block (Step 1).
+            whatsapp = parent.secondaryPhone ?: parent.phone,
+            email = parent.email, occupation = parent.occupation,
             address = parent.address, transportDestination = parent.transportDestination,
+            nationalId = parent.nationalId,
+            relationship = parent.relationship,
             preferredLanguage = parent.preferredLanguage, avatarUrl = null,
             isActive = true, isFinanciallyRestricted = false,
             activationCode = activationCode, createdAt = now, updatedAt = now,
@@ -752,6 +767,11 @@ class LocalStudentRepository @Inject constructor(
                     put("address", parentEntity.address ?: "")
                     put("preferredLanguage", parentEntity.preferredLanguage)
                     put("transportDestination", parentEntity.transportDestination ?: "")
+                    // Vault §04.03 — master-info fields ride the sync payload;
+                    // the dispatcher's RPC signature is unchanged (it maps the
+                    // params it knows, extra keys are ignored server-side).
+                    parentEntity.nationalId?.let { put("nationalId", it) }
+                    parentEntity.relationship?.let { put("relationship", it) }
                     put("isActive", parentEntity.isActive)
                     put("activationCode", parentEntity.activationCode)
                     put("createdAt", parentEntity.createdAt)

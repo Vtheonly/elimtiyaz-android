@@ -43,20 +43,34 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
+/** Vault §04.03 — Relationship values (Father / Mother / Guardian). */
+private val RELATIONSHIPS = listOf("Père", "Mère", "Tuteur")
+
+/** Vault §06 (Assessment/billing) — canonical payment plans. */
+private val PAYMENT_PLANS = listOf("tranches" to "Tranches (3 échéances)", "full_annual" to "Paiement annuel intégral")
+
+private val GENDERS = listOf("M" to "Masculin", "F" to "Féminin")
+
 @Composable
 fun BatchRegistrationScreen(
     onSuccess: () -> Unit,
     onBack: (() -> Unit)? = null,
     viewModel: BatchRegistrationViewModel = hiltViewModel(),
 ) {
+    // ── Step 1: Parent master info (vault §04.03) ─────────────────────────
     var parentFirstName by remember { mutableStateOf("") }
     var parentLastName by remember { mutableStateOf("") }
     var parentPhone by remember { mutableStateOf("") }
+    var parentSecondaryPhone by remember { mutableStateOf("") }
     var parentEmail by remember { mutableStateOf("") }
     var parentOccupation by remember { mutableStateOf("") }
     var parentAddress by remember { mutableStateOf("") }
+    var parentNationalId by remember { mutableStateOf("") }
+    var parentRelationship by remember { mutableStateOf(RELATIONSHIPS.first()) }
+    var parentTransportDestination by remember { mutableStateOf("") }
 
     val children = remember { mutableStateListOf(ChildFormState()) }
+    val classes by viewModel.classes.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val activationCode by viewModel.activationCode.collectAsState()
@@ -69,9 +83,13 @@ fun BatchRegistrationScreen(
             parentFirstName = ""
             parentLastName = ""
             parentPhone = ""
+            parentSecondaryPhone = ""
             parentEmail = ""
             parentOccupation = ""
             parentAddress = ""
+            parentNationalId = ""
+            parentRelationship = RELATIONSHIPS.first()
+            parentTransportDestination = ""
             children.clear()
             children.add(ChildFormState())
         }
@@ -86,6 +104,8 @@ fun BatchRegistrationScreen(
             )
         },
         floatingActionButton = {
+            // Vault §04.02 — "Add Another Child" with NO upper bound (the
+            // earlier 4-child cap is removed; the list is fully dynamic).
             ElFab(
                 icon = Icons.Default.Add,
                 onClick = { children.add(ChildFormState()) },
@@ -99,16 +119,41 @@ fun BatchRegistrationScreen(
         ) {
             ElCard(modifier = Modifier.fillMaxWidth(), accent = PrimaryBlue) {
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ElSectionHeader(title = "Parent / Tuteur")
-                    ElTextField(value = parentFirstName, onValueChange = { parentFirstName = it }, label = "Prénom", modifier = Modifier.fillMaxWidth())
-                    ElTextField(value = parentLastName, onValueChange = { parentLastName = it }, label = "Nom", modifier = Modifier.fillMaxWidth())
-                    ElTextField(value = parentPhone, onValueChange = { parentPhone = it }, label = "Téléphone", modifier = Modifier.fillMaxWidth())
+                    ElSectionHeader(title = "Étape 1 — Parent / Tuteur")
+                    ElTextField(value = parentFirstName, onValueChange = { parentFirstName = it }, label = "Prénom *", modifier = Modifier.fillMaxWidth())
+                    ElTextField(value = parentLastName, onValueChange = { parentLastName = it }, label = "Nom *", modifier = Modifier.fillMaxWidth())
+                    ElTextField(value = parentPhone, onValueChange = { parentPhone = it }, label = "Téléphone principal *", modifier = Modifier.fillMaxWidth())
+                    ElTextField(value = parentSecondaryPhone, onValueChange = { parentSecondaryPhone = it }, label = "Téléphone secondaire (WhatsApp)", modifier = Modifier.fillMaxWidth())
                     ElTextField(value = parentEmail, onValueChange = { parentEmail = it }, label = "Email (optionnel)", modifier = Modifier.fillMaxWidth())
+                    ElTextField(value = parentNationalId, onValueChange = { parentNationalId = it }, label = "N° pièce d'identité (optionnel)", modifier = Modifier.fillMaxWidth())
                     ElTextField(value = parentOccupation, onValueChange = { parentOccupation = it }, label = "Profession (optionnel)", modifier = Modifier.fillMaxWidth())
                     ElTextField(value = parentAddress, onValueChange = { parentAddress = it }, label = "Adresse (optionnel)", modifier = Modifier.fillMaxWidth(), singleLine = false)
+                    ElDropdown(
+                        label = "Lien de parenté",
+                        selectedValue = parentRelationship,
+                        options = RELATIONSHIPS,
+                        onSelected = { parentRelationship = it },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    ElTextField(
+                        value = parentTransportDestination,
+                        onValueChange = { parentTransportDestination = it },
+                        label = "Destination transport (optionnel — ex: ville_boumerdes)",
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        "La destination de transport déclenche la facturation transport automatique (moteur canonique).",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
 
+            // ── Step 2: Dynamic children blocks (1..N, vault §04.02/§04.03) ──
+            Text(
+                "Étape 2 — Enfants (${children.size})",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            )
             children.forEachIndexed { index, child ->
                 ElCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -125,9 +170,18 @@ fun BatchRegistrationScreen(
                                 )
                             }
                         }
-                        ElTextField(value = child.firstName, onValueChange = { children[index] = child.copy(firstName = it) }, label = "Prénom", modifier = Modifier.fillMaxWidth())
+                        ElTextField(value = child.firstName, onValueChange = { children[index] = child.copy(firstName = it) }, label = "Prénom *", modifier = Modifier.fillMaxWidth())
                         ElTextField(value = child.lastName, onValueChange = { children[index] = child.copy(lastName = it) }, label = "Nom", modifier = Modifier.fillMaxWidth())
-                        ElTextField(value = child.birthDate, onValueChange = { children[index] = child.copy(birthDate = it) }, label = "Date de naissance (AAAA-MM-JJ)", modifier = Modifier.fillMaxWidth())
+                        ElTextField(value = child.birthDate, onValueChange = { children[index] = child.copy(birthDate = it) }, label = "Date de naissance (AAAA-MM-JJ) *", modifier = Modifier.fillMaxWidth())
+                        ElDropdown(
+                            label = "Sexe",
+                            selectedValue = GENDERS.firstOrNull { it.first == child.gender }?.second ?: "Non précisé",
+                            options = GENDERS.map { it.second },
+                            onSelected = { label ->
+                                children[index] = child.copy(gender = GENDERS.first { it.second == label }.first)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                         // FIX (broken level derivation): free-text level input
                         // with string-surgery classification misclassified
                         // lycée ("1ere_annee") and uppercase ("2AM") codes as
@@ -137,8 +191,47 @@ fun BatchRegistrationScreen(
                             label = "Niveau scolaire",
                             selectedValue = child.gradeLevel,
                             options = GRADE_LEVEL_CODES,
-                            onSelected = { children[index] = child.copy(gradeLevel = it) },
+                            onSelected = { children[index] = child.copy(gradeLevel = it, classId = null) },
                             modifier = Modifier.fillMaxWidth(),
+                        )
+                        // Vault §04.03 — "Assigned Academic Level & Class": the
+                        // class dropdown only offers classes of the chosen
+                        // grade's cycle (grouped by cycle in UI selectors,
+                        // vault §05.02 rule).
+                        val cycle = academicLevelForGradeCode(child.gradeLevel)
+                        val cycleClasses = classes.filter { it.level == cycle }
+                        if (child.gradeLevel.isNotBlank() && cycleClasses.isNotEmpty()) {
+                            val selectedClass = cycleClasses.firstOrNull { it.id == child.classId }
+                            ElDropdown(
+                                label = "Classe (optionnel)",
+                                selectedValue = selectedClass?.name ?: "Aucune",
+                                options = listOf("Aucune") + cycleClasses.map { it.name },
+                                onSelected = { name ->
+                                    children[index] = child.copy(
+                                        classId = cycleClasses.firstOrNull { it.name == name }?.id,
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                        // ── Step 3 (per-child billing): payment plan drives the
+                        // canonical discount engine + tranche split in
+                        // batchRegister (CANONICAL-FINANCIAL-LOGIC.md §5-§6).
+                        ElDropdown(
+                            label = "Modalité de paiement",
+                            selectedValue = PAYMENT_PLANS.first { it.first == child.paymentPlan }.second,
+                            options = PAYMENT_PLANS.map { it.second },
+                            onSelected = { label ->
+                                children[index] = child.copy(paymentPlan = PAYMENT_PLANS.first { it.second == label }.first)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        ElTextField(
+                            value = child.medicalNotes,
+                            onValueChange = { children[index] = child.copy(medicalNotes = it) },
+                            label = "Notes médicales (optionnel)",
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = false,
                         )
                     }
                 }
@@ -156,6 +249,12 @@ fun BatchRegistrationScreen(
                 }
             }
 
+            Text(
+                "Étape 4 — Validation atomique : le parent et les ${children.size} enfant(s) seront créés en une seule transaction (tout ou rien).",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             ElButton(
                 text = if (isLoading) "Inscription..." else "Inscrire la famille",
                 onClick = {
@@ -163,13 +262,24 @@ fun BatchRegistrationScreen(
                         firstName = parentFirstName, lastName = parentLastName, phone = parentPhone,
                         email = parentEmail.ifBlank { null }, occupation = parentOccupation.ifBlank { null },
                         address = parentAddress.ifBlank { null },
+                        secondaryPhone = parentSecondaryPhone.ifBlank { null },
+                        nationalId = parentNationalId.ifBlank { null },
+                        relationship = when (parentRelationship) {
+                            "Père" -> "father"
+                            "Mère" -> "mother"
+                            else -> "guardian"
+                        },
+                        transportDestination = parentTransportDestination.ifBlank { null },
                     )
                     val students = children.map { c ->
                         CreateStudentInput(
                             firstName = c.firstName, lastName = c.lastName,
-                            gender = "unspecified", birthDate = c.birthDate,
+                            gender = c.gender.ifBlank { "unspecified" }, birthDate = c.birthDate,
                             level = academicLevelForGradeCode(c.gradeLevel),
                             gradeLevel = c.gradeLevel,
+                            classId = c.classId,
+                            medicalNotes = c.medicalNotes.ifBlank { null },
+                            paymentPlan = c.paymentPlan,
                         )
                     }
                     viewModel.register(parent, students, onSuccess)

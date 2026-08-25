@@ -44,6 +44,9 @@ object LocalMappers {
         address = address, transportDestination = transportDestination,
         // TIER 4 FIX — cityTier surfaced to the domain (0028 parity).
         cityTier = cityTier,
+        // Vault §04.03 — batch registration master-info fields.
+        nationalId = nationalId,
+        relationship = relationship,
         preferredLanguage = preferredLanguage, avatarUrl = avatarUrl,
         createdAt = createdAt, updatedAt = updatedAt,
     )
@@ -97,7 +100,11 @@ object LocalMappers {
             id = id, tenantId = tenantId, classId = classId, subjectId = subjectId,
             subjectName = subjectName, teacherId = teacherId, teacherName = teacherName,
             title = title, description = description, dueDate = dueDate,
-            attachments = attachments, academicYear = "", createdAt = createdAt,
+            attachments = attachments,
+            // Vault §06.06 — academicYear + pushedAt are persisted since
+            // MIGRATION_9_10 (legacy rows fall back to "" / null).
+            academicYear = academicYear ?: "", createdAt = createdAt,
+            pushedAt = pushedAt,
         )
     }
 

@@ -74,11 +74,15 @@ class SyncQueueDispatcher @Inject constructor(
             // TIER 4 FIX (migration 0037) — installment mutations now push to
             // the new idempotent `upsert_installment_from_import` RPC.
             "installment" -> pushInstallment(entry, payload, actorId)
-            // Other entity kinds (installment, expense, attendance, grade,
-            // homework, audit_log, notification, calendar_event) are
-            // currently local-only. The shared schema migration 0027
-            // supports them via direct table upserts, but those flows
-            // are out of scope for this iteration.
+            // Vault §06.06 — Homework Assignment Engine: the teacher's
+            // assignment must reach the Student Web Portal. Direct idempotent
+            // upsert into the shared `homework` table (matched by primary key
+            // id — re-pushing the same queue entry never duplicates).
+            "homework" -> pushHomework(entry, payload)
+            // Other entity kinds (expense, attendance, grade, audit_log,
+            // notification, calendar_event) are currently local-only. The
+            // shared schema migration 0027 supports them via direct table
+            // upserts, but those flows are out of scope for this iteration.
             else -> {
                 // No-op — the SyncService will mark the entry as "synced".
             }
@@ -86,6 +90,44 @@ class SyncQueueDispatcher @Inject constructor(
     }
 
     // ── Per-entity push implementations ────────────────────────────────────
+
+    /**
+     * Vault §06.06 — homework push to the shared `homework` table so the
+     * Student Web Portal shows the assignment. Uses the postgrest table
+     * upsert (idempotent on the primary key) rather than an RPC — the
+     * `homework` table is part of the shared schema (migration 0027) and has
+     * no dedicated upsert RPC.
+     */
+    private suspend fun pushHomework(entry: SyncQueueEntity, p: JsonObject) {
+        val id = p.str("id") ?: return
+        val classId = p.str("classId") ?: p.str("class_id") ?: return
+        val subjectId = p.str("subjectId") ?: p.str("subject_id") ?: return
+        val row = buildJsonObject {
+            put("id", id)
+            put("tenant_id", entry.tenantId)
+            put("class_id", classId)
+            put("subject_id", subjectId)
+            p.str("subjectName")?.let { put("subject_name", it) }
+            p.str("teacherId")?.let { put("teacher_id", it) }
+            p.str("teacherName")?.let { put("teacher_name", it) }
+            put("title", p.str("title") ?: "Devoir")
+            put("description", p.str("description") ?: "")
+            put("due_date", p.str("dueDate") ?: p.str("due_date") ?: "")
+            p.str("academicYear")?.takeIf { it.isNotBlank() }?.let { put("academic_year", it) }
+            p.str("pushedAt")?.takeIf { it.isNotBlank() }?.let { put("pushed_at", it) }
+            put("created_at", p.str("createdAt") ?: p.str("created_at"))
+            // attachments — the local JSON string (["a.jpg"]) is passed
+            // through verbatim as a jsonb-compatible JSON array.
+            val attachmentsRaw = p.str("attachments")
+            val attachmentsElement = attachmentsRaw?.let {
+                runCatching { json.parseToJsonElement(it) }.getOrNull()
+            }
+            if (attachmentsElement != null) put("attachments", attachmentsElement)
+        }
+        NetworkTimeouts.guard<Unit>("sync.pushHomework", timeoutMs = 5_000L) {
+            supabaseProvider.postgrest.from("homework").upsert(row)
+        }
+    }
 
     private suspend fun pushParent(
         entry: SyncQueueEntity,

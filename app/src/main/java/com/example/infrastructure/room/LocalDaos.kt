@@ -214,6 +214,24 @@ interface AssessmentDao {
     @Query("SELECT * FROM assessments WHERE classId = :classId AND academicYear = :year")
     suspend fun listByClass(classId: String, year: String): List<AssessmentEntity>
 
+    /**
+     * Vault §04.07 / §06.05 — Student Academic History: EVERY assessment of
+     * one student across ALL academic years and terms (the permanent,
+     * append-only history embedded in the Student Profile).
+     */
+    @Query("SELECT * FROM assessments WHERE studentId = :studentId ORDER BY academicYear ASC, term ASC, subjectId ASC")
+    fun observeByStudent(studentId: String): Flow<List<AssessmentEntity>>
+
+    /**
+     * Vault §05.06 — coefficient edits must trigger an automatic GPA
+     * recompute for affected students. Android computes the GPA on read
+     * ([com.example.core.computeOverallGpa] over the assessment rows), so
+     * refreshing the coefficient snapshot on the CURRENT year's rows IS the
+     * recompute. Past years are append-only and are never touched.
+     */
+    @Query("UPDATE assessments SET coefficient = :coefficient WHERE subjectId = :subjectId AND academicYear = :academicYear")
+    suspend fun updateCoefficientForSubjectYear(subjectId: String, coefficient: Double, academicYear: String)
+
     @Query("SELECT COUNT(*) FROM assessments")
     suspend fun count(): Int
 

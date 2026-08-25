@@ -40,6 +40,9 @@ fun ParentDto.toDomain(): Parent = Parent(
     occupation = occupation,
     address = address,
     transportDestination = transportDestination,
+    // Vault §04.03 — batch registration master-info fields (backend parity).
+    nationalId = nationalId,
+    relationship = relationship,
     preferredLanguage = "fr",
     avatarUrl = null,
     createdAt = createdAt ?: "",
@@ -64,6 +67,9 @@ fun ParentDto.toEntity(): ParentEntity = ParentEntity(
     //   * cityTier drives transport pricing on desktop (0028 schema).
     //   * isFinanciallyRestricted is a server-set CRM restriction flag.
     cityTier = cityTier,
+    // Vault §04.03 — master-info fields pulled from the server.
+    nationalId = nationalId,
+    relationship = relationship,
     preferredLanguage = "fr",
     avatarUrl = null,
     isActive = isActive,

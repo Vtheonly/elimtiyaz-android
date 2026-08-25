@@ -76,6 +76,7 @@ object DatabaseModule {
                 ElImtiyazDatabase.MIGRATION_6_7,
                 ElImtiyazDatabase.MIGRATION_7_8,
                 ElImtiyazDatabase.MIGRATION_8_9,
+                ElImtiyazDatabase.MIGRATION_9_10,
             )
             // Fallback for any future schema changes that don't yet have an
             // explicit migration — destructive, but only fires if a migration

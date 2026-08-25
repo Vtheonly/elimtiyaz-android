@@ -12,8 +12,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -22,6 +23,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,7 +43,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.core.Permission
 import com.example.core.Result
 import com.example.domain.model.Subject
+import com.example.domain.repository.CreateSubjectInput
 import com.example.domain.repository.SubjectRepository
+import com.example.domain.repository.UpdateSubjectInput
 import com.example.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -59,6 +63,14 @@ import kotlinx.coroutines.launch
  *  - Lists all subjects.
  *  - Filter chips by `AcademicLevel` (primaire/cem/lycee).
  *  - Create / archive actions gated to MANAGE_SUBJECTS.
+ *
+ * Vault §05.06 / §05.07 additions:
+ *  - Domain filter (Scolarité vs Hors programme — the strict domain split;
+ *    club/therapy grades never feed the Scolarite GPA).
+ *  - `updateSubject` edits (name, coefficient, passing grade) — coefficient
+ *    changes are audited and trigger the automatic GPA recompute for the
+ *    current year (repository side).
+ *  - Creation supports the extracurricular flag (previously hardcoded false).
  */
 @HiltViewModel
 class SubjectsDirectoryViewModel @Inject constructor(
@@ -72,12 +84,22 @@ class SubjectsDirectoryViewModel @Inject constructor(
     private val _levelFilter = MutableStateFlow<String?>(null)
     val levelFilter: StateFlow<String?> = _levelFilter.asStateFlow()
 
+    // Vault §05.01 — domain filter: null = all, "scolarite" = formal core
+    // academics, "extracurricular" = clubs & therapy programs.
+    private val _domainFilter = MutableStateFlow<String?>(null)
+    val domainFilter: StateFlow<String?> = _domainFilter.asStateFlow()
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message.asStateFlow()
 
     val canManage: Boolean get() = sessionManager.current()?.can(Permission.MANAGE_SUBJECTS) == true
 
     fun onLevelFilter(level: String?) { _levelFilter.value = level }
+
+    fun onDomainFilter(domain: String?) { _domainFilter.value = domain }
 
     fun archiveSubject(id: String) {
         if (!canManage) { _error.value = "Permission manquante : MANAGE_SUBJECTS."; return }
@@ -93,7 +115,7 @@ class SubjectsDirectoryViewModel @Inject constructor(
 
     // FIX (dead create dialog): the "Nouvelle matière" dialog was labelled
     // "Créer (mock)" and created NOTHING. Wired to the real repository.
-    fun createSubject(name: String, code: String, level: String, coefficient: Double) {
+    fun createSubject(name: String, code: String, level: String, coefficient: Double, isExtracurricular: Boolean) {
         if (!canManage) { _error.value = "Permission manquante : MANAGE_SUBJECTS."; return }
         if (name.isBlank() || code.isBlank()) {
             _error.value = "Nom et code sont requis."
@@ -103,21 +125,61 @@ class SubjectsDirectoryViewModel @Inject constructor(
             val actorId = sessionManager.currentUserId() ?: "system"
             val actorName = sessionManager.currentDisplayName() ?: "System"
             val result = subjectRepository.createSubject(
-                com.example.domain.repository.CreateSubjectInput(
+                CreateSubjectInput(
                     name = name.trim(),
                     nameAr = null,
                     code = code.trim().uppercase(),
                     level = level.trim().ifBlank { "all" },
                     coefficient = coefficient,
-                    isExtracurricular = false,
+                    isExtracurricular = isExtracurricular,
                 ),
                 actorId, actorName,
             )
             when (result) {
-                is Result.Ok -> {}
+                is Result.Ok -> _message.value = "Matière « ${result.value.name} » créée."
                 is Result.Err -> _error.value = result.error.userMessage
             }
         }
+    }
+
+    /**
+     * Vault §05.06 — edit an existing subject (name / coefficient / passing
+     * grade). The repository audits the change and refreshes the current
+     * year's assessment coefficient snapshots (automatic GPA recompute).
+     */
+    fun updateSubject(id: String, name: String, coefficient: Double, passingGrade: Double) {
+        if (!canManage) { _error.value = "Permission manquante : MANAGE_SUBJECTS."; return }
+        if (name.isBlank()) {
+            _error.value = "Le nom est requis."
+            return
+        }
+        if (coefficient <= 0.0) {
+            _error.value = "Le coefficient doit être strictement positif."
+            return
+        }
+        viewModelScope.launch {
+            val actorId = sessionManager.currentUserId() ?: "system"
+            val actorName = sessionManager.currentDisplayName() ?: "System"
+            val result = subjectRepository.updateSubject(
+                id,
+                UpdateSubjectInput(
+                    name = name.trim(),
+                    coefficient = coefficient,
+                    passingGrade = passingGrade,
+                ),
+                actorId, actorName,
+            )
+            when (result) {
+                is Result.Ok -> _message.value =
+                    "Matière mise à jour — les moyennes de l'année en cours seront recalculées."
+                is Result.Err -> _error.value = result.error.userMessage
+            }
+        }
+    }
+
+    fun clearMessages() {
+        _error.value = null
+        _message.value = null
     }
 }
 
@@ -129,15 +191,26 @@ fun SubjectsDirectoryScreen(
 ) {
     val subjects by viewModel.subjects.collectAsState()
     val levelFilter by viewModel.levelFilter.collectAsState()
+    val domainFilter by viewModel.domainFilter.collectAsState()
     val error by viewModel.error.collectAsState()
+    val message by viewModel.message.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var archiveTarget by remember { mutableStateOf<Subject?>(null) }
+    // Vault §05.06 — edit dialog state.
+    var editTarget by remember { mutableStateOf<Subject?>(null) }
 
     // FIX (broken level filter): subjects scoped "all" apply to every level —
     // the previous strict equality filter showed an empty list under each chip.
-    val filtered = if (levelFilter == null) subjects
-        else subjects.filter { it.level == "all" || it.level == levelFilter }
+    val filtered = subjects
+        .let { list -> if (levelFilter == null) list else list.filter { it.level == "all" || it.level == levelFilter } }
+        .let { list ->
+            when (domainFilter) {
+                null -> list
+                "scolarite" -> list.filter { !it.isExtracurricular }
+                else -> list.filter { it.isExtracurricular }
+            }
+        }
 
     Scaffold(
         topBar = {
@@ -154,6 +227,14 @@ fun SubjectsDirectoryScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 8.dp)) }
+            message?.let { Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 8.dp)) }
+
+            // Vault §05.01 — domain split filter (Scolarite vs Clubs/Therapy).
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+                FilterChip(selected = domainFilter == null, onClick = { viewModel.onDomainFilter(null) }, label = { Text("Tous domaines") })
+                FilterChip(selected = domainFilter == "scolarite", onClick = { viewModel.onDomainFilter("scolarite") }, label = { Text("Scolarité") })
+                FilterChip(selected = domainFilter == "extracurricular", onClick = { viewModel.onDomainFilter("extracurricular") }, label = { Text("Clubs & Thérapie") })
+            }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
                 FilterChip(selected = levelFilter == null, onClick = { viewModel.onLevelFilter(null) }, label = { Text("Tous") })
@@ -174,6 +255,9 @@ fun SubjectsDirectoryScreen(
                             Text("Seuil réussite: ${subj.passingGrade}/20", style = MaterialTheme.typography.labelSmall)
                             if (viewModel.canManage) {
                                 Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                                    // Vault §05.06 — coefficient edit (audited +
+                                    // triggers the GPA recompute server-repo side).
+                                    IconButton(onClick = { editTarget = subj }) { Icon(Icons.Default.Edit, contentDescription = "Modifier") }
                                     IconButton(onClick = { archiveTarget = subj }) { Icon(Icons.Default.Archive, contentDescription = "Archiver") }
                                 }
                             }
@@ -189,30 +273,103 @@ fun SubjectsDirectoryScreen(
         var code by remember { mutableStateOf("") }
         var level by remember { mutableStateOf("all") }
         var coef by remember { mutableStateOf("1") }
+        // Vault §05.07 — extracurricular toggle (clubs & therapy programs).
+        var extracurricularLabel by remember { mutableStateOf("Scolarité") }
+        val domainOptions = listOf("Scolarité", "Hors programme (club / thérapie)")
         AlertDialog(
             onDismissRequest = { showCreateDialog = false },
             title = { Text("Nouvelle matière") },
             text = {
                 Column {
-                    androidx.compose.material3.OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nom *") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nom *") }, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
-                    androidx.compose.material3.OutlinedTextField(value = code, onValueChange = { code = it }, label = { Text("Code *") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = code, onValueChange = { code = it }, label = { Text("Code *") }, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
-                    androidx.compose.material3.OutlinedTextField(value = level, onValueChange = { level = it }, label = { Text("Niveau (all/primaire/cem/lycee)") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = level, onValueChange = { level = it }, label = { Text("Niveau (all/primaire/cem/lycee)") }, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
-                    androidx.compose.material3.OutlinedTextField(value = coef, onValueChange = { coef = it.filter { c -> c.isDigit() } }, label = { Text("Coefficient") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = coef, onValueChange = { coef = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("Coefficient") }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        domainOptions.forEach { opt ->
+                            FilterChip(
+                                selected = extracurricularLabel == opt,
+                                onClick = { extracurricularLabel = opt },
+                                label = { Text(if (opt == "Scolarité") "Scolarité" else "Hors programme") },
+                            )
+                        }
+                    }
+                    Text(
+                        "Les matières hors programme (clubs, thérapie) sont exclues du GPA de scolarité.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.createSubject(name, code, level, coef.toDoubleOrNull() ?: 1.0)
+                        viewModel.createSubject(
+                            name, code, level,
+                            coef.toDoubleOrNull() ?: 1.0,
+                            extracurricularLabel != "Scolarité",
+                        )
                         showCreateDialog = false
                     },
                     enabled = name.isNotBlank() && code.isNotBlank(),
                 ) { Text("Créer") }
             },
             dismissButton = { TextButton(onClick = { showCreateDialog = false }) { Text("Annuler") } },
+        )
+    }
+
+    // Vault §05.06 — edit dialog: name + coefficient + passing grade.
+    editTarget?.let { subj ->
+        var name by remember(subj.id) { mutableStateOf(subj.name) }
+        var coef by remember(subj.id) { mutableStateOf(if (subj.coefficient == subj.coefficient.toLong().toDouble()) "${subj.coefficient.toLong()}" else "${subj.coefficient}") }
+        var passing by remember(subj.id) { mutableStateOf(if (subj.passingGrade == subj.passingGrade.toLong().toDouble()) "${subj.passingGrade.toLong()}" else "${subj.passingGrade}") }
+        AlertDialog(
+            onDismissRequest = { editTarget = null },
+            title = { Text("Modifier — ${subj.name}") },
+            text = {
+                Column {
+                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nom *") }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = coef,
+                        onValueChange = { coef = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("Coefficient") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = passing,
+                        onValueChange = { passing = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("Seuil de réussite (/20)") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Un changement de coefficient est journalisé et déclenche le recalcul automatique des moyennes de l'année en cours (les années archivées restent immuables).",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.updateSubject(
+                            subj.id,
+                            name,
+                            coef.toDoubleOrNull() ?: subj.coefficient,
+                            passing.toDoubleOrNull() ?: subj.passingGrade,
+                        )
+                        editTarget = null
+                    },
+                    enabled = name.isNotBlank() && (coef.toDoubleOrNull() ?: 0.0) > 0.0,
+                ) { Text("Enregistrer") }
+            },
+            dismissButton = { TextButton(onClick = { editTarget = null }) { Text("Annuler") } },
         )
     }
 

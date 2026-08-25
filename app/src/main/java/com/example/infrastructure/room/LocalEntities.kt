@@ -30,6 +30,7 @@ data class ParentEntity(
     /** COMPLETE display name as imported (migration 0027). UI shows this verbatim when non-null. */
     val displayName: String? = null,
     val phone: String,
+    /** Secondary phone — round-trips the server's `secondary_phone` column. */
     val whatsapp: String?,
     val email: String?,
     val occupation: String?,
@@ -42,6 +43,11 @@ data class ParentEntity(
     val cityTier: String? = null,
     val isFinanciallyRestricted: Boolean,
     val activationCode: String?,
+    // Vault §04.03 — batch registration master-info fields (backend parity:
+    // `national_id` + `relationship` exist on the Supabase parents table).
+    val nationalId: String? = null,
+    /** Father | Mother | Guardian (Père / Mère / Tuteur). */
+    val relationship: String? = null,
     val createdAt: String,
     val updatedAt: String,
 ) {
@@ -209,6 +215,11 @@ data class HomeworkEntity(
     val dueDate: String,
     val attachmentsJson: String,
     val createdAt: String,
+    // Vault §06.06 — Homework Assignment Engine: the academic year scopes the
+    // assignment; pushedAt stamps the portal push (both on the backend's
+    // homework table). Added in MIGRATION_9_10; defaulted for legacy rows.
+    val academicYear: String? = null,
+    val pushedAt: String? = null,
 )
 
 // ─── Finance ─────────────────────────────────────────────────────────────────
