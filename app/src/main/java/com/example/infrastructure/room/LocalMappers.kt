@@ -77,6 +77,11 @@ object LocalMappers {
         id = id, tenantId = tenantId, name = name, nameAr = null,
         code = code, level = level, coefficient = coefficient,
         isExtracurricular = isExtracurricular, passingGrade = passingGrade,
+        // Vault §06.02 — surface the per-COMPONENT coefficients so the GPA
+        // engine + the Subjects directory edit dialog can read + edit them.
+        coefficientDevoir1 = coefficientDevoir1,
+        coefficientDevoir2 = coefficientDevoir2,
+        coefficientExamen = coefficientExamen,
     )
 
     fun AttendanceEntity.toDomain() = AttendanceRecord(
@@ -92,6 +97,13 @@ object LocalMappers {
         coefficient = coefficient, subjectAverage = subjectAverage,
         isExtracurricular = isExtracurricular,
         enteredBy = enteredBy, enteredAt = enteredAt,
+        // Vault §06.02 — surface the per-COMPONENT coefficient snapshot so
+        // the GPA fallback path ([computeOverallGpa] when subjectAverage is
+        // null) can recompute the average using the SAME coefficients that
+        // were in effect when the marks were entered.
+        coefficientDevoir1 = coefficientDevoir1,
+        coefficientDevoir2 = coefficientDevoir2,
+        coefficientExamen = coefficientExamen,
     )
 
     fun HomeworkEntity.toDomain(): Homework {

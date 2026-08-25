@@ -51,7 +51,7 @@ import androidx.room.RoomDatabase
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 abstract class ElImtiyazDatabase : RoomDatabase() {
@@ -335,6 +335,57 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
                 )
                 database.execSQL(
                     "ALTER TABLE homework ADD COLUMN pushedAt TEXT"
+                )
+            }
+        }
+
+        /**
+         * Room migration v10 → v11 (vault §06.02 iteration 2 — per-component
+         * subject-average coefficients).
+         *
+         * Adds three REAL columns to `subjects` (admin-configurable per-
+         * component weights for Devoir 1 / Devoir 2 / Examen) and the same
+         * three columns to `assessments` (a per-row snapshot taken at grade-
+         * entry time, so archived years stay immutable when an admin later
+         * edits the subject's coefficients — vault §04.07 append-only).
+         *
+         * Defaults (1.0, 1.0, 2.0) preserve the historical `(D1 + D2 + 2×Ex) / 4`
+         * recipe bit-identically: (D1×1 + D2×1 + Ex×2) / (1+1+2) is the same
+         * numerator and the same denominator. So existing GPAs computed under
+         * the previous build do not move by a single centime after the
+         * migration — the new columns only enable admins to override the
+         * weights per subject going forward.
+         *
+         * This is the "old approach" the user asked for: each component
+         * carries its OWN coefficient instead of the previous hard-coded
+         * formula. The shared Supabase `subjects` table can adopt the same
+         * three columns (`coefficient_devoir_1`, `coefficient_devoir_2`,
+         * `coefficient_examen`) when the backend repo catches up; until then
+         * the Android app falls back to the (1, 1, 2) defaults on pull-side
+         * (see [SharedDtoMappers.SubjectDto.toEntity]).
+         */
+        val MIGRATION_10_11 = object : androidx.room.migration.Migration(10, 11) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                // Subject-level per-component coefficients (admin-configurable).
+                database.execSQL(
+                    "ALTER TABLE subjects ADD COLUMN coefficientDevoir1 REAL NOT NULL DEFAULT 1.0"
+                )
+                database.execSQL(
+                    "ALTER TABLE subjects ADD COLUMN coefficientDevoir2 REAL NOT NULL DEFAULT 1.0"
+                )
+                database.execSQL(
+                    "ALTER TABLE subjects ADD COLUMN coefficientExamen REAL NOT NULL DEFAULT 2.0"
+                )
+                // Per-row coefficient SNAPSHOT on assessments — copied from
+                // the subject at grade-entry time; archived years never change.
+                database.execSQL(
+                    "ALTER TABLE assessments ADD COLUMN coefficientDevoir1 REAL NOT NULL DEFAULT 1.0"
+                )
+                database.execSQL(
+                    "ALTER TABLE assessments ADD COLUMN coefficientDevoir2 REAL NOT NULL DEFAULT 1.0"
+                )
+                database.execSQL(
+                    "ALTER TABLE assessments ADD COLUMN coefficientExamen REAL NOT NULL DEFAULT 2.0"
                 )
             }
         }

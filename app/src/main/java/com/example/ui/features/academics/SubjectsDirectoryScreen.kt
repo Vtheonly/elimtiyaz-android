@@ -115,7 +115,15 @@ class SubjectsDirectoryViewModel @Inject constructor(
 
     // FIX (dead create dialog): the "Nouvelle matière" dialog was labelled
     // "Créer (mock)" and created NOTHING. Wired to the real repository.
-    fun createSubject(name: String, code: String, level: String, coefficient: Double, isExtracurricular: Boolean) {
+    //
+    // Vault §06.02 (iteration 2) — the create payload now carries the
+    // three per-COMPONENT coefficients (D1 / D2 / Examen). Defaults
+    // (1, 1, 2) preserve the historical recipe when the admin leaves the
+    // fields at their default values.
+    fun createSubject(
+        name: String, code: String, level: String, coefficient: Double, isExtracurricular: Boolean,
+        coefDevoir1: Double, coefDevoir2: Double, coefExamen: Double,
+    ) {
         if (!canManage) { _error.value = "Permission manquante : MANAGE_SUBJECTS."; return }
         if (name.isBlank() || code.isBlank()) {
             _error.value = "Nom et code sont requis."
@@ -132,6 +140,9 @@ class SubjectsDirectoryViewModel @Inject constructor(
                     level = level.trim().ifBlank { "all" },
                     coefficient = coefficient,
                     isExtracurricular = isExtracurricular,
+                    coefficientDevoir1 = coefDevoir1,
+                    coefficientDevoir2 = coefDevoir2,
+                    coefficientExamen = coefExamen,
                 ),
                 actorId, actorName,
             )
@@ -143,11 +154,16 @@ class SubjectsDirectoryViewModel @Inject constructor(
     }
 
     /**
-     * Vault §05.06 — edit an existing subject (name / coefficient / passing
-     * grade). The repository audits the change and refreshes the current
-     * year's assessment coefficient snapshots (automatic GPA recompute).
+     * Vault §05.06 + §06.02 — edit an existing subject (name / coefficient /
+     * passing grade / per-component coefficients). The repository audits
+     * the change, refreshes the current year's assessment coefficient
+     * snapshots, and re-derives subjectAverage with the new per-component
+     * weights (automatic GPA recompute).
      */
-    fun updateSubject(id: String, name: String, coefficient: Double, passingGrade: Double) {
+    fun updateSubject(
+        id: String, name: String, coefficient: Double, passingGrade: Double,
+        coefDevoir1: Double, coefDevoir2: Double, coefExamen: Double,
+    ) {
         if (!canManage) { _error.value = "Permission manquante : MANAGE_SUBJECTS."; return }
         if (name.isBlank()) {
             _error.value = "Le nom est requis."
@@ -166,6 +182,9 @@ class SubjectsDirectoryViewModel @Inject constructor(
                     name = name.trim(),
                     coefficient = coefficient,
                     passingGrade = passingGrade,
+                    coefficientDevoir1 = coefDevoir1,
+                    coefficientDevoir2 = coefDevoir2,
+                    coefficientExamen = coefExamen,
                 ),
                 actorId, actorName,
             )
@@ -253,6 +272,14 @@ fun SubjectsDirectoryScreen(
                             }
                             Text("Code: ${subj.code} • Niveau: ${subj.level} • Coef: ${subj.coefficient}", style = MaterialTheme.typography.labelSmall)
                             Text("Seuil réussite: ${subj.passingGrade}/20", style = MaterialTheme.typography.labelSmall)
+                            // Vault §06.02 — surface the per-COMPONENT
+                            // coefficients so an admin can read the active
+                            // subject-average recipe at a glance.
+                            Text(
+                                "Pondération: D1 × ${subj.coefficientDevoir1} • D2 × ${subj.coefficientDevoir2} • Ex × ${subj.coefficientExamen}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                             if (viewModel.canManage) {
                                 Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                                     // Vault §05.06 — coefficient edit (audited +
@@ -273,6 +300,11 @@ fun SubjectsDirectoryScreen(
         var code by remember { mutableStateOf("") }
         var level by remember { mutableStateOf("all") }
         var coef by remember { mutableStateOf("1") }
+        // Vault §06.02 (iteration 2) — per-COMPONENT coefficients. Defaults
+        // (1, 1, 2) preserve the historical recipe (Examen weighted ×2).
+        var coefD1 by remember { mutableStateOf("1") }
+        var coefD2 by remember { mutableStateOf("1") }
+        var coefEx by remember { mutableStateOf("2") }
         // Vault §05.07 — extracurricular toggle (clubs & therapy programs).
         var extracurricularLabel by remember { mutableStateOf("Scolarité") }
         val domainOptions = listOf("Scolarité", "Hors programme (club / thérapie)")
@@ -287,7 +319,15 @@ fun SubjectsDirectoryScreen(
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value = level, onValueChange = { level = it }, label = { Text("Niveau (all/primaire/cem/lycee)") }, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = coef, onValueChange = { coef = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("Coefficient") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = coef, onValueChange = { coef = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("Coefficient (scolarité)") }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    // Vault §06.02 — per-component coefficients for the
+                    // subject-average recipe (D1×c1 + D2×c2 + Ex×c3) / (c1+c2+c3).
+                    OutlinedTextField(value = coefD1, onValueChange = { coefD1 = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("Coef. Devoir 1") }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(value = coefD2, onValueChange = { coefD2 = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("Coef. Devoir 2") }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(value = coefEx, onValueChange = { coefEx = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("Coef. Examen") }, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         domainOptions.forEach { opt ->
@@ -299,7 +339,8 @@ fun SubjectsDirectoryScreen(
                         }
                     }
                     Text(
-                        "Les matières hors programme (clubs, thérapie) sont exclues du GPA de scolarité.",
+                        "Les matières hors programme (clubs, thérapie) sont exclues du GPA de scolarité. " +
+                            "Recette par défaut : (D1 + D2 + 2×Examen) / 4.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -312,6 +353,9 @@ fun SubjectsDirectoryScreen(
                             name, code, level,
                             coef.toDoubleOrNull() ?: 1.0,
                             extracurricularLabel != "Scolarité",
+                            coefD1.toDoubleOrNull() ?: 1.0,
+                            coefD2.toDoubleOrNull() ?: 1.0,
+                            coefEx.toDoubleOrNull() ?: 2.0,
                         )
                         showCreateDialog = false
                     },
@@ -322,11 +366,15 @@ fun SubjectsDirectoryScreen(
         )
     }
 
-    // Vault §05.06 — edit dialog: name + coefficient + passing grade.
+    // Vault §05.06 + §06.02 — edit dialog: name + coefficient + passing
+    // grade + the three per-component coefficients.
     editTarget?.let { subj ->
         var name by remember(subj.id) { mutableStateOf(subj.name) }
         var coef by remember(subj.id) { mutableStateOf(if (subj.coefficient == subj.coefficient.toLong().toDouble()) "${subj.coefficient.toLong()}" else "${subj.coefficient}") }
         var passing by remember(subj.id) { mutableStateOf(if (subj.passingGrade == subj.passingGrade.toLong().toDouble()) "${subj.passingGrade.toLong()}" else "${subj.passingGrade}") }
+        var coefD1 by remember(subj.id) { mutableStateOf(if (subj.coefficientDevoir1 == subj.coefficientDevoir1.toLong().toDouble()) "${subj.coefficientDevoir1.toLong()}" else "${subj.coefficientDevoir1}") }
+        var coefD2 by remember(subj.id) { mutableStateOf(if (subj.coefficientDevoir2 == subj.coefficientDevoir2.toLong().toDouble()) "${subj.coefficientDevoir2.toLong()}" else "${subj.coefficientDevoir2}") }
+        var coefEx by remember(subj.id) { mutableStateOf(if (subj.coefficientExamen == subj.coefficientExamen.toLong().toDouble()) "${subj.coefficientExamen.toLong()}" else "${subj.coefficientExamen}") }
         AlertDialog(
             onDismissRequest = { editTarget = null },
             title = { Text("Modifier — ${subj.name}") },
@@ -337,7 +385,28 @@ fun SubjectsDirectoryScreen(
                     OutlinedTextField(
                         value = coef,
                         onValueChange = { coef = it.filter { c -> c.isDigit() || c == '.' } },
-                        label = { Text("Coefficient") },
+                        label = { Text("Coefficient (scolarité)") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = coefD1,
+                        onValueChange = { coefD1 = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("Coef. Devoir 1") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = coefD2,
+                        onValueChange = { coefD2 = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("Coef. Devoir 2") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = coefEx,
+                        onValueChange = { coefEx = it.filter { c -> c.isDigit() || c == '.' } },
+                        label = { Text("Coef. Examen") },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(8.dp))
@@ -363,6 +432,9 @@ fun SubjectsDirectoryScreen(
                             name,
                             coef.toDoubleOrNull() ?: subj.coefficient,
                             passing.toDoubleOrNull() ?: subj.passingGrade,
+                            coefD1.toDoubleOrNull() ?: subj.coefficientDevoir1,
+                            coefD2.toDoubleOrNull() ?: subj.coefficientDevoir2,
+                            coefEx.toDoubleOrNull() ?: subj.coefficientExamen,
                         )
                         editTarget = null
                     },

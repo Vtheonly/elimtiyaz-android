@@ -77,6 +77,15 @@ object DatabaseModule {
                 ElImtiyazDatabase.MIGRATION_7_8,
                 ElImtiyazDatabase.MIGRATION_8_9,
                 ElImtiyazDatabase.MIGRATION_9_10,
+                // Vault §06.02 (iteration 2) — per-COMPONENT coefficients for
+                // the subject-average recipe. Adds three REAL columns to
+                // `subjects` (admin-configurable per-component weights) and
+                // the same three columns to `assessments` (per-row snapshot
+                // at grade-entry time; archived years stay immutable).
+                // Defaults (1.0, 1.0, 2.0) preserve the historical
+                // (D1 + D2 + 2×Ex) / 4 recipe bit-identically, so existing
+                // GPAs do not move by a single centime after the migration.
+                ElImtiyazDatabase.MIGRATION_10_11,
             )
             // Fallback for any future schema changes that don't yet have an
             // explicit migration — destructive, but only fires if a migration

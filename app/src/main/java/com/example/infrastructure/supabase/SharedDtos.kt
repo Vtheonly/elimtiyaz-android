@@ -156,6 +156,15 @@ data class SubjectDto(
     @SerialName("cycle") val cycle: String? = null,
     @SerialName("passing_grade") val passingGrade: Double? = 10.0,
     @SerialName("is_extracurricular") val isExtracurricular: Boolean = false,
+    // Vault §06.02 (iteration 2) — per-COMPONENT coefficients on the shared
+    // subject schema. Nullable so a backend that hasn't migrated to the
+    // per-component recipe still parses (defaults apply downstream). When
+    // the backend/desktop add the matching `coefficient_devoir_1` /
+    // `coefficient_devoir_2` / `coefficient_examen` columns, the values
+    // round-trip through the sync layer unchanged.
+    @SerialName("coefficient_devoir_1") val coefficientDevoir1: Double? = null,
+    @SerialName("coefficient_devoir_2") val coefficientDevoir2: Double? = null,
+    @SerialName("coefficient_examen") val coefficientExamen: Double? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
 )

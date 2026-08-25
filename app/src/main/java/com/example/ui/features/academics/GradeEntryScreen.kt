@@ -112,11 +112,11 @@ fun GradeEntryScreen(
     val d1 = devoir1Text.toDoubleOrNull()
     val d2 = devoir2Text.toDoubleOrNull()
     val ex = examenText.toDoubleOrNull()
-    // CANONICAL preview — the exact engine used by the persistence layer
-    // (null while any mark is missing; examen weighted ×2; half-up rounding
-    // at 2 decimals). The previous inline `(d1+d2+2*ex)/4` formula diverged
-    // from the SQL trigger at .xx5 boundaries.
-    val subjectAverage = computeSubjectAverage(d1, d2, ex)
+    // selectedSubject is declared further down (after the LaunchedEffect
+    // pipeline that loads subjects + students for the selected class).
+    // The CANONICAL subject-average preview uses the selected subject's
+    // per-component coefficients, so it is computed THERE — see line
+    // below where selectedSubject is first available.
 
     LaunchedEffect(classes) {
         if (selectedClassId == null && classes.isNotEmpty()) selectedClassId = classes.first().id
@@ -163,6 +163,21 @@ fun GradeEntryScreen(
     val selectedClass = classes.firstOrNull { it.id == selectedClassId }
     val selectedSubject = subjects.firstOrNull { it.id == selectedSubjectId }
     val selectedStudent = students.firstOrNull { it.id == selectedStudentId }
+
+    // CANONICAL preview — the exact engine used by the persistence layer
+    // (null while any mark is missing; per-component coefficients honored;
+    // half-up rounding at 2 decimals). The previous inline `(d1+d2+2*ex)/4`
+    // formula diverged from the SQL trigger at .xx5 boundaries AND ignored
+    // the per-component coefficients the admin configured on the subject.
+    // Vault §06.02 (iteration 2) — the preview now uses the selected
+    // subject's per-COMPONENT coefficients so what the teacher sees matches
+    // exactly what the persistence layer will store.
+    val subjectAverage = computeSubjectAverage(
+        d1, d2, ex,
+        selectedSubject?.coefficientDevoir1 ?: 1.0,
+        selectedSubject?.coefficientDevoir2 ?: 1.0,
+        selectedSubject?.coefficientExamen ?: 2.0,
+    )
 
     // ── Class-level statistics (canonical, derived from persisted rows) ────
     val assessmentsByStudent = classAssessments.groupBy { it.studentId }

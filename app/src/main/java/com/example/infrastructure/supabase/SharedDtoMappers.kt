@@ -169,6 +169,14 @@ fun SubjectDto.toEntity(): com.example.infrastructure.room.SubjectEntity = com.e
     weeklyHours = 4.0,
     isExtracurricular = isExtracurricular,
     isActive = isActive,
+    // Vault §06.02 (iteration 2) — pull the per-COMPONENT coefficients
+    // from the shared subject schema when the backend exposes them. Null
+    // (backend hasn't migrated yet) → fall back to the historical (1, 1, 2)
+    // defaults so the Android GPA computation stays bit-identical with the
+    // previous build.
+    coefficientDevoir1 = coefficientDevoir1 ?: 1.0,
+    coefficientDevoir2 = coefficientDevoir2 ?: 1.0,
+    coefficientExamen = coefficientExamen ?: 2.0,
 )
 
 /** Convert an [InstallmentDto] to an [InstallmentEntity] for Room upsert. */

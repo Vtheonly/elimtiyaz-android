@@ -918,12 +918,23 @@ class LocalGradeRepository @Inject constructor(
 
     override suspend fun enterGrade(input: EnterGradeInput, actorId: String, actorName: String): Result<Assessment> {
         val now = Instant.now().toString()
+        // Vault §06.02 (iteration 2) — read the SUBJECT's per-COMPONENT
+        // coefficients (D1/D2/Examen) to compute the canonical subject
+        // average with the weights the admin configured on the subject.
+        // The previous build hard-coded the (D1 + D2 + 2×Ex) / 4 recipe;
+        // the new recipe is (D1×c1 + D2×c2 + Ex×c3) / (c1 + c2 + c3) and
+        // the three coefs are snapshotted onto the assessment row so past
+        // years stay immutable when the subject's coefs are later edited.
+        val subject = subjectDao.getById(input.subjectId)
+        val subjectIsExtracurricular = subject?.isExtracurricular ?: false
+        val coefD1 = subject?.coefficientDevoir1 ?: 1.0
+        val coefD2 = subject?.coefficientDevoir2 ?: 1.0
+        val coefEx = subject?.coefficientExamen ?: 2.0
         // CANONICAL — the subject average is only computable when all three
         // marks are present (matches the SQL trigger).
-        val subjectAvg = com.example.core.computeSubjectAverage(input.devoir1, input.devoir2, input.examen)
-        // TIER 4 FIX — carry the subject's isExtracurricular flag onto the
-        // assessment so computeOverallGpa can apply the canonical exclusion.
-        val subjectIsExtracurricular = subjectDao.getById(input.subjectId)?.isExtracurricular ?: false
+        val subjectAvg = com.example.core.computeSubjectAverage(
+            input.devoir1, input.devoir2, input.examen, coefD1, coefD2, coefEx,
+        )
         val existing = assessmentDao.getByStudentSubjectTerm(input.studentId, input.subjectId, input.term, input.academicYear)
         val entity = (existing ?: AssessmentEntity(
             id = "asm-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
@@ -932,11 +943,17 @@ class LocalGradeRepository @Inject constructor(
             devoir1 = null, devoir2 = null, examen = null, coefficient = input.coefficient,
             isExtracurricular = subjectIsExtracurricular,
             subjectAverage = null, enteredBy = actorId, enteredAt = now,
+            // Vault §06.02 — snapshot the SUBJECT's per-component coefs onto
+            // the new assessment row (defaults preserved for legacy paths).
+            coefficientDevoir1 = coefD1, coefficientDevoir2 = coefD2, coefficientExamen = coefEx,
         )).copy(
             devoir1 = input.devoir1, devoir2 = input.devoir2, examen = input.examen,
             coefficient = input.coefficient, subjectAverage = subjectAvg,
             isExtracurricular = subjectIsExtracurricular,
             enteredBy = actorId, enteredAt = now,
+            // Vault §06.02 — refresh the per-component coef snapshot on
+            // every grade edit so it always reflects the live subject config.
+            coefficientDevoir1 = coefD1, coefficientDevoir2 = coefD2, coefficientExamen = coefEx,
         )
         assessmentDao.upsert(entity)
         auditDao.upsert(auditLog("grade.enter", "assessment", entity.id, actorId, actorName))
@@ -1190,6 +1207,12 @@ class LocalSubjectRepository @Inject constructor(
             isExtracurricular = input.isExtracurricular, isActive = true,
             level = input.level.ifBlank { "all" },
             passingGrade = input.passingGrade,
+            // Vault §06.02 (iteration 2) — persist the per-COMPONENT
+            // coefficients. Defaults (1, 1, 2) preserve the historical
+            // recipe when the create dialog leaves them unset.
+            coefficientDevoir1 = input.coefficientDevoir1,
+            coefficientDevoir2 = input.coefficientDevoir2,
+            coefficientExamen = input.coefficientExamen,
         )
         subjectDao.upsertAll(listOf(entity))
         // Vault §05.05/§05.06 — subject configuration is admin-controlled and
@@ -1201,7 +1224,7 @@ class LocalSubjectRepository @Inject constructor(
                 entityId = entity.id,
                 actorId = actorId,
                 actorName = actorName,
-                after = """{"code":"${entity.code}","coefficient":${entity.coefficient},"isExtracurricular":${entity.isExtracurricular}}""",
+                after = """{"code":"${entity.code}","coefficient":${entity.coefficient},"isExtracurricular":${entity.isExtracurricular},"coefD1":${entity.coefficientDevoir1},"coefD2":${entity.coefficientDevoir2},"coefEx":${entity.coefficientExamen}}""",
             )
         )
         return Result.Ok(LocalMappers.run { entity.toDomain() })
@@ -1213,13 +1236,27 @@ class LocalSubjectRepository @Inject constructor(
     // (`computeOverallGpa` over assessment rows), so refreshing the
     // coefficient snapshot on the CURRENT academic year's rows IS the
     // recompute; archived years are append-only and never touched.
+    //
+    // ITERATION-2 (vault §06.02): the recompute now ALSO re-snapshots the
+    // per-COMPONENT coefficients (D1/D2/Examen) onto each assessment row and
+    // re-derives `subjectAverage` with the new weights — the SUBJECT-level
+    // coefficient alone is no longer enough to express the full grading
+    // recipe. Past-year rows stay immutable (append-only rule).
     override suspend fun updateSubject(id: String, input: UpdateSubjectInput, actorId: String, actorName: String): Result<Subject> {
         val existing = subjectDao.getById(id) ?: return Result.Err(Errors.notFound("Subject $id not found"))
-        val coefficientChanged = input.coefficient != null && input.coefficient != existing.coefficient
+        val subjectCoefChanged = input.coefficient != null && input.coefficient != existing.coefficient
+        val coefD1Changed = input.coefficientDevoir1 != null && input.coefficientDevoir1 != existing.coefficientDevoir1
+        val coefD2Changed = input.coefficientDevoir2 != null && input.coefficientDevoir2 != existing.coefficientDevoir2
+        val coefExChanged = input.coefficientExamen != null && input.coefficientExamen != existing.coefficientExamen
+        val anyCoefChanged = subjectCoefChanged || coefD1Changed || coefD2Changed || coefExChanged
+
         val updated = existing.copy(
             name = input.name ?: existing.name,
             coefficient = input.coefficient ?: existing.coefficient,
             passingGrade = input.passingGrade ?: existing.passingGrade,
+            coefficientDevoir1 = input.coefficientDevoir1 ?: existing.coefficientDevoir1,
+            coefficientDevoir2 = input.coefficientDevoir2 ?: existing.coefficientDevoir2,
+            coefficientExamen = input.coefficientExamen ?: existing.coefficientExamen,
         )
         subjectDao.upsert(updated)
 
@@ -1232,19 +1269,42 @@ class LocalSubjectRepository @Inject constructor(
                 entityId = id,
                 actorId = actorId,
                 actorName = actorName,
-                after = """{"coefficient":{"from":${existing.coefficient},"to":${updated.coefficient}},"name":"${updated.name}"}""",
+                after = """{"coefficient":{"from":${existing.coefficient},"to":${updated.coefficient}},"coefD1":{"from":${existing.coefficientDevoir1},"to":${updated.coefficientDevoir1}},"coefD2":{"from":${existing.coefficientDevoir2},"to":${updated.coefficientDevoir2}},"coefEx":{"from":${existing.coefficientExamen},"to":${updated.coefficientExamen}},"name":"${updated.name}"}""",
             )
         )
 
-        // Vault §05.06 — automatic GPA recompute for affected students:
-        // refresh the coefficient snapshot on the CURRENT year's assessment
-        // rows only (past years are append-only). GPAs are derived on read,
-        // so the next read reflects the new coefficient immediately.
-        if (coefficientChanged) {
+        // Vault §05.06 + §06.02 — automatic GPA recompute for affected
+        // students: refresh the coefficient snapshot on the CURRENT year's
+        // assessment rows only (past years are append-only). GPAs are derived
+        // on read, so the next read reflects the new coefficients
+        // immediately. The recompute re-derives `subjectAverage` inline
+        // using the new per-component weights.
+        if (anyCoefChanged) {
             val now = java.time.LocalDate.now()
             val currentYear =
                 if (now.monthValue >= 9) "${now.year}-${now.year + 1}" else "${now.year - 1}-${now.year}"
+            // SUBJECT-level coef refresh (single UPDATE, no per-row recompute).
             assessmentDao.updateCoefficientForSubjectYear(id, updated.coefficient, currentYear)
+            // Per-COMPONENT coef refresh + subjectAverage recompute. Read +
+            // rewrite in Kotlin because the average formula can't be expressed
+            // as a single SQL UPDATE.
+            val rows = assessmentDao.listBySubjectAndYear(id, currentYear)
+            if (rows.isNotEmpty()) {
+                val recomputed = rows.map { row ->
+                    val newAvg = com.example.core.computeSubjectAverage(
+                        row.devoir1, row.devoir2, row.examen,
+                        updated.coefficientDevoir1, updated.coefficientDevoir2, updated.coefficientExamen,
+                    )
+                    row.copy(
+                        coefficient = updated.coefficient,
+                        coefficientDevoir1 = updated.coefficientDevoir1,
+                        coefficientDevoir2 = updated.coefficientDevoir2,
+                        coefficientExamen = updated.coefficientExamen,
+                        subjectAverage = newAvg,
+                    )
+                }
+                assessmentDao.upsertAll(recomputed)
+            }
         }
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }

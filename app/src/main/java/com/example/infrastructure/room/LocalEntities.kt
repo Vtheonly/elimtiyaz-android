@@ -162,6 +162,16 @@ data class SubjectEntity(
     // so the directory's level chips always showed empty lists.
     val level: String = "all",
     val passingGrade: Double = 10.0,
+    // Vault §06.02 (iteration 2) — per-COMPONENT coefficients, admin-
+    // configurable per subject. Defaults preserve the historical (1, 1, 2)
+    // recipe so existing GPAs remain bit-identical to the previous build.
+    // Added in MIGRATION_10_11; the column is nullable-with-default at the
+    // SQL layer (Room doesn't allow ALTER TABLE ADD COLUMN with NOT NULL
+    // without a default, so legacy rows get the default value via the
+    // Kotlin constructor default here).
+    val coefficientDevoir1: Double = 1.0,
+    val coefficientDevoir2: Double = 1.0,
+    val coefficientExamen: Double = 2.0,
 )
 
 @Entity(tableName = "attendance", indices = [Index("studentId"), Index("classId"), Index("date")])
@@ -199,6 +209,15 @@ data class AssessmentEntity(
     val subjectAverage: Double?,
     val enteredBy: String,
     val enteredAt: String,
+    // Vault §06.02 (iteration 2) — per-COMPONENT coefficient SNAPSHOT,
+    // copied from the Subject at grade-entry time. Defaults preserve the
+    // historical (1, 1, 2) recipe for legacy rows created before
+    // MIGRATION_10_11 so cross-year GPAs stay bit-identical. Past-year
+    // rows keep their snapshot (append-only); current-year rows are
+    // recomputed when an admin edits the subject's coefficients.
+    val coefficientDevoir1: Double = 1.0,
+    val coefficientDevoir2: Double = 1.0,
+    val coefficientExamen: Double = 2.0,
 )
 
 @Entity(tableName = "homework", indices = [Index("classId"), Index("subjectId"), Index("dueDate")])

@@ -228,9 +228,25 @@ interface AssessmentDao {
      * ([com.example.core.computeOverallGpa] over the assessment rows), so
      * refreshing the coefficient snapshot on the CURRENT year's rows IS the
      * recompute. Past years are append-only and are never touched.
+     *
+     * Vault §06.02 (iteration 2) — the SUBJECT-level coefficient snapshot on
+     * each assessment row is updated by this query. The per-COMPONENT
+     * coefficient snapshot (coefficientDevoir1/2/Examen) is recomputed
+     * separately by the repository because it must also re-derive
+     * subjectAverage inline (Room can't express that in a single UPDATE).
      */
     @Query("UPDATE assessments SET coefficient = :coefficient WHERE subjectId = :subjectId AND academicYear = :academicYear")
     suspend fun updateCoefficientForSubjectYear(subjectId: String, coefficient: Double, academicYear: String)
+
+    /**
+     * Vault §04.07 / §06.05 + §06.02 (iteration 2) — list every assessment
+     * row for one subject in one academic year. Used by the repository to
+     * re-snapshot the per-COMPONENT coefficients (D1/D2/Examen) and
+     * re-derive subjectAverage when an admin edits those coefficients on
+     * the subject. Past years are NOT touched (append-only rule).
+     */
+    @Query("SELECT * FROM assessments WHERE subjectId = :subjectId AND academicYear = :academicYear")
+    suspend fun listBySubjectAndYear(subjectId: String, academicYear: String): List<AssessmentEntity>
 
     @Query("SELECT COUNT(*) FROM assessments")
     suspend fun count(): Int
