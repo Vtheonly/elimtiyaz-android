@@ -60,6 +60,150 @@ object PdfGenerator {
     // ── Public API ───────────────────────────────────────────────────────────
 
     /**
+     * Render a generic macro-report as a paginated A4 table — backs the five
+     * "Rapports" (revenu mensuel, créances âgées, effectifs, dépenses,
+     * annuaire du personnel). Every value comes from the caller's REAL data;
+     * this renderer only draws it.
+     *
+     * @param title   report title shown in the brand bar
+     * @param columns table column headers (first column is left-aligned and
+     *                gets the remaining width; the others are right-aligned
+     *                and share the width proportionally to their header)
+     * @param rows    table rows (each must match [columns] size)
+     * @param summaryLines key figures rendered as summary boxes under the header
+     * @param outputDir directory to write the file into (created if missing)
+     * @param fileName target file name inside [outputDir]
+     */
+    fun generateTableReport(
+        title: String,
+        columns: List<String>,
+        rows: List<List<String>>,
+        summaryLines: List<Pair<String, String>> = emptyList(),
+        outputDir: File,
+        fileName: String,
+    ): File {
+        require(columns.isNotEmpty()) { "columns must not be empty" }
+        rows.forEach { require(it.size == columns.size) { "row width mismatch: $it" } }
+
+        val doc = PdfDocument()
+        var page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, 1).create())
+        var canvas = page.canvas
+        var pageNo = 1
+        var y = 0f
+
+        fun newPage() {
+            drawFooter(canvas, pageNo)
+            doc.finishPage(page)
+            pageNo += 1
+            page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, pageNo).create())
+            canvas = page.canvas
+            drawHeader(canvas, title)
+            y = BRAND_BAR_H + 40f
+        }
+
+        fun ensureSpace(needed: Float) {
+            if (y + needed > PAGE_H - 90f) newPage()
+        }
+
+        drawHeader(canvas, title)
+        y = BRAND_BAR_H + 30f
+
+        // ── Summary boxes (key figures) ──
+        if (summaryLines.isNotEmpty()) {
+            val boxW = (CONTENT_W - 2 * 10f) / 3f
+            summaryLines.chunked(3).forEach { chunk ->
+                chunk.forEachIndexed { idx, (label, value) ->
+                    drawSummaryBox(
+                        canvas,
+                        MARGIN + idx * (boxW + 10f), y, boxW,
+                        label, value, BRAND_BLUE_DEEP,
+                    )
+                }
+                y += 60f
+            }
+            y += 10f
+        }
+
+        // ── Table ──
+        val colCount = columns.size
+        // First column eats ~40% of the width when there are ≥3 columns,
+        // otherwise 55%; the rest is split evenly.
+        val firstW = if (colCount >= 3) CONTENT_W * 0.40f else CONTENT_W * 0.55f
+        val otherW = (CONTENT_W - firstW) / (colCount - 1).coerceAtLeast(1)
+        fun colX(i: Int): Float = if (i == 0) MARGIN else MARGIN + firstW + (i - 1) * otherW
+
+        val headerPaint = paint(9f, WHITE, bold = true)
+        val cellPaint = paint(9f, TEXT_PRIMARY)
+        val rowH = 22f
+
+        fun colWidth(i: Int): Float = if (i == 0) firstW else otherW
+
+        fun drawTableHeader() {
+            drawBox(canvas, MARGIN, y, CONTENT_W, rowH, fill = BRAND_BLUE_DEEP)
+            columns.forEachIndexed { i, col ->
+                val text = truncate(col, headerPaint, colWidth(i) - 8f)
+                if (i == 0) {
+                    canvas.drawText(text, colX(i) + 4f, y + 15f, headerPaint)
+                } else {
+                    drawRightAligned(canvas, text, colX(i) + colWidth(i) - 4f, y + 15f, headerPaint)
+                }
+            }
+            y += rowH
+        }
+
+        drawTableHeader()
+
+        if (rows.isEmpty()) {
+            ensureSpace(rowH * 2)
+            drawBox(canvas, MARGIN, y, CONTENT_W, rowH * 2, fill = BG_NOTE, stroke = BORDER)
+            canvas.drawText(
+                "Aucune donnée à afficher pour cette période.",
+                MARGIN + 8f, y + 30f, paint(9f, TEXT_MUTED, bold = true),
+            )
+            y += rowH * 2
+        } else {
+            rows.forEachIndexed { rowIdx, row ->
+                ensureSpace(rowH)
+                if (rowIdx % 2 == 1) {
+                    drawBox(canvas, MARGIN, y, CONTENT_W, rowH, fill = BG_SOFT)
+                }
+                row.forEachIndexed { i, cell ->
+                    val text = truncate(cell, cellPaint, colWidth(i) - 8f)
+                    if (i == 0) {
+                        canvas.drawText(text, colX(i) + 4f, y + 15f, cellPaint)
+                    } else {
+                        drawRightAligned(canvas, text, colX(i) + colWidth(i) - 4f, y + 15f, cellPaint)
+                    }
+                }
+                canvas.drawLine(MARGIN, y + rowH, PAGE_W - MARGIN, y + rowH, strokePaint(BORDER, 0.3f))
+                y += rowH
+            }
+        }
+
+        // Row count note
+        y += 14f
+        ensureSpace(20f)
+        canvas.drawText(
+            "${rows.size} ligne(s) · généré depuis les données locales (Room)",
+            MARGIN, y, paint(8f, TEXT_MUTED),
+        )
+
+        drawFooter(canvas, pageNo)
+        doc.finishPage(page)
+        return write(doc, outputDir, fileName)
+    }
+
+    /** Truncate text with an ellipsis when it exceeds [maxWidth]. */
+    private fun truncate(text: String, p: Paint, maxWidth: Float): String {
+        if (p.measureText(text) <= maxWidth || text.isEmpty()) return text
+        var t = text
+        while (t.length > 1 && p.measureText("$t…") > maxWidth) {
+            t = t.dropLast(1)
+        }
+        return "$t…"
+    }
+
+    /**
      * Render a single-payment receipt ("REÇU DE PAIEMENT").
      *
      * @param payment the payment to render (amounts in centimes)
@@ -353,7 +497,7 @@ object PdfGenerator {
         )
     }
 
-    private fun drawFooter(canvas: Canvas) {
+    private fun drawFooter(canvas: Canvas, pageNo: Int = 1) {
         val lineY = PAGE_H - 60f
         canvas.drawLine(MARGIN, lineY, PAGE_W - MARGIN, lineY, strokePaint(BORDER))
         val footer = paint(8f, TEXT_MUTED)
@@ -361,7 +505,7 @@ object PdfGenerator {
             "El-Imtiyaz · Boumerdès, Algérie · Email: contact@elimtiyaz.dz",
             MARGIN, PAGE_H - 44f, footer,
         )
-        val generated = "Généré le ${formatDateTime(Instant.now().toString())} · Page 1/1"
+        val generated = "Généré le ${formatDateTime(Instant.now().toString())} · Page $pageNo"
         canvas.drawText(
             generated,
             PAGE_W - MARGIN - 200f, PAGE_H - 44f, footer,

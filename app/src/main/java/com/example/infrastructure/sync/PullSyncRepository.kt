@@ -14,6 +14,7 @@ import com.example.infrastructure.supabase.PersonnelDto
 import com.example.infrastructure.supabase.StudentDto
 import com.example.infrastructure.supabase.SubjectDto
 import com.example.infrastructure.supabase.SupabaseClientProvider
+import com.example.infrastructure.supabase.WorkflowRunDto
 import com.example.infrastructure.supabase.toEntity
 import com.example.session.SessionManager
 import kotlinx.coroutines.Dispatchers
@@ -241,6 +242,25 @@ class PullSyncRepository @Inject constructor(
         }
     }
 
+    /**
+     * Pull recent workflow runs (read-only on mobile per plan §10.02) so the
+     * Workflow Monitor displays REAL server executions instead of being
+     * permanently empty. Failures are swallowed to `0` — same contract as
+     * every other pull.
+     */
+    suspend fun pullWorkflowRuns(): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            val dtoList = provider.postgrest.from("workflow_runs")
+                .select { limit(50) }
+                .decodeList<WorkflowRunDto>()
+            for (dto in dtoList) db.workflowRunDao().upsert(dto.toEntity())
+            Log.i("PullSync", "Pulled ${dtoList.size} workflow runs")
+            Result.Ok(dtoList.size)
+        } catch (e: Exception) {
+            Result.Err(com.example.core.Errors.fromException(e))
+        }
+    }
+
     suspend fun pullAll(sinceIso: String? = null): Result<Int> = withContext(Dispatchers.IO) {
         Log.i("PullSync", "=== STARTING PULL ALL FROM SUPABASE ===")
         val p = (pullParents(sinceIso) as? Result.Ok)?.value ?: 0
@@ -253,7 +273,8 @@ class PullSyncRepository @Inject constructor(
         val per = (pullPersonnel() as? Result.Ok)?.value ?: 0
         val dep = (pullDepartments() as? Result.Ok)?.value ?: 0
         val notif = (pullNotifications() as? Result.Ok)?.value ?: 0
-        val total = p + s + pay + led + cls + sub + ins + per + dep + notif
+        val wfr = (pullWorkflowRuns() as? Result.Ok)?.value ?: 0
+        val total = p + s + pay + led + cls + sub + ins + per + dep + notif + wfr
 
         Log.i("PullSync", "=== PULL COMPLETE: Total $total records synchronized ===")
         Result.Ok(total)

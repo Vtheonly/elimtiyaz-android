@@ -57,6 +57,9 @@ import com.example.domain.repository.UpdateClassInput
 import com.example.domain.repository.UpdatePersonnelInput
 import com.example.domain.repository.UpdateSubjectInput
 import com.example.domain.repository.WorkflowRepository
+import com.example.domain.model.GeoPoint
+import com.example.infrastructure.routing.OsrmClient
+import com.example.infrastructure.routing.TspSolver
 import com.example.infrastructure.room.AcademicClassDao
 import com.example.infrastructure.room.AcademicClassEntity
 import com.example.infrastructure.room.AssessmentDao
@@ -65,6 +68,8 @@ import com.example.infrastructure.room.AttendanceDao
 import com.example.infrastructure.room.AttendanceEntity
 import com.example.infrastructure.room.AuditLogDao
 import com.example.infrastructure.room.AuditLogEntity
+import com.example.infrastructure.room.ClassSubjectDao
+import com.example.infrastructure.room.ClassSubjectEntity
 import com.example.infrastructure.room.DepartmentDao
 import com.example.infrastructure.room.DepartmentEntity
 import com.example.infrastructure.room.ElImtiyazDatabase
@@ -94,6 +99,11 @@ import com.example.infrastructure.room.SubjectDao
 import com.example.infrastructure.room.SubjectEntity
 import com.example.infrastructure.room.TransportPricingEntity
 import com.example.infrastructure.room.TripLogDao
+import com.example.infrastructure.room.TripLogEntity
+import com.example.infrastructure.room.VehicleDao
+import com.example.infrastructure.room.VehicleEntity
+import com.example.infrastructure.room.RoutingStopDao
+import com.example.infrastructure.room.RoutingStopEntity
 import com.example.infrastructure.room.WorkflowRunDao
 import com.example.infrastructure.room.WorkflowRunEntity
 import kotlinx.coroutines.flow.Flow
@@ -101,7 +111,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.put
 import java.time.Instant
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -558,6 +570,37 @@ class LocalDashboardRepository @Inject constructor(
     }
 
     override suspend fun refreshKpis(): Result<Unit> = Result.Ok(Unit)
+
+    /**
+     * FIX (fabricated trend): the 7-day attendance chart previously showed a
+     * hardcoded baseline (95.2 / 96.0 / 95.8 / 97.1 / 96.4 / 94.8 …) with only
+     * "today" coming from real data. This computes the REAL per-day attendance
+     * rate from the `attendance` table for the last 7 days. Days without any
+     * roll-call records are omitted rather than invented.
+     */
+    override fun observeAttendanceTrend(): Flow<List<com.example.domain.repository.AttendanceTrendPoint>> =
+        db.attendanceDao().observeAll().map { records ->
+            val today = LocalDate.now(ZoneOffset.UTC)
+            val dayLabels = mapOf(
+                DayOfWeek.MONDAY to "Lun", DayOfWeek.TUESDAY to "Mar", DayOfWeek.WEDNESDAY to "Mer",
+                DayOfWeek.THURSDAY to "Jeu", DayOfWeek.FRIDAY to "Ven", DayOfWeek.SATURDAY to "Sam",
+                DayOfWeek.SUNDAY to "Dim",
+            )
+            (6 downTo 0).map { daysBack ->
+                val date = today.minusDays(daysBack.toLong())
+                val dayRecords = records.filter { it.date == date.toString() }
+                date to dayRecords
+            }.filter { (_, dayRecords) -> dayRecords.isNotEmpty() }
+                .map { (date, dayRecords) ->
+                    val present = dayRecords.count { it.status == "present" || it.status == "late" }
+                    val rate = present.toDouble() / dayRecords.size.toDouble() * 100.0
+                    com.example.domain.repository.AttendanceTrendPoint(
+                        label = dayLabels[date.dayOfWeek] ?: date.dayOfWeek.name.take(3),
+                        rate = rate,
+                        records = dayRecords.size,
+                    )
+                }
+        }
 }
 
 // ─── Debt Repository ────────────────────────────────────────────────────────
@@ -632,8 +675,42 @@ class LocalDebtRepository @Inject constructor(
         }
     }
 
+    // FIX (hollow action): sendReminder previously wrote ONLY an audit row —
+    // no reminder was ever delivered anywhere. Now a real in-app notification
+    // is inserted into the `notifications` table (visible in the Alerts inbox
+    // and the dashboard notification stream) in addition to the audit trail.
     override suspend fun sendReminder(parentId: String, actorId: String, actorName: String): Result<Unit> {
-        db.auditLogDao().upsert(auditLog("debt.reminder_sent", "parent", parentId, actorId, actorName))
+        val parent = db.parentDao().getById(parentId)
+            ?: return Result.Err(Errors.notFound("Parent $parentId introuvable"))
+
+        val entries = db.ledgerEntryDao().listByParent(parentId).map { LocalMappers.run { it.toDomain() } }
+        val summary = LedgerEngine.computeParentSummary(entries, parentId, parent.fullName)
+        val outstanding = summary.totalOutstanding.coerceAtLeast(0L)
+
+        db.notificationDao().upsert(
+            NotificationEntity(
+                id = "ntf-rem-${UUID.randomUUID()}",
+                tenantId = "00000000-0000-0000-0000-000000000001",
+                title = "Rappel de paiement : ${parent.fullName}",
+                body = "Relance envoyée par $actorName — solde restant dû : " +
+                    "${(outstanding / 100).formatDzd()} DZD.",
+                type = "payment_overdue",
+                priority = if (summary.totalOverdue > 0L) "high" else "medium",
+                source = "debt_dashboard",
+                sourceLabel = "Recouvrement",
+                entityType = "parent",
+                entityId = parentId,
+                targetUserId = null,
+                isRead = false,
+                createdAt = Instant.now().toString(),
+            ),
+        )
+        db.auditLogDao().upsert(
+            auditLog(
+                "debt.reminder_sent", "parent", parentId, actorId, actorName,
+                after = """{"outstanding":$outstanding}""",
+            ),
+        )
         return Result.Ok(Unit)
     }
 }
@@ -744,6 +821,8 @@ class LocalAuditRepository @Inject constructor(
 class LocalAttendanceRepository @Inject constructor(
     private val attendanceDao: AttendanceDao,
     private val auditDao: AuditLogDao,
+    private val notificationDao: NotificationDao,
+    private val studentDao: StudentDao,
 ) : com.example.domain.repository.AttendanceRepository {
 
     override fun observeByClass(classId: String, date: String): Flow<List<AttendanceRecord>> =
@@ -777,9 +856,32 @@ class LocalAttendanceRepository @Inject constructor(
         return Result.Ok(Unit)
     }
 
+    // FIX (hollow action): alertAbsences previously wrote ONLY audit rows —
+    // no parent was ever alerted. Now a real in-app notification is created
+    // per student (linked to the parent's record) in addition to the audit
+    // trail, so the alert actually surfaces in the Alerts inbox.
     override suspend fun alertAbsences(studentIds: List<String>, actorId: String, actorName: String): Result<Unit> {
-        studentIds.forEach { id ->
-            auditDao.upsert(auditLog("attendance.alert", "student", id, actorId, actorName))
+        val now = Instant.now().toString()
+        studentIds.forEach { studentId ->
+            val student = studentDao.getById(studentId) ?: return@forEach
+            auditDao.upsert(auditLog("attendance.alert", "student", studentId, actorId, actorName))
+            notificationDao.upsert(
+                NotificationEntity(
+                    id = "ntf-abs-${UUID.randomUUID()}",
+                    tenantId = "00000000-0000-0000-0000-000000000001",
+                    title = "Absence signalée : ${student.fullName}",
+                    body = "L'absence a été signalée au tuteur par $actorName.",
+                    type = "attendance_alert",
+                    priority = "high",
+                    source = "roll_call",
+                    sourceLabel = "Vie scolaire",
+                    entityType = "student",
+                    entityId = studentId,
+                    targetUserId = null,
+                    isRead = false,
+                    createdAt = now,
+                ),
+            )
         }
         return Result.Ok(Unit)
     }
@@ -799,7 +901,15 @@ class LocalGradeRepository @Inject constructor(
     override fun observeForStudent(studentId: String, term: String, academicYear: String): Flow<List<Assessment>> =
         assessmentDao.observeByStudentTerm(studentId, term, academicYear).map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
 
+    // FIX (ignored parameter): subjectId was dropped — the flow returned every
+    // subject's assessments for the class. Callers (ClassDetail "Notes" tab,
+    // the gradebook) believed they were scoped to one subject.
     override fun observeForClass(classId: String, subjectId: String, term: String, academicYear: String): Flow<List<Assessment>> =
+        assessmentDao.observeByClassTerm(classId, term, academicYear).map { rows ->
+            rows.filter { it.subjectId == subjectId }.map { LocalMappers.run { it.toDomain() } }
+        }
+
+    override fun observeForClass(classId: String, term: String, academicYear: String): Flow<List<Assessment>> =
         assessmentDao.observeByClassTerm(classId, term, academicYear).map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
 
     override suspend fun enterGrade(input: EnterGradeInput, actorId: String, actorName: String): Result<Assessment> {
@@ -984,6 +1094,7 @@ class LocalPersonnelRepository @Inject constructor(
 @Singleton
 class LocalDepartmentRepository @Inject constructor(
     private val departmentDao: DepartmentDao,
+    private val auditDao: AuditLogDao,
 ) : DepartmentRepository {
 
     override fun observe(): Flow<List<Department>> =
@@ -1003,8 +1114,23 @@ class LocalDepartmentRepository @Inject constructor(
         return Result.Ok(LocalMappers.run { entity.toDomain() })
     }
 
-    override suspend fun archiveDepartment(id: String, actorId: String, actorName: String): Result<Unit> = Result.Ok(Unit)
-    override suspend fun unarchiveDepartment(id: String, actorId: String, actorName: String): Result<Unit> = Result.Ok(Unit)
+    // FIX (no-op): archive/unarchive previously returned Ok(Unit) without
+    // touching the database — the UI showed success but the department never
+    // changed state. Now the `archivedAt` column is really set/cleared and
+    // the action is audit-logged.
+    override suspend fun archiveDepartment(id: String, actorId: String, actorName: String): Result<Unit> {
+        val existing = departmentDao.getById(id) ?: return Result.Err(Errors.notFound("Département $id introuvable"))
+        departmentDao.upsertAll(listOf(existing.copy(archivedAt = Instant.now().toString())))
+        auditDao.upsert(auditLog("department.archive", "department", id, actorId, actorName))
+        return Result.Ok(Unit)
+    }
+
+    override suspend fun unarchiveDepartment(id: String, actorId: String, actorName: String): Result<Unit> {
+        val existing = departmentDao.getById(id) ?: return Result.Err(Errors.notFound("Département $id introuvable"))
+        departmentDao.upsertAll(listOf(existing.copy(archivedAt = null)))
+        auditDao.upsert(auditLog("department.unarchive", "department", id, actorId, actorName))
+        return Result.Ok(Unit)
+    }
 }
 
 // ─── Subject Repository ─────────────────────────────────────────────────────
@@ -1012,6 +1138,8 @@ class LocalDepartmentRepository @Inject constructor(
 @Singleton
 class LocalSubjectRepository @Inject constructor(
     private val subjectDao: SubjectDao,
+    private val classSubjectDao: ClassSubjectDao,
+    private val auditDao: AuditLogDao,
 ) : SubjectRepository {
 
     override fun observe(): Flow<List<Subject>> =
@@ -1026,11 +1154,25 @@ class LocalSubjectRepository @Inject constructor(
         }
 
     override fun observeByClass(classId: String): Flow<List<Subject>> =
-        // NOTE: the Room schema has no per-class subject assignment table
-        // (subjects are school-wide on Android), so this intentionally
-        // returns all active subjects — documented rather than silently
-        // pretending to filter.
-        subjectDao.observeAll().map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
+        // FIX: the Room schema now HAS a per-class assignment table
+        // (`class_subjects`, migration v9). When a class has explicit
+        // assignments, return exactly those subjects; otherwise fall back to
+        // all active subjects so the pickers (grade entry, homework push)
+        // never regress to an empty list.
+        combine(
+            subjectDao.observeAll(),
+            classSubjectDao.observeByClass(classId),
+        ) { subjects, assignments ->
+            if (assignments.isEmpty()) {
+                subjects.filter { it.isActive }.map { LocalMappers.run { it.toDomain() } }
+            } else {
+                assignments.mapNotNull { assignment ->
+                    subjects.firstOrNull { it.id == assignment.subjectId }?.let { subject ->
+                        LocalMappers.run { subject.toDomain() }
+                    }
+                }
+            }
+        }
 
     override suspend fun createSubject(input: CreateSubjectInput, actorId: String, actorName: String): Result<Subject> {
         // FIX: persist the level + passing grade from the input — previously
@@ -1067,7 +1209,45 @@ class LocalSubjectRepository @Inject constructor(
         subjectDao.upsert(existing.copy(isActive = false))
         return Result.Ok(Unit)
     }
-    override suspend fun assignSubjectToClass(classId: String, subjectId: String, teacherId: String?, weeklyHours: Int, coefficient: Double, actorId: String, actorName: String): Result<Unit> = Result.Ok(Unit)
+    // FIX (silent no-op): assignSubjectToClass previously returned Ok without
+    // persisting anything — the caller saw success but no assignment existed.
+    // Now a real `class_subjects` row is written (idempotent per
+    // class+subject pair) and the action is audit-logged.
+    override suspend fun assignSubjectToClass(
+        classId: String,
+        subjectId: String,
+        teacherId: String?,
+        weeklyHours: Int,
+        coefficient: Double,
+        actorId: String,
+        actorName: String,
+    ): Result<Unit> {
+        if (subjectDao.getById(subjectId) == null) {
+            return Result.Err(Errors.notFound("Matière $subjectId introuvable"))
+        }
+        val existing = classSubjectDao.listByClass(classId)
+            .firstOrNull { it.subjectId == subjectId }
+        val entity = (existing ?: ClassSubjectEntity(
+            id = "cls-sub-${UUID.randomUUID()}",
+            tenantId = "00000000-0000-0000-0000-000000000001",
+            classId = classId,
+            subjectId = subjectId,
+            teacherId = teacherId,
+            weeklyHours = weeklyHours,
+            coefficient = coefficient,
+            createdAt = Instant.now().toString(),
+        )).copy(
+            teacherId = teacherId ?: existing?.teacherId,
+            weeklyHours = weeklyHours,
+            coefficient = coefficient,
+        )
+        classSubjectDao.upsert(entity)
+        auditDao.upsert(
+            auditLog("subject.assignToClass", "class_subject", entity.id, actorId, actorName,
+                after = """{"classId":"$classId","subjectId":"$subjectId","weeklyHours":$weeklyHours,"coefficient":$coefficient}"""),
+        )
+        return Result.Ok(Unit)
+    }
 }
 
 // ─── Homework Repository ────────────────────────────────────────────────────
@@ -1112,8 +1292,19 @@ class LocalNotificationRepository @Inject constructor(
         notificationDao.observeForUser(session.userId).map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
 
     override suspend fun markRead(id: String): Result<Unit> { notificationDao.markRead(id); return Result.Ok(Unit) }
-    override suspend fun markAllRead(): Result<Unit> = Result.Ok(Unit)
-    override suspend fun dismiss(id: String): Result<Unit> = Result.Ok(Unit)
+
+    // FIX (no-op): both methods previously returned Ok(Unit) without touching
+    // the database — the "Tout marquer comme lu" button in the Alerts screen
+    // looked like it worked but every notification stayed unread.
+    override suspend fun markAllRead(): Result<Unit> {
+        notificationDao.markAllRead()
+        return Result.Ok(Unit)
+    }
+
+    override suspend fun dismiss(id: String): Result<Unit> {
+        notificationDao.dismiss(id)
+        return Result.Ok(Unit)
+    }
 }
 
 // ─── Releve Repository ──────────────────────────────────────────────────────
@@ -1128,17 +1319,31 @@ class LocalReleveRepository @Inject constructor(
             Result.Ok(rows.filter { it.date in fromIso..toIso }.map { LocalMappers.run { it.toDomain() } })
         }
 
+    override fun observeRecent(): Flow<Result<List<ReleveEntry>>> =
+        releveDao.observeAll().map { rows ->
+            Result.Ok(rows.map { LocalMappers.run { it.toDomain() } })
+        }
+
     override suspend fun logEntry(entry: ReleveEntry, actorId: String, actorName: String): Result<ReleveEntry> {
+        // FIX (dropped field): the description was previously hardcoded to ""
+        // — the entity column existed but the caller's activity details were
+        // silently discarded. Build a real, human-readable description from
+        // the entry itself.
+        val description = buildString {
+            append(entry.activity.displayFr)
+            if (entry.hoursIn.isNotBlank()) append(" ${entry.hoursIn}")
+            entry.hoursOut?.let { append(" → $it") }
+        }
         val entity = ReleveEntryEntity(
             id = entry.id.ifBlank { "rel-${UUID.randomUUID()}" },
             tenantId = "00000000-0000-0000-0000-000000000001",
             personnelId = entry.personnelId, personnelName = entry.personnelName,
             date = entry.date, activityType = entry.activity.wireCode,
-            description = "", durationMinutes = (entry.durationMinutes ?: 0).toInt(),
+            description = description, durationMinutes = (entry.durationMinutes ?: 0).toInt(),
             recordedBy = actorId, recordedAt = Instant.now().toString(),
         )
         releveDao.upsert(entity)
-        return Result.Ok(entry)
+        return Result.Ok(entry.copy(durationMinutes = entity.durationMinutes.toLong()))
     }
 }
 
@@ -1153,14 +1358,195 @@ private fun ReleveEntryEntity.toDomain() = ReleveEntry(
 
 // ─── Routing Repository ──────────────────────────────────────────────────────
 
+/**
+ * Room-backed routing repository — REAL implementation (previously a stub that
+ * returned empty lists and "Not implemented" errors, leaving all three routing
+ * screens permanently dead).
+ *
+ * - Vehicles / stops / trip history are observed from the `vehicles`,
+ *   `routing_stops` and `trip_logs` Room tables.
+ * - `optimizeRoute` runs the local TSP pipeline (greedy nearest-neighbour +
+ *   2-opt refinement) anchored at the school, then tries to enrich the
+ *   geometry with a real OSRM driving route; falls back to straight-line
+ *   haversine when offline. The computed stop order is persisted back onto the
+ *   stop rows so the ordering survives across screens.
+ * - `startTrip` / `endTrip` write real `trip_logs` rows.
+ */
 @Singleton
-class LocalRoutingRepository @Inject constructor() : RoutingRepository {
-    override fun observeVehicles(): Flow<Result<List<com.example.domain.model.Vehicle>>> = kotlinx.coroutines.flow.flowOf(Result.Ok(emptyList()))
-    override fun observeStops(shift: com.example.domain.model.RoutingShift?): Flow<Result<List<com.example.domain.model.RoutingStop>>> = kotlinx.coroutines.flow.flowOf(Result.Ok(emptyList()))
-    override fun observeTripHistory(): Flow<Result<List<com.example.domain.model.TripLog>>> = kotlinx.coroutines.flow.flowOf(Result.Ok(emptyList()))
-    override suspend fun optimizeRoute(vehicleId: String, shift: com.example.domain.model.RoutingShift, actorId: String, actorName: String): Result<com.example.domain.model.OptimizedRoute> = Result.Err(Errors.notFound("Routing not configured"))
-    override suspend fun startTrip(vehicleId: String, driverId: String, driverName: String): Result<com.example.domain.model.TripLog> = Result.Err(Errors.notFound("Not implemented"))
-    override suspend fun endTrip(tripId: String, stopsCompleted: Int, totalDistanceKm: Double, actorId: String, actorName: String): Result<com.example.domain.model.TripLog> = Result.Err(Errors.notFound("Not implemented"))
+class LocalRoutingRepository @Inject constructor(
+    private val db: ElImtiyazDatabase,
+) : RoutingRepository {
+
+    /** School anchor — Établissement Privé El-Imtiyaz, Boumerdes (Prices.md). */
+    private val schoolAnchor = GeoPoint(36.7604, 3.4727)
+
+    /** Lazy OSRM client (public demo server) — created once, failures degrade to haversine. */
+    private val osrmClient: OsrmClient by lazy {
+        OsrmClient(io.ktor.client.HttpClient(io.ktor.client.engine.android.Android))
+    }
+
+    override fun observeVehicles(): Flow<Result<List<com.example.domain.model.Vehicle>>> =
+        db.vehicleDao().observeAll().map { rows ->
+            Result.Ok(rows.map { LocalMappers.run { it.toDomain() } })
+        }
+
+    override fun observeStops(shift: com.example.domain.model.RoutingShift?): Flow<Result<List<com.example.domain.model.RoutingStop>>> =
+        db.routingStopDao().observeAll().map { rows ->
+            val filtered = if (shift == null) {
+                rows
+            } else {
+                // "both"-shift stops are served in every shift window.
+                rows.filter { it.shift == shift.wireCode || it.shift == com.example.domain.model.RoutingShift.Both.wireCode }
+            }
+            Result.Ok(filtered.sortedBy { it.orderInRoute }.map { LocalMappers.run { it.toDomain() } })
+        }
+
+    override fun observeTripHistory(): Flow<Result<List<com.example.domain.model.TripLog>>> =
+        db.tripLogDao().observeAll().map { rows ->
+            Result.Ok(rows.map { LocalMappers.run { it.toDomain() } })
+        }
+
+    override suspend fun optimizeRoute(
+        vehicleId: String,
+        shift: com.example.domain.model.RoutingShift,
+        actorId: String,
+        actorName: String,
+    ): Result<com.example.domain.model.OptimizedRoute> {
+        val vehicle = db.vehicleDao().getById(vehicleId)
+            ?: return Result.Err(Errors.notFound("Véhicule $vehicleId introuvable"))
+
+        val shiftStops = db.routingStopDao().getAll().filter {
+            it.shift == shift.wireCode || it.shift == com.example.domain.model.RoutingShift.Both.wireCode
+        }
+        if (shiftStops.isEmpty()) {
+            return Result.Err(Errors.notFound("Aucun arrêt configuré pour le créneau « ${shift.displayFr} »"))
+        }
+
+        // ── Stage 1+2: local TSP (greedy NN from the school, then 2-opt) ──
+        val ordered = TspSolver.twoOptImprove(
+            TspSolver.solveNearestNeighbor(shiftStops.map { LocalMappers.run { it.toDomain() } }, schoolAnchor),
+        )
+
+        // ── Stage 3: try to enrich with a real OSRM driving route ──
+        val waypoints = listOf(schoolAnchor) + ordered.map { GeoPoint(it.lat, it.lng) }
+        val osrmRoute = try { osrmClient.route(waypoints) } catch (_: Throwable) { null }
+
+        val polyline: List<GeoPoint>
+        val totalDistanceKm: Double
+        val totalDurationMin: Double
+        if (osrmRoute != null && osrmRoute.geometry.size >= 2) {
+            polyline = osrmRoute.geometry
+            totalDistanceKm = osrmRoute.distanceMeters / 1000.0
+            totalDurationMin = osrmRoute.durationSeconds / 60.0
+        } else {
+            // Offline fallback: straight-line distance + urban driving estimate
+            // (2.5 min/km + 1 min of dwell time per stop — mirrors the ETA
+            // heuristic used by RoutingMapViewModel).
+            polyline = waypoints
+            totalDistanceKm = TspSolver.polylineDistanceKm(waypoints)
+            totalDurationMin = totalDistanceKm * 2.5 + ordered.size
+        }
+
+        // Per-stop ETA from the previous stop (haversine-based estimate when
+        // OSRM is unavailable; proportional share of OSRM duration otherwise).
+        val withEta = ordered.mapIndexed { idx, stop ->
+            val legKm = if (idx == 0) {
+                TspSolver.haversineKm(schoolAnchor, GeoPoint(stop.lat, stop.lng))
+            } else {
+                TspSolver.haversineKm(GeoPoint(ordered[idx - 1].lat, ordered[idx - 1].lng), GeoPoint(stop.lat, stop.lng))
+            }
+            stop.copy(
+                orderInRoute = idx + 1,
+                estimatedMinutesFromPrevious = legKm * 2.5 + 1.0,
+            )
+        }
+
+        // Persist the computed order back onto the stop rows so the hub, map
+        // and history screens all agree on the route order.
+        db.routingStopDao().upsertAll(
+            withEta.map { stop ->
+                val entity = shiftStops.first { it.id == stop.id }
+                LocalMappers.run {
+                    entity.toUpdatedEntity(orderInRoute = stop.orderInRoute, estimatedMinutesFromPrevious = stop.estimatedMinutesFromPrevious)
+                }
+            },
+        )
+        db.auditLogDao().upsert(
+            auditLog(
+                "routing.optimize", "vehicle", vehicleId, actorId, actorName,
+                after = """{"stops":${withEta.size},"distanceKm":${"%.2f".format(totalDistanceKm)},"shift":"${shift.wireCode}","source":"${if (osrmRoute != null) "osrm" else "tsp-local"}"}""",
+            ),
+        )
+
+        return Result.Ok(
+            com.example.domain.model.OptimizedRoute(
+                vehicle = LocalMappers.run { vehicle.toDomain() },
+                stops = withEta,
+                totalDistanceKm = totalDistanceKm,
+                totalDurationMin = totalDurationMin,
+                polyline = polyline,
+            ),
+        )
+    }
+
+    override suspend fun startTrip(
+        vehicleId: String,
+        driverId: String,
+        driverName: String,
+    ): Result<com.example.domain.model.TripLog> {
+        val vehicle = db.vehicleDao().getById(vehicleId)
+            ?: return Result.Err(Errors.notFound("Véhicule $vehicleId introuvable"))
+
+        val now = Instant.now()
+        val plannedStops = db.routingStopDao().getAll().filter { it.isActive }
+        val entity = TripLogEntity(
+            id = "trp-${UUID.randomUUID()}",
+            tenantId = "00000000-0000-0000-0000-000000000001",
+            driverId = driverId,
+            driverName = driverName,
+            vehicleId = vehicleId,
+            date = LocalDate.now(ZoneOffset.UTC).toString(),
+            startTime = now.toString(),
+            endTime = null,
+            stopCount = plannedStops.size,
+            stopsCompleted = 0,
+            studentIdsJson = plannedStops.joinToString(",") { "\"${it.studentId}\"" }.let { "[$it]" },
+            distanceKm = null,
+            status = "running",
+            notes = null,
+            createdAt = now.toString(),
+        )
+        db.tripLogDao().upsert(entity)
+        db.auditLogDao().upsert(
+            auditLog("routing.trip_start", "vehicle", vehicleId, driverId, driverName, after = """{"tripId":"${entity.id}","plannedStops":${entity.stopCount}}"""),
+        )
+        return Result.Ok(LocalMappers.run { entity.toDomain() })
+    }
+
+    override suspend fun endTrip(
+        tripId: String,
+        stopsCompleted: Int,
+        totalDistanceKm: Double,
+        actorId: String,
+        actorName: String,
+    ): Result<com.example.domain.model.TripLog> {
+        val existing = db.tripLogDao().getById(tripId)
+            ?: return Result.Err(Errors.notFound("Tournée $tripId introuvable"))
+        val updated = existing.copy(
+            endTime = Instant.now().toString(),
+            stopsCompleted = stopsCompleted,
+            distanceKm = totalDistanceKm,
+            status = "ended",
+        )
+        db.tripLogDao().upsert(updated)
+        db.auditLogDao().upsert(
+            auditLog(
+                "routing.trip_end", "vehicle", updated.vehicleId.ifBlank { "trip" }, actorId, actorName,
+                after = """{"tripId":"$tripId","stopsCompleted":$stopsCompleted,"distanceKm":${"%.2f".format(totalDistanceKm)}}""",
+            ),
+        )
+        return Result.Ok(LocalMappers.run { updated.toDomain() })
+    }
 }
 
 // ─── Workflow Repository ─────────────────────────────────────────────────────
@@ -1168,57 +1554,167 @@ class LocalRoutingRepository @Inject constructor() : RoutingRepository {
 @Singleton
 class LocalWorkflowRepository @Inject constructor(
     private val workflowRunDao: WorkflowRunDao,
+    private val provider: com.example.infrastructure.supabase.SupabaseClientProvider,
 ) : WorkflowRepository {
+
+    private fun WorkflowRunEntity.toDomain() = com.example.domain.model.WorkflowRun(
+        id = id, workflowId = workflowId, workflowName = workflowName,
+        trigger = com.example.domain.model.WorkflowTrigger.fromCode("manual"),
+        status = com.example.domain.model.WorkflowRunStatus.fromCode(status),
+        startedAt = startedAt, completedAt = finishedAt,
+        durationMs = runCatching {
+            val start = Instant.parse(startedAt)
+            val end = finishedAt?.let { Instant.parse(it) }
+            end?.let { it.toEpochMilli() - start.toEpochMilli() }
+        }.getOrNull(),
+        actorId = startedBy, actorName = null,
+        errorMessage = errorMessage,
+        outputPreview = resultJson?.takeIf { it.isNotBlank() && it != "{}" }?.take(120),
+    )
 
     override fun observeRuns(limit: Int): Flow<Result<List<com.example.domain.model.WorkflowRun>>> =
         workflowRunDao.observeRecent().map { rows ->
-            Result.Ok(rows.map {
-                com.example.domain.model.WorkflowRun(
-                    id = it.id, workflowId = it.workflowId, workflowName = it.workflowName,
-                    trigger = com.example.domain.model.WorkflowTrigger.Manual,
-                    status = com.example.domain.model.WorkflowRunStatus.fromCode(it.status),
-                    startedAt = it.startedAt, completedAt = it.finishedAt,
-                    actorId = it.startedBy, actorName = null,
-                    errorMessage = it.errorMessage,
-                )
-            })
+            Result.Ok(rows.map { it.toDomain() })
         }
 
     override fun observeRunById(runId: String): Flow<Result<com.example.domain.model.WorkflowRun?>> =
         workflowRunDao.observeRecent().map { rows ->
-            Result.Ok(rows.firstOrNull { it.id == runId }?.let {
-                com.example.domain.model.WorkflowRun(
-                    id = it.id, workflowId = it.workflowId, workflowName = it.workflowName,
-                    trigger = com.example.domain.model.WorkflowTrigger.Manual,
-                    status = com.example.domain.model.WorkflowRunStatus.fromCode(it.status),
-                    startedAt = it.startedAt, completedAt = it.finishedAt,
-                    actorId = it.startedBy, actorName = null,
-                    errorMessage = it.errorMessage,
-                )
-            })
+            Result.Ok(rows.firstOrNull { it.id == runId }?.toDomain())
         }
 
+    // FIX (success theater): retryRun previously inserted a fabricated run with
+    // status="completed" the instant the button was pressed — no workflow ever
+    // executed. Now the retry is honest:
+    //   1. A new run row is created with status="running" (visible in monitor).
+    //   2. If Supabase is configured, the server-side `workflow-execute` Edge
+    //      Function is invoked (the workflow engine is server-only per plan
+    //      §10.02) — the run stays "running" until the next pull finalizes it.
+    //   3. Offline / unreachable → the run is finalized locally as "failed"
+    //      with a truthful error and Result.Err is returned. No fake success.
     override suspend fun retryRun(runId: String, actorId: String, actorName: String): Result<String> {
-        val now = Instant.now().toString()
+        val original = workflowRunDao.getById(runId)
+            ?: return Result.Err(Errors.notFound("Exécution $runId introuvable"))
+
         val newId = "wfr-${UUID.randomUUID()}"
-        workflowRunDao.upsert(WorkflowRunEntity(
-            id = newId, tenantId = "00000000-0000-0000-0000-000000000001",
-            workflowId = "retry-$runId", workflowName = "Manual retry",
-            status = "completed", startedBy = actorId, startedAt = now,
-            finishedAt = now, resultJson = "{}", errorMessage = null,
-        ))
-        return Result.Ok(newId)
+        val now = Instant.now().toString()
+        val newRun = WorkflowRunEntity(
+            id = newId, tenantId = original.tenantId,
+            workflowId = original.workflowId, workflowName = original.workflowName,
+            status = "running", startedBy = actorId, startedAt = now,
+            finishedAt = null, resultJson = null, errorMessage = null,
+        )
+        workflowRunDao.upsert(newRun)
+
+        val invoked = com.example.infrastructure.supabase.NetworkTimeouts.guard(
+            "workflow.retry", timeoutMs = 8_000L,
+        ) {
+            provider.functions.invoke(
+                function = "workflow-execute",
+                body = kotlinx.serialization.json.buildJsonObject {
+                    put("workflowId", original.workflowId)
+                    put("runId", newId)
+                    put("triggeredBy", actorId)
+                },
+            )
+        }
+
+        return if (invoked != null && invoked.status.value in 200..299) {
+            Result.Ok(newId)
+        } else {
+            val message = "Relance impossible : le moteur de workflows est côté serveur et n'est pas joignable."
+            workflowRunDao.upsert(
+                newRun.copy(status = "failed", finishedAt = Instant.now().toString(), errorMessage = message),
+            )
+            Result.Err(
+                com.example.core.Errors.unknown(
+                    "workflow retry failed (server unreachable)",
+                    userMessage = message,
+                ),
+            )
+        }
     }
 }
 
 // ─── Storage Repository ─────────────────────────────────────────────────────
 
+/**
+ * Local file-backed [StorageRepository] — REAL persistence (previously
+ * `uploadProof` returned a fabricated `local://…` URL and silently DISCARDED
+ * the bytes, so scanned payment/expense proofs were never actually stored).
+ *
+ * Proof files are written under `{filesDir}/proofs/{bucket}/{entityId}/` and
+ * the returned `file://` URI resolves to a real on-device file that can be
+ * re-opened, shared and re-uploaded later. When a Supabase Storage bucket is
+ * configured, the bytes are ALSO pushed to the remote bucket and the remote
+ * path is preferred (the local copy is kept as an offline cache).
+ */
 @Singleton
-class LocalStorageRepository @Inject constructor() : StorageRepository {
-    override suspend fun uploadProof(bucket: String, entityId: String, fileName: String, bytes: ByteArray, mimeType: String): Result<String> =
-        Result.Ok("local://$bucket/$entityId/$fileName")
-    override suspend fun createSignedUrl(bucket: String, path: String, expiresInSeconds: Long): Result<String> =
-        Result.Ok("local://$bucket/$path")
+class LocalStorageRepository @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
+    private val provider: com.example.infrastructure.supabase.SupabaseClientProvider,
+) : StorageRepository {
+
+    override suspend fun uploadProof(
+        bucket: String,
+        entityId: String,
+        fileName: String,
+        bytes: ByteArray,
+        mimeType: String,
+    ): Result<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        // ── Local file persistence (always — offline cache) ──
+        val localFile = try {
+            val dir = java.io.File(java.io.File(context.filesDir, "proofs"), "$bucket/$entityId")
+            dir.mkdirs()
+            val file = java.io.File(dir, fileName)
+            file.writeBytes(bytes)
+            file
+        } catch (e: Exception) {
+            null
+        }
+
+        // ── Remote (Supabase Storage) when configured ──
+        val remotePath: String? = com.example.infrastructure.supabase.NetworkTimeouts.guard(
+            "storage.uploadProof",
+        ) {
+            provider.storage.from(bucket).upload("$entityId/$fileName", bytes) {
+                upsert = true
+                contentType = io.ktor.http.ContentType.parse(mimeType)
+            }
+            "$entityId/$fileName"
+        }
+        if (remotePath != null) return@withContext Result.Ok(remotePath)
+
+        // ── Offline / unconfigured: the real local file ──
+        if (localFile != null) {
+            Result.Ok("file://${localFile.absolutePath}")
+        } else {
+            Result.Err(
+                com.example.core.Errors.unknown(
+                    "uploadProof failed: could not write local proof file",
+                    userMessage = "Échec de l'enregistrement du justificatif.",
+                ),
+            )
+        }
+    }
+
+    override suspend fun createSignedUrl(bucket: String, path: String, expiresInSeconds: Long): Result<String> {
+        // Try the remote bucket first when configured; otherwise resolve the
+        // locally persisted file (an honest, resolvable file:// URI — the
+        // previous implementation fabricated a URL that pointed at nothing).
+        val remote = com.example.infrastructure.supabase.NetworkTimeouts.guard<String>(
+            "storage.createSignedUrl",
+        ) {
+            provider.storage.from(bucket).createSignedUrl(path, kotlin.time.Duration.parseIsoString("PT${expiresInSeconds}S"))
+        }
+        if (remote != null) return Result.Ok(remote)
+
+        val local = java.io.File(java.io.File(context.filesDir, "proofs"), "$bucket/$path")
+        return if (local.exists()) {
+            Result.Ok("file://${local.absolutePath}")
+        } else {
+            Result.Err(com.example.core.Errors.notFound("Aucun justificatif stocké pour $bucket/$path"))
+        }
+    }
 }
 
 // ─── Helper ─────────────────────────────────────────────────────────────────

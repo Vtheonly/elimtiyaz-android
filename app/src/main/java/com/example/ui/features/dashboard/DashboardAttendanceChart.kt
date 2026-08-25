@@ -178,6 +178,16 @@ internal fun DashboardAttendanceChart(
                         lineColor = ElTheme.colors.info,
                         gradientFill = true,
                     )
+                } else {
+                    // FIX (truthful empty state): previously nothing was shown
+                    // when there was no attendance data — now the user gets an
+                    // explicit explanation instead of a silently missing chart.
+                    Text(
+                        text = "Aucun appel enregistré ces 7 derniers jours — la tendance apparaîtra dès le premier appel.",
+                        style = ElTheme.typography.bodySmall,
+                        color = ElTheme.colors.textSecondary,
+                        modifier = Modifier.padding(vertical = 12.dp),
+                    )
                 }
             }
         }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Edit
@@ -54,6 +55,7 @@ import com.example.core.Result
 import com.example.core.computeOverallGpa
 import com.example.core.formatDzd
 import com.example.core.GRADE_LEVEL_CODES
+import com.example.core.isPassing
 import com.example.domain.model.Assessment
 import com.example.domain.model.AttendanceRecord
 import com.example.domain.model.Installment
@@ -70,8 +72,10 @@ import com.example.domain.repository.StudentRepository
 import com.example.ui.components.ElAlertBanner
 import com.example.ui.components.ElAlertSeverity
 import com.example.ui.components.ElAvatar
+import com.example.ui.components.ElButton
 import com.example.ui.components.ElCard
 import com.example.ui.components.ElInfoRow
+import com.example.ui.components.ElProgressBar
 import com.example.ui.components.ElScaffold
 import com.example.ui.components.ElSectionHeader
 import com.example.ui.components.ElTag
@@ -87,6 +91,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 data class AttendanceStats(
@@ -103,10 +108,12 @@ class StudentDetailViewModel @Inject constructor(
     private val studentRepository: StudentRepository,
     private val parentRepository: ParentRepository,
     private val gradeRepository: GradeRepository,
+    private val subjectRepository: com.example.domain.repository.SubjectRepository,
     private val attendanceRepository: AttendanceRepository,
     private val installmentRepository: InstallmentRepository,
     private val paymentRepository: PaymentRepository,
     private val ledgerRepository: LedgerRepository,
+    private val pdfRepository: com.example.domain.repository.PdfRepository,
     private val sessionManager: com.example.session.SessionManager,
 ) : ViewModel() {
 
@@ -121,6 +128,21 @@ class StudentDetailViewModel @Inject constructor(
 
     private val _assessments = MutableStateFlow<List<Assessment>>(emptyList())
     val assessments: StateFlow<List<Assessment>> = _assessments.asStateFlow()
+
+    /** All subjects — resolves assessment subjectIds to display names. */
+    private val _subjects = MutableStateFlow<List<com.example.domain.model.Subject>>(emptyList())
+    val subjects: StateFlow<List<com.example.domain.model.Subject>> = _subjects.asStateFlow()
+
+    /**
+     * Class-wide assessments for the selected term — backs the student's rank
+     * and the class average, both derived from the canonical GPA engine.
+     */
+    private val _classAssessments = MutableStateFlow<List<Assessment>>(emptyList())
+    val classAssessments: StateFlow<List<Assessment>> = _classAssessments.asStateFlow()
+
+    /** Canonical GPA per term (T1 / T2 / T3) — real progression history. */
+    private val _termGpas = MutableStateFlow<Map<String, Double?>>(emptyMap())
+    val termGpas: StateFlow<Map<String, Double?>> = _termGpas.asStateFlow()
 
     private val _attendanceRecords = MutableStateFlow<List<AttendanceRecord>>(emptyList())
     val attendanceRecords: StateFlow<List<AttendanceRecord>> = _attendanceRecords.asStateFlow()
@@ -156,14 +178,20 @@ class StudentDetailViewModel @Inject constructor(
     private var loadJob: kotlinx.coroutines.Job? = null
     private var detailJob: kotlinx.coroutines.Job? = null
     private var gradesJob: kotlinx.coroutines.Job? = null
+    private var classGradesJob: kotlinx.coroutines.Job? = null
 
     fun load(studentId: String, term: String = "T1", academicYear: String? = null) {
         loadJob?.cancel()
         detailJob?.cancel()
         gradesJob?.cancel()
+        classGradesJob?.cancel()
         loadJob = viewModelScope.launch {
             _isLoading.value = true
             val year = academicYear ?: currentAcademicYear()
+            launch {
+                // Subject catalogue — resolves subjectIds to names/coefficients.
+                subjectRepository.observe().collect { _subjects.value = it }
+            }
             studentRepository.observeById(studentId).collect { s ->
                 _student.value = s
                 detailJob?.cancel()
@@ -190,6 +218,17 @@ class StudentDetailViewModel @Inject constructor(
                             gradesJob = launch {
                                 gradeRepository.observeForStudent(studentId, term, year).collect { list ->
                                     _assessments.value = list
+                                }
+                            }
+                        }
+                        // Per-term GPA history (T1/T2/T3) — canonical engine.
+                        launch { loadTermGpas(studentId, year) }
+                        // Class-wide assessments for rank + class average.
+                        s.classId?.let { cid ->
+                            classGradesJob?.cancel()
+                            classGradesJob = launch {
+                                gradeRepository.observeForClass(cid, term, year).collect { list ->
+                                    _classAssessments.value = list
                                 }
                             }
                         }
@@ -224,11 +263,36 @@ class StudentDetailViewModel @Inject constructor(
 
     /** Re-observe grades for a different term without reloading everything. */
     fun loadGradesForTerm(studentId: String, term: String, academicYear: String? = null) {
+        val year = academicYear ?: currentAcademicYear()
         gradesJob?.cancel()
         gradesJob = viewModelScope.launch {
-            gradeRepository.observeForStudent(studentId, term, academicYear ?: currentAcademicYear())
+            gradeRepository.observeForStudent(studentId, term, year)
                 .collect { list -> _assessments.value = list }
         }
+        // Class-wide view follows the selected term too (rank + class average).
+        val classId = _student.value?.classId
+        if (classId != null) {
+            classGradesJob?.cancel()
+            classGradesJob = viewModelScope.launch {
+                gradeRepository.observeForClass(classId, term, year).collect { list ->
+                    _classAssessments.value = list
+                }
+            }
+        }
+    }
+
+    /**
+     * Canonical GPA per term — one entry per term that has any assessment.
+     * Computed with [com.example.core.computeOverallGpa] (coefficient-weighted,
+     * extracurricular excluded, incomplete averages skipped).
+     */
+    private suspend fun loadTermGpas(studentId: String, year: String) {
+        val gpas = linkedMapOf<String, Double?>()
+        for (t in listOf("T1", "T2", "T3")) {
+            val list = gradeRepository.observeForStudent(studentId, t, year).firstOrNull().orEmpty()
+            gpas[t] = if (list.isEmpty()) null else com.example.core.computeOverallGpa(list)
+        }
+        _termGpas.value = gpas
     }
 
     private fun currentAcademicYear(): String {
@@ -272,6 +336,33 @@ class StudentDetailViewModel @Inject constructor(
         _error.value = null
         _saveMessage.value = null
     }
+
+    // ── Bulletin PDF (entity-specific report, per desktop spec §5.1) ──────
+
+    private val _bulletinBusy = MutableStateFlow(false)
+    val bulletinBusy: StateFlow<Boolean> = _bulletinBusy.asStateFlow()
+
+    /** One-shot share request: the freshly generated bulletin file. */
+    private val _bulletinShareRequest = MutableStateFlow<java.io.File?>(null)
+    val bulletinShareRequest: StateFlow<java.io.File?> = _bulletinShareRequest.asStateFlow()
+
+    fun generateBulletin(studentId: String, term: String, academicYear: String? = null) {
+        if (_bulletinBusy.value) return
+        viewModelScope.launch {
+            _bulletinBusy.value = true
+            when (val r = pdfRepository.generateStudentBulletin(studentId, term, academicYear ?: currentAcademicYear())) {
+                is Result.Ok -> {
+                    _bulletinShareRequest.value = r.value
+                    _saveMessage.value = "Bulletin $term généré."
+                }
+                is Result.Err -> _error.value = r.error.userMessage
+            }
+            _bulletinBusy.value = false
+        }
+    }
+
+    /** Called by the UI once the share intent has been dispatched. */
+    fun consumeBulletinShareRequest() { _bulletinShareRequest.value = null }
 }
 
 @Composable
@@ -295,6 +386,11 @@ fun StudentDetailScreen(
     // Finances tab to avoid inline installment sums.
     val familySummary by viewModel.familySummary.collectAsState()
     val saveMessage by viewModel.saveMessage.collectAsState()
+    val subjects by viewModel.subjects.collectAsState()
+    val classAssessments by viewModel.classAssessments.collectAsState()
+    val termGpas by viewModel.termGpas.collectAsState()
+    val bulletinBusy by viewModel.bulletinBusy.collectAsState()
+    val bulletinShareRequest by viewModel.bulletinShareRequest.collectAsState()
     val context = LocalContext.current
     val tokens = elDesignTokens()
 
@@ -313,6 +409,27 @@ fun StudentDetailScreen(
         if (saveMessage != null) {
             kotlinx.coroutines.delay(3000)
             viewModel.clearMessages()
+        }
+    }
+    // Share the freshly generated bulletin PDF (ACTION_SEND via FileProvider —
+    // same mechanism as the payment-receipt share).
+    LaunchedEffect(bulletinShareRequest) {
+        bulletinShareRequest?.let { file ->
+            runCatching {
+                val uri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file,
+                )
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/pdf"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    putExtra(Intent.EXTRA_SUBJECT, "Bulletin ${selectedTerm}")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(Intent.createChooser(shareIntent, "Partager le bulletin"))
+            }
+            viewModel.consumeBulletinShareRequest()
         }
     }
 
@@ -491,22 +608,164 @@ fun StudentDetailScreen(
                             }
                         }
                     }
+
+                    // Subject-name resolution + canonical derived metrics.
+                    val subjectById = subjects.associateBy { it.id }
+                    val gpa = computeOverallGpa(assessments)
+                    val mention = mentionFor(gpa)
+
+                    // Class rank + class average — canonical GPA per classmate.
+                    val classGpas = classAssessments
+                        .groupBy { it.studentId }
+                        .map { (sid, list) -> sid to computeOverallGpa(list) }
+                        .filter { it.second != null }
+                        .sortedByDescending { it.second!! }
+                    val rankIdx = classGpas.indexOfFirst { it.first == studentId }
+                    val classAverage = classGpas.mapNotNull { it.second }.takeIf { it.isNotEmpty() }?.average()
+                    val evaluatedCount = assessments.count { it.subjectAverage != null && !it.isExtracurricular }
+                    val bestSubject = assessments
+                        .filter { !it.isExtracurricular && it.subjectAverage != null }
+                        .maxByOrNull { it.subjectAverage!! }
+                        ?.let { (subjectById[it.subjectId]?.name ?: it.subjectId) to it.subjectAverage!! }
+                    val weakestSubject = assessments
+                        .filter { !it.isExtracurricular && it.subjectAverage != null }
+                        .minByOrNull { it.subjectAverage!! }
+                        ?.let { (subjectById[it.subjectId]?.name ?: it.subjectId) to it.subjectAverage!! }
+
                     item {
-                        val gpa = computeOverallGpa(assessments)
+                        // ── GPA hero with mention + rank ──
                         ElCard(modifier = Modifier.fillMaxWidth(), accent = if ((gpa ?: 0.0) >= 10.0) SuccessGreen else DangerRed) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text("Moyenne Générale du Trimestre", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = gpa?.let { "%.2f / 20".format(it) } ?: "En attente des examens",
-                                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = if ((gpa ?: 0.0) >= 10.0) SuccessGreen else DangerRed,
-                                )
-                                Text(
-                                    text = if ((gpa ?: 0.0) >= 10.0) "Admis • Résultats satisfaisants" else "Moyenne inférieure au seuil de passage",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Moyenne Générale — $selectedTerm", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            text = gpa?.let { "%.2f / 20".format(it) } ?: "En attente des examens",
+                                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = if ((gpa ?: 0.0) >= 10.0) SuccessGreen else DangerRed,
+                                        )
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            text = when {
+                                                gpa == null -> "Moyenne calculée dès que toutes les notes sont saisies"
+                                                isPassing(gpa) -> "Admis • Mention $mention"
+                                                else -> "Moyenne inférieure au seuil de passage • $mention"
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            if (rankIdx >= 0) "${rankIdx + 1}${if (rankIdx + 1 == 1) "er" else "e"}" else "—",
+                                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = PrimaryBlue,
+                                        )
+                                        Text(
+                                            if (classGpas.isNotEmpty()) "sur ${classGpas.size}" else "rang",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.height(10.dp))
+                                ElProgressBar(progress = ((gpa ?: 0.0) / 20.0).toFloat())
+                                Spacer(Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    GradeStat("Matières évaluées", "$evaluatedCount")
+                                    GradeStat("Moy. classe", classAverage?.let { "%.2f".format(it) } ?: "—")
+                                    GradeStat(
+                                        "Écart",
+                                        if (gpa != null && classAverage != null) "%+.2f".format(gpa - classAverage) else "—",
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    item {
+                        // ── Per-term progression (canonical GPA per term) ──
+                        if (termGpas.values.any { it != null }) {
+                            ElCard(modifier = Modifier.fillMaxWidth()) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Text("Progression de l'année", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                    Spacer(Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        listOf("T1", "T2", "T3").forEach { t ->
+                                            val termGpa = termGpas[t]
+                                            val isCurrent = t == selectedTerm
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                modifier = Modifier
+                                                    .clip(MaterialTheme.shapes.small)
+                                                    .background(
+                                                        when {
+                                                            isCurrent -> PrimaryBlue.copy(alpha = 0.12f)
+                                                            termGpa != null && isPassing(termGpa) -> SuccessGreen.copy(alpha = 0.08f)
+                                                            termGpa != null -> DangerRed.copy(alpha = 0.08f)
+                                                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                                        },
+                                                    )
+                                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                            ) {
+                                                Text(
+                                                    t,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = if (isCurrent) PrimaryBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                                Text(
+                                                    termGpa?.let { "%.2f".format(it) } ?: "—",
+                                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                                    color = when {
+                                                        termGpa == null -> MaterialTheme.colorScheme.outline
+                                                        isPassing(termGpa) -> SuccessGreen
+                                                        else -> DangerRed
+                                                    },
+                                                )
+                                                if (isCurrent) {
+                                                    Text("Trimestre affiché", style = MaterialTheme.typography.labelSmall, color = PrimaryBlue)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    item {
+                        // ── Strengths / focus areas (derived, canonical values) ──
+                        if (bestSubject != null || weakestSubject != null) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                bestSubject?.let { (name, avg) ->
+                                    SubjectHighlightCard(
+                                        label = "Point fort",
+                                        subjectName = name,
+                                        average = avg,
+                                        color = SuccessGreen,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                                weakestSubject?.let { (name, avg) ->
+                                    SubjectHighlightCard(
+                                        label = "À renforcer",
+                                        subjectName = name,
+                                        average = avg,
+                                        color = DangerRed,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
                             }
                         }
                     }
@@ -518,27 +777,54 @@ fun StudentDetailScreen(
                             }
                         }
                     } else {
-                        items(assessments) { a ->
-                            ElCard(modifier = Modifier.fillMaxWidth(), compact = true) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                    ) {
-                                        Text(a.subjectId.uppercase(), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                                        Text(
-                                            text = a.subjectAverage?.let { "Moy: %.2f".format(it) } ?: "En cours",
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = if ((a.subjectAverage ?: 0.0) >= 10.0) SuccessGreen else DangerRed,
-                                        )
-                                    }
+                        item {
+                            Text(
+                                "Détail par matière",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            )
+                        }
+                        items(assessments.sortedWith(
+                            compareByDescending<Assessment> { it.isExtracurricular }
+                                .thenBy { subjectById[it.subjectId]?.name ?: it.subjectId },
+                        )) { a ->
+                            val subject = subjectById[a.subjectId]
+                            val avg = a.subjectAverage
+                            val passingGrade = subject?.passingGrade ?: 10.0
+                            SubjectGradeCard(
+                                subjectName = subject?.name ?: a.subjectId,
+                                coefficient = a.coefficient,
+                                isExtracurricular = a.isExtracurricular,
+                                devoir1 = a.devoir1,
+                                devoir2 = a.devoir2,
+                                examen = a.examen,
+                                average = avg,
+                                passing = avg != null && isPassing(avg, passingGrade),
+                                passingGrade = passingGrade,
+                                enteredAt = a.enteredAt,
+                            )
+                        }
+
+                        // ── Bulletin PDF (entity-specific report) ──
+                        item {
+                            ElCard(modifier = Modifier.fillMaxWidth(), accent = PrimaryBlue) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Text(
+                                        "Bulletin officiel — $selectedTerm",
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    )
                                     Spacer(Modifier.height(4.dp))
                                     Text(
-                                        "Devoir 1: ${a.devoir1 ?: "—"}  •  Devoir 2: ${a.devoir2 ?: "—"}  •  Examen: ${a.examen ?: "—"}",
+                                        "Génère le bulletin PDF (notes, coefficients, moyenne générale, mention, rang) prêt à partager avec la famille.",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                    Text("Coefficient : ${a.coefficient}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(Modifier.height(10.dp))
+                                    com.example.ui.components.ElButton(
+                                        text = if (bulletinBusy) "Génération…" else "Générer le bulletin $selectedTerm",
+                                        onClick = { viewModel.generateBulletin(studentId, selectedTerm) },
+                                        fullWidth = true,
+                                        enabled = !bulletinBusy && assessments.isNotEmpty(),
+                                    )
                                 }
                             }
                         }
@@ -765,6 +1051,169 @@ fun StudentDetailScreen(
             dismissButton = {
                 TextButton(onClick = { showEditDialog = false }) { Text("Annuler") }
             },
+        )
+    }
+}
+// ── Notes & Bulletins helpers (canonical display, no re-derived logic) ─────
+
+/** Standard French bulletin mention — presentation only. */
+private fun mentionFor(gpa: Double?): String = when {
+    gpa == null -> "En attente des examens"
+    gpa >= 16 -> "Très Bien"
+    gpa >= 14 -> "Bien"
+    gpa >= 12 -> "Assez Bien"
+    gpa >= 10 -> "Passable"
+    else -> "Insuffisant"
+}
+
+@Composable
+private fun GradeStat(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = PrimaryBlue)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Compact "Point fort / À renforcer" card — canonical subject average. */
+@Composable
+private fun SubjectHighlightCard(
+    label: String,
+    subjectName: String,
+    average: Double,
+    color: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+) {
+    ElCard(modifier = modifier, compact = true) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                subjectName,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+            Text(
+                "%.2f / 20".format(average),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = color,
+            )
+        }
+    }
+}
+
+/**
+ * Full per-subject grade card: marks with the ×2 examen weight made explicit,
+ * canonical subject average, coefficient, per-subject progress bar and the
+ * pass/fail verdict against the SUBJECT's own passing grade.
+ */
+@Composable
+private fun SubjectGradeCard(
+    subjectName: String,
+    coefficient: Double,
+    isExtracurricular: Boolean,
+    devoir1: Double?,
+    devoir2: Double?,
+    examen: Double?,
+    average: Double?,
+    passing: Boolean,
+    passingGrade: Double,
+    enteredAt: String,
+) {
+    val avgColor = when {
+        average == null -> WarmGold
+        passing -> SuccessGreen
+        else -> DangerRed
+    }
+    ElCard(modifier = Modifier.fillMaxWidth(), compact = true, accent = avgColor) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        subjectName,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                    if (isExtracurricular) {
+                        ElTag(text = "Hors programme", color = WarmGold)
+                    }
+                }
+                Text(
+                    text = average?.let { "%.2f".format(it) } ?: "—",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = avgColor,
+                )
+            }
+
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                MarkPill("D1", devoir1)
+                MarkPill("D2", devoir2)
+                MarkPill("Ex ×2", examen)
+                Spacer(Modifier.weight(1f))
+                Text(
+                    "Coef ${if (coefficient == coefficient.toLong().toDouble()) "${coefficient.toLong()}" else "$coefficient"}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (average != null) {
+                Spacer(Modifier.height(8.dp))
+                ElProgressBar(
+                    progress = (average / 20.0).toFloat(),
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    if (passing) "Acquis (≥ $passingGrade/20)" else "À renforcer (< $passingGrade/20)",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = avgColor,
+                )
+            } else {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Moyenne à paraître — les 3 notes doivent être saisies (formule (D1 + D2 + 2×Ex) / 4)",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = WarmGold,
+                )
+            }
+
+            if (enteredAt.isNotBlank()) {
+                Text(
+                    "Saisie le ${enteredAt.take(10)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarkPill(label: String, value: Double?) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(
+                if (value != null) PrimaryBlue.copy(alpha = 0.12f)
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+            )
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+    ) {
+        Text(
+            "$label ${value?.let { if (it == it.toLong().toDouble()) "${it.toLong()}" else "$it" } ?: "—"}",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (value != null) PrimaryBlue else MaterialTheme.colorScheme.outline,
         )
     }
 }

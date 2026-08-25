@@ -31,6 +31,13 @@ interface ReleveRepository {
     ): Flow<Result<List<ReleveEntry>>>
 
     /**
+     * Observe the most recent Relevé entries across ALL staff (most recent
+     * first). Backs the Relevé directory view + the computed weekly-hours
+     * compliance bars.
+     */
+    fun observeRecent(): Flow<Result<List<ReleveEntry>>>
+
+    /**
      * Append a new Relevé entry.
      *
      * @return The created entry (with server-assigned id + computed `durationMinutes`).

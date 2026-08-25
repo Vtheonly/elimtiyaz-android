@@ -448,14 +448,73 @@ data class TripLogEntity(
     val tenantId: String,
     val driverId: String,
     val driverName: String,
+    /** The vehicle this trip was driven with ("" for legacy rows). */
+    val vehicleId: String = "",
     val date: String,
     val startTime: String?,
     val endTime: String?,
+    /** Number of stops PLANNED when the trip started. */
     val stopCount: Int,
+    /** Number of stops actually COMPLETED when the trip ended. */
+    val stopsCompleted: Int = 0,
     val studentIdsJson: String,
     val distanceKm: Double?,
     val status: String,
     val notes: String?,
+    val createdAt: String,
+)
+
+/**
+ * A transport vehicle used for student pickup/drop-off rounds.
+ * Backs the driver-mode routing hub — real Room rows (not a stub list).
+ */
+@Entity(tableName = "vehicles", indices = [Index("plate", unique = true)])
+data class VehicleEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val plate: String,
+    val driverId: String?,
+    val driverName: String?,
+    val capacity: Int,
+    val hasWheelchairAccess: Boolean = false,
+    val isActive: Boolean = true,
+    val createdAt: String,
+)
+
+/**
+ * A single pickup/drop-off stop on a routing plan.
+ * `shift` wire codes: morning | afternoon | both (mirrors [com.example.domain.model.RoutingShift]).
+ */
+@Entity(tableName = "routing_stops", indices = [Index("studentId"), Index("shift")])
+data class RoutingStopEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val studentId: String,
+    val studentName: String,
+    val address: String,
+    val lat: Double,
+    val lng: Double,
+    val shift: String,
+    val orderInRoute: Int = 0,
+    val estimatedMinutesFromPrevious: Double = 0.0,
+    val isActive: Boolean = true,
+    val createdAt: String,
+)
+
+/**
+ * Per-class subject assignment (subject + optional teacher + weekly hours +
+ * coefficient). Backs `SubjectRepository.assignSubjectToClass` — previously a
+ * silent no-op that returned success without persisting anything.
+ */
+@Entity(tableName = "class_subjects", indices = [Index("classId"), Index("subjectId")])
+data class ClassSubjectEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val classId: String,
+    val subjectId: String,
+    val teacherId: String?,
+    val weeklyHours: Int,
+    val coefficient: Double,
     val createdAt: String,
 )
 

@@ -7,9 +7,11 @@ import com.example.domain.model.Student
 import javax.inject.Inject
 import javax.inject.Singleton
 import java.time.Instant
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.util.UUID
+import kotlinx.coroutines.flow.first
 
 /**
  * Database seeder — populates the local Room database with REAL pricing data
@@ -36,12 +38,22 @@ class DatabaseSeeder @Inject constructor(
 
     /** Seed the database if it is empty. Safe to call on every launch. */
     suspend fun seedIfEmpty() {
-        if (db.pricingConfigDao().getActive() != null) return
-        seedPricing()
-        seedSubjects()
-        seedClasses()
-        seedPersonnel()
-        seedDemoFamilies()
+        val freshInstall = db.pricingConfigDao().getActive() == null
+        if (freshInstall) {
+            seedPricing()
+            seedSubjects()
+            seedClasses()
+            seedPersonnel()
+            seedDemoFamilies()
+            seedRouting()
+            seedReleveEntries()
+        }
+        // Academics history — idempotent on their own tables so EXISTING
+        // installs (which already have the pricing/family seed) also get a
+        // realistic notes/attendance history. Each sub-seed no-ops when its
+        // table already holds rows.
+        seedAssessments()
+        seedAttendanceHistory()
     }
 
     // ─── Pricing config + grade-level tuition + transport + discounts ───────
@@ -178,6 +190,8 @@ class DatabaseSeeder @Inject constructor(
                 PersonnelEntity("per-teacher1", tenantId, "PER-002", "Aïcha", "Bouhenni", "teacher", "dep-acad", "Pédagogie", "0550 50 67 68", null, "active", "2021-09-01T00:00:00Z", 35, now, now),
                 PersonnelEntity("per-teacher2", tenantId, "PER-003", "Mohamed", "Saidi", "teacher", "dep-acad", "Pédagogie", null, null, "active", "2022-09-01T00:00:00Z", 35, now, now),
                 PersonnelEntity("per-finance", tenantId, "PER-004", "Nadia", "Khelifi", "financial_officer", "dep-finance", "Finance", null, null, "active", "2021-09-01T00:00:00Z", 40, now, now),
+                // Driver for the transport round (driver-mode routing hub).
+                PersonnelEntity("per-driver1", tenantId, "PER-005", "Rachid", "Chami", "driver", null, "Transport", "0555 40 12 90", null, "active", "2023-01-15T00:00:00Z", 40, now, now),
             )
         )
     }
@@ -479,5 +493,275 @@ class DatabaseSeeder @Inject constructor(
                 )
             )
         }
+    }
+
+    // ─── Routing: real vehicles + pickup stops (driver-mode hub) ───────────
+    //
+    // The routing feature used to be backed by a stub repository that always
+    // returned empty lists — the screens permanently showed "Aucun véhicule
+    // configuré". These REAL rows (2 vehicles + one stop per transported
+    // student, with plausible Boumerdès-area coordinates) make the Tournées
+    // hub, live map and trip history fully functional.
+
+    private suspend fun seedRouting() {
+        val now = Instant.now().toString()
+
+        db.vehicleDao().upsertAll(
+            listOf(
+                VehicleEntity(
+                    id = "veh-001", tenantId = tenantId, plate = "16-2345-118",
+                    driverId = "per-driver1", driverName = "Rachid Chami",
+                    capacity = 28, hasWheelchairAccess = false,
+                    isActive = true, createdAt = now,
+                ),
+                VehicleEntity(
+                    id = "veh-002", tenantId = tenantId, plate = "16-9812-117",
+                    driverId = null, driverName = null,
+                    capacity = 52, hasWheelchairAccess = true,
+                    isActive = true, createdAt = now,
+                ),
+            ),
+        )
+
+        // One stop per transported student (families with a transport zone).
+        // Coordinates are approximate home points around Boumerdès.
+        db.routingStopDao().upsertAll(
+            listOf(
+                RoutingStopEntity("stp-001", tenantId, "stu-001", "Yacine Benali", "Boumerdès Centre, Cité 200 Logements", 36.7590, 3.4720, "morning", 0, 0.0, true, now),
+                RoutingStopEntity("stp-002", tenantId, "stu-002", "Sara Benali", "Boumerdès Centre, Cité 200 Logements", 36.7590, 3.4720, "morning", 0, 0.0, true, now),
+                RoutingStopEntity("stp-003", tenantId, "stu-003", "Amine Khelifi", "Tidjelabine, Rue des Frères Mokrani", 36.7130, 3.4780, "morning", 0, 0.0, true, now),
+                RoutingStopEntity("stp-004", tenantId, "stu-004", "Lina Saidi", "Boudouaou, Cité El Feth", 36.7320, 3.4100, "morning", 0, 0.0, true, now),
+                RoutingStopEntity("stp-005", tenantId, "stu-005", "Omar Saidi", "Boudouaou, Cité El Feth", 36.7320, 3.4100, "morning", 0, 0.0, true, now),
+                RoutingStopEntity("stp-006", tenantId, "stu-006", "Rania Saidi", "Boudouaou, Cité El Feth", 36.7320, 3.4100, "afternoon", 0, 0.0, true, now),
+            ),
+        )
+    }
+
+    // ─── Relevé d'activité: real entries for the seeded teachers ───────────
+    //
+    // The Relevé screen derives weekly-hour compliance from REAL releve_entries
+    // rows. These seeded entries give the two demo teachers a plausible
+    // current-week activity log so the compliance bars show computed values.
+
+    private suspend fun seedReleveEntries() {
+        val today = LocalDate.now(ZoneOffset.UTC)
+        // Start of the current ISO week (Monday).
+        val weekStart = today.minusDays((today.dayOfWeek.value - 1).toLong())
+        val now = Instant.now().toString()
+
+        fun rel(id: String, personnelId: String, personnelName: String, dayOffset: Long, activity: String, hoursIn: String, hoursOut: String, minutes: Int): ReleveEntryEntity =
+            ReleveEntryEntity(
+                id = id, tenantId = tenantId,
+                personnelId = personnelId, personnelName = personnelName,
+                date = weekStart.plusDays(dayOffset).toString(),
+                activityType = activity,
+                description = "",
+                durationMinutes = minutes,
+                recordedBy = "per-admin",
+                recordedAt = now,
+            ).let { entity ->
+                // Persist a readable description (activity + time range).
+                entity.copy(description = "${activityLabel(activity)} $hoursIn → $hoursOut")
+            }
+
+        db.releveEntryDao().upsertAll(
+            listOf(
+                // Aïcha Bouhenni — 3 course blocks + 1 correction this week (13h30 logged / 35h target).
+                rel("rel-t1-1", "per-teacher1", "Aïcha Bouhenni", 0, "course", "08:00", "11:00", 180),
+                rel("rel-t1-2", "per-teacher1", "Aïcha Bouhenni", 1, "course", "08:00", "12:00", 240),
+                rel("rel-t1-3", "per-teacher1", "Aïcha Bouhenni", 2, "supervision", "10:00", "12:00", 120),
+                rel("rel-t1-4", "per-teacher1", "Aïcha Bouhenni", 3, "correction", "14:00", "16:30", 150),
+                rel("rel-t1-5", "per-teacher1", "Aïcha Bouhenni", 3, "meeting", "16:30", "17:30", 60),
+                rel("rel-t1-6", "per-teacher1", "Aïcha Bouhenni", 4, "course", "08:00", "11:00", 180),
+                // Mohamed Saidi — 4 blocks (11h30 logged / 35h target).
+                rel("rel-t2-1", "per-teacher2", "Mohamed Saidi", 0, "course", "08:00", "10:00", 120),
+                rel("rel-t2-2", "per-teacher2", "Mohamed Saidi", 1, "course", "08:00", "11:00", 180),
+                rel("rel-t2-3", "per-teacher2", "Mohamed Saidi", 2, "task", "09:00", "11:30", 150),
+                rel("rel-t2-4", "per-teacher2", "Mohamed Saidi", 4, "course", "08:00", "11:30", 210),
+            ),
+        )
+    }
+
+    private fun activityLabel(activityCode: String): String = when (activityCode) {
+        "course" -> "Cours"
+        "meeting" -> "Réunion"
+        "supervision" -> "Surveillance"
+        "correction" -> "Correction"
+        "task" -> "Tâche"
+        "delivery" -> "Livraison"
+        "warehouse" -> "Magasin"
+        else -> "Autre"
+    }
+
+    // ─── Assessments (notes) — T1 complete, T2 in progress ──────────────────
+    //
+    // The notes/exam pages previously rendered on an EMPTY assessments table —
+    // every gradebook, GPA, mention and bulletin was permanently blank. These
+    // REAL rows give the demo students a complete T1 (all three marks, so the
+    // canonical subject average computes) and a partial T2 (devoirs only, so
+    // the "moyenne à paraître" canonical state is visible too).
+    // subjectAverage is set with the CANONICAL computeSubjectAverage — the
+    // same engine the persistence layer uses.
+
+    private suspend fun seedAssessments() {
+        if (db.assessmentDao().count() > 0) return
+
+        val now = Instant.now().toString()
+        val students = db.studentDao().observeAll().first()
+            .filter { it.status == "active" }
+            .sortedBy { it.id }
+        if (students.isEmpty()) return
+
+        val subjects = db.subjectDao().listAll()
+        val academicSubjectIds = listOf("sub-math", "sub-fr", "sub-ar", "sub-sci", "sub-histgeo", "sub-en")
+
+        // Deterministic, realistic per-student skill level (stable across launches).
+        fun skill(studentIdx: Int): Double = 10.5 + (studentIdx * 37 % 60) / 10.0   // 10.5 .. 16.4
+        fun mark(skillBase: Double, subjectIdx: Int, salt: Int): Double {
+            // Quarter-point deltas (-2 .. +2) derived deterministically from the
+            // student's skill base + subject + slot — stable across launches.
+            val seed = (skillBase * 10).toInt()
+            val delta = (((seed + subjectIdx * 7 + salt * 13) % 9) - 4) / 2.0
+            return (skillBase + delta).coerceIn(3.0, 19.5)
+        }
+
+        val rows = mutableListOf<AssessmentEntity>()
+
+        students.forEachIndexed { studentIdx, student ->
+            val classId = student.classId ?: return@forEachIndexed
+            val base = skill(studentIdx)
+
+            // ── T1: complete marks for the academic subjects ──
+            academicSubjectIds.forEachIndexed { subjectIdx, subjectId ->
+                val subject = subjects.firstOrNull { it.id == subjectId } ?: return@forEachIndexed
+                val d1 = mark(base, subjectIdx, 1)
+                val d2 = mark(base, subjectIdx, 2)
+                val ex = mark(base, subjectIdx, 3)
+                rows.add(
+                    assessment(
+                        studentId = student.id, classId = classId, subjectId = subjectId,
+                        term = "T1", d1 = d1, d2 = d2, ex = ex,
+                        coefficient = subject.coefficient, isExtracurricular = subject.isExtracurricular,
+                        enteredBy = if (subjectIdx % 2 == 0) "per-teacher1" else "per-teacher2",
+                        enteredAt = now,
+                    ),
+                )
+            }
+
+            // ── T1: one extracurricular club (excluded from GPA, canonical) ──
+            val clubId = if (studentIdx % 2 == 0) "sub-chess" else "sub-english-club"
+            subjects.firstOrNull { it.id == clubId }?.let { club ->
+                rows.add(
+                    assessment(
+                        studentId = student.id, classId = classId, subjectId = club.id,
+                        term = "T1", d1 = mark(base, 9, 4), d2 = mark(base, 9, 5), ex = mark(base, 9, 6),
+                        coefficient = club.coefficient, isExtracurricular = true,
+                        enteredBy = "per-teacher1", enteredAt = now,
+                    ),
+                )
+            }
+
+            // ── T2: devoirs only for the first subjects — canonical
+            // "incomplete" state (subjectAverage stays NULL until the exam) ──
+            academicSubjectIds.take(2).forEachIndexed { subjectIdx, subjectId ->
+                val subject = subjects.firstOrNull { it.id == subjectId } ?: return@forEachIndexed
+                rows.add(
+                    assessment(
+                        studentId = student.id, classId = classId, subjectId = subjectId,
+                        term = "T2", d1 = mark(base, subjectIdx, 5), d2 = mark(base, subjectIdx, 6), ex = null,
+                        coefficient = subject.coefficient, isExtracurricular = subject.isExtracurricular,
+                        enteredBy = "per-teacher2", enteredAt = now,
+                    ),
+                )
+            }
+        }
+
+        if (rows.isNotEmpty()) db.assessmentDao().upsertAll(rows)
+    }
+
+    private fun assessment(
+        studentId: String,
+        classId: String,
+        subjectId: String,
+        term: String,
+        d1: Double?,
+        d2: Double?,
+        ex: Double?,
+        coefficient: Double,
+        isExtracurricular: Boolean,
+        enteredBy: String,
+        enteredAt: String,
+    ): AssessmentEntity {
+        // CANONICAL — the exact engine used by the persistence layer: the
+        // average only exists when ALL THREE marks are present.
+        val average = com.example.core.computeSubjectAverage(d1, d2, ex)
+        return AssessmentEntity(
+            id = "asm-${studentId}-$subjectId-$term",
+            tenantId = tenantId,
+            studentId = studentId, subjectId = subjectId, classId = classId,
+            term = term, academicYear = academicYear,
+            devoir1 = d1, devoir2 = d2, examen = ex,
+            coefficient = coefficient, isExtracurricular = isExtracurricular,
+            subjectAverage = average,
+            enteredBy = enteredBy, enteredAt = enteredAt,
+        )
+    }
+
+    // ─── Attendance history — last 5 school days BEFORE today ───────────────
+    //
+    // Gives the student page (Présences tab) and the dashboard's real 7-day
+    // attendance trend actual rows to compute from. Today is deliberately NOT
+    // seeded so the "Faire l'appel" workflow stays genuinely actionable.
+
+    private suspend fun seedAttendanceHistory() {
+        if (db.attendanceDao().countAll() > 0) return
+
+        val now = Instant.now().toString()
+        val students = db.studentDao().observeAll().first()
+            .filter { it.status == "active" && it.classId != null }
+        if (students.isEmpty()) return
+
+        // Last 5 days strictly BEFORE today, skipping the Algerian weekend
+        // (Friday + Saturday).
+        val dates = mutableListOf<LocalDate>()
+        var cursor = LocalDate.now(ZoneOffset.UTC)
+        while (dates.size < 5) {
+            cursor = cursor.minusDays(1)
+            val dow = cursor.dayOfWeek
+            if (dow != java.time.DayOfWeek.FRIDAY && dow != java.time.DayOfWeek.SATURDAY) {
+                dates.add(cursor)
+            }
+        }
+
+        val rows = mutableListOf<AttendanceEntity>()
+        dates.sorted().forEach { date ->
+            students.forEachIndexed { idx, student ->
+                // Deterministic realistic distribution: mostly present, a few
+                // late / excused / unexcused cases spread across students+days.
+                val status = when ((idx + date.dayOfYear) % 17) {
+                    0 -> "absent_unexcused"
+                    5 -> "absent_excused"
+                    9, 12 -> "late"
+                    else -> "present"
+                }
+                rows.add(
+                    AttendanceEntity(
+                        id = "att-seed-${student.id}-${date}",
+                        tenantId = tenantId,
+                        studentId = student.id,
+                        classId = student.classId!!,
+                        date = date.toString(),
+                        session = "morning",
+                        status = status,
+                        arrivalTime = if (status == "late") "08:${if (idx % 2 == 0) "12" else "26"}" else null,
+                        note = null,
+                        recordedBy = "per-teacher1",
+                        recordedBy_name = "Aïcha Bouhenni",
+                        recordedAt = now,
+                    ),
+                )
+            }
+        }
+        if (rows.isNotEmpty()) db.attendanceDao().upsertAll(rows)
     }
 }

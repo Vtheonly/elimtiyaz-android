@@ -59,8 +59,11 @@ fun PersonnelHubScreen(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
             contentAlignment = Alignment.TopStart,
         ) {
-            val tabIdx = if (session.can(Permission.ACCESS_DRIVER_MODE)) selectedTab else selectedTab
-            when (tabIdx) {
+            // FIX (dead conditional): was `if (session.can(ACCESS_DRIVER_MODE))
+            // selectedTab else selectedTab` — both branches identical. The tab
+            // INDEX layout below already accounts for the conditional 5th
+            // "Tournées" tab, so the selected index maps directly.
+            when (selectedTab) {
                 0 -> EmployeeDirectoryScreen(session, onNavigateToPersonnelDetail = onNavigateToPersonnelDetail)
                 1 -> ReleveScreen(session, onNavigateToReleve = onNavigateToReleve)
                 2 -> AuditStreamScreen(session, onNavigateToAuditLog = onNavigateToAuditLog)

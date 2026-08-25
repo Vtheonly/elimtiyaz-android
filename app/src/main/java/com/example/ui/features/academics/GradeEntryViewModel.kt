@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.Role
 import com.example.domain.model.AcademicClass
+import com.example.domain.model.Assessment
 import com.example.domain.model.Student
 import com.example.domain.model.Subject
 import com.example.domain.repository.ClassRepository
@@ -14,6 +15,8 @@ import com.example.domain.repository.SubjectRepository
 import com.example.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.firstOrNull
@@ -47,27 +50,56 @@ class GradeEntryViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    private val _subjects = kotlinx.coroutines.flow.MutableStateFlow<List<Subject>>(emptyList())
+    private val _subjects = MutableStateFlow<List<Subject>>(emptyList())
     val subjects: StateFlow<List<Subject>> = _subjects
 
-    private val _students = kotlinx.coroutines.flow.MutableStateFlow<List<Student>>(emptyList())
+    private val _students = MutableStateFlow<List<Student>>(emptyList())
     val students: StateFlow<List<Student>> = _students
 
-    private val _busy = kotlinx.coroutines.flow.MutableStateFlow(false)
+    /**
+     * FIX (thin UI): the existing assessments for the selected
+     * (class, subject, term) — powers the class gradebook roster and the
+     * class-level statistics (completion, class average, pass rate).
+     */
+    private val _classAssessments = MutableStateFlow<List<Assessment>>(emptyList())
+    val classAssessments: StateFlow<List<Assessment>> = _classAssessments
+
+    private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy
 
-    private val _message = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message
 
+    // FIX (collector leak): each loadSubjectsForClass / loadStudentsForClass
+    // call previously launched a NEW never-cancelled collect — switching
+    // classes repeatedly stacked observers that kept overwriting each other.
+    private var subjectsJob: Job? = null
+    private var studentsJob: Job? = null
+    private var gradebookJob: Job? = null
+
     fun loadSubjectsForClass(classId: String) {
-        viewModelScope.launch {
+        subjectsJob?.cancel()
+        subjectsJob = viewModelScope.launch {
             subjectRepository.observeByClass(classId).collect { _subjects.value = it }
         }
     }
 
     fun loadStudentsForClass(classId: String) {
-        viewModelScope.launch {
+        studentsJob?.cancel()
+        studentsJob = viewModelScope.launch {
             studentRepository.observeByClass(classId).collect { _students.value = it }
+        }
+    }
+
+    /**
+     * Observe the real assessment rows for (class, subject, term, year) so the
+     * gradebook roster reflects persisted marks and updates live after saves.
+     */
+    fun loadGradebook(classId: String, subjectId: String, term: String, academicYear: String) {
+        gradebookJob?.cancel()
+        gradebookJob = viewModelScope.launch {
+            gradeRepository.observeForClass(classId, subjectId, term, academicYear)
+                .collect { _classAssessments.value = it }
         }
     }
 
@@ -115,7 +147,13 @@ class GradeEntryViewModel @Inject constructor(
             )
             val result = gradeRepository.enterGrade(input, actorId, actorName)
             _busy.value = false
-            result.onSuccess { _message.value = "Note sauvegardée (moyenne auto-calculée par le serveur)." }
+            result.onSuccess { assessment ->
+                // The message mirrors the CANONICAL persisted average (server
+                // trigger is the authority) — not a client-side guess.
+                _message.value = assessment.subjectAverage?.let { avg ->
+                    "Note sauvegardée — moyenne officielle : %.2f / 20.".format(avg)
+                } ?: "Note sauvegardée (moyenne incomplète — 3 notes requises)."
+            }
                 .onFailure { _message.value = it.userMessage }
         }
     }

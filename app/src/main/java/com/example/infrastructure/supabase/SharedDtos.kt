@@ -411,6 +411,25 @@ data class NotificationDto(
     @SerialName("created_at") val createdAt: String? = null,
 )
 
+/**
+ * Workflow-run row (read-only on mobile — the DAG editor is desktop-only per
+ * plan §10.02). Pulled so the Workflow Monitor shows REAL server executions.
+ */
+@Serializable
+data class WorkflowRunDto(
+    @SerialName("id") val id: String,
+    @SerialName("tenant_id") val tenantId: String? = null,
+    @SerialName("workflow_id") val workflowId: String = "",
+    @SerialName("workflow_name") val workflowName: String? = null,
+    @SerialName("trigger") val trigger: String? = null,
+    @SerialName("status") val status: String = "running",
+    @SerialName("started_by") val startedBy: String? = null,
+    @SerialName("started_at") val startedAt: String? = null,
+    @SerialName("finished_at") val finishedAt: String? = null,
+    @SerialName("result_json") val resultJson: String? = null,
+    @SerialName("error_message") val errorMessage: String? = null,
+)
+
 @Serializable
 data class TaskDto(
     @SerialName("id") val id: String,

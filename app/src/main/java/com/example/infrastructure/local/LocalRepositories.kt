@@ -249,15 +249,83 @@ class LocalAuthRepository @Inject constructor(
         return Result.Ok(session)
     }
 
+    // FIX (fake success): changePassword previously ignored `currentPassword`
+    // entirely and returned Ok(Unit) even when nothing was changed (offline /
+    // unconfigured builds showed a success banner for a no-op). Now:
+    //   1. The CURRENT password is verified by re-authenticating with the
+    //      auth server (wrong current password → explicit error).
+    //   2. The new password is really pushed via `updateUser`.
+    //   3. Offline / unconfigured → honest error instead of silent success.
     override suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit> {
-        if (com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) {
-            com.example.infrastructure.supabase.NetworkTimeouts.guard<Unit>("auth.changePassword", timeoutMs = 4_000L) {
-                supabaseProvider.auth.updateUser {
-                    password = newPassword
-                }
-            }
+        if (!com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) {
+            return Result.Err(
+                com.example.core.Errors.unknown(
+                    "changePassword requires the auth server",
+                    userMessage = "Le changement de mot de passe nécessite une connexion au serveur d'authentification.",
+                ),
+            )
         }
-        return Result.Ok(Unit)
+        val email = _sessionState.value?.email
+            ?: return Result.Err(
+                com.example.core.Errors.unknown(
+                    "changePassword requires an active session",
+                    userMessage = "Aucune session active — reconnectez-vous avant de changer le mot de passe.",
+                ),
+            )
+
+        // Verify the current password by re-authenticating (Supabase has no
+        // "verify password" RPC — re-sign-in is the canonical check).
+        val verified = com.example.infrastructure.supabase.NetworkTimeouts.guard("auth.verifyCurrentPassword", timeoutMs = 8_000L) {
+            try {
+                supabaseProvider.auth.signInWith(io.github.jan.supabase.auth.providers.builtin.Email) {
+                    this.email = email
+                    this.password = currentPassword
+                }
+                true
+            } catch (_: Throwable) {
+                false
+            }
+        } ?: return Result.Err(
+            com.example.core.Errors.unknown(
+                "password verification unreachable",
+                userMessage = "Impossible de vérifier le mot de passe actuel (serveur injoignable).",
+            ),
+        )
+        if (!verified) {
+            return Result.Err(
+                com.example.core.Errors.unknown(
+                    "current password mismatch",
+                    userMessage = "Mot de passe actuel incorrect.",
+                ),
+            )
+        }
+
+        val updated = com.example.infrastructure.supabase.NetworkTimeouts.guard<Unit>("auth.changePassword", timeoutMs = 4_000L) {
+            supabaseProvider.auth.updateUser {
+                password = newPassword
+            }
+        } ?: return Result.Err(
+            com.example.core.Errors.unknown(
+                "password update unreachable",
+                userMessage = "Échec de la mise à jour — serveur injoignable.",
+            ),
+        )
+
+        _sessionState.value?.let { s ->
+            auditDao.upsert(
+                AuditLogEntity(
+                    id = "aud-${UUID.randomUUID()}",
+                    tenantId = s.tenantId,
+                    action = AuditActions.AUTH_PASSWORD_CHANGE,
+                    entityType = "auth", entityId = s.userId,
+                    actorId = s.userId, actorName = s.displayName,
+                    actorRole = s.role.code,
+                    beforeJson = null, afterJson = null,
+                    note = "Password changed by user", createdAt = Instant.now().toString(),
+                ),
+            )
+        }
+        return Result.Ok(updated)
     }
 }
 

@@ -45,10 +45,13 @@ import androidx.room.RoomDatabase
         NotificationEntity::class,
         AuditLogEntity::class,
         TripLogEntity::class,
+        VehicleEntity::class,
+        RoutingStopEntity::class,
+        ClassSubjectEntity::class,
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = false,
 )
 abstract class ElImtiyazDatabase : RoomDatabase() {
@@ -77,6 +80,9 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
     abstract fun notificationDao(): NotificationDao
     abstract fun auditLogDao(): AuditLogDao
     abstract fun tripLogDao(): TripLogDao
+    abstract fun vehicleDao(): VehicleDao
+    abstract fun routingStopDao(): RoutingStopDao
+    abstract fun classSubjectDao(): ClassSubjectDao
     abstract fun releveEntryDao(): ReleveEntryDao
     abstract fun workflowRunDao(): WorkflowRunDao
 
@@ -234,6 +240,70 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
                 )
                 database.execSQL(
                     "ALTER TABLE subjects ADD COLUMN passingGrade REAL NOT NULL DEFAULT 10.0"
+                )
+            }
+        }
+
+        /**
+         * Room migration v8 → v9 (routing + class-subject wiring).
+         *
+         * The routing feature was previously a stub repository that returned
+         * empty lists and "Not implemented" errors — the three routing screens
+         * (hub, live map, trip history) could never show real data. This
+         * migration adds the backing tables:
+         *
+         *   1. `vehicles` — transport vehicles (plate, driver, capacity, PMR).
+         *   2. `routing_stops` — pickup/drop-off stops with coordinates + shift.
+         *   3. `class_subjects` — per-class subject assignments (previously the
+         *      `assignSubjectToClass` repository call was a silent no-op).
+         *   4. `trip_logs.vehicleId` + `trip_logs.stopsCompleted` — the domain
+         *      TripLog carries both fields; the entity previously had neither,
+         *      so trip rows could not be linked to a vehicle or record how many
+         *      stops the driver actually completed.
+         */
+        val MIGRATION_8_9 = object : androidx.room.migration.Migration(8, 9) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS vehicles (" +
+                        "id TEXT NOT NULL PRIMARY KEY, tenantId TEXT NOT NULL, plate TEXT NOT NULL, " +
+                        "driverId TEXT, driverName TEXT, capacity INTEGER NOT NULL, " +
+                        "hasWheelchairAccess INTEGER NOT NULL DEFAULT 0, " +
+                        "isActive INTEGER NOT NULL DEFAULT 1, createdAt TEXT NOT NULL)"
+                )
+                database.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_vehicles_plate ON vehicles(plate)"
+                )
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS routing_stops (" +
+                        "id TEXT NOT NULL PRIMARY KEY, tenantId TEXT NOT NULL, studentId TEXT NOT NULL, " +
+                        "studentName TEXT NOT NULL, address TEXT NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL, " +
+                        "shift TEXT NOT NULL, orderInRoute INTEGER NOT NULL DEFAULT 0, " +
+                        "estimatedMinutesFromPrevious REAL NOT NULL DEFAULT 0.0, " +
+                        "isActive INTEGER NOT NULL DEFAULT 1, createdAt TEXT NOT NULL)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_routing_stops_studentId ON routing_stops(studentId)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_routing_stops_shift ON routing_stops(shift)"
+                )
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS class_subjects (" +
+                        "id TEXT NOT NULL PRIMARY KEY, tenantId TEXT NOT NULL, classId TEXT NOT NULL, " +
+                        "subjectId TEXT NOT NULL, teacherId TEXT, weeklyHours INTEGER NOT NULL, " +
+                        "coefficient REAL NOT NULL, createdAt TEXT NOT NULL)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_class_subjects_classId ON class_subjects(classId)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_class_subjects_subjectId ON class_subjects(subjectId)"
+                )
+                database.execSQL(
+                    "ALTER TABLE trip_logs ADD COLUMN vehicleId TEXT NOT NULL DEFAULT ''"
+                )
+                database.execSQL(
+                    "ALTER TABLE trip_logs ADD COLUMN stopsCompleted INTEGER NOT NULL DEFAULT 0"
                 )
             }
         }

@@ -76,10 +76,14 @@ fun DashboardHubScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
+    // FIX (fabricated fallback): when KPIs had not loaded yet the screen
+    // rendered a fully invented dataset (390 students / 1.245M DZD revenue /
+    // 96.5% attendance). The fallback is now a truthful all-zero KPI — the
+    // reactive Room flow populates the real values as soon as they exist.
     val currentKpi = kpis ?: DashboardKpi(
-        totalStudents = 390, totalParents = 185, totalStaff = 45,
-        monthlyRevenue = 1_245_000_00L, outstandingDebt = 320_000_00L,
-        pendingExpenses = 2, attendanceRateToday = 96.5, overdueAlerts = 3,
+        totalStudents = 0, totalParents = 0, totalStaff = 0,
+        monthlyRevenue = 0L, outstandingDebt = 0L,
+        pendingExpenses = 0, attendanceRateToday = 0.0, overdueAlerts = 0,
     )
 
     val todayFormatted = remember {

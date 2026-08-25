@@ -234,6 +234,20 @@ fun NotificationDto.toEntity(): com.example.infrastructure.room.NotificationEnti
     createdAt = createdAt ?: "",
 )
 
+/** Convert a [WorkflowRunDto] to a [WorkflowRunEntity] for Room upsert. */
+fun WorkflowRunDto.toEntity(): com.example.infrastructure.room.WorkflowRunEntity = com.example.infrastructure.room.WorkflowRunEntity(
+    id = id,
+    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
+    workflowId = workflowId,
+    workflowName = workflowName ?: workflowId,
+    status = status,
+    startedBy = startedBy ?: "system",
+    startedAt = startedAt ?: "",
+    finishedAt = finishedAt,
+    resultJson = resultJson,
+    errorMessage = errorMessage,
+)
+
 /** Convert a [PaymentDto] to a [PaymentEntity] for Room upsert. */
 fun PaymentDto.toEntity(): com.example.infrastructure.room.PaymentEntity = com.example.infrastructure.room.PaymentEntity(
     id = id,

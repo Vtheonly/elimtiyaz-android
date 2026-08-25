@@ -306,7 +306,9 @@ fun RoutingMapScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // Map placeholder (Canvas-based) — real impl would use osmdroid or Google Maps
+            // Route visualization — Canvas projection of the REAL optimized
+            // stop coordinates + live driver position (offline-first; no map
+            // SDK dependency). The polyline follows the TSP/OSRM stop order.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

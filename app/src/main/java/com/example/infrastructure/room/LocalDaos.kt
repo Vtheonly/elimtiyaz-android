@@ -176,6 +176,9 @@ interface AttendanceDao {
     @Query("SELECT * FROM attendance WHERE date = :date")
     suspend fun listByDate(date: String): List<AttendanceEntity>
 
+    @Query("SELECT COUNT(*) FROM attendance")
+    suspend fun countAll(): Int
+
     @Query("SELECT * FROM attendance WHERE studentId = :studentId AND date = :date AND session = :session LIMIT 1")
     suspend fun getByStudentDateSession(studentId: String, date: String, session: String): AttendanceEntity?
 
@@ -210,6 +213,9 @@ interface AssessmentDao {
 
     @Query("SELECT * FROM assessments WHERE classId = :classId AND academicYear = :year")
     suspend fun listByClass(classId: String, year: String): List<AssessmentEntity>
+
+    @Query("SELECT COUNT(*) FROM assessments")
+    suspend fun count(): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<AssessmentEntity>)
@@ -414,6 +420,9 @@ interface DepartmentDao {
     @Query("SELECT * FROM departments WHERE archivedAt IS NULL ORDER BY name ASC")
     suspend fun listAll(): List<DepartmentEntity>
 
+    @Query("SELECT * FROM departments WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): DepartmentEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<DepartmentEntity>)
 }
@@ -472,8 +481,17 @@ interface NotificationDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<NotificationEntity>)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(row: NotificationEntity)
+
     @Query("UPDATE notifications SET isRead = 1 WHERE id = :id")
     suspend fun markRead(id: String)
+
+    @Query("UPDATE notifications SET isRead = 1 WHERE isRead = 0")
+    suspend fun markAllRead()
+
+    @Query("DELETE FROM notifications WHERE id = :id")
+    suspend fun dismiss(id: String)
 }
 
 // ─── Audit Log DAO ───────────────────────────────────────────────────────────
@@ -506,8 +524,62 @@ interface TripLogDao {
     @Query("SELECT * FROM trip_logs WHERE driverId = :driverId ORDER BY date DESC LIMIT 50")
     fun observeByDriver(driverId: String): Flow<List<TripLogEntity>>
 
+    @Query("SELECT * FROM trip_logs WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): TripLogEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: TripLogEntity)
+}
+
+@Dao
+interface VehicleDao {
+    @Query("SELECT * FROM vehicles WHERE isActive = 1 ORDER BY plate")
+    fun observeAll(): Flow<List<VehicleEntity>>
+
+    @Query("SELECT * FROM vehicles WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): VehicleEntity?
+
+    @Query("SELECT COUNT(*) FROM vehicles")
+    suspend fun count(): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(rows: List<VehicleEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(row: VehicleEntity)
+}
+
+@Dao
+interface RoutingStopDao {
+    @Query("SELECT * FROM routing_stops WHERE isActive = 1")
+    fun observeAll(): Flow<List<RoutingStopEntity>>
+
+    @Query("SELECT * FROM routing_stops WHERE isActive = 1")
+    suspend fun getAll(): List<RoutingStopEntity>
+
+    @Query("SELECT COUNT(*) FROM routing_stops")
+    suspend fun count(): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(rows: List<RoutingStopEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(row: RoutingStopEntity)
+}
+
+@Dao
+interface ClassSubjectDao {
+    @Query("SELECT * FROM class_subjects WHERE classId = :classId")
+    suspend fun listByClass(classId: String): List<ClassSubjectEntity>
+
+    @Query("SELECT * FROM class_subjects WHERE classId = :classId")
+    fun observeByClass(classId: String): Flow<List<ClassSubjectEntity>>
+
+    @Query("SELECT COUNT(*) FROM class_subjects WHERE classId = :classId AND subjectId = :subjectId")
+    suspend fun countAssignment(classId: String, subjectId: String): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(row: ClassSubjectEntity)
 }
 
 @Dao
@@ -520,12 +592,18 @@ interface ReleveEntryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: ReleveEntryEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(rows: List<ReleveEntryEntity>)
 }
 
 @Dao
 interface WorkflowRunDao {
     @Query("SELECT * FROM workflow_runs ORDER BY startedAt DESC LIMIT 50")
     fun observeRecent(): Flow<List<WorkflowRunEntity>>
+
+    @Query("SELECT * FROM workflow_runs WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): WorkflowRunEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: WorkflowRunEntity)

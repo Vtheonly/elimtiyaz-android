@@ -61,13 +61,14 @@ import kotlinx.coroutines.launch
 /**
  * Workflow monitor ViewModel — read-only list of recent workflow runs.
  *
- * Restored behavior (commit a34333a):
- *  - Loads recent runs (last 50, sorted by `startedAt` DESC).
- *  - Detail drawer with per-node timeline.
- *  - Retry button gated to `Permission.MANAGE_WORKFLOWS`.
- *  - Falls back to a built-in mock seed when repository returns empty
- *    (so the screen is never blank — same approach as the pre-redesign
- *    `WorkflowMonitorViewModel` which shipped with 4 mock runs).
+ * Behavior:
+ *  - Loads recent runs (last 50, sorted by `startedAt` DESC) from Room.
+ *    Runs are PULLED from Supabase (`workflow_runs` table) by the sync layer
+ *    when a backend is configured — locally-created runs (retries) appear too.
+ *  - Detail drawer with per-run metadata (status, trigger, duration, error).
+ *  - Retry button gated to `Permission.MANAGE_WORKFLOWS` — the actual
+ *    execution engine is server-side; offline retries fail honestly.
+ *  - Empty state is TRUTHFUL (no mock seed): "Aucune exécution."
  */
 @HiltViewModel
 class WorkflowMonitorViewModel @Inject constructor(

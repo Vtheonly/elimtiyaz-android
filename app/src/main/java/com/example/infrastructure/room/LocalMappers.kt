@@ -200,6 +200,49 @@ object LocalMappers {
         createdBy = "system",
     )
 
+    // ── Routing mappers (vehicles / stops / trips) ───────────────────────
+
+    fun VehicleEntity.toDomain() = com.example.domain.model.Vehicle(
+        id = id,
+        plate = plate,
+        driverId = driverId,
+        driverName = driverName,
+        capacity = capacity,
+        hasWheelchairAccess = hasWheelchairAccess,
+    )
+
+    fun RoutingStopEntity.toDomain() = com.example.domain.model.RoutingStop(
+        id = id,
+        studentId = studentId,
+        studentName = studentName,
+        address = address,
+        lat = lat,
+        lng = lng,
+        shift = com.example.domain.model.RoutingShift.fromCode(shift),
+        orderInRoute = orderInRoute,
+        estimatedMinutesFromPrevious = estimatedMinutesFromPrevious,
+    )
+
+    fun RoutingStopEntity.toUpdatedEntity(
+        orderInRoute: Int,
+        estimatedMinutesFromPrevious: Double,
+    ) = copy(
+        orderInRoute = orderInRoute,
+        estimatedMinutesFromPrevious = estimatedMinutesFromPrevious,
+    )
+
+    fun TripLogEntity.toDomain() = com.example.domain.model.TripLog(
+        id = id,
+        vehicleId = vehicleId,
+        driverId = driverId,
+        startedAt = startTime ?: createdAt,
+        endedAt = endTime,
+        stopsPlanned = stopCount,
+        stopsCompleted = stopsCompleted,
+        totalDistanceKm = distanceKm ?: 0.0,
+        notes = notes,
+    )
+
     // ── metadata JSON helpers ────────────────────────────────────────────
     //
     // CANONICAL-FINANCIAL-LOGIC.md §7.5 + §8.4 — the ledger entry's

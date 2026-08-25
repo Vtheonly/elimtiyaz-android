@@ -15,8 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,18 +33,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.Permission
+import com.example.domain.repository.PdfRepository
 import com.example.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -58,30 +60,50 @@ import kotlinx.coroutines.launch
  * (revenue, debt, enrollment, audit, expenses). Entity-specific reports
  * (bulletins, account statements, payslips) live in their respective profile drawers.
  *
- * Generation is wired through [StorageRepository] for proof/upload flows;
- * for v1 the button shows a snackbar "Génération en cours…" and would invoke
- * an Edge Function in production.
+ * FIX (dead buttons): `generate` previously showed a snackbar, delayed 2 s and
+ * produced nothing. It now REALLY assembles the report from live Room data
+ * via [PdfRepository.generateMacroReport] and emits the written PDF file so
+ * the UI can share it (FileProvider + ACTION_SEND).
  */
 @HiltViewModel
 class ReportsViewModel @Inject constructor(
     private val sessionManager: SessionManager,
+    private val pdfRepository: PdfRepository,
 ) : ViewModel() {
 
     private val _snackbar = MutableStateFlow<String?>(null)
     val snackbar: StateFlow<String?> = _snackbar.asStateFlow()
 
+    private val _generating = MutableStateFlow<Set<String>>(emptySet())
+    val generating: StateFlow<Set<String>> = _generating.asStateFlow()
+
+    /** One-shot share request: the freshly generated report file. */
+    private val _shareRequest = MutableStateFlow<File?>(null)
+    val shareRequest: StateFlow<File?> = _shareRequest.asStateFlow()
+
     val canViewAuditLog: Boolean get() = sessionManager.current()?.can(Permission.VIEW_AUDIT_LOG) == true
     val canViewSalary: Boolean get() = sessionManager.current()?.can(Permission.VIEW_SALARY) == true
 
     fun generate(reportId: String, reportLabel: String) {
+        if (reportId in _generating.value) return
+        _generating.value = _generating.value + reportId
         viewModelScope.launch {
-            _snackbar.value = "Génération en cours: $reportLabel"
-            // In production: invoke Edge Function `generate-report` with the reportId.
-            // For v1 we just clear the snackbar after a delay.
-            kotlinx.coroutines.delay(2000)
-            _snackbar.value = null
+            _snackbar.value = "Génération en cours : $reportLabel"
+            when (val r = pdfRepository.generateMacroReport(reportId)) {
+                is com.example.core.Result.Ok -> {
+                    _snackbar.value = "$reportLabel généré (${r.value.name})"
+                    _shareRequest.value = r.value
+                }
+                is com.example.core.Result.Err -> {
+                    _snackbar.value = r.error.userMessage.ifBlank { r.error.message }
+                }
+            }
+            _generating.value = _generating.value - reportId
         }
     }
+
+    /** Called by the UI once the share intent has been dispatched. */
+    fun consumeShareRequest() { _shareRequest.value = null }
 
     fun consumeSnackbar() { _snackbar.value = null }
 }
@@ -102,7 +124,10 @@ fun ReportsScreen(
     onNavigateToAuditLog: () -> Unit,
     viewModel: ReportsViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val snackbar by viewModel.snackbar.collectAsState()
+    val generating by viewModel.generating.collectAsState()
+    val shareRequest by viewModel.shareRequest.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(snackbar) {
@@ -112,12 +137,34 @@ fun ReportsScreen(
         }
     }
 
+    // Share the freshly generated report PDF (ACTION_SEND via FileProvider —
+    // same mechanism as the payment-receipt share).
+    LaunchedEffect(shareRequest) {
+        shareRequest?.let { file ->
+            runCatching {
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file,
+                )
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/pdf"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    putExtra(Intent.EXTRA_SUBJECT, file.nameWithoutExtension.replace('_', ' '))
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(Intent.createChooser(shareIntent, "Partager le rapport"))
+            }
+            viewModel.consumeShareRequest()
+        }
+    }
+
     val reports = listOf(
-        ReportType("revenu-mensuel", "Revenu mensuel", "Synthèse des encaissements par méthode, catégorie et transactions.", "XLSX", Icons.Default.Assessment),
-        ReportType("creances-agees", "Créances âgées", "Ventilation des créances par tranche d'âge (0-30, 31-60, 61-90, 91-180, 180+).", "XLSX", Icons.Default.WarningAmber),
-        ReportType("effectifs-niveau", "Effectifs par niveau", "Répartition des élèves par niveau (Primaire/CEM/Lycée) et par classe.", "XLSX", Icons.Default.People),
-        ReportType("depenses-categorie", "Dépenses par catégorie", "Synthèse mensuelle des dépenses par catégorie.", "XLSX", Icons.Default.Receipt),
-        ReportType("annuaire-personnel", "Annuaire du personnel", "Liste complète du personnel avec coordonnées et salaire (rôle requis).", "XLSX", Icons.Default.People, requiresSalaryPermission = true),
+        ReportType("revenu-mensuel", "Revenu mensuel", "Synthèse des encaissements du mois par méthode et par catégorie.", "PDF", Icons.Default.Assessment),
+        ReportType("creances-agees", "Créances âgées", "Ventilation des créances par tranche d'âge (0-30, 31-60, 61-90, 91-180, 180+).", "PDF", Icons.Default.WarningAmber),
+        ReportType("effectifs-niveau", "Effectifs par niveau", "Répartition des élèves par niveau (Préscolaire/Primaire/CEM/Lycée) et par classe.", "PDF", Icons.Default.People),
+        ReportType("depenses-categorie", "Dépenses par catégorie", "Synthèse des dépenses par catégorie avec statut d'approbation.", "PDF", Icons.Default.Receipt),
+        ReportType("annuaire-personnel", "Annuaire du personnel", "Liste complète du personnel avec coordonnées et salaire (rôle requis).", "PDF", Icons.Default.People, requiresSalaryPermission = true),
     )
 
     Scaffold(
@@ -148,6 +195,7 @@ fun ReportsScreen(
 
             items(reports) { report ->
                 val allowed = !report.requiresSalaryPermission || viewModel.canViewSalary
+                val isGenerating = report.id in generating
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(1.dp),
@@ -164,8 +212,12 @@ fun ReportsScreen(
                         }
                         Spacer(Modifier.height(8.dp))
                         if (allowed) {
-                            androidx.compose.material3.TextButton(onClick = { viewModel.generate(report.id, report.title) }) {
-                                Text("Générer")
+                            androidx.compose.material3.TextButton(
+                                onClick = { viewModel.generate(report.id, report.title) },
+                                enabled = !isGenerating,
+                            ) {
+                                Icon(Icons.Default.PictureAsPdf, contentDescription = null)
+                                Text(if (isGenerating) " Génération…" else " Générer le PDF")
                             }
                         } else {
                             Text("Permission VIEW_SALARY requise.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)

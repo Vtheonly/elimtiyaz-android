@@ -295,24 +295,58 @@ fun ClassDetailScreen(
                 3 -> Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                     Text("Dernières notes", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(8.dp))
-                    val passing = recentGrades.count { (it.subjectAverage ?: 0.0) >= 10.0 }
-                    val failing = recentGrades.count { (it.subjectAverage ?: 0.0) < 10.0 && it.subjectAverage != null }
+                    // FIX (raw ids): rows showed raw subjectIds ("sub-math") —
+                    // resolve real subject names + coefficients.
+                    val subjectById = subjects.associateBy { it.id }
+                    // Class-level canonical summary: average of every computed
+                    // subject average + share of passing marks.
+                    val computedAverages = recentGrades.mapNotNull { it.subjectAverage }
+                    val passingCount = computedAverages.count { it >= 10.0 }
+                    val failing = computedAverages.count { it < 10.0 }
                     val missing = recentGrades.count { it.subjectAverage == null }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         StatusCountChip("Évaluations", recentGrades.size, MaterialTheme.colorScheme.primary)
-                        StatusCountChip("≥ 10", passing, MaterialTheme.colorScheme.tertiary)
+                        StatusCountChip("≥ 10", passingCount, MaterialTheme.colorScheme.tertiary)
                         StatusCountChip("< 10", failing, MaterialTheme.colorScheme.error)
                         StatusCountChip("Manquantes", missing, MaterialTheme.colorScheme.outline)
                     }
-                    Spacer(Modifier.height(16.dp))
+                    if (computedAverages.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        val classAvg = computedAverages.average()
+                        Text(
+                            "Moyenne générale de la classe : %.2f / 20 • Réussite : %.0f%%".format(
+                                classAvg,
+                                passingCount * 100.0 / computedAverages.size,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (classAvg >= 10.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         items(recentGrades) { g ->
+                            val subject = subjectById[g.subjectId]
                             Card(modifier = Modifier.fillMaxWidth()) {
                                 Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-                                    Text("Matière: ${g.subjectId}", style = MaterialTheme.typography.labelSmall)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        Text(
+                                            "${subject?.name ?: g.subjectId} • ${g.term}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                        Text(
+                                            "Coef ${g.coefficient}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.outline,
+                                        )
+                                    }
                                     Text("D1=${g.devoir1 ?: "-"}  D2=${g.devoir2 ?: "-"}  Ex=${g.examen ?: "-"}", style = MaterialTheme.typography.bodySmall)
                                     g.subjectAverage?.let { avg ->
-                                        Text("Moy: $avg", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = if (avg >= 10.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                        Text("Moy: %.2f".format(avg), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = if (avg >= 10.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                                     }
                                 }
                             }

@@ -69,7 +69,11 @@ internal fun DashboardCollectionAndDebtRow(
                 val collected = (currentKpi.monthlyRevenue / 100).toFloat()
                 val pending = (currentKpi.outstandingDebt / 100).toFloat()
                 val total = collected + pending
-                val rate = if (total > 0f) (collected / total).coerceIn(0f, 1f) else 0.78f
+                // FIX (fabricated rate): previously fell back to a hardcoded
+                // 78% when no data existed. With no real figures the honest
+                // rate is 0% — the reactive KPI flow fills it in with real
+                // numbers as soon as payments/charges exist.
+                val rate = if (total > 0f) (collected / total).coerceIn(0f, 1f) else 0f
 
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -134,14 +138,10 @@ internal fun DashboardCollectionAndDebtRow(
                     } else null
                 }
 
-                val safeSegments = segments.ifEmpty {
-                    listOf(
-                        ElDonutSegment("0–30 j", 120_000f, ElTheme.colors.success),
-                        ElDonutSegment("31–60 j", 85_000f, ElTheme.colors.info),
-                        ElDonutSegment("61–90 j", 64_000f, ElTheme.colors.warning),
-                        ElDonutSegment("90+ j", 51_000f, ElTheme.colors.danger),
-                    )
-                }
+                // FIX (fabricated donut): previously rendered an invented
+                // aging distribution (120k/85k/64k/51k DZD) whenever the real
+                // ledger had no outstanding debt. Now the donut shows ONLY
+                // real buckets — with an explicit empty state otherwise.
 
                 val totalDebtAmount = debtAging.sumOf { it.outstandingAmount }.takeIf { it > 0L }
                     ?: currentKpi.outstandingDebt
@@ -162,12 +162,21 @@ internal fun DashboardCollectionAndDebtRow(
                     )
                     Spacer(Modifier.height(6.dp))
 
-                    ElDonutChart(
-                        segments = safeSegments,
-                        size = 90.dp,
-                        centerLabel = "Total",
-                        centerValue = debtFormatted,
-                    )
+                    if (segments.isEmpty()) {
+                        Text(
+                            text = "Aucune créance en cours",
+                            style = ElTheme.typography.bodySmall,
+                            color = ElTheme.colors.textSecondary,
+                            modifier = Modifier.padding(vertical = 24.dp),
+                        )
+                    } else {
+                        ElDonutChart(
+                            segments = segments,
+                            size = 90.dp,
+                            centerLabel = "Total",
+                            centerValue = debtFormatted,
+                        )
+                    }
                 }
             }
         }

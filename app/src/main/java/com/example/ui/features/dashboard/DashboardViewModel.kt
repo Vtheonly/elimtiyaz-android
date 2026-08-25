@@ -32,26 +32,32 @@ class DashboardViewModel @Inject constructor(
     notificationRepository: NotificationRepository,
 ) : ViewModel() {
 
+    // FIX (fabricated data): the initial KPI state was a fully invented
+    // dataset (390 students, 185 parents, 1,245,000 DZD monthly revenue,
+    // 96.5% attendance…) that rendered until Room emitted — and forever on
+    // an empty database, misleading users into thinking real data existed.
+    // The seed value is now a TRUTHFUL all-zero KPI; the reactive Room flow
+    // replaces it as soon as real data is available.
     private val defaultKpi = DashboardKpi(
-        totalStudents = 390,
-        totalParents = 185,
-        totalStaff = 45,
-        monthlyRevenue = 1_245_000_00L,
-        todayRevenue = 150_000_00L,
-        todayPaymentsCount = 2,
-        outstandingDebt = 320_000_00L,
-        overdueDebt = 180_000_00L,
-        overdueFamiliesCount = 3,
-        pendingExpenses = 2,
-        pendingExpensesAmount = 45_000_00L,
-        attendanceRateToday = 96.5,
-        todayPresentCount = 376,
-        todayAbsentCount = 14,
-        classesCompletedRollCall = 5,
-        totalClassesCount = 7,
-        pendingChecksCount = 2,
-        pendingChecksAmount = 190_000_00L,
-        overdueAlerts = 3,
+        totalStudents = 0,
+        totalParents = 0,
+        totalStaff = 0,
+        monthlyRevenue = 0L,
+        todayRevenue = 0L,
+        todayPaymentsCount = 0,
+        outstandingDebt = 0L,
+        overdueDebt = 0L,
+        overdueFamiliesCount = 0,
+        pendingExpenses = 0,
+        pendingExpensesAmount = 0L,
+        attendanceRateToday = 0.0,
+        todayPresentCount = 0,
+        todayAbsentCount = 0,
+        classesCompletedRollCall = 0,
+        totalClassesCount = 0,
+        pendingChecksCount = 0,
+        pendingChecksAmount = 0L,
+        overdueAlerts = 0,
     )
 
     val kpis: StateFlow<DashboardKpi?> = dashboardRepository.observeKpis()
@@ -79,13 +85,13 @@ class DashboardViewModel @Inject constructor(
         .map { it.take(5) }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    val attendanceTrend: StateFlow<List<ElLineChartPoint>> = kpis
-        .map { kpi ->
-            val todayRate = kpi?.attendanceRateToday?.toFloat()?.takeIf { it > 0f } ?: 96.5f
-            val dayLabels = listOf("Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Aujourd'hui")
-            val baseline = listOf(95.2f, 96.0f, 95.8f, 97.1f, 96.4f, 94.8f, todayRate)
-            dayLabels.zip(baseline).map { (label, value) -> ElLineChartPoint(label, value) }
-        }
+    // FIX (fabricated trend): previously 6 of the 7 days were hardcoded
+    // (95.2 / 96.0 / 95.8 / 97.1 / 96.4 / 94.8) and "today" fell back to a
+    // fake 96.5%. The trend now comes from the REAL per-day attendance
+    // records via `observeAttendanceTrend()` — days without roll-call data
+    // are simply not plotted.
+    val attendanceTrend: StateFlow<List<ElLineChartPoint>> = dashboardRepository.observeAttendanceTrend()
+        .map { points -> points.map { ElLineChartPoint(it.label, it.rate.toFloat()) } }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _isLoading = MutableStateFlow(false)

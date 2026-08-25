@@ -11,6 +11,7 @@ import com.example.infrastructure.room.AcademicClassDao
 import com.example.infrastructure.room.AssessmentDao
 import com.example.infrastructure.room.AttendanceDao
 import com.example.infrastructure.room.AuditLogDao
+import com.example.infrastructure.room.ClassSubjectDao
 import com.example.infrastructure.room.DepartmentDao
 import com.example.infrastructure.room.ElImtiyazDatabase
 import com.example.infrastructure.room.ExpenseDao
@@ -26,6 +27,8 @@ import com.example.infrastructure.room.ReleveEntryDao
 import com.example.infrastructure.room.StudentDao
 import com.example.infrastructure.room.SubjectDao
 import com.example.infrastructure.room.TripLogDao
+import com.example.infrastructure.room.VehicleDao
+import com.example.infrastructure.room.RoutingStopDao
 import com.example.infrastructure.room.WorkflowRunDao
 import dagger.Module
 import dagger.Provides
@@ -72,6 +75,7 @@ object DatabaseModule {
                 ElImtiyazDatabase.MIGRATION_5_6,
                 ElImtiyazDatabase.MIGRATION_6_7,
                 ElImtiyazDatabase.MIGRATION_7_8,
+                ElImtiyazDatabase.MIGRATION_8_9,
             )
             // Fallback for any future schema changes that don't yet have an
             // explicit migration — destructive, but only fires if a migration
@@ -147,6 +151,15 @@ object DatabaseModule {
 
     @Provides @Singleton
     fun provideTripLogDao(db: ElImtiyazDatabase): TripLogDao = db.tripLogDao()
+
+    @Provides @Singleton
+    fun provideVehicleDao(db: ElImtiyazDatabase): VehicleDao = db.vehicleDao()
+
+    @Provides @Singleton
+    fun provideRoutingStopDao(db: ElImtiyazDatabase): RoutingStopDao = db.routingStopDao()
+
+    @Provides @Singleton
+    fun provideClassSubjectDao(db: ElImtiyazDatabase): ClassSubjectDao = db.classSubjectDao()
 
     @Provides @Singleton
     fun provideReleveEntryDao(db: ElImtiyazDatabase): ReleveEntryDao = db.releveEntryDao()

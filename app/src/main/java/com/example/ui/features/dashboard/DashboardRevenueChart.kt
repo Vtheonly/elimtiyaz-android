@@ -85,21 +85,24 @@ internal fun DashboardRevenueChart(
                 )
                 Spacer(Modifier.height(8.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    val fallbackMethods = if (paymentMethods.isNotEmpty() && paymentMethods.any { it.count > 0 }) {
-                        paymentMethods
-                    } else {
-                        listOf(
-                            PaymentMethodSummary("cash", "Espèces", 18, 1_850_000_00L, 62.0),
-                            PaymentMethodSummary("check", "Chèques", 7, 850_000_00L, 28.0),
-                            PaymentMethodSummary("transfer", "Virements", 3, 300_000_00L, 10.0),
-                        )
-                    }
-
-                    fallbackMethods.forEach { methodSummary ->
+                // FIX (fabricated breakdown): when no real payments existed the
+                // UI rendered an invented distribution (18 espèces / 7 chèques /
+                // 3 virements, 62/28/10%). It now renders ONLY the real data —
+                // with an explicit empty state when nothing has been collected.
+                val hasRealMethodData = paymentMethods.isNotEmpty() && paymentMethods.any { it.count > 0 }
+                if (!hasRealMethodData) {
+                    Text(
+                        text = "Aucun règlement encaissé pour le moment — la répartition apparaîtra dès le premier paiement.",
+                        style = ElTheme.typography.bodySmall,
+                        color = ElTheme.colors.textSecondary,
+                        modifier = Modifier.padding(vertical = 12.dp),
+                    )
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        paymentMethods.forEach { methodSummary ->
                         val (icon, color) = when (methodSummary.method.lowercase()) {
                             "cash" -> Icons.Default.Money to ElTheme.colors.success
                             "check" -> Icons.Default.Payments to ElTheme.colors.info
@@ -141,6 +144,7 @@ internal fun DashboardRevenueChart(
                                     color = ElTheme.colors.textSecondary,
                                 )
                             }
+                        }
                         }
                     }
                 }
