@@ -61,7 +61,18 @@ fun allocatePaymentToInstallments(
 
     for (ins in eligible) {
         if (remaining <= 0L) break
-        val insRemaining = (ins.amountDue - ins.amountPaid).coerceAtLeast(0L)
+        // EQUIVALENCE FIX (A-0042-PENDING-CAPACITY, scenario
+        // fin-024-double-pending-collection-capacity): pending funds must
+        // count the tranche's EXISTING uncleared allocation against its
+        // remaining capacity — otherwise a second pending payment pushes
+        // amountPending beyond amountDue and clearing both later
+        // over-satisfies the tranche. Mirrors the backend RPC and the
+        // desktop canonical engine (INV-6/INV-7).
+        val insRemaining = if (cleared) {
+            (ins.amountDue - ins.amountPaid).coerceAtLeast(0L)
+        } else {
+            (ins.amountDue - ins.amountPaid - ins.amountPending).coerceAtLeast(0L)
+        }
         if (insRemaining <= 0L) continue
         val allocate = minOf(remaining, insRemaining)
         var newAmountPaid = ins.amountPaid

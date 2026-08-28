@@ -823,6 +823,11 @@ class LocalAttendanceRepository @Inject constructor(
     private val auditDao: AuditLogDao,
     private val notificationDao: NotificationDao,
     private val studentDao: StudentDao,
+    // VAULT §06.03 — roll call is the PRIMARY mobile flow; records must reach
+    // the shared backend so the portal's Absence Justification feature sees
+    // them. The dispatcher upserts into `attendance_records` on the canonical
+    // (tenant, student, record_date, session) key (migration 0041).
+    private val syncSupport: com.example.infrastructure.sync.SyncSupport? = null,
 ) : com.example.domain.repository.AttendanceRepository {
 
     override fun observeByClass(classId: String, date: String): Flow<List<AttendanceRecord>> =
@@ -851,6 +856,16 @@ class LocalAttendanceRepository @Inject constructor(
             )
         }
         attendanceDao.upsertAll(entities)
+        // VAULT §06.03 — enqueue every record for the Supabase push.
+        entities.forEach { entity ->
+            syncSupport?.enqueueOnly(
+                entity = "attendance",
+                operation = "upsert",
+                payload = buildAttendanceSyncPayload(entity),
+                isMock = false,
+                sourceScreen = "RollCallScreen",
+            )
+        }
         auditDao.upsert(auditLog("attendance.rollCall", "class", classId, actorId, actorName,
             after = """{"date":"$date","session":"$session","count":${records.size}}"""))
         return Result.Ok(Unit)
@@ -890,12 +905,33 @@ class LocalAttendanceRepository @Inject constructor(
 // ─── Grade Repository ───────────────────────────────────────────────────────
 
 @Singleton
+/** Canonical attendance_records-row payload for the sync dispatcher (§06.03). */
+private fun buildAttendanceSyncPayload(e: com.example.infrastructure.room.AttendanceEntity): String =
+    kotlinx.serialization.json.buildJsonObject {
+        put("id", e.id)
+        put("tenantId", e.tenantId)
+        put("studentId", e.studentId)
+        put("classId", e.classId)
+        put("date", e.date)
+        put("recordDate", e.date)
+        put("session", e.session)
+        put("status", e.status)
+        e.arrivalTime?.let { put("arrivalTime", it) }
+        e.note?.let { put("note", it) }
+        put("recordedBy", e.recordedBy)
+        put("recordedAt", e.recordedAt)
+    }.toString()
+
 class LocalGradeRepository @Inject constructor(
     private val assessmentDao: AssessmentDao,
     private val auditDao: AuditLogDao,
     // TIER 4 FIX — subject lookup so entered assessments carry the canonical
     // isExtracurricular flag (drives the GPA exclusion rule).
     private val subjectDao: com.example.infrastructure.room.SubjectDao,
+    // VAULT §06.02 — grade entries must reach the shared backend (and thus
+    // the Student Web Portal's Academic Hub). The dispatcher upserts into the
+    // canonical `assessments` table written by the desktop grade-entry flow.
+    private val syncSupport: com.example.infrastructure.sync.SyncSupport? = null,
 ) : GradeRepository {
 
     override fun observeForStudent(studentId: String, term: String, academicYear: String): Flow<List<Assessment>> =
@@ -956,10 +992,43 @@ class LocalGradeRepository @Inject constructor(
             coefficientDevoir1 = coefD1, coefficientDevoir2 = coefD2, coefficientExamen = coefEx,
         )
         assessmentDao.upsert(entity)
+        // VAULT §06.02 — enqueue the canonical row for the Supabase push
+        // (dispatcher writes the SAME assessments table the desktop app and
+        // the web portal read from).
+        syncSupport?.enqueueOnly(
+            entity = "grade",
+            operation = "upsert",
+            payload = buildGradeSyncPayload(entity),
+            isMock = false,
+            sourceScreen = "GradeEntryScreen",
+        )
         auditDao.upsert(auditLog("grade.enter", "assessment", entity.id, actorId, actorName))
         return Result.Ok(LocalMappers.run { entity.toDomain() })
     }
 }
+
+/** Canonical assessments-row payload for the sync dispatcher (§06.02). */
+private fun buildGradeSyncPayload(e: com.example.infrastructure.room.AssessmentEntity): String =
+    kotlinx.serialization.json.buildJsonObject {
+        put("id", e.id)
+        put("tenantId", e.tenantId)
+        put("studentId", e.studentId)
+        put("subjectId", e.subjectId)
+        put("classId", e.classId)
+        put("term", e.term)
+        put("academicYear", e.academicYear)
+        e.devoir1?.let { put("devoir1", it) }
+        e.devoir2?.let { put("devoir2", it) }
+        e.examen?.let { put("examen", it) }
+        put("coefficient", e.coefficient)
+        put("isExtracurricular", e.isExtracurricular)
+        e.subjectAverage?.let { put("subjectAverage", it) }
+        put("enteredBy", e.enteredBy)
+        put("enteredAt", e.enteredAt)
+        put("coefficientDevoir1", e.coefficientDevoir1)
+        put("coefficientDevoir2", e.coefficientDevoir2)
+        put("coefficientExamen", e.coefficientExamen)
+    }.toString()
 
 // ─── Expense Repository ─────────────────────────────────────────────────────
 

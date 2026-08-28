@@ -79,10 +79,18 @@ class SyncQueueDispatcher @Inject constructor(
             // upsert into the shared `homework` table (matched by primary key
             // id — re-pushing the same queue entry never duplicates).
             "homework" -> pushHomework(entry, payload)
-            // Other entity kinds (expense, attendance, grade, audit_log,
-            // notification, calendar_event) are currently local-only. The
-            // shared schema migration 0027 supports them via direct table
-            // upserts, but those flows are out of scope for this iteration.
+            // Vault §06.02 — Grade Entry: upsert into the canonical
+            // `assessments` table (the same table the desktop grade-entry
+            // flow and the web portal's Academic Hub read).
+            "grade" -> pushGrade(entry, payload)
+            // Vault §06.03 — Attendance Roll Call: upsert into
+            // `attendance_records` on the canonical key (migration 0041) so
+            // the portal's Absence Justification feature sees every record.
+            "attendance" -> pushAttendance(entry, payload)
+            // Other entity kinds (expense, audit_log, notification,
+            // calendar_event) are currently local-only. The shared schema
+            // migration 0027 supports them via direct table upserts, but
+            // those flows are out of scope for this iteration.
             else -> {
                 // No-op — the SyncService will mark the entry as "synced".
             }
@@ -312,6 +320,71 @@ class SyncQueueDispatcher @Inject constructor(
         }
         NetworkTimeouts.guard<Unit>("sync.pushInstallment", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.rpc("upsert_installment_from_import", params)
+        }
+    }
+
+    /**
+     * Vault §06.02 — push a grade entry into the canonical `assessments`
+     * table. Column shape mirrors migration 0029 + 0041 exactly:
+     *   term INTEGER 1|2|3 (domain uses "T1"|"T2"|"T3"),
+     *   subject_average NUMERIC(4,2) (canonical engine value),
+     *   per-component coefficient snapshot (defaults 1/1/2).
+     * The upsert conflicts on (student_id, subject_id, term, academic_year)
+     * so re-pushing the same entry never duplicates — identical to the
+     * desktop's grade-entry upsert.
+     */
+    private suspend fun pushGrade(entry: SyncQueueEntity, p: JsonObject) {
+        val studentId = p.str("studentId") ?: p.str("student_id") ?: return
+        val subjectId = p.str("subjectId") ?: p.str("subject_id") ?: return
+        // WIRE: the DB column is INTEGER 1|2|3 (migration 0004); the local
+        // domain uses "T1"|"T2"|"T3" strings.
+        val termWire = p.str("term")?.let { t ->
+            Regex("^T?(\\d+)$").find(t)?.groupValues?.get(1)?.toIntOrNull()
+        } ?: 1
+        val params = buildJsonObject {
+            put("p_tenant_id", entry.tenantId)
+            put("p_student_id", studentId)
+            put("p_subject_id", subjectId)
+            (p.str("classId") ?: p.str("class_id"))?.let { put("p_class_id", it) }
+            put("p_term", termWire.coerceIn(1, 3))
+            put("p_academic_year", p.str("academicYear") ?: p.str("academic_year") ?: "")
+            put("p_devoir1", p.str("devoir1")?.toDoubleOrNull() ?: JsonNull)
+            put("p_devoir2", p.str("devoir2")?.toDoubleOrNull() ?: JsonNull)
+            put("p_examen", p.str("examen")?.toDoubleOrNull() ?: JsonNull)
+            put("p_coefficient", p.str("coefficient")?.toDoubleOrNull() ?: 1.0)
+            put("p_coefficient_devoir1", p.str("coefficientDevoir1")?.toDoubleOrNull() ?: 1.0)
+            put("p_coefficient_devoir2", p.str("coefficientDevoir2")?.toDoubleOrNull() ?: 1.0)
+            put("p_coefficient_examen", p.str("coefficientExamen")?.toDoubleOrNull() ?: 2.0)
+            put("p_entered_by", p.str("enteredBy"))
+            put("p_entered_at", p.str("enteredAt"))
+        }
+        NetworkTimeouts.guard<Unit>("sync.pushGrade", timeoutMs = 5_000L) {
+            supabaseProvider.postgrest.rpc("upsert_assessment_from_import", params)
+        }
+    }
+
+    /**
+     * Vault §06.03 — push a roll-call record into `attendance_records`.
+     * The canonical unique key (tenant_id, student_id, record_date, session)
+     * from migration 0041 makes the upsert idempotent.
+     */
+    private suspend fun pushAttendance(entry: SyncQueueEntity, p: JsonObject) {
+        val studentId = p.str("studentId") ?: p.str("student_id") ?: return
+        val recordDate = p.str("recordDate") ?: p.str("record_date") ?: p.str("date") ?: return
+        val params = buildJsonObject {
+            put("p_tenant_id", entry.tenantId)
+            put("p_student_id", studentId)
+            (p.str("classId") ?: p.str("class_id"))?.let { put("p_class_id", it) }
+            put("p_record_date", recordDate)
+            put("p_session", p.str("session") ?: "morning")
+            put("p_status", p.str("status") ?: "present")
+            put("p_arrival_time", p.str("arrivalTime"))
+            put("p_note", p.str("note"))
+            put("p_recorded_by", p.str("recordedBy"))
+            put("p_recorded_at", p.str("recordedAt"))
+        }
+        NetworkTimeouts.guard<Unit>("sync.pushAttendance", timeoutMs = 5_000L) {
+            supabaseProvider.postgrest.rpc("upsert_attendance_from_import", params)
         }
     }
 
