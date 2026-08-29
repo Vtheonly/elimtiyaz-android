@@ -1,5 +1,6 @@
 package com.example.infrastructure.local
 
+import com.example.BuildConfig
 import com.example.core.AuditActions
 import com.example.core.Errors
 import com.example.core.PaymentCategory
@@ -57,8 +58,121 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// ─── Auth security model (T-002: SEC-101 / SEC-102 / WEAK-101) ──────────────
+
 /**
- * Hybrid AuthRepository — Supabase-first, local fallback.
+ * Resolves the session role EXCLUSIVELY from server-side role assignments.
+ *
+ * Canonical path (mirrors the desktop reference client, which calls
+ * `client.rpc("current_user_roles")` and falls back to `Role.SupportStaff`):
+ * the SQL function (migration 0003) reads `role_assignments` for the
+ * signed-in user and returns the unrevoked role codes. The FIRST recognisable
+ * code wins (`Role.fromCode` also maps legacy aliases such as
+ * "direction" → super_admin). When the list is empty or unrecognisable — i.e.
+ * a signed-in user with NO role assignments — the fallback is the
+ * LEAST-PRIVILEGE staff role (support_staff), never SUPER_ADMIN.
+ *
+ * This function MUST stay pure (no network, no email inspection): the deleted
+ * email-substring role inference (SEC-102) is regression-guarded by
+ * `LocalAuthRepositoryTest`.
+ */
+internal fun resolveRoleFromAssignments(roleCodes: List<String>): Role =
+    roleCodes.firstNotNullOfOrNull { Role.fromCode(it) } ?: Role.SUPPORT_STAFF
+
+/**
+ * Assembles the server-authenticated [Session] (pure — unit-tested).
+ *
+ * Security invariants enforced here:
+ *  * the role comes ONLY from [roleCodes] via [resolveRoleFromAssignments]
+ *    (least-privilege support_staff fallback — SEC-102 fix);
+ *  * [accessToken] is the REAL Supabase JWT from the SDK session, which the
+ *    server can validate — never a user UUID or synthetic string
+ *    (WEAK-101 fix);
+ *  * an unknown role must never expand to "all permissions" — the permission
+ *    fallback is the empty set, not `Permission.entries`.
+ *
+ * Identity fields (userId/tenantId/email/displayName/…) are already resolved
+ * by the caller from `user_profiles` with auth-record fallbacks.
+ */
+internal fun buildServerSession(
+    userId: String,
+    tenantId: String,
+    email: String,
+    displayName: String,
+    avatarUrl: String?,
+    locale: String,
+    roleCodes: List<String>,
+    accessToken: String,
+    refreshToken: String?,
+    expiresAtEpochMs: Long,
+): Session {
+    val role = resolveRoleFromAssignments(roleCodes)
+    return Session(
+        userId = userId,
+        tenantId = tenantId,
+        email = email,
+        displayName = displayName,
+        avatarUrl = avatarUrl,
+        role = role,
+        permissions = Permission.DEFAULT_ROLE_PERMISSIONS[role] ?: emptySet(),
+        accessToken = accessToken,
+        refreshToken = refreshToken,
+        expiresAt = expiresAtEpochMs,
+        locale = locale,
+    )
+}
+
+/**
+ * The fixed role of the LOCAL DEMO SANDBOX session, reachable ONLY in debug
+ * builds with no Supabase configuration (see [AuthEnvironment]). It grants
+ * nothing server-side: the sandbox token ("local-…") is not a JWT and no
+ * backend is configured. NEVER use as a fallback for server-resolved
+ * sessions — those fall back to support_staff (see
+ * [resolveRoleFromAssignments]).
+ */
+internal val DEMO_SANDBOX_ROLE: Role = Role.SUPER_ADMIN
+
+/**
+ * The runtime environment [LocalAuthRepository] makes its fail-closed
+ * decisions against. Injectable so unit tests can drive both branches;
+ * production always uses [AuthEnvironment.fromBuildConfig].
+ */
+internal data class AuthEnvironment(
+    val supabaseConfigured: Boolean,
+    val isDebugBuild: Boolean,
+) {
+    /**
+     * SEC-101 fix: the demo fallback is allowed ONLY when Supabase is
+     * genuinely unconfigured AND this is a debug build. A failed login on a
+     * configured build is a FAILED LOGIN — never a demo session; a release
+     * build without configuration fails closed.
+     */
+    fun isDemoFallbackAllowed(): Boolean = !supabaseConfigured && isDebugBuild
+
+    companion object {
+        fun fromBuildConfig(): AuthEnvironment = AuthEnvironment(
+            supabaseConfigured = com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured,
+            isDebugBuild = BuildConfig.DEBUG,
+        )
+    }
+}
+
+/**
+ * Hybrid AuthRepository — Supabase-first, FAIL-CLOSED (T-002).
+ *
+ * Security model (SEC-101 / SEC-102 / WEAK-101 fixes, 2026-08-29):
+ *  * **Supabase configured:** sign-in succeeds ONLY with real credentials;
+ *    any failure (wrong password, timeout, server error, empty session)
+ *    returns [Result.Err]. No offline/demo session is ever minted.
+ *  * **Roles:** resolved EXCLUSIVELY from `role_assignments` via the
+ *    canonical `current_user_roles()` RPC with the least-privilege
+ *    support_staff fallback — never from email substrings, never
+ *    SUPER_ADMIN by default.
+ *  * **Tokens:** [Session.accessToken] stores the real Supabase JWT from the
+ *    SDK session (server-validatable), not the user UUID.
+ *  * **Unconfigured + DEBUG build:** a local demo sandbox session with the
+ *    fixed [DEMO_SANDBOX_ROLE] — no server, no real token.
+ *  * **Unconfigured + RELEASE build:** fails closed.
  */
 @Singleton
 class LocalAuthRepository @Inject constructor(
@@ -71,20 +185,34 @@ class LocalAuthRepository @Inject constructor(
 
     override fun observeSession(): Flow<Session?> = sessionState
 
-    override suspend fun signIn(email: String, password: String): Result<Session> {
-        // ── Stage 1: try real Supabase Auth (with 8s hard timeout) ──────────
-        if (com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) {
-            val userInfo = com.example.infrastructure.supabase.NetworkTimeouts.guard<io.github.jan.supabase.auth.user.UserInfo?>(
+    override suspend fun signIn(email: String, password: String): Result<Session> =
+        signInInternal(email, password, AuthEnvironment.fromBuildConfig())
+
+    /**
+     * Internal seam so unit tests can drive both environment branches;
+     * production always goes through [signIn] (which uses
+     * [AuthEnvironment.fromBuildConfig]).
+     */
+    internal suspend fun signInInternal(email: String, password: String, env: AuthEnvironment): Result<Session> {
+        // ── Stage 1: real Supabase Auth (8s hard timeout) — FAIL CLOSED ─────
+        // T-002 / SEC-101 fix: on a configured build a failed or empty
+        // sign-in is a hard error — never a demo session. The SDK's real
+        // [UserSession] (JWT + user) is captured in one guarded call.
+        if (env.supabaseConfigured) {
+            val authSession = com.example.infrastructure.supabase.NetworkTimeouts.guard<io.github.jan.supabase.auth.user.UserSession?>(
                 "auth.signIn", timeoutMs = 8_000L, onlyIfConfigured = false,
             ) {
                 supabaseProvider.auth.signInWith(io.github.jan.supabase.auth.providers.builtin.Email) {
                     this.email = email
                     this.password = password
                 }
-                supabaseProvider.auth.currentUserOrNull()
+                // T-002 / WEAK-101 fix — take the SDK session (real JWT),
+                // not just the user record.
+                supabaseProvider.auth.currentSessionOrNull()
             }
 
-            if (userInfo != null) {
+            val userInfo = authSession?.user
+            if (userInfo != null && authSession != null) {
                 // Fetch the user's profile from the `user_profiles` table.
                 val profile = com.example.infrastructure.supabase.NetworkTimeouts.guard<com.example.infrastructure.supabase.UserProfileDto?>(
                     "auth.fetchProfile", timeoutMs = 5_000L,
@@ -98,28 +226,33 @@ class LocalAuthRepository @Inject constructor(
                         .firstOrNull()
                 }
 
-                val remoteRole = Role.fromCode(profile?.roleId ?: "")
-                    ?: if (email.contains("finance", ignoreCase = true)) Role.FINANCIAL_OFFICER
-                    else if (email.contains("teacher", ignoreCase = true)) Role.TEACHER
-                    else if (email.contains("manager", ignoreCase = true)) Role.MANAGER
-                    else Role.SUPER_ADMIN
-                val remotePermissions = Permission.DEFAULT_ROLE_PERMISSIONS[remoteRole] ?: Permission.entries.toSet()
+                // T-002 / SEC-102 fix — role resolution is SERVER-SIDE ONLY:
+                // `role_assignments` via the canonical `current_user_roles()`
+                // RPC (migration 0003), the same path as the desktop reference
+                // client. The email-substring inference that defaulted to
+                // SUPER_ADMIN was deleted.
+                val roleCodes = com.example.infrastructure.supabase.NetworkTimeouts.guard<List<String>>(
+                    "auth.fetchRoles", timeoutMs = 5_000L,
+                ) {
+                    supabaseProvider.postgrest.rpc("current_user_roles").decodeList<String>()
+                } ?: emptyList()
 
                 val displayName = profile?.displayName
                     ?: userInfo.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() }
                     ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
-                val session = Session(
+                val session = buildServerSession(
                     userId = profile?.id ?: userInfo.id,
                     tenantId = profile?.tenantId ?: "00000000-0000-0000-0000-000000000001",
                     email = profile?.email ?: userInfo.email ?: email,
                     displayName = displayName,
                     avatarUrl = profile?.avatarUrl,
-                    role = remoteRole,
-                    permissions = remotePermissions,
-                    accessToken = userInfo.id,
-                    refreshToken = null,
-                    expiresAt = System.currentTimeMillis() + 3_600_000L,
                     locale = profile?.locale ?: "fr",
+                    roleCodes = roleCodes,
+                    // T-002 / WEAK-101 fix — the REAL Supabase JWT (not the
+                    // user UUID) + refresh token + expiry from the SDK session.
+                    accessToken = authSession.accessToken,
+                    refreshToken = authSession.refreshToken,
+                    expiresAtEpochMs = authSession.expiresAt.toEpochMilliseconds(),
                 )
                 _sessionState.value = session
                 auditDao.upsert(
@@ -136,30 +269,53 @@ class LocalAuthRepository @Inject constructor(
                 )
                 return Result.Ok(session)
             }
+
+            // T-002 / SEC-101 fix — FAIL CLOSED. Supabase IS configured but
+            // the sign-in failed (wrong credentials, timeout, server error)
+            // or the SDK returned no session. The previous code fell through
+            // to the demo fallback and minted a 24-hour SUPER_ADMIN session —
+            // deleted. The LoginScreen renders the error message.
+            return Result.Err(
+                com.example.core.Errors.unauthorized(
+                    "Supabase sign-in failed for $email (bad credentials, timeout, server error or no session)",
+                    userMessage = "Échec de la connexion — vérifiez vos identifiants ou la configuration du serveur.",
+                ),
+            )
         }
 
-        // ── Stage 2: resilient demo / offline fallback ──────────────────────
-        val fallbackRole: Role = when {
-            email.contains("finance", ignoreCase = true) -> Role.FINANCIAL_OFFICER
-            email.contains("teacher", ignoreCase = true) -> Role.TEACHER
-            email.contains("manager", ignoreCase = true) -> Role.MANAGER
-            email.contains("support", ignoreCase = true) -> Role.SUPPORT_STAFF
-            email.contains("buyer", ignoreCase = true) -> Role.BUYER
-            email.contains("driver", ignoreCase = true) -> Role.DRIVER
-            email.contains("warehouse", ignoreCase = true) -> Role.WAREHOUSE_WORKER
-            email.contains("worker", ignoreCase = true) -> Role.WORKER
-            else -> Role.SUPER_ADMIN
+        // ── Stage 2: demo sandbox — debug builds WITHOUT Supabase config ONLY ──
+        // T-002 / SEC-101 fix: this branch used to fire on ANY failed Supabase
+        // login (including wrong passwords on a configured build) and minted a
+        // 24-hour session whose role was guessed from the email substring,
+        // defaulting to SUPER_ADMIN (SEC-102). Now it runs only when
+        // `env.isDemoFallbackAllowed()` (unconfigured AND debug), and the role
+        // is the FIXED [DEMO_SANDBOX_ROLE] — no email-derived privileges.
+        if (!env.isDemoFallbackAllowed()) {
+            return Result.Err(
+                com.example.core.Errors.unauthorized(
+                    "Supabase is not configured — refusing to start a demo session (release build)",
+                    userMessage = "Aucun serveur configuré — renseignez SUPABASE_URL et SUPABASE_ANON_KEY dans Paramètres > Supabase.",
+                ),
+            )
         }
-        val fallbackPermissions = Permission.DEFAULT_ROLE_PERMISSIONS[fallbackRole] ?: Permission.entries.toSet()
+        return demoSandboxSignIn(email)
+    }
 
+    /**
+     * Local demo sandbox session — debug builds without Supabase config only
+     * (see [AuthEnvironment.isDemoFallbackAllowed]). The token is
+     * deliberately NOT a JWT; it authenticates nowhere server-side.
+     */
+    private suspend fun demoSandboxSignIn(email: String): Result<Session> {
+        val demoPermissions = Permission.DEFAULT_ROLE_PERMISSIONS[DEMO_SANDBOX_ROLE] ?: emptySet()
         val localSession = Session(
-            userId = "usr-local-${fallbackRole.code}",
+            userId = "usr-local-demo",
             tenantId = "00000000-0000-0000-0000-000000000001",
             email = email.ifBlank { "admin@elimtiyaz.dz" },
             displayName = email.substringBefore("@").replaceFirstChar { it.uppercase() }.ifBlank { "Administrateur" },
             avatarUrl = null,
-            role = fallbackRole,
-            permissions = fallbackPermissions,
+            role = DEMO_SANDBOX_ROLE,
+            permissions = demoPermissions,
             accessToken = "local-${System.currentTimeMillis()}",
             refreshToken = null,
             expiresAt = System.currentTimeMillis() + 86_400_000L,
@@ -174,8 +330,8 @@ class LocalAuthRepository @Inject constructor(
                 entityType = "auth", entityId = localSession.userId,
                 actorId = localSession.userId, actorName = localSession.displayName,
                 actorRole = localSession.role.code,
-                beforeJson = null, afterJson = """{"email":"${localSession.email}","source":"local"}""",
-                note = "Local sign-in (offline mode)", createdAt = Instant.now().toString(),
+                beforeJson = null, afterJson = """{"email":"${localSession.email}","source":"local-demo"}""",
+                note = "Local sign-in (demo sandbox — debug build only)", createdAt = Instant.now().toString(),
             )
         )
         return Result.Ok(localSession)
@@ -210,11 +366,16 @@ class LocalAuthRepository @Inject constructor(
 
         if (!com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) return Result.Ok(null)
 
-        val current = com.example.infrastructure.supabase.NetworkTimeouts.guard<io.github.jan.supabase.auth.user.UserInfo?>(
+        // T-002 / WEAK-101 fix — restore from the SDK's REAL session (JWT),
+        // not just the user record.
+        val authSession = com.example.infrastructure.supabase.NetworkTimeouts.guard<io.github.jan.supabase.auth.user.UserSession?>(
             "auth.refreshSession", timeoutMs = 3_000L, onlyIfConfigured = false,
         ) {
-            supabaseProvider.auth.currentUserOrNull()
+            supabaseProvider.auth.currentSessionOrNull()
         } ?: return Result.Ok(null)
+
+        // No user in the stored SDK session → nothing restorable (fail closed).
+        val current = authSession.user ?: return Result.Ok(null)
 
         val profile = com.example.infrastructure.supabase.NetworkTimeouts.guard<com.example.infrastructure.supabase.UserProfileDto?>(
             "auth.refreshProfile",
@@ -228,22 +389,28 @@ class LocalAuthRepository @Inject constructor(
                 .firstOrNull()
         } ?: return Result.Ok(null)
 
+        // T-002 / SEC-102 fix — role via role_assignments RPC with the
+        // least-privilege fallback (was a direct SUPER_ADMIN fallback).
+        val roleCodes = com.example.infrastructure.supabase.NetworkTimeouts.guard<List<String>>(
+            "auth.refreshRoles",
+        ) {
+            supabaseProvider.postgrest.rpc("current_user_roles").decodeList<String>()
+        } ?: emptyList()
+
         val displayName = profile.displayName
             ?: current.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() }
             ?: "Administrateur"
-        val restoredRole = Role.fromCode(profile.roleId ?: "") ?: Role.SUPER_ADMIN
-        val session = Session(
+        val session = buildServerSession(
             userId = profile.id,
             tenantId = profile.tenantId ?: "00000000-0000-0000-0000-000000000001",
             email = profile.email ?: current.email ?: "",
             displayName = displayName,
             avatarUrl = profile.avatarUrl,
-            role = restoredRole,
-            permissions = Permission.DEFAULT_ROLE_PERMISSIONS[restoredRole] ?: Permission.entries.toSet(),
-            accessToken = current.id,
-            refreshToken = null,
-            expiresAt = System.currentTimeMillis() + 3_600_000L,
             locale = profile.locale ?: "fr",
+            roleCodes = roleCodes,
+            accessToken = authSession.accessToken,
+            refreshToken = authSession.refreshToken,
+            expiresAtEpochMs = authSession.expiresAt.toEpochMilliseconds(),
         )
         _sessionState.value = session
         return Result.Ok(session)
