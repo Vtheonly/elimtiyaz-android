@@ -38,7 +38,7 @@ supabase/migrations/   # ⚠ stale partial copy — NOT authoritative (hub owns 
 ## 4. Before changing anything (mandatory)
 
 1. Read the hub `AGENTS.md` and the relevant hub docs (source-of-truth registry first).
-2. Read your task in `AgentGithubUplaod/docs/recovery/task-registry.md` and its problem entries (this repo owns many: SEC-101/102, ARCH-003/004, CROSS-005/200, DUP-003/004/005, WEAK-006/007/009/010/011/012, SYNC-103/104/106/107, …).
+2. Read your task in `AgentGithubUplaod/docs/recovery/task-registry.md` and its problem entries (this repo owns many: SEC-101/102, ARCH-003/004, CROSS-005/200, DUP-003/004/005, WEAK-006/007/009/010/011/012, SYNC-103/104/106/107, …). When you need the full end-to-end trace or git forensics behind a problem ID, read the raw finding in `AgentGithubUplaod/docs/audits/` (read-only archive; see its README for ID-mapping rules).
 3. Search this repo AND the hub repo for existing implementations before writing anything.
 4. Check `AgentGithubUplaod/docs/recovery/unknowns.md` for anything your change depends on (UNKNOWN-002 blocks the write-architecture work).
 5. Follow the hub's workflow (`docs/agents/workflow.md`) and commit standard (`docs/agents/git-workflow.md`).
@@ -60,7 +60,11 @@ supabase/migrations/   # ⚠ stale partial copy — NOT authoritative (hub owns 
 4. Update the hub registries (problem status, task status, change-log) and commit per the git standard.
 5. Never claim VERIFIED without evidence — see `AgentGithubUplaod/docs/recovery/definition-of-done.md`.
 
-## 7. Verification commands (quick reference)
+## 7. Commit rule (applies to every commit in this repo)
+
+Every commit body must answer five questions (hub `AGENTS.md` §14, full template in `AgentGithubUplaod/docs/agents/git-workflow.md`): **which task was completed** (`Task:` — T-ID + status reached) · **what is left** (`Left:`) · **what was changed** (`Change:` + `Preserved:`) · **what was verified** (`Verified:` — real commands and real results, e.g. `./gradlew test` with the test count) · **the next task** (`Next:` — T-ID + one-line reason). The commit records progress for the next agent, not just the change for git.
+
+## 8. Verification commands (quick reference)
 
 ```bash
 ./gradlew lint                  # static analysis
@@ -70,7 +74,7 @@ supabase/migrations/   # ⚠ stale partial copy — NOT authoritative (hub owns 
 ./gradlew test --tests "com.example.equivalence.AndroidEquivalenceTest"
 ```
 
-## 8. Forbidden in this repository
+## 9. Forbidden in this repository
 
 - Rewiring `RepositoryModule` bindings toward Supabase repositories before ADR-005 is Accepted.
 - Editing or applying `supabase/migrations/*` (hub-owned, ADR-001).
