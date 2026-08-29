@@ -231,48 +231,11 @@ fun LoginScreen(
                     )
                 }
 
-                Spacer(Modifier.height(4.dp))
-
-                // Demo accounts — tap to fill the VM state directly
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        "Comptes démo",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 4.dp),
-                    )
-                    listOf("admin", "financial", "teacher", "support", "manager", "buyer", "driver", "warehouse", "worker").chunked(3).forEach { row ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            row.forEach { role ->
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(MaterialTheme.shapes.small)
-                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null,
-                                            onClick = { viewModel.fillDemoAccount(role) },
-                                        )
-                                        .padding(vertical = 8.dp),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Text(
-                                        role,
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                // CROSS-100 (T-002 session): the "Comptes démo" quick-fill
+                // chips were REMOVED — the shared demo password never works
+                // against a configured server, roles no longer derive from
+                // emails (SEC-102), and the debug demo sandbox signs in with
+                // any typed credentials, so the chips were misleading UI.
             }
         }
     }

@@ -21,8 +21,14 @@ import kotlinx.coroutines.launch
  *    `mutableStateOf` copies that desync after a demo-account tap).
  *  - `signIn` launches on `viewModelScope` (non-blocking) and clears the
  *    `signedIn` flag after consumption so a re-entry doesn't double-fire.
- *  - `fillDemoAccount` writes the email + password into VM state so the
- *    screen re-renders from the VM.
+ *
+ * CROSS-100 (T-002 session): the `fillDemoAccount` quick-fill list was
+ * REMOVED — with the auth rework (SEC-101/102) the listed role emails no
+ * longer imply any role (roles come from role_assignments server-side), the
+ * shared "demo1234" password never works against a configured server, and
+ * the debug demo sandbox signs in with ANY typed credentials, so the chips
+ * were misleading UI. The divergence problem itself is closed: no demo
+ * credentials ship in this client any more.
  */
 @HiltViewModel
 class LoginViewModel @Inject constructor(
@@ -72,21 +78,5 @@ class LoginViewModel @Inject constructor(
                 }
             }
         }
-    }
-
-    fun fillDemoAccount(role: String) {
-        val (email, password) = when (role) {
-            "admin"     -> "admin@elimtiyaz.dz" to "demo1234"
-            "financial" -> "finance@elimtiyaz.dz" to "demo1234"
-            "teacher"   -> "teacher@elimtiyaz.dz" to "demo1234"
-            "support"   -> "support@elimtiyaz.dz" to "demo1234"
-            "manager"   -> "manager@elimtiyaz.dz" to "demo1234"
-            "buyer"     -> "buyer@elimtiyaz.dz" to "demo1234"
-            "driver"    -> "driver@elimtiyaz.dz" to "demo1234"
-            "warehouse" -> "warehouse@elimtiyaz.dz" to "demo1234"
-            "worker"    -> "worker@elimtiyaz.dz" to "demo1234"
-            else        -> "" to ""
-        }
-        _uiState.value = _uiState.value.copy(email = email, password = password, error = null)
     }
 }
