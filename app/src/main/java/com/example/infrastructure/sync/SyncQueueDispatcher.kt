@@ -31,6 +31,16 @@ import javax.inject.Singleton
  * When Supabase is NOT configured (placeholder URL), the dispatcher
  * silently no-ops and the SyncService marks the entry as "synced" so the
  * local cache stays consistent.
+ *
+ * ERROR SURFACING (T-019 / CROSS-200): every push runs through
+ * [NetworkTimeouts.guardSyncPush], which propagates failures instead of
+ * converting them to `null`. The supabase-kt SDK (3.1.1) throws
+ * `PostgrestRestException` on every 4xx/5xx response (FK violation, NOT
+ * NULL, RLS denial, trigger exception, …), so a rejected write now keeps
+ * its queue entry pending with `lastError` and retries with backoff —
+ * previously every push was wrapped in the read-oriented guard overload
+ * (the one that catches Throwable and returns null), so server-rejected
+ * writes were marked "synced" and Room drifted from the server silently.
  */
 @Singleton
 class SyncQueueDispatcher @Inject constructor(
@@ -132,7 +142,7 @@ class SyncQueueDispatcher @Inject constructor(
             }
             if (attachmentsElement != null) put("attachments", attachmentsElement)
         }
-        NetworkTimeouts.guard<Unit>("sync.pushHomework", timeoutMs = 5_000L) {
+        NetworkTimeouts.guardSyncPush("sync.pushHomework", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.from("homework").upsert(row)
         }
     }
@@ -159,7 +169,7 @@ class SyncQueueDispatcher @Inject constructor(
             // populates activation_codes (web-portal activation).
             (p.str("activationCode") ?: p.str("activation_code"))?.let { put("p_activation_code", it) }
         }
-        NetworkTimeouts.guard<Unit>("sync.pushParent", timeoutMs = 5_000L) {
+        NetworkTimeouts.guardSyncPush("sync.pushParent", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.rpc("upsert_parent_from_import", params)
         }
     }
@@ -185,7 +195,7 @@ class SyncQueueDispatcher @Inject constructor(
             put("p_medical_notes", p.str("medicalNotes") ?: p.str("medical_notes"))
             put("p_is_active", true)
         }
-        NetworkTimeouts.guard<Unit>("sync.pushStudent", timeoutMs = 5_000L) {
+        NetworkTimeouts.guardSyncPush("sync.pushStudent", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.rpc("upsert_student_from_import", params)
         }
     }
@@ -234,7 +244,7 @@ class SyncQueueDispatcher @Inject constructor(
             (p.str("transferReference") ?: p.str("transfer_reference"))?.let { put("p_transfer_reference", it) }
             (p.str("transferSourceBank") ?: p.str("transfer_source_bank"))?.let { put("p_transfer_source_bank", it) }
         }
-        NetworkTimeouts.guard<Unit>("sync.pushPayment", timeoutMs = 5_000L) {
+        NetworkTimeouts.guardSyncPush("sync.pushPayment", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.rpc("upsert_payment_from_import", params)
         }
     }
@@ -281,7 +291,7 @@ class SyncQueueDispatcher @Inject constructor(
             // CANONICAL-FINANCIAL-LOGIC.md §8.4 — send p_metadata as a JSON object.
             put("p_metadata", metadataElement)
         }
-        NetworkTimeouts.guard<Unit>("sync.pushLedgerEntry", timeoutMs = 5_000L) {
+        NetworkTimeouts.guardSyncPush("sync.pushLedgerEntry", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.rpc("upsert_ledger_entry_from_import", params)
         }
     }
@@ -318,7 +328,7 @@ class SyncQueueDispatcher @Inject constructor(
             put("p_status", p.str("status") ?: "unpaid")
             put("p_academic_cycle", p.str("academicCycle") ?: p.str("academic_cycle"))
         }
-        NetworkTimeouts.guard<Unit>("sync.pushInstallment", timeoutMs = 5_000L) {
+        NetworkTimeouts.guardSyncPush("sync.pushInstallment", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.rpc("upsert_installment_from_import", params)
         }
     }
@@ -361,7 +371,7 @@ class SyncQueueDispatcher @Inject constructor(
             put("p_entered_by", p.str("enteredBy"))
             put("p_entered_at", p.str("enteredAt"))
         }
-        NetworkTimeouts.guard<Unit>("sync.pushGrade", timeoutMs = 5_000L) {
+        NetworkTimeouts.guardSyncPush("sync.pushGrade", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.rpc("upsert_assessment_from_import", params)
         }
     }
@@ -386,7 +396,7 @@ class SyncQueueDispatcher @Inject constructor(
             put("p_recorded_by", p.str("recordedBy"))
             put("p_recorded_at", p.str("recordedAt"))
         }
-        NetworkTimeouts.guard<Unit>("sync.pushAttendance", timeoutMs = 5_000L) {
+        NetworkTimeouts.guardSyncPush("sync.pushAttendance", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.rpc("upsert_attendance_from_import", params)
         }
     }

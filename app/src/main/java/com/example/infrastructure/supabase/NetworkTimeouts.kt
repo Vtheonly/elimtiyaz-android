@@ -85,4 +85,52 @@ object NetworkTimeouts {
             null
         }
     }
+
+    /**
+     * Run a sync PUSH with a hard timeout — the [guard] counterpart that
+     * does NOT swallow failures (T-019 / CROSS-200 fix).
+     *
+     * [guard] converts every Throwable into a `null` return. That is the
+     * right contract for reads/UI (fall back to demo data), but when the
+     * sync dispatcher pushes a queued mutation, a swallowed failure means
+     * `pushEntry` returns normally and the SyncService marks the entry
+     * "synced" even though the server rejected it — silent data loss (the
+     * local Room cache and the server drift apart, no retry, no lastError).
+     *
+     * Behaviour:
+     *  - Supabase not configured → `null` (caller skips; demo mode).
+     *  - Block succeeds → its result.
+     *  - Timeout → throws [SyncPushTimeoutException] (a plain RuntimeException
+     *    so the sync layer records a retryable failure and coroutine
+     *    cancellation semantics are not abused).
+     *  - Any other exception thrown by [block] (the supabase-kt SDK throws
+     *    `PostgrestRestException` on every 4xx/5xx response — verified
+     *    against the pinned 3.1.1 `SupabaseApi.rawRequest` bytecode) →
+     *    propagates unchanged to `SyncService.drainPending`, which keeps the
+     *    entry pending with `lastError` and retries with backoff (the
+     *    desktop `defaultPushHandler` contract).
+     */
+    suspend fun <T> guardSyncPush(
+        tag: String,
+        timeoutMs: Long = DEFAULT_TIMEOUT_MS,
+        onlyIfConfigured: Boolean = true,
+        block: suspend () -> T,
+    ): T? {
+        if (onlyIfConfigured && !isSupabaseConfigured) return null
+        return try {
+            withTimeout(timeoutMs) { block() }
+        } catch (_: TimeoutCancellationException) {
+            android.util.Log.w("NetworkTimeouts", "[$tag] sync push timed out after ${timeoutMs}ms")
+            throw SyncPushTimeoutException(tag, timeoutMs)
+        }
+    }
 }
+
+/**
+ * Thrown by [NetworkTimeouts.guardSyncPush] when a sync push exceeds its
+ * timeout. A plain [RuntimeException] (NOT a [TimeoutCancellationException])
+ * so the SyncService can catch and record it without touching coroutine
+ * cancellation machinery.
+ */
+class SyncPushTimeoutException(tag: String, timeoutMs: Long) :
+    RuntimeException("[$tag] sync push timed out after ${timeoutMs}ms")
