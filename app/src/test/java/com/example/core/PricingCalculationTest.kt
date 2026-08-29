@@ -76,7 +76,10 @@ class PricingCalculationTest {
         val explicit = computeSubjectAverage(14.0, 16.0, 18.0, 1.0, 1.0, 2.0)
         val defaulted = computeSubjectAverage(14.0, 16.0, 18.0)
         assertEquals(16.5, explicit!!, 1e-9)
-        assertEquals(explicit, defaulted, 1e-12)
+        // ARCH-007 fix (T-081): `explicit`/`defaulted` are Double? — no JUnit
+        // overload accepts nullable doubles; assert non-null first (the
+        // canonical engine must never return null for these inputs).
+        assertEquals(explicit!!, defaulted!!, 1e-12)
     }
 
     @Test fun `per-component coefficients override the historical recipe`() {

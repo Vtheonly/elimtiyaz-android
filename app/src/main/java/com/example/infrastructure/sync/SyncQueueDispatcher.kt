@@ -348,9 +348,12 @@ class SyncQueueDispatcher @Inject constructor(
             (p.str("classId") ?: p.str("class_id"))?.let { put("p_class_id", it) }
             put("p_term", termWire.coerceIn(1, 3))
             put("p_academic_year", p.str("academicYear") ?: p.str("academic_year") ?: "")
-            put("p_devoir1", p.str("devoir1")?.toDoubleOrNull() ?: JsonNull)
-            put("p_devoir2", p.str("devoir2")?.toDoubleOrNull() ?: JsonNull)
-            put("p_examen", p.str("examen")?.toDoubleOrNull() ?: JsonNull)
+            // ARCH-007 fix (T-081): `Double? ?: JsonNull` infers `Any`, which
+            // matches no `put` overload — wrap the number in JsonPrimitive so
+            // the elvis branch yields a JsonElement (JSON null when absent).
+            put("p_devoir1", p.str("devoir1")?.toDoubleOrNull()?.let(::JsonPrimitive) ?: JsonNull)
+            put("p_devoir2", p.str("devoir2")?.toDoubleOrNull()?.let(::JsonPrimitive) ?: JsonNull)
+            put("p_examen", p.str("examen")?.toDoubleOrNull()?.let(::JsonPrimitive) ?: JsonNull)
             put("p_coefficient", p.str("coefficient")?.toDoubleOrNull() ?: 1.0)
             put("p_coefficient_devoir1", p.str("coefficientDevoir1")?.toDoubleOrNull() ?: 1.0)
             put("p_coefficient_devoir2", p.str("coefficientDevoir2")?.toDoubleOrNull() ?: 1.0)

@@ -13,6 +13,10 @@ import com.example.session.SessionManager
 import com.example.ui.features.academics.ClassDetailScreen
 import com.example.ui.features.academics.GradeEntryScreen
 import com.example.ui.features.academics.HomeworkPushScreen
+// ARCH-007 fix (T-081): the import was missing — the
+// `Routes.PromotionReview` composable below references
+// PromotionReviewScreen, so the module did not compile.
+import com.example.ui.features.academics.PromotionReviewScreen
 import com.example.ui.features.academics.RollCallScreen
 import com.example.ui.features.academics.SubjectsDirectoryScreen
 import com.example.ui.features.auth.ChangePasswordModal

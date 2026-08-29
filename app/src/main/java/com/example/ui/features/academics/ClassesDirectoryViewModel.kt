@@ -28,7 +28,11 @@ import kotlinx.coroutines.flow.stateIn
 @HiltViewModel
 class ClassesDirectoryViewModel @Inject constructor(
     private val classRepository: ClassRepository,
-    sessionManager: SessionManager,
+    // ARCH-007 fix (T-081): the constructor parameter is promoted to a
+    // property — the `canPromote` getter below references it, and without
+    // `private val` the reference did not compile ("Unresolved reference
+    // 'sessionManager'"). No behaviour change.
+    private val sessionManager: SessionManager,
 ) : ViewModel() {
     val classes: StateFlow<List<AcademicClass>> = classRepository.observe()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())

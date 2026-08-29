@@ -10,3 +10,6 @@ captures/
 # Secrets (read by the secrets Gradle plugin) — NEVER commit real credentials.
 .env
 app/.env
+
+# T-081: equivalence results are generated test output (written under app/ by AndroidEquivalenceRunner)
+app/financial-tests/
