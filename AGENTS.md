@@ -25,8 +25,15 @@ app/src/main/java/com/example/
 ├── session/           # SessionManager
 └── ui/                # Compose UI (designsystem/ = canonical, ui/components/ = legacy)  ⚠ DUP-003/004
 app/src/test/          # unit + Robolectric tests (+ equivalence runner reading the desktop's corpus)
-supabase/migrations/   # ⚠ stale partial copy — NOT authoritative (hub owns the chain; ADR-001)
 ```
+
+> **Migrations (T-048, 2026-08-31):** the six stale migration copies
+> (0034/0035/0036/0040/0041/0042) that used to live in `supabase/migrations/`
+> were REMOVED — the hub repo owns the canonical chain (ADR-001) and the
+> duplicates were documentation-only drift bait (CROSS-003). NEVER recreate
+> a `supabase/` directory in this repo; the `supabase/` folder in this
+> repo's git history is a stale partial copy — never apply it, never edit
+> it, never treat it as schema truth.
 
 ## 3. Role in the system & critical context
 
@@ -78,7 +85,7 @@ Every commit body must answer five questions (hub `AGENTS.md` §14, full templat
 ## 9. Forbidden in this repository
 
 - Rewiring `RepositoryModule` bindings toward Supabase repositories before ADR-005 is Accepted.
-- Editing or applying `supabase/migrations/*` (hub-owned, ADR-001).
+- Editing or applying `supabase/migrations/*` (hub-owned, ADR-001). The stale copies were REMOVED from this repo in T-048 (2026-08-31) — never restore them.
 - Client-side role/permission decisions (roles come from `role_assignments`, least-privilege fallback).
 - New random/sequential ID generators; new local receipt numbering.
 - Creating documentation or task lists here — everything belongs in the hub (ADR-007). This file is the only documentation this repo carries.
