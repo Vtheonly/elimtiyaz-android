@@ -85,6 +85,11 @@ class ElImtiyazMessagingService : FirebaseMessagingService() {
  * the `register_fcm_token` RPC. When Supabase is NOT configured (placeholder
  * credentials), it logs the token locally — push notifications won't be
  * delivered, but the app still functions normally.
+ *
+ * SYNC-104 fix (2026-08-30): [deactivate] is the sign-out counterpart.
+ * Previously the app never unregistered tokens on sign-out — device_tokens
+ * rows stayed is_active=true and kept receiving pushes for a signed-out
+ * user. Both RPCs are caller-verified on the server (hub migration 0050).
  */
 @Singleton
 class FcmTokenRegistrar @Inject constructor(
@@ -110,6 +115,36 @@ class FcmTokenRegistrar @Inject constructor(
         }
         Result.Ok(Unit)
     } catch (e: Exception) {
+        Result.Err(com.example.core.Errors.fromException(e))
+    }
+
+    /**
+     * Deactivate this user's Android device tokens on sign-out (canonical
+     * `deactivate_fcm_tokens` RPC, hub migration 0050). Soft-delete only —
+     * the next sign-in re-activates the token via [register].
+     *
+     * MUST be called while the auth session is still valid (the RPC verifies
+     * the caller via auth.uid()); failures are non-fatal by design — sign-out
+     * must proceed even when the backend is unreachable.
+     */
+    suspend fun deactivate(): Result<Unit> = try {
+        val userId = sessionManager.currentUserId()
+            ?: return Result.Err(com.example.core.Errors.unauthorized("No session"))
+
+        if (NetworkTimeouts.isSupabaseConfigured) {
+            NetworkTimeouts.guard<Unit>("fcm.deactivateTokens", timeoutMs = 2_000L) {
+                val params = buildJsonObject {
+                    put("p_user_id", userId)
+                    put("p_platform", "android")
+                }
+                provider.postgrest.rpc("deactivate_fcm_tokens", params)
+            }
+            Log.i("FcmTokenRegistrar", "FCM tokens deactivated for user $userId")
+        }
+        Result.Ok(Unit)
+    } catch (e: Exception) {
+        // Non-fatal: stale tokens are cleaned up on the next sign-in refresh.
+        Log.w("FcmTokenRegistrar", "FCM token deactivation failed (non-fatal): ${e.message}")
         Result.Err(com.example.core.Errors.fromException(e))
     }
 }

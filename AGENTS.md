@@ -33,7 +33,8 @@ supabase/migrations/   # ⚠ stale partial copy — NOT authoritative (hub owns 
 - **CURRENT state:** all repositories bind to `Local*Repository`; server writes go Room → sync queue → `upsert_*_from_import` RPCs. The canonical financial RPCs (`collect_and_allocate_payment`, `revert_payment_allocation`) are **never called** from this app (problem ARCH-003 / CROSS-005). The target architecture (write through canonical RPCs; ADR-005 in the hub) is **Proposed — do not partially rewire** `RepositoryModule` until it is accepted.
 - The Kotlin engines in `core/` are **mirrors** of the desktop canonical engine; behaviour changes must come from the hub's canonical implementation first, then port, then pass equivalence (`AgentGithubUplaod/docs/testing/cross-platform.md`).
 - The `supabase/migrations/` folder here is a stale partial copy — never apply it, never edit it, never treat it as schema truth (CROSS-003).
-- Two auth bypasses are the repository's most dangerous defects: offline-fallback SUPER_ADMIN sessions (SEC-101) and email-substring role inference (SEC-102). Fix task: T-002.
+- Two auth bypasses are the repository's most dangerous defects: offline-fallback SUPER_ADMIN sessions (SEC-101) and email-substring role inference (SEC-102). Fix task: T-002. *(Both closed 2026-08-29 by T-002 — fail-closed sign-in, server-side role resolution; see hub change-log.)*
+- **FCM token lifecycle (session 8, 2026-08-30):** `register` and `deactivate` both go through caller-verified canonical RPCs (hub migration 0050 — `register_fcm_token` verifies auth.uid() owns p_user_id; `deactivate_fcm_tokens(p_user_id, p_platform)` is the shared sign-out path). `LocalAuthRepository.signOut` deactivates Android tokens BEFORE revoking the JWT — called directly on the provider, NOT via `FcmTokenRegistrar` (that injection would create a Hilt cycle: LocalAuthRepository → FcmTokenRegistrar → SessionManager → AuthRepository).
 
 ## 4. Before changing anything (mandatory)
 

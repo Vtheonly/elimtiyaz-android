@@ -338,6 +338,29 @@ class LocalAuthRepository @Inject constructor(
     }
 
     override suspend fun signOut(): Result<Unit> {
+        // SYNC-104 fix (2026-08-30): deactivate this user's Android FCM tokens
+        // BEFORE the auth session is revoked — deactivate_fcm_tokens (hub
+        // migration 0050) verifies the caller via auth.uid(), so it must run
+        // while the JWT is still valid. Called directly on the provider
+        // (NOT via FcmTokenRegistrar — that would create a Hilt cycle:
+        // LocalAuthRepository → FcmTokenRegistrar → SessionManager →
+        // AuthRepository). Non-fatal by design: a stale token is re-activated
+        // on the next sign-in; sign-out must proceed even when the backend is
+        // unreachable.
+        val sessionUserId = _sessionState.value?.userId
+        if (sessionUserId != null && com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) {
+            runCatching {
+                com.example.infrastructure.supabase.NetworkTimeouts.guard<Unit>("fcm.deactivateTokens", timeoutMs = 2_000L) {
+                    val params = kotlinx.serialization.json.buildJsonObject {
+                        put("p_user_id", sessionUserId)
+                        put("p_platform", "android")
+                    }
+                    supabaseProvider.postgrest.rpc("deactivate_fcm_tokens", params)
+                }
+            }.onFailure {
+                android.util.Log.w("LocalAuthRepository", "FCM token deactivation failed (non-fatal): ${it.message}")
+            }
+        }
         if (com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) {
             com.example.infrastructure.supabase.NetworkTimeouts.guard<Unit>("auth.signOut", timeoutMs = 2_000L) {
                 supabaseProvider.auth.signOut()
