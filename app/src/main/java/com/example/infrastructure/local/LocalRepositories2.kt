@@ -127,6 +127,7 @@ import javax.inject.Singleton
 
 @Singleton
 class LocalClassRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val classDao: AcademicClassDao,
     private val studentDao: StudentDao,
     private val auditDao: AuditLogDao,
@@ -145,14 +146,14 @@ class LocalClassRepository @Inject constructor(
         val now = Instant.now().toString()
         val code = "CLS-${input.level.uppercase()}-${UUID.randomUUID().toString().takeLast(4).uppercase()}"
         val entity = AcademicClassEntity(
-            id = "cls-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001", code = code,
+            id = "cls-${UUID.randomUUID()}", tenantId = auditContext.tenantId(), code = code,
             name = input.name, level = input.level, gradeYear = input.gradeYear,
             gradeLevel = input.level, section = null, room = input.room, capacity = input.capacity,
             homeroomTeacherId = input.homeroomTeacherId, homeroomTeacherName = null,
             academicYear = input.academicYear, isActive = true, createdAt = now, updatedAt = now,
         )
         classDao.upsert(entity)
-        auditDao.upsert(auditLog("class.create", "class", entity.id, actorId, actorName))
+        auditDao.upsert(auditContext.auditLog("class.create", "class", entity.id, actorId, actorName))
         return Result.Ok(LocalMappers.run { entity.toDomain(0) })
     }
 
@@ -166,13 +167,13 @@ class LocalClassRepository @Inject constructor(
             updatedAt = Instant.now().toString(),
         )
         classDao.update(updated)
-        auditDao.upsert(auditLog("class.update", "class", id, actorId, actorName))
+        auditDao.upsert(auditContext.auditLog("class.update", "class", id, actorId, actorName))
         return Result.Ok(LocalMappers.run { updated.toDomain(0) })
     }
 
     override suspend fun deleteClass(id: String, actorId: String, actorName: String): Result<Unit> {
         classDao.deleteById(id)
-        auditDao.upsert(auditLog("class.delete", "class", id, actorId, actorName))
+        auditDao.upsert(auditContext.auditLog("class.delete", "class", id, actorId, actorName))
         return Result.Ok(Unit)
     }
 }
@@ -622,6 +623,7 @@ class LocalDashboardRepository @Inject constructor(
 
 @Singleton
 class LocalDebtRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val db: ElImtiyazDatabase,
 ) : DebtRepository {
 
@@ -716,7 +718,7 @@ class LocalDebtRepository @Inject constructor(
         db.notificationDao().upsert(
             NotificationEntity(
                 id = "ntf-rem-${UUID.randomUUID()}",
-                tenantId = "00000000-0000-0000-0000-000000000001",
+                tenantId = auditContext.tenantId(),
                 title = "Rappel de paiement : ${parent.fullName}",
                 body = "Relance envoyée par $actorName — solde restant dû : " +
                     "${(outstanding / 100).formatDzd()} DZD.",
@@ -732,7 +734,7 @@ class LocalDebtRepository @Inject constructor(
             ),
         )
         db.auditLogDao().upsert(
-            auditLog(
+            auditContext.auditLog(
                 "debt.reminder_sent", "parent", parentId, actorId, actorName,
                 after = """{"outstanding":$outstanding}""",
             ),
@@ -787,6 +789,7 @@ class LocalPricingRepository @Inject constructor(
 
 @Singleton
 class LocalAuditRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val auditDao: AuditLogDao,
 ) : AuditRepository {
 
@@ -828,7 +831,7 @@ class LocalAuditRepository @Inject constructor(
         // trail useful for accountability — every action is attributed to
         // the real logged-in user, not the system.
         val entity = AuditLogEntity(
-            id = "aud-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
+            id = "aud-${UUID.randomUUID()}", tenantId = auditContext.tenantId(),
             action = input.action, entityType = input.entityType, entityId = input.entityId,
             actorId = input.actorId ?: "system",
             actorName = input.actorName ?: "Système",
@@ -845,6 +848,7 @@ class LocalAuditRepository @Inject constructor(
 
 @Singleton
 class LocalAttendanceRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val attendanceDao: AttendanceDao,
     private val auditDao: AuditLogDao,
     private val notificationDao: NotificationDao,
@@ -875,7 +879,7 @@ class LocalAttendanceRepository @Inject constructor(
             val existing = attendanceDao.getByStudentDateSession(r.studentId, date, session)
             AttendanceEntity(
                 id = existing?.id ?: "att-${UUID.randomUUID()}",
-                tenantId = "00000000-0000-0000-0000-000000000001",
+                tenantId = auditContext.tenantId(),
                 studentId = r.studentId, classId = classId, date = date, session = session,
                 status = r.status, arrivalTime = null, note = r.note ?: existing?.note,
                 recordedBy = actorId, recordedBy_name = actorName, recordedAt = now,
@@ -892,7 +896,7 @@ class LocalAttendanceRepository @Inject constructor(
                 sourceScreen = "RollCallScreen",
             )
         }
-        auditDao.upsert(auditLog("attendance.rollCall", "class", classId, actorId, actorName,
+        auditDao.upsert(auditContext.auditLog("attendance.rollCall", "class", classId, actorId, actorName,
             after = """{"date":"$date","session":"$session","count":${records.size}}"""))
         return Result.Ok(Unit)
     }
@@ -920,11 +924,11 @@ class LocalAttendanceRepository @Inject constructor(
         }
         flagged.forEach { (studentId, count) ->
             val student = studentDao.getById(studentId) ?: return@forEach
-            auditDao.upsert(auditLog("attendance.alert", "student", studentId, actorId, actorName))
+            auditDao.upsert(auditContext.auditLog("attendance.alert", "student", studentId, actorId, actorName))
             notificationDao.upsert(
                 NotificationEntity(
                     id = "ntf-abs-${UUID.randomUUID()}",
-                    tenantId = "00000000-0000-0000-0000-000000000001",
+                    tenantId = auditContext.tenantId(),
                     // Mirror of the desktop message (byte-identical semantics).
                     title = "Alerte absences",
                     body = "Votre enfant a accumulé $count absences ce trimestre (${window.label}). Merci de contacter l'administration.",
@@ -965,6 +969,7 @@ private fun buildAttendanceSyncPayload(e: com.example.infrastructure.room.Attend
     }.toString()
 
 class LocalGradeRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val assessmentDao: AssessmentDao,
     private val auditDao: AuditLogDao,
     // TIER 4 FIX — subject lookup so entered assessments carry the canonical
@@ -1015,7 +1020,7 @@ class LocalGradeRepository @Inject constructor(
         )
         val existing = assessmentDao.getByStudentSubjectTerm(input.studentId, input.subjectId, input.term, input.academicYear)
         val entity = (existing ?: AssessmentEntity(
-            id = "asm-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
+            id = "asm-${UUID.randomUUID()}", tenantId = auditContext.tenantId(),
             studentId = input.studentId, subjectId = input.subjectId, classId = input.classId,
             term = input.term, academicYear = input.academicYear,
             devoir1 = null, devoir2 = null, examen = null, coefficient = input.coefficient,
@@ -1044,7 +1049,7 @@ class LocalGradeRepository @Inject constructor(
             isMock = false,
             sourceScreen = "GradeEntryScreen",
         )
-        auditDao.upsert(auditLog("grade.enter", "assessment", entity.id, actorId, actorName))
+        auditDao.upsert(auditContext.auditLog("grade.enter", "assessment", entity.id, actorId, actorName))
         return Result.Ok(LocalMappers.run { entity.toDomain() })
     }
 }
@@ -1076,6 +1081,7 @@ private fun buildGradeSyncPayload(e: com.example.infrastructure.room.AssessmentE
 
 @Singleton
 class LocalExpenseRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val expenseDao: ExpenseDao,
     private val auditDao: AuditLogDao,
 ) : ExpenseRepository {
@@ -1094,7 +1100,7 @@ class LocalExpenseRepository @Inject constructor(
         val year = LocalDate.now().year
         val seq = (expenseDao.countPending() + 1).toString().padStart(3, '0')
         val entity = ExpenseEntity(
-            id = "exp-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
+            id = "exp-${UUID.randomUUID()}", tenantId = auditContext.tenantId(),
             requestCode = "EXP-$year-$seq", title = input.title, description = input.description,
             amount = input.amount, category = input.category, payee = input.payee,
             status = "submitted", submittedBy = actorId, submittedByName = actorName,
@@ -1104,7 +1110,7 @@ class LocalExpenseRepository @Inject constructor(
             createdAt = now, updatedAt = now,
         )
         expenseDao.upsert(entity)
-        auditDao.upsert(auditLog("expense.submit", "expense", entity.id, actorId, actorName))
+        auditDao.upsert(auditContext.auditLog("expense.submit", "expense", entity.id, actorId, actorName))
         return Result.Ok(LocalMappers.run { entity.toDomain() })
     }
 
@@ -1113,14 +1119,14 @@ class LocalExpenseRepository @Inject constructor(
         // TIER 4 FIX — enforce the canonical no-self-approval rule (plan §08;
         // desktop expense-ops.ts + SQL 0008 both enforce it).
         if (existing.submittedBy == actorId) {
-            auditDao.upsert(auditLog("expense.approve.blocked", "expense", id, actorId, actorName))
+            auditDao.upsert(auditContext.auditLog("expense.approve.blocked", "expense", id, actorId, actorName))
             return Result.Err(Errors.forbidden(
                 "Un demandeur ne peut pas approuver sa propre dépense (règle d'auto-approbation)",
             ))
         }
         val updated = existing.copy(status = "approved", approvedBy = actorId, approvedAt = Instant.now().toString(), notes = note)
         expenseDao.update(updated)
-        auditDao.upsert(auditLog("expense.approve", "expense", id, actorId, actorName))
+        auditDao.upsert(auditContext.auditLog("expense.approve", "expense", id, actorId, actorName))
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 
@@ -1134,7 +1140,7 @@ class LocalExpenseRepository @Inject constructor(
         }
         val updated = existing.copy(status = "rejected", approvedBy = actorId, approvedAt = Instant.now().toString(), notes = reason)
         expenseDao.update(updated)
-        auditDao.upsert(auditLog("expense.reject", "expense", id, actorId, actorName))
+        auditDao.upsert(auditContext.auditLog("expense.reject", "expense", id, actorId, actorName))
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 
@@ -1142,7 +1148,7 @@ class LocalExpenseRepository @Inject constructor(
         val existing = expenseDao.getById(id) ?: return Result.Err(Errors.notFound("Expense $id not found"))
         val updated = existing.copy(status = "disbursed", disbursedAt = Instant.now().toString())
         expenseDao.update(updated)
-        auditDao.upsert(auditLog("expense.disburse", "expense", id, actorId, actorName))
+        auditDao.upsert(auditContext.auditLog("expense.disburse", "expense", id, actorId, actorName))
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 
@@ -1161,7 +1167,7 @@ class LocalExpenseRepository @Inject constructor(
             finalSpentAmount = finalAmount,
         )
         expenseDao.update(updated)
-        auditDao.upsert(auditLog("expense.settle", "expense", id, actorId, actorName))
+        auditDao.upsert(auditContext.auditLog("expense.settle", "expense", id, actorId, actorName))
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 }
@@ -1170,6 +1176,7 @@ class LocalExpenseRepository @Inject constructor(
 
 @Singleton
 class LocalPersonnelRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val personnelDao: PersonnelDao,
     private val auditDao: AuditLogDao,
 ) : com.example.domain.repository.PersonnelRepository {
@@ -1189,7 +1196,7 @@ class LocalPersonnelRepository @Inject constructor(
     override suspend fun createPersonnel(input: CreatePersonnelInput, actorId: String, actorName: String): Result<Personnel> {
         val now = Instant.now().toString()
         val entity = PersonnelEntity(
-            id = "per-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
+            id = "per-${UUID.randomUUID()}", tenantId = auditContext.tenantId(),
             code = "PER-${(personnelDao.countActive() + 1).toString().padStart(3, '0')}",
             firstName = input.firstName, lastName = input.lastName, role = input.roleId,
             departmentId = input.departmentId, departmentName = null,
@@ -1198,7 +1205,7 @@ class LocalPersonnelRepository @Inject constructor(
             createdAt = now, updatedAt = now,
         )
         personnelDao.upsert(entity)
-        auditDao.upsert(auditLog("personnel.create", "personnel", entity.id, actorId, actorName))
+        auditDao.upsert(auditContext.auditLog("personnel.create", "personnel", entity.id, actorId, actorName))
         return Result.Ok(LocalMappers.run { entity.toDomain() })
     }
 
@@ -1209,14 +1216,14 @@ class LocalPersonnelRepository @Inject constructor(
             status = input.status ?: existing.status, updatedAt = Instant.now().toString(),
         )
         personnelDao.upsert(updated)
-        auditDao.upsert(auditLog("personnel.update", "personnel", id, actorId, actorName))
+        auditDao.upsert(auditContext.auditLog("personnel.update", "personnel", id, actorId, actorName))
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 
     override suspend fun deletePersonnel(id: String, actorId: String, actorName: String): Result<Unit> {
         val existing = personnelDao.getById(id) ?: return Result.Err(Errors.notFound("Personnel $id not found"))
         personnelDao.upsert(existing.copy(status = "terminated", updatedAt = Instant.now().toString()))
-        auditDao.upsert(auditLog("personnel.delete", "personnel", id, actorId, actorName))
+        auditDao.upsert(auditContext.auditLog("personnel.delete", "personnel", id, actorId, actorName))
         return Result.Ok(Unit)
     }
 }
@@ -1225,6 +1232,7 @@ class LocalPersonnelRepository @Inject constructor(
 
 @Singleton
 class LocalDepartmentRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val departmentDao: DepartmentDao,
     private val auditDao: AuditLogDao,
 ) : DepartmentRepository {
@@ -1237,7 +1245,7 @@ class LocalDepartmentRepository @Inject constructor(
 
     override suspend fun createDepartment(input: CreateDepartmentInput, actorId: String, actorName: String): Result<Department> {
         val entity = DepartmentEntity(
-            id = "dep-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
+            id = "dep-${UUID.randomUUID()}", tenantId = auditContext.tenantId(),
             name = input.name, description = input.description,
             headPersonnelId = input.headPersonnelId, parentDepartmentId = input.parentDepartmentId,
             colorHex = input.colorHex, archivedAt = null,
@@ -1253,14 +1261,14 @@ class LocalDepartmentRepository @Inject constructor(
     override suspend fun archiveDepartment(id: String, actorId: String, actorName: String): Result<Unit> {
         val existing = departmentDao.getById(id) ?: return Result.Err(Errors.notFound("Département $id introuvable"))
         departmentDao.upsertAll(listOf(existing.copy(archivedAt = Instant.now().toString())))
-        auditDao.upsert(auditLog("department.archive", "department", id, actorId, actorName))
+        auditDao.upsert(auditContext.auditLog("department.archive", "department", id, actorId, actorName))
         return Result.Ok(Unit)
     }
 
     override suspend fun unarchiveDepartment(id: String, actorId: String, actorName: String): Result<Unit> {
         val existing = departmentDao.getById(id) ?: return Result.Err(Errors.notFound("Département $id introuvable"))
         departmentDao.upsertAll(listOf(existing.copy(archivedAt = null)))
-        auditDao.upsert(auditLog("department.unarchive", "department", id, actorId, actorName))
+        auditDao.upsert(auditContext.auditLog("department.unarchive", "department", id, actorId, actorName))
         return Result.Ok(Unit)
     }
 }
@@ -1269,6 +1277,7 @@ class LocalDepartmentRepository @Inject constructor(
 
 @Singleton
 class LocalSubjectRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val subjectDao: SubjectDao,
     private val classSubjectDao: ClassSubjectDao,
     private val assessmentDao: AssessmentDao,
@@ -1311,7 +1320,7 @@ class LocalSubjectRepository @Inject constructor(
         // FIX: persist the level + passing grade from the input — previously
         // the level was silently dropped.
         val entity = SubjectEntity(
-            id = "sub-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
+            id = "sub-${UUID.randomUUID()}", tenantId = auditContext.tenantId(),
             code = input.code, name = input.name,
             category = if (input.isExtracurricular) "extracurricular" else "academic",
             coefficient = input.coefficient, weeklyHours = 0.0,
@@ -1329,7 +1338,7 @@ class LocalSubjectRepository @Inject constructor(
         // Vault §05.05/§05.06 — subject configuration is admin-controlled and
         // audited (create included).
         auditDao.upsert(
-            auditLog(
+            auditContext.auditLog(
                 action = com.example.core.AuditActions.SUBJECT_CREATE,
                 entityType = "subject",
                 entityId = entity.id,
@@ -1374,7 +1383,7 @@ class LocalSubjectRepository @Inject constructor(
         // Vault §05.06 — audit the coefficient change (see 12. Security and
         // Audit: every mutation is traceable).
         auditDao.upsert(
-            auditLog(
+            auditContext.auditLog(
                 action = com.example.core.AuditActions.SUBJECT_UPDATE,
                 entityType = "subject",
                 entityId = id,
@@ -1447,7 +1456,7 @@ class LocalSubjectRepository @Inject constructor(
             .firstOrNull { it.subjectId == subjectId }
         val entity = (existing ?: ClassSubjectEntity(
             id = "cls-sub-${UUID.randomUUID()}",
-            tenantId = "00000000-0000-0000-0000-000000000001",
+            tenantId = auditContext.tenantId(),
             classId = classId,
             subjectId = subjectId,
             teacherId = teacherId,
@@ -1461,7 +1470,7 @@ class LocalSubjectRepository @Inject constructor(
         )
         classSubjectDao.upsert(entity)
         auditDao.upsert(
-            auditLog("subject.assignToClass", "class_subject", entity.id, actorId, actorName,
+            auditContext.auditLog("subject.assignToClass", "class_subject", entity.id, actorId, actorName,
                 after = """{"classId":"$classId","subjectId":"$subjectId","weeklyHours":$weeklyHours,"coefficient":$coefficient}"""),
         )
         return Result.Ok(Unit)
@@ -1472,6 +1481,7 @@ class LocalSubjectRepository @Inject constructor(
 
 @Singleton
 class LocalHomeworkRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val homeworkDao: HomeworkDao,
     // Vault §06.06 — the assignment must reach the Student Web Portal: the
     // push enqueues a sync queue entry (dispatcher-side table upsert).
@@ -1505,7 +1515,7 @@ class LocalHomeworkRepository @Inject constructor(
 
         val now = Instant.now().toString()
         val entity = HomeworkEntity(
-            id = "hwk-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
+            id = "hwk-${UUID.randomUUID()}", tenantId = auditContext.tenantId(),
             classId = input.classId, subjectId = input.subjectId, subjectName = "",
             teacherId = actorId, teacherName = actorName,
             title = input.title, description = input.description, dueDate = input.dueDate,
@@ -1584,6 +1594,7 @@ class LocalNotificationRepository @Inject constructor(
 
 @Singleton
 class LocalReleveRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val releveDao: ReleveEntryDao,
 ) : ReleveRepository {
 
@@ -1609,7 +1620,7 @@ class LocalReleveRepository @Inject constructor(
         }
         val entity = ReleveEntryEntity(
             id = entry.id.ifBlank { "rel-${UUID.randomUUID()}" },
-            tenantId = "00000000-0000-0000-0000-000000000001",
+            tenantId = auditContext.tenantId(),
             personnelId = entry.personnelId, personnelName = entry.personnelName,
             date = entry.date, activityType = entry.activity.wireCode,
             description = description, durationMinutes = (entry.durationMinutes ?: 0).toInt(),
@@ -1647,6 +1658,7 @@ private fun ReleveEntryEntity.toDomain() = ReleveEntry(
  */
 @Singleton
 class LocalRoutingRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val db: ElImtiyazDatabase,
 ) : RoutingRepository {
 
@@ -1745,7 +1757,7 @@ class LocalRoutingRepository @Inject constructor(
             },
         )
         db.auditLogDao().upsert(
-            auditLog(
+            auditContext.auditLog(
                 "routing.optimize", "vehicle", vehicleId, actorId, actorName,
                 after = """{"stops":${withEta.size},"distanceKm":${"%.2f".format(totalDistanceKm)},"shift":"${shift.wireCode}","source":"${if (osrmRoute != null) "osrm" else "tsp-local"}"}""",
             ),
@@ -1774,7 +1786,7 @@ class LocalRoutingRepository @Inject constructor(
         val plannedStops = db.routingStopDao().getAll().filter { it.isActive }
         val entity = TripLogEntity(
             id = "trp-${UUID.randomUUID()}",
-            tenantId = "00000000-0000-0000-0000-000000000001",
+            tenantId = auditContext.tenantId(),
             driverId = driverId,
             driverName = driverName,
             vehicleId = vehicleId,
@@ -1791,7 +1803,7 @@ class LocalRoutingRepository @Inject constructor(
         )
         db.tripLogDao().upsert(entity)
         db.auditLogDao().upsert(
-            auditLog("routing.trip_start", "vehicle", vehicleId, driverId, driverName, after = """{"tripId":"${entity.id}","plannedStops":${entity.stopCount}}"""),
+            auditContext.auditLog("routing.trip_start", "vehicle", vehicleId, driverId, driverName, after = """{"tripId":"${entity.id}","plannedStops":${entity.stopCount}}"""),
         )
         return Result.Ok(LocalMappers.run { entity.toDomain() })
     }
@@ -1813,7 +1825,7 @@ class LocalRoutingRepository @Inject constructor(
         )
         db.tripLogDao().upsert(updated)
         db.auditLogDao().upsert(
-            auditLog(
+            auditContext.auditLog(
                 "routing.trip_end", "vehicle", updated.vehicleId.ifBlank { "trip" }, actorId, actorName,
                 after = """{"tripId":"$tripId","stopsCompleted":$stopsCompleted,"distanceKm":${"%.2f".format(totalDistanceKm)}}""",
             ),
@@ -1928,6 +1940,7 @@ class LocalWorkflowRepository @Inject constructor(
  */
 @Singleton
 class LocalStorageRepository @Inject constructor(
+    private val auditContext: AuditContext,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val provider: com.example.infrastructure.supabase.SupabaseClientProvider,
 ) : StorageRepository {
@@ -1997,10 +2010,3 @@ class LocalStorageRepository @Inject constructor(
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
 
-private fun auditLog(action: String, entityType: String, entityId: String, actorId: String, actorName: String, after: String? = null) = AuditLogEntity(
-    id = "aud-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
-    action = action, entityType = entityType, entityId = entityId,
-    actorId = actorId, actorName = actorName, actorRole = null,
-    beforeJson = null, afterJson = after, note = null,
-    createdAt = Instant.now().toString(),
-)

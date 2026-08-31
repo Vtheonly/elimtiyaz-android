@@ -44,7 +44,10 @@ class PullSyncRepository @Inject constructor(
     suspend fun pullParents(sinceIso: String? = null): Result<Int> = withContext(Dispatchers.IO) {
         val targetUrl = provider.getActiveUrl()
         Log.i("PullSync", "pullParents -> Connecting to $targetUrl")
-        val tenantId = sessionManager.currentTenantId() ?: "00000000-0000-0000-0000-000000000001"
+        // T-051/WEAK-012: no session tenant (signed out / global admin without
+        // a tenant choice) -> pull NOTHING. The old fallback pulled the DEMO
+        // tenant's rows into the local store.
+        val tenantId = sessionManager.currentTenantId() ?: return@withContext Result.Ok(0)
         try {
             var count = 0
             var fetched = false
@@ -85,7 +88,10 @@ class PullSyncRepository @Inject constructor(
     }
 
     suspend fun pullStudents(sinceIso: String? = null): Result<Int> = withContext(Dispatchers.IO) {
-        val tenantId = sessionManager.currentTenantId() ?: "00000000-0000-0000-0000-000000000001"
+        // T-051/WEAK-012: no session tenant (signed out / global admin without
+        // a tenant choice) -> pull NOTHING. The old fallback pulled the DEMO
+        // tenant's rows into the local store.
+        val tenantId = sessionManager.currentTenantId() ?: return@withContext Result.Ok(0)
         try {
             var count = 0
             var fetched = false
@@ -126,7 +132,10 @@ class PullSyncRepository @Inject constructor(
     }
 
     suspend fun pullPayments(sinceIso: String? = null): Result<Int> = withContext(Dispatchers.IO) {
-        val tenantId = sessionManager.currentTenantId() ?: "00000000-0000-0000-0000-000000000001"
+        // T-051/WEAK-012: no session tenant (signed out / global admin without
+        // a tenant choice) -> pull NOTHING. The old fallback pulled the DEMO
+        // tenant's rows into the local store.
+        val tenantId = sessionManager.currentTenantId() ?: return@withContext Result.Ok(0)
         try {
             var count = 0
             try {
@@ -157,7 +166,10 @@ class PullSyncRepository @Inject constructor(
     }
 
     suspend fun pullLedgerEntries(sinceIso: String? = null): Result<Int> = withContext(Dispatchers.IO) {
-        val tenantId = sessionManager.currentTenantId() ?: "00000000-0000-0000-0000-000000000001"
+        // T-051/WEAK-012: no session tenant (signed out / global admin without
+        // a tenant choice) -> pull NOTHING. The old fallback pulled the DEMO
+        // tenant's rows into the local store.
+        val tenantId = sessionManager.currentTenantId() ?: return@withContext Result.Ok(0)
         try {
             var count = 0
             try {

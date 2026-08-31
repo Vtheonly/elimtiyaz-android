@@ -3,6 +3,7 @@ package com.example.infrastructure.local
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.example.core.Permission
+import com.example.session.SessionManager
 import com.example.core.Result
 import com.example.core.Role
 import com.example.infrastructure.room.AuditLogDao
@@ -85,7 +86,17 @@ class LocalAuthRepositoryTest {
 
     private fun newRepo(dao: FakeAuditLogDao): LocalAuthRepository {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        return LocalAuthRepository(dao, SupabaseClientProvider(context))
+        // T-051: LocalAuthRepository now takes the session-aware AuditContext
+        // (first param). The Lazy<SessionManager> closes the construction
+        // cycle against the repo being created here (same as production's
+        // Dagger graph, flattened for a manual test construction).
+        var repoRef: LocalAuthRepository? = null
+        val lazySession = dagger.Lazy<SessionManager> {
+            SessionManager(repoRef ?: error("repo not yet constructed"))
+        }
+        val repo = LocalAuthRepository(AuditContext(lazySession), dao, SupabaseClientProvider(context))
+        repoRef = repo
+        return repo
     }
 
     // ─── resolveRoleFromAssignments (SEC-102 core) ───────────────────────────

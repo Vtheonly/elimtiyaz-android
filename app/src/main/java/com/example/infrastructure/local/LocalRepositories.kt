@@ -176,6 +176,7 @@ internal data class AuthEnvironment(
  */
 @Singleton
 class LocalAuthRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val auditDao: AuditLogDao,
     private val supabaseProvider: com.example.infrastructure.supabase.SupabaseClientProvider,
 ) : com.example.domain.repository.AuthRepository {
@@ -242,7 +243,7 @@ class LocalAuthRepository @Inject constructor(
                     ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
                 val session = buildServerSession(
                     userId = profile?.id ?: userInfo.id,
-                    tenantId = profile?.tenantId ?: "00000000-0000-0000-0000-000000000001",
+                    tenantId = profile?.tenantId ?: auditContext.tenantId(),
                     email = profile?.email ?: userInfo.email ?: email,
                     displayName = displayName,
                     avatarUrl = profile?.avatarUrl,
@@ -310,7 +311,7 @@ class LocalAuthRepository @Inject constructor(
         val demoPermissions = Permission.DEFAULT_ROLE_PERMISSIONS[DEMO_SANDBOX_ROLE] ?: emptySet()
         val localSession = Session(
             userId = "usr-local-demo",
-            tenantId = "00000000-0000-0000-0000-000000000001",
+            tenantId = auditContext.tenantId(),
             email = email.ifBlank { "admin@elimtiyaz.dz" },
             displayName = email.substringBefore("@").replaceFirstChar { it.uppercase() }.ifBlank { "Administrateur" },
             avatarUrl = null,
@@ -425,7 +426,7 @@ class LocalAuthRepository @Inject constructor(
             ?: "Administrateur"
         val session = buildServerSession(
             userId = profile.id,
-            tenantId = profile.tenantId ?: "00000000-0000-0000-0000-000000000001",
+            tenantId = profile.tenantId ?: auditContext.tenantId(),
             email = profile.email ?: current.email ?: "",
             displayName = displayName,
             avatarUrl = profile.avatarUrl,
@@ -528,6 +529,7 @@ val CANONICAL_STUDENT_STATUSES: Set<String> = setOf(
 
 @Singleton
 class LocalParentRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val parentDao: ParentDao,
     private val auditDao: AuditLogDao,
     // FIX (orphaned records): needed by deleteParent to refuse deleting a
@@ -567,11 +569,11 @@ class LocalParentRepository @Inject constructor(
         // idempotency contract holds.
         val activationCode = com.example.core.deterministicActivationCode(
             parentCode = code,
-            tenantId = "00000000-0000-0000-0000-000000000001",
+            tenantId = auditContext.tenantId(),
         )
         val entity = ParentEntity(
             id = "par-${UUID.randomUUID()}",
-            tenantId = "00000000-0000-0000-0000-000000000001", code = code,
+            tenantId = auditContext.tenantId(), code = code,
             firstName = input.firstName, lastName = input.lastName,
             displayName = input.displayName ?: "${input.firstName} ${input.lastName}".trim().ifEmpty { null },
             phone = input.phone,
@@ -588,7 +590,7 @@ class LocalParentRepository @Inject constructor(
         )
         parentDao.upsert(entity)
         val parent = LocalMappers.run { entity.toDomain() }
-        auditDao.upsert(audit("parent.create", "parent", parent.id, actorId, actorName,
+        auditDao.upsert(auditContext.audit("parent.create", "parent", parent.id, actorId, actorName,
             after = """{"code":"$code","name":"${parent.fullName}"}"""))
         return Result.Ok(parent)
     }
@@ -624,7 +626,7 @@ class LocalParentRepository @Inject constructor(
             updatedAt = Instant.now().toString(),
         )
         parentDao.update(updated)
-        auditDao.upsert(audit("parent.update", "parent", id, actorId, actorName, after = "{}"))
+        auditDao.upsert(auditContext.audit("parent.update", "parent", id, actorId, actorName, after = "{}"))
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 
@@ -641,7 +643,7 @@ class LocalParentRepository @Inject constructor(
             ))
         }
         parentDao.deleteById(id)
-        auditDao.upsert(audit("parent.delete", "parent", id, actorId, actorName))
+        auditDao.upsert(auditContext.audit("parent.delete", "parent", id, actorId, actorName))
         return Result.Ok(Unit)
     }
 }
@@ -650,6 +652,7 @@ class LocalParentRepository @Inject constructor(
 
 @Singleton
 class LocalStudentRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val db: ElImtiyazDatabase,
     private val studentDao: StudentDao,
     private val parentDao: ParentDao,
@@ -688,7 +691,7 @@ class LocalStudentRepository @Inject constructor(
         val code = "ELV-$year-$seq"
         val entity = StudentEntity(
             id = "stu-${UUID.randomUUID()}",
-            tenantId = "00000000-0000-0000-0000-000000000001", code = code, parentId = parentId,
+            tenantId = auditContext.tenantId(), code = code, parentId = parentId,
             firstName = input.firstName, lastName = input.lastName,
             displayName = input.displayName ?: "${input.firstName} ${input.lastName}".trim().ifEmpty { null },
             gender = input.gender,
@@ -698,7 +701,7 @@ class LocalStudentRepository @Inject constructor(
             status = "active", createdAt = now, updatedAt = now,
         )
         studentDao.upsert(entity)
-        auditDao.upsert(audit("student.create", "student", entity.id, actorId, actorName,
+        auditDao.upsert(auditContext.audit("student.create", "student", entity.id, actorId, actorName,
             after = """{"code":"$code","name":"${entity.fullName}"}"""))
         return Result.Ok(LocalMappers.run { entity.toDomain() })
     }
@@ -742,7 +745,7 @@ class LocalStudentRepository @Inject constructor(
             updatedAt = Instant.now().toString(),
         )
         studentDao.update(updated)
-        auditDao.upsert(audit("student.update", "student", id, actorId, actorName))
+        auditDao.upsert(auditContext.audit("student.update", "student", id, actorId, actorName))
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 
@@ -763,11 +766,11 @@ class LocalStudentRepository @Inject constructor(
         // TIER 2 R15 — deterministic activation_code derived from (parentCode, tenantId).
         val activationCode = com.example.core.deterministicActivationCode(
             parentCode = parentCode,
-            tenantId = "00000000-0000-0000-0000-000000000001",
+            tenantId = auditContext.tenantId(),
         )
         val parentEntity = ParentEntity(
             id = "par-${UUID.randomUUID()}",
-            tenantId = "00000000-0000-0000-0000-000000000001", code = parentCode,
+            tenantId = auditContext.tenantId(), code = parentCode,
             firstName = parent.firstName, lastName = parent.lastName,
             displayName = parent.displayName ?: "${parent.firstName} ${parent.lastName}".trim().ifEmpty { null },
             phone = parent.phone,
@@ -795,7 +798,7 @@ class LocalStudentRepository @Inject constructor(
             val code = "ELV-$year-$seq"
             val studentEntity = StudentEntity(
                 id = "stu-${UUID.randomUUID()}",
-                tenantId = "00000000-0000-0000-0000-000000000001", code = code, parentId = parentEntity.id,
+                tenantId = auditContext.tenantId(), code = code, parentId = parentEntity.id,
                 firstName = s.firstName, lastName = s.lastName,
                 displayName = s.displayName ?: "${s.firstName} ${s.lastName}".trim().ifEmpty { null },
                 gender = s.gender,
@@ -871,7 +874,7 @@ class LocalStudentRepository @Inject constructor(
                             ),
                         )
                     )
-                    installments.add(inst("ins-${studentEntity.id}-annual", parentEntity.id, studentEntity.id, "tuition", "Année complète", netTuition, due1, now))
+                    installments.add(inst(auditContext.tenantId(), "ins-${studentEntity.id}-annual", parentEntity.id, studentEntity.id, "tuition", "Année complète", netTuition, due1, now))
                 } else {
                     // Tranches — split the NET (post-discount) by 40/30/30.
                     val (t1, t2, t3) = com.example.core.splitNetTuitionByOfficialSchedule(netTuition)
@@ -909,7 +912,7 @@ class LocalStudentRepository @Inject constructor(
                                 ),
                             )
                         )
-                        installments.add(inst("ins-${studentEntity.id}-t$trancheNum", parentEntity.id, studentEntity.id, "tuition", label, amt, dueDate, now))
+                        installments.add(inst(auditContext.tenantId(), "ins-${studentEntity.id}-t$trancheNum", parentEntity.id, studentEntity.id, "tuition", label, amt, dueDate, now))
                     }
                 }
             }
@@ -929,9 +932,9 @@ class LocalStudentRepository @Inject constructor(
                         metadataJson = "{}",
                     )
                 )
-                installments.add(inst("ins-${studentEntity.id}-tr1", parentEntity.id, studentEntity.id, "transport", "Transport T1", transport.tranche1, due1, now))
-                installments.add(inst("ins-${studentEntity.id}-tr2", parentEntity.id, studentEntity.id, "transport", "Transport T2", transport.tranche2, due2, now))
-                installments.add(inst("ins-${studentEntity.id}-tr3", parentEntity.id, studentEntity.id, "transport", "Transport T3", transport.tranche3, due3, now))
+                installments.add(inst(auditContext.tenantId(), "ins-${studentEntity.id}-tr1", parentEntity.id, studentEntity.id, "transport", "Transport T1", transport.tranche1, due1, now))
+                installments.add(inst(auditContext.tenantId(), "ins-${studentEntity.id}-tr2", parentEntity.id, studentEntity.id, "transport", "Transport T2", transport.tranche2, due2, now))
+                installments.add(inst(auditContext.tenantId(), "ins-${studentEntity.id}-tr3", parentEntity.id, studentEntity.id, "transport", "Transport T3", transport.tranche3, due3, now))
             }
         }
 
@@ -1032,7 +1035,7 @@ class LocalStudentRepository @Inject constructor(
             }
         }
 
-        auditDao.upsert(audit("crm.batch_register", "parent", parentEntity.id, actorId, actorName,
+        auditDao.upsert(auditContext.audit("crm.batch_register", "parent", parentEntity.id, actorId, actorName,
             after = """{"student_count":${students.size},"activation_code":"$activationCode"}"""))
 
         return Result.Ok(BatchRegisterResult(
@@ -1069,7 +1072,7 @@ class LocalStudentRepository @Inject constructor(
                 else -> existing.copy(status = "active", updatedAt = now) // repeated
             }
             studentDao.update(updated)
-            auditDao.upsert(audit("student.promote", "student", d.studentId, actorId, actorName,
+            auditDao.upsert(auditContext.audit("student.promote", "student", d.studentId, actorId, actorName,
                 after = """{"decision":"${d.decision}","year":"$academicYear","from":"${existing.gradeLevel}","to":"${updated.gradeLevel}","status":"${updated.status}"}"""))
             // Propagate the promotion to Supabase so the desktop sees it.
             syncSupport?.enqueueOnly(
@@ -1094,6 +1097,7 @@ class LocalStudentRepository @Inject constructor(
 
 @Singleton
 class LocalPaymentRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val db: ElImtiyazDatabase,
     private val paymentDao: PaymentDao,
     private val installmentDao: InstallmentDao,
@@ -1142,7 +1146,7 @@ class LocalPaymentRepository @Inject constructor(
         val status = if (input.method == PaymentMethod.CASH) PaymentStatus.PAID else PaymentStatus.PENDING
 
         val entity = PaymentEntity(
-            id = paymentId, tenantId = "00000000-0000-0000-0000-000000000001", receiptNumber = receipt,
+            id = paymentId, tenantId = auditContext.tenantId(), receiptNumber = receipt,
             parentId = input.parentId, studentId = input.studentId, amount = input.amount,
             method = input.method.code, status = status.code, category = input.category.code,
             installmentId = input.installmentId, proofUrl = input.proofPath,
@@ -1274,7 +1278,7 @@ class LocalPaymentRepository @Inject constructor(
             )
         }
 
-        auditDao.upsert(audit("payment.collect", "payment", paymentId, actorId, actorName,
+        auditDao.upsert(auditContext.audit("payment.collect", "payment", paymentId, actorId, actorName,
             after = """{"receipt":"$receipt","amount":${input.amount},"method":"${input.method.code}"}"""))
         return Result.Ok(LocalMappers.run { entity.toDomain() })
     }
@@ -1352,7 +1356,7 @@ class LocalPaymentRepository @Inject constructor(
             }
         }
 
-        auditDao.upsert(audit("payment.refund", "payment", paymentId, actorId, actorName,
+        auditDao.upsert(auditContext.audit("payment.refund", "payment", paymentId, actorId, actorName,
             after = """{"reason":"$reason"}"""))
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
@@ -1366,7 +1370,7 @@ class LocalPaymentRepository @Inject constructor(
         val resolvedCategory = if (isCredit) PaymentCategory.PARENT_CREDIT else input.category
         val resolvedStudentId = if (isCredit) null else input.studentId
         val entry = com.example.core.createAdjustmentEntry(
-            tenantId = "00000000-0000-0000-0000-000000000001",
+            tenantId = auditContext.tenantId(),
             parentId = input.parentId, studentId = resolvedStudentId,
             category = resolvedCategory, amount = input.amount,
             sourceId = "adj-${UUID.randomUUID()}", actorId = actorId, actorName = actorName,
@@ -1396,7 +1400,7 @@ class LocalPaymentRepository @Inject constructor(
             },
             isMock = false, sourceScreen = "AdjustAccount",
         )
-        auditDao.upsert(audit("payment.adjust", "ledger", entry.id, actorId, actorName,
+        auditDao.upsert(auditContext.audit("payment.adjust", "ledger", entry.id, actorId, actorName,
             after = """{"reason":"${input.reason}","amount":${input.amount}}"""))
         return Result.Ok(Unit)
     }
@@ -1406,6 +1410,7 @@ class LocalPaymentRepository @Inject constructor(
 
 @Singleton
 class LocalInstallmentRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val installmentDao: InstallmentDao,
     private val auditDao: AuditLogDao,
     // CANONICAL-FINANCIAL-LOGIC.md §8.1 — wire SyncSupport so installment
@@ -1453,7 +1458,7 @@ class LocalInstallmentRepository @Inject constructor(
                 val paymentId = "pay-${UUID.randomUUID()}"
                 val paymentEntity = com.example.infrastructure.room.PaymentEntity(
                     id = paymentId,
-                    tenantId = "00000000-0000-0000-0000-000000000001",
+                    tenantId = auditContext.tenantId(),
                     receiptNumber = receipt,
                     parentId = existing.parentId,
                     studentId = existing.studentId,
@@ -1510,7 +1515,7 @@ class LocalInstallmentRepository @Inject constructor(
             } catch (t: Throwable) {
                 // Never fail the markPaid because of the companion entries —
                 // but record what happened for diagnosis.
-                auditDao.upsert(audit("installment.markPaid.companion_error", "installment", id, actorId, actorName,
+                auditDao.upsert(auditContext.audit("installment.markPaid.companion_error", "installment", id, actorId, actorName,
                     after = "{\"error\":\"" + (t.message ?: "unknown") + "\"}"))
             }
         }
@@ -1525,7 +1530,7 @@ class LocalInstallmentRepository @Inject constructor(
             },
             isMock = false, sourceScreen = "InstallmentSchedule",
         )
-        auditDao.upsert(audit("installment.markPaid", "installment", id, actorId, actorName))
+        auditDao.upsert(auditContext.audit("installment.markPaid", "installment", id, actorId, actorName))
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 
@@ -1543,7 +1548,7 @@ class LocalInstallmentRepository @Inject constructor(
             },
             isMock = false, sourceScreen = "InstallmentSchedule",
         )
-        auditDao.upsert(audit("installment.updateDueDate", "installment", id, actorId, actorName))
+        auditDao.upsert(auditContext.audit("installment.updateDueDate", "installment", id, actorId, actorName))
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 
@@ -1607,7 +1612,7 @@ class LocalInstallmentRepository @Inject constructor(
             updated.add(LocalMappers.run { patched.toDomain() })
         }
 
-        auditDao.upsert(audit("installment.regenerate", "installment", parentId, actorId, actorName,
+        auditDao.upsert(auditContext.audit("installment.regenerate", "installment", parentId, actorId, actorName,
             after = """{"cycle":"$cycle","rederived":${updated.size}}"""))
 
         // Desktop contract: the patched list first, then the untouched rows.
@@ -1626,6 +1631,7 @@ class LocalInstallmentRepository @Inject constructor(
 
 @Singleton
 class LocalLedgerRepository @Inject constructor(
+    private val auditContext: AuditContext,
     private val ledgerDao: LedgerEntryDao,
     // TIER 4 FIX — reconcile()'s cross-checks (R10) need the payment,
     // installment and parent tables as inputs. The constructor previously
@@ -1795,16 +1801,9 @@ private fun com.example.core.LedgerEntry.toEntity() = LedgerEntryEntity(
     metadataJson = com.example.infrastructure.room.LocalMappers.serializeMetadataJson(metadata),
 )
 
-private fun audit(action: String, entityType: String, entityId: String, actorId: String, actorName: String, after: String? = null) = AuditLogEntity(
-    id = "aud-${UUID.randomUUID()}", tenantId = "00000000-0000-0000-0000-000000000001",
-    action = action, entityType = entityType, entityId = entityId,
-    actorId = actorId, actorName = actorName, actorRole = null,
-    beforeJson = null, afterJson = after, note = null,
-    createdAt = Instant.now().toString(),
-)
 
-private fun inst(id: String, parentId: String, studentId: String, category: String, label: String, amountDue: Long, dueDate: String, now: String) = InstallmentEntity(
-    id = id, tenantId = "00000000-0000-0000-0000-000000000001", parentId = parentId, studentId = studentId,
+private fun inst(tenantId: String, id: String, parentId: String, studentId: String, category: String, label: String, amountDue: Long, dueDate: String, now: String) = InstallmentEntity(
+    id = id, tenantId = tenantId, parentId = parentId, studentId = studentId,
     category = category, label = label, amountDue = amountDue, amountPaid = 0L, amountPending = 0L,
     dueDate = dueDate, paidDate = null,
     status = if (dueDate < now) "overdue" else "pending",
