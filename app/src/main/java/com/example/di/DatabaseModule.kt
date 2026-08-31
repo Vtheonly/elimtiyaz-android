@@ -47,9 +47,15 @@ import kotlinx.coroutines.SupervisorJob
  * the desktop's Supabase schema field-by-field so business logic and financial
  * calculations produce identical numbers on both platforms.
  *
- * `fallbackToDestructiveMigration()` is used because this is a development
- * build — schema changes between versions simply rebuild the database. The
- * [DatabaseSeeder] re-seeds real demo data (from `Prices.md`) on first launch.
+ * T-046 / ARCH-004 — MIGRATION DISCIPLINE: the previous destructive-migration
+ * fallback (the Room builder flag this task removed) silently WIPED all user
+ * data on any
+ * schema bump whose explicit migration was forgotten. The fallback is now
+ * GONE: the full explicit chain (v3→v12) is registered below, and a missing
+ * migration fails LOUDLY (IllegalStateException at open time) instead of
+ * destroying the local source of truth. Every future schema bump MUST ship
+ * a new `MIGRATION_X_Y` in [ElImtiyazDatabase.Companion] and register it
+ * here in the same change (pinned by DatabaseMigrationDisciplineT046Test).
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -91,11 +97,11 @@ object DatabaseModule {
                 // boundary). Default 'manual' preserves existing rows' meaning.
                 ElImtiyazDatabase.MIGRATION_11_12,
             )
-            // Fallback for any future schema changes that don't yet have an
-            // explicit migration — destructive, but only fires if a migration
-            // is missing. Production deployments should add explicit migrations
-            // for every schema bump.
-            .fallbackToDestructiveMigration(true)
+            // T-046 / ARCH-004: NO destructive fallback. A missing migration
+            // now fails LOUDLY (IllegalStateException) instead of wiping the
+            // local source of truth. If Room throws "A migration from X to Y
+            // was required but not found" the fix is an explicit migration —
+            // never re-add the fallback.
             .build()
 
     // ── Original cache DAOs (kept for sync layer) ──
