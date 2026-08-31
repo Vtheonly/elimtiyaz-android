@@ -18,6 +18,7 @@ import com.example.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -72,7 +73,10 @@ class SettingsViewModel @Inject constructor(
     fun saveSupabaseConfig(url: String, anonKey: String) {
         supabaseProvider.saveConfig(url, anonKey)
         _supabaseConfigured.value = supabaseProvider.isConfigured()
-        syncService.syncNow()
+        // T-021/SYNC-106: syncNow is now a suspend call — launch it in the
+        // ViewModel scope instead of relying on the service's internal
+        // fire-and-forget launch (which reported success before completing).
+        viewModelScope.launch { syncService.syncNow() }
     }
 
     /** Persist the dark-mode toggle. */
@@ -88,7 +92,7 @@ class SettingsViewModel @Inject constructor(
     fun setLanguage(code: String) = editAsync { it[LANGUAGE_KEY] = code }
 
     /** Trigger an immediate one-shot sync (NOT via WorkManager). */
-    fun syncNow() = syncService.syncNow()
+    fun syncNow() = viewModelScope.launch { syncService.syncNow() }
 
     /**
      * Sign out — clears the auth session and the local [SessionManager]

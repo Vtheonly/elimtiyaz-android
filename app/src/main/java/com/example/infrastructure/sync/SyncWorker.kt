@@ -45,8 +45,31 @@ class SyncWorker @AssistedInject constructor(
         // PUSH + PULL: drainPending pushes the queue AND performs the
         // trailing pullAll (single pull per tick — T-050/WEAK-010 removed
         // the duplicate full pull that used to run here).
-        runCatching { syncService.drainPending() }
-        return Result.success()
+        //
+        // T-021/SYNC-107 — HONEST completion semantics. The old worker ran
+        // the drain inside runCatching and returned Result.success() in
+        // EVERY case, so WorkManager could never distinguish a clean drain
+        // from one that crashed mid-way or left failures outstanding:
+        //   - drain threw (unexpected crash)        → Result.retry()
+        //   - drain ok, permanent failures (>= 5 attempts, audit-logged) → Result.failure()
+        //   - drain ok, transient failures still queued → Result.retry()
+        //   - drain ok, nothing outstanding         → Result.success()
+        // For PERIODIC work retry()/failure() both just end the current run
+        // (the 15-min schedule re-runs regardless), but the result is now
+        // TRUTHFUL for diagnostics, and retry() additionally honours the
+        // backoff policy when the work is ever scheduled one-shot.
+        val outcome = runCatching { syncService.drainPending() }
+        return when {
+            outcome.isFailure -> Result.retry()
+            else -> {
+                val drain = outcome.getOrThrow()
+                when {
+                    drain.failed > 0 -> Result.failure()
+                    drain.remainingPending > 0 -> Result.retry()
+                    else -> Result.success()
+                }
+            }
+        }
     }
 
     companion object {

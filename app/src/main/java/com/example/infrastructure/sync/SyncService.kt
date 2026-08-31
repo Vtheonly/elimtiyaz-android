@@ -2,21 +2,19 @@ package com.example.infrastructure.sync
 
 import android.content.Context
 import com.example.core.AuditActions
+import com.example.core.Errors
 import com.example.core.Result
 import com.example.domain.repository.AuditLogInput
 import com.example.domain.repository.AuditRepository
 import com.example.infrastructure.room.SyncQueueDao
 import com.example.infrastructure.room.SyncQueueEntity
 import com.example.session.SessionManager
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -44,8 +42,8 @@ class SyncService @Inject constructor(
     private val pullSyncRepository: PullSyncRepository,
     private val supabaseProvider: com.example.infrastructure.supabase.SupabaseClientProvider,
 ) {
-    /** Backing scope for [syncNow]; SupervisorJob isolates failures. Re-entrancy guard for [drainPending]. */
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // T-021/SYNC-106: the old fire-and-forget `scope` (CoroutineScope for
+    // syncNow) is gone — syncNow is now a suspend call the caller awaits.
     private val drainMutex = Mutex()
 
     private val _snapshot = MutableStateFlow(
@@ -136,18 +134,37 @@ class SyncService @Inject constructor(
                 lastError = lastError,
             )
             refreshSnapshot()
-            DrainResult(pushed, failed, skippedMock)
+            // T-021/SYNC-107 — remainingPending = entries STILL pending after
+            // this pass (transient failures that keep their queue row, plus
+            // entries whose backoff window hadn't elapsed). The SyncWorker
+            // maps this to WorkManager's Result.retry() — the drain used to
+            // report success unconditionally even with failures outstanding.
+            val remaining = runCatching { syncQueueDao.listPending().size }.getOrDefault(0)
+            DrainResult(pushed, failed, skippedMock, remaining)
         }
     }
 
-    /** Immediate one-shot sync on a direct coroutine (NOT via WorkManager). */
-    fun syncNow(): Result<Unit> {
-        scope.launch {
-            // T-050/WEAK-010: drainPending performs the trailing pull itself —
-            // the extra pullAll() here double-pulled on every manual sync.
-            runCatching { drainPending() }
+    /**
+     * Immediate one-shot sync — T-021/SYNC-106: this is now a SUSPEND call
+     * that AWAITS the drain instead of fire-and-forgetting it on the service
+     * scope. Callers (SettingsViewModel) launch it in their own scope and
+     * the returned [Result] reflects the REAL drain outcome: Ok only when
+     * the drain ran, Err (with the mapped error) when it threw. The UI
+     * reads completion from the returned result + the snapshot flow
+     * (isRunning / lastError) — no more optimistic success.
+     *
+     * T-050/WEAK-010 (unchanged): drainPending performs the trailing pull
+     * itself — this function must NOT call pullAll() again.
+     */
+    suspend fun syncNow(): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                drainPending()
+                Result.Ok(Unit)
+            } catch (e: Exception) {
+                Result.Err(Errors.fromException(e))
+            }
         }
-        return Result.Ok(Unit)
     }
 
     /** Reactive [SyncState] flow — Settings diagnostics + topbar indicator. */
