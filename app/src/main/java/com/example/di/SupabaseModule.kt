@@ -18,8 +18,13 @@ import javax.inject.Singleton
  *
  *   1. **FCM token registration** can call the `register_fcm_token` RPC when
  *      Supabase is configured.
- *   2. **Future remote sync** can push local Room writes to Supabase by
- *      swapping the `@Binds` declarations in `RepositoryModule.kt`.
+ *   2. **Remote sync is ALREADY wired** (T-062 / DRIFT-007 corrected this
+ *      comment): the local repositories (payments, students, installments,
+ *      ledger, grades, attendance, homework) inject `SyncSupport` and call
+ *      `enqueueOnly(...)`, which pushes writes to Supabase through the
+ *      `SyncQueueDispatcher`'s canonical RPCs — no `@Binds` swap is needed
+ *      or involved. The pull side (`PullSyncRepository`) fetches back into
+ *      Room on the sync cycle.
  *   3. **Auth** can fall back to real Supabase Auth when credentials are
  *      present in `.env` (otherwise the local `LocalAuthRepository` is used).
  *

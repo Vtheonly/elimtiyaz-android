@@ -51,7 +51,7 @@ import androidx.room.RoomDatabase
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = false,
 )
 abstract class ElImtiyazDatabase : RoomDatabase() {
@@ -386,6 +386,23 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
                 )
                 database.execSQL(
                     "ALTER TABLE assessments ADD COLUMN coefficientExamen REAL NOT NULL DEFAULT 2.0"
+                )
+            }
+        }
+
+        /**
+         * Room migration v11 → v12 (T-054 / WEAK-008): `workflow_runs` gains
+         * the REAL trigger column (manual | scheduled | event). The
+         * WorkflowRunDto already pulls `trigger` from the server's
+         * `workflow_runs.trigger` column — the local entity simply dropped
+         * it at the mapping boundary and toDomain() hardcoded "manual".
+         * Default 'manual' keeps existing rows' historical meaning (the old
+         * display said "Manuel" for everything).
+         */
+        val MIGRATION_11_12 = object : androidx.room.migration.Migration(11, 12) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE workflow_runs ADD COLUMN trigger TEXT NOT NULL DEFAULT 'manual'"
                 )
             }
         }

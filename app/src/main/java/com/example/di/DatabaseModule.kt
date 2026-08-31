@@ -86,6 +86,10 @@ object DatabaseModule {
                 // (D1 + D2 + 2×Ex) / 4 recipe bit-identically, so existing
                 // GPAs do not move by a single centime after the migration.
                 ElImtiyazDatabase.MIGRATION_10_11,
+                // T-054 (WEAK-008): workflow_runs.trigger — the REAL trigger of
+                // each pulled run (was hardcoded "manual" at the mapping
+                // boundary). Default 'manual' preserves existing rows' meaning.
+                ElImtiyazDatabase.MIGRATION_11_12,
             )
             // Fallback for any future schema changes that don't yet have an
             // explicit migration — destructive, but only fires if a migration

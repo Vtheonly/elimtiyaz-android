@@ -8,9 +8,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -22,6 +25,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 
 /**
@@ -41,6 +46,10 @@ internal fun SupabaseConfigDialog(
 ) {
     var url by remember { mutableStateOf(currentUrl) }
     var anonKey by remember { mutableStateOf(currentKey) }
+    // SEC-004 (T-064): the anon key is a credential-looking secret on screen —
+    // mask it by default with a show/hide toggle (shoulder-surfing / screen
+    // recording protection), exactly like a password field.
+    var keyVisible by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -78,11 +87,25 @@ internal fun SupabaseConfigDialog(
                     placeholder = { Text("eyJhbGciOiJIUzI1NiIsInR5c...") },
                     singleLine = false,
                     maxLines = 3,
+                    // SEC-004 (T-064): masked by default, toggle to reveal.
+                    visualTransformation =
+                        if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { keyVisible = !keyVisible }) {
+                            Icon(
+                                imageVector = if (keyVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (keyVisible) "Masquer la clé" else "Afficher la clé",
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 )
 
                 Text(
-                    text = "💡 Vous pouvez aussi configurer SUPABASE_URL et SUPABASE_ANON_KEY directement dans le panneau Secrets de Google AI Studio.",
+                    // SEC-004 (T-064): the build toolchain is none of the end
+                    // user's business — the old helper text leaked "Google AI
+                    // Studio". Env-var guidance only.
+                    text = "💡 Vous pouvez aussi définir SUPABASE_URL et SUPABASE_ANON_KEY dans le fichier .env de l'application avant de la compiler.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

@@ -1547,9 +1547,73 @@ class LocalInstallmentRepository @Inject constructor(
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 
+    /**
+     * T-054 (WEAK-006) — REAL re-derivation, mirroring the desktop's
+     * `SupabaseInstallmentRepository.regenerateForCycle`
+     * (supabase-shared-repositories.ts:2112): re-derive the due dates of the
+     * parent's OUTSTANDING (non-paid) installments from
+     * `officialTuitionDueDates(year)` (Sept 15 / Dec 15 / Mar 15 — all cycles
+     * share the official schedule per Prices.md), reset the custom-schedule
+     * flags, and stamp `academic_cycle`. Paid tranches are preserved
+     * (they're settled). The old implementation wrote an audit row and
+     * returned the installments UNCHANGED — the audit log lied that
+     * "installment.regenerate" happened.
+     */
     override suspend fun regenerateForCycle(parentId: String, cycle: String, actorId: String, actorName: String): Result<List<Installment>> {
-        auditDao.upsert(audit("installment.regenerate", "installment", parentId, actorId, actorName, after = """{"cycle":"$cycle"}"""))
-        return Result.Ok(installmentDao.listByParent(parentId).map { LocalMappers.run { it.toDomain() } })
+        val now = Instant.now().toString()
+        val year = java.time.Year.now().value
+        val (t1, t2, t3) = com.example.core.officialTuitionDueDates(year)
+
+        val family = installmentDao.listByParent(parentId)
+        val updated = mutableListOf<Installment>()
+        for (inst in family) {
+            if (inst.status == "paid") continue // preserve settled tranches
+            // Derive the tranche number from the label's first digit
+            // (desktop: inst.label?.match(/(\d)/)?.[1] ?? "1").
+            val trancheNum = Regex("(\\d)").find(inst.label)?.groupValues?.get(1) ?: "1"
+            val newDueDate = when (trancheNum) {
+                "1" -> t1
+                "2" -> t2
+                else -> t3
+            }
+            val patched = inst.copy(
+                dueDate = newDueDate,
+                customSchedule = false,
+                customScheduleNote = null,
+                academicCycle = cycle,
+                updatedAt = now,
+            )
+            installmentDao.update(patched)
+            // CANONICAL-FINANCIAL-LOGIC.md §8.1 — propagate to the server via
+            // the idempotent upsert_installment_from_import RPC path.
+            syncSupport?.enqueueOnly(
+                entity = "installment",
+                operation = "regenerateForCycle",
+                payload = syncJson {
+                    put("id", patched.id)
+                    put("parentId", patched.parentId)
+                    patched.studentId?.let { put("studentId", it) }
+                    put("category", patched.category)
+                    put("label", patched.label)
+                    put("amountDue", patched.amountDue)
+                    put("amountPaid", patched.amountPaid)
+                    put("amountPending", patched.amountPending)
+                    put("dueDate", patched.dueDate)
+                    put("status", patched.status)
+                    put("academicCycle", cycle)
+                },
+                isMock = false, sourceScreen = "InstallmentSchedule",
+            )
+            updated.add(LocalMappers.run { patched.toDomain() })
+        }
+
+        auditDao.upsert(audit("installment.regenerate", "installment", parentId, actorId, actorName,
+            after = """{"cycle":"$cycle","rederived":${updated.size}}"""))
+
+        // Desktop contract: the patched list first, then the untouched rows.
+        val updatedIds = updated.map { it.id }.toSet()
+        val untouched = family.filter { it.id !in updatedIds }.map { LocalMappers.run { it.toDomain() } }
+        return Result.Ok(updated + untouched)
     }
 
     override suspend fun findOverdue(): Result<List<Installment>> {

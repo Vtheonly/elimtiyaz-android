@@ -2,6 +2,8 @@ package com.example.infrastructure.local
 
 import com.example.core.Errors
 import com.example.core.Result
+import com.example.core.absenceAlertThreshold
+import com.example.core.currentTermWindow
 import com.example.core.agingBucketFromDays
 import com.example.core.daysBetweenFloor
 import com.example.core.formatDzd
@@ -273,20 +275,29 @@ class LocalDashboardRepository @Inject constructor(
         val parentIds = domainLedger.map { it.parentId }.distinct()
         val totalOutstanding = parentIds.sumOf { pid ->
             val parentEntries = domainLedger.filter { it.parentId == pid }
-            LedgerEngine.computeParentSummary(parentEntries, pid, "").totalOutstanding.coerceAtLeast(0L)
+            // T-026 (WEAK-007): the map is passed even for balance-only reads —
+            // no production call site may rely on the empty-map default (a
+            // future totalOverdue read here would silently be 0 again).
+            val dueDateMap = LedgerEngine.buildOverdueDueDateMap(parentEntries)
+            LedgerEngine.computeParentSummary(parentEntries, pid, "", dueDateMap).totalOutstanding.coerceAtLeast(0L)
         }
 
         // TIER 2 R16 — overdue: canonical rule (INV-4) classifies an account as
         // overdue when balance > 0 AND the latest charge's due date is past.
-        // `computeParentSummary` already applies this rule via `totalOverdue`,
-        // so we use it directly instead of the previous naive installment-filter.
+        // T-026 (WEAK-007): the due-date map MUST be built and passed —
+        // `computeParentSummary`'s default is an EMPTY map, which made
+        // totalOverdue permanently 0 (the "Créances en Retard" KPI always
+        // showed 0 DZD). Mirrors the desktop's debt-ops.ts:43-44 pattern:
+        // buildOverdueDueDateMap(parentEntries) THEN computeParentSummary.
         val overdueDebt = parentIds.sumOf { pid ->
             val parentEntries = domainLedger.filter { it.parentId == pid }
-            LedgerEngine.computeParentSummary(parentEntries, pid, "").totalOverdue.coerceAtLeast(0L)
+            val dueDateMap = LedgerEngine.buildOverdueDueDateMap(parentEntries)
+            LedgerEngine.computeParentSummary(parentEntries, pid, "", dueDateMap).totalOverdue.coerceAtLeast(0L)
         }
         val overdueFamiliesCount = parentIds.count { pid ->
             val parentEntries = domainLedger.filter { it.parentId == pid }
-            LedgerEngine.computeParentSummary(parentEntries, pid, "").totalOverdue > 0L
+            val dueDateMap = LedgerEngine.buildOverdueDueDateMap(parentEntries)
+            LedgerEngine.computeParentSummary(parentEntries, pid, "", dueDateMap).totalOverdue > 0L
         }
 
         val todayAttendance = g2.attendance.filter { it.date == todayIso }
@@ -555,8 +566,12 @@ class LocalDashboardRepository @Inject constructor(
         parents.map { parent ->
             val parentEntries = ledgerEntries.filter { it.parentId == parent.id }
             val studentCount = students.count { it.parentId == parent.id }
-            val summary = LedgerEngine.computeParentSummary(parentEntries.map { LocalMappers.run { it.toDomain() } }, parent.id, parent.fullName)
-            val maxDays = LedgerEngine.maxDaysOverdueFromLedger(parentEntries.map { LocalMappers.run { it.toDomain() } })
+            val domainEntries = parentEntries.map { LocalMappers.run { it.toDomain() } }
+            // T-026 (WEAK-007): build the due-date map — without it the debt
+            // dashboard's overdueAmount was permanently 0.
+            val dueDateMap = LedgerEngine.buildOverdueDueDateMap(domainEntries)
+            val summary = LedgerEngine.computeParentSummary(domainEntries, parent.id, parent.fullName, dueDateMap)
+            val maxDays = LedgerEngine.maxDaysOverdueFromLedger(domainEntries)
             DebtSummary(
                 parentId = parent.id,
                 parentName = parent.fullName,
@@ -618,8 +633,12 @@ class LocalDebtRepository @Inject constructor(
         parents.map { parent ->
             val parentEntries = ledgerEntries.filter { it.parentId == parent.id }
             val studentCount = students.count { it.parentId == parent.id }
-            val summary = LedgerEngine.computeParentSummary(parentEntries.map { LocalMappers.run { it.toDomain() } }, parent.id, parent.fullName)
-            val maxDays = LedgerEngine.maxDaysOverdueFromLedger(parentEntries.map { LocalMappers.run { it.toDomain() } })
+            val domainEntries = parentEntries.map { LocalMappers.run { it.toDomain() } }
+            // T-026 (WEAK-007): build the due-date map — without it the debt
+            // dashboard's overdueAmount was permanently 0.
+            val dueDateMap = LedgerEngine.buildOverdueDueDateMap(domainEntries)
+            val summary = LedgerEngine.computeParentSummary(domainEntries, parent.id, parent.fullName, dueDateMap)
+            val maxDays = LedgerEngine.maxDaysOverdueFromLedger(domainEntries)
             DebtSummary(
                 parentId = parent.id,
                 parentName = parent.fullName,
@@ -641,7 +660,10 @@ class LocalDebtRepository @Inject constructor(
         if (parent == null) null
         else {
             val domainEntries = ledgerEntries.map { LocalMappers.run { it.toDomain() } }
-            val summary = LedgerEngine.computeParentSummary(domainEntries, parentId, parent.fullName)
+            // T-026 (WEAK-007): build the due-date map — without it the parent
+            // profile's overdueAmount was permanently 0.
+            val dueDateMap = LedgerEngine.buildOverdueDueDateMap(domainEntries)
+            val summary = LedgerEngine.computeParentSummary(domainEntries, parentId, parent.fullName, dueDateMap)
             // TIER 2 R17 — populate `adjustments` from the ledger's adjustment
             // entries. Mirrors the desktop's `ParentFinancialProfile.adjustments`.
             // Filters out reversal entries (they negate originals — the
@@ -684,7 +706,11 @@ class LocalDebtRepository @Inject constructor(
             ?: return Result.Err(Errors.notFound("Parent $parentId introuvable"))
 
         val entries = db.ledgerEntryDao().listByParent(parentId).map { LocalMappers.run { it.toDomain() } }
-        val summary = LedgerEngine.computeParentSummary(entries, parentId, parent.fullName)
+        // T-026 (WEAK-007): pass the due-date map — no production call site may
+        // rely on computeParentSummary's empty-map default.
+        val summary = LedgerEngine.computeParentSummary(
+            entries, parentId, parent.fullName, LedgerEngine.buildOverdueDueDateMap(entries),
+        )
         val outstanding = summary.totalOutstanding.coerceAtLeast(0L)
 
         db.notificationDao().upsert(
@@ -873,23 +899,39 @@ class LocalAttendanceRepository @Inject constructor(
 
     // FIX (hollow action): alertAbsences previously wrote ONLY audit rows —
     // no parent was ever alerted. Now a real in-app notification is created
-    // per student (linked to the parent's record) in addition to the audit
-    // trail, so the alert actually surfaces in the Alerts inbox.
+    // for each FLAGGED student (linked to the parent's record) in addition
+    // to the audit trail, so the alert actually surfaces in the Alerts inbox.
+    //
+    // T-063 (ATT-103): the threshold is now the DESKTOP rule — ≥3 absences
+    // (absent_unexcused + absent_excused, LATE excluded) within the CURRENT
+    // TERM (core/Terms.kt, mirror of terms.ts). Previously Android alerted
+    // for EVERY student in the input (effective threshold 1) — alert
+    // fatigue + cross-platform divergence.
     override suspend fun alertAbsences(studentIds: List<String>, actorId: String, actorName: String): Result<Unit> {
         val now = Instant.now().toString()
-        studentIds.forEach { studentId ->
+        val window = currentTermWindow()
+        val flagged = studentIds.mapNotNull { studentId ->
+            val records = attendanceDao.listByStudent(studentId, window.start.toString())
+            absenceAlertThreshold(
+                records.map { it.studentId to it.status },
+                records.map { it.date },
+                window,
+            ).firstOrNull()
+        }
+        flagged.forEach { (studentId, count) ->
             val student = studentDao.getById(studentId) ?: return@forEach
             auditDao.upsert(auditLog("attendance.alert", "student", studentId, actorId, actorName))
             notificationDao.upsert(
                 NotificationEntity(
                     id = "ntf-abs-${UUID.randomUUID()}",
                     tenantId = "00000000-0000-0000-0000-000000000001",
-                    title = "Absence signalée : ${student.fullName}",
-                    body = "L'absence a été signalée au tuteur par $actorName.",
+                    // Mirror of the desktop message (byte-identical semantics).
+                    title = "Alerte absences",
+                    body = "Votre enfant a accumulé $count absences ce trimestre (${window.label}). Merci de contacter l'administration.",
                     type = "attendance_alert",
                     priority = "high",
                     source = "roll_call",
-                    sourceLabel = "Vie scolaire",
+                    sourceLabel = "Module Présences",
                     entityType = "student",
                     entityId = studentId,
                     targetUserId = null,
@@ -1790,7 +1832,9 @@ class LocalWorkflowRepository @Inject constructor(
 
     private fun WorkflowRunEntity.toDomain() = com.example.domain.model.WorkflowRun(
         id = id, workflowId = workflowId, workflowName = workflowName,
-        trigger = com.example.domain.model.WorkflowTrigger.fromCode("manual"),
+        // T-054 (WEAK-008): the REAL trigger from the entity column — the
+        // old hardcode made every run display "Manuel".
+        trigger = com.example.domain.model.WorkflowTrigger.fromCode(trigger),
         status = com.example.domain.model.WorkflowRunStatus.fromCode(status),
         startedAt = startedAt, completedAt = finishedAt,
         durationMs = runCatching {
@@ -1831,6 +1875,9 @@ class LocalWorkflowRepository @Inject constructor(
         val newRun = WorkflowRunEntity(
             id = newId, tenantId = original.tenantId,
             workflowId = original.workflowId, workflowName = original.workflowName,
+            // A user-initiated retry IS a manual run (matches the desktop
+            // semantics for retried runs).
+            trigger = "manual",
             status = "running", startedBy = actorId, startedAt = now,
             finishedAt = null, resultJson = null, errorMessage = null,
         )

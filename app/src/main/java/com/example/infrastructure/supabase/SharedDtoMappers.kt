@@ -254,6 +254,9 @@ fun WorkflowRunDto.toEntity(): com.example.infrastructure.room.WorkflowRunEntity
     tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
     workflowId = workflowId,
     workflowName = workflowName ?: workflowId,
+    // T-054 (WEAK-008): keep the server's REAL trigger (the column was
+    // dropped at this boundary before — every run read back "manual").
+    trigger = trigger ?: "manual",
     status = status,
     startedBy = startedBy ?: "system",
     startedAt = startedAt ?: "",

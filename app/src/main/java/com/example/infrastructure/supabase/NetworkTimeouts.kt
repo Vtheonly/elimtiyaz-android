@@ -47,20 +47,46 @@ object NetworkTimeouts {
         get() {
             val url = BuildConfig.SUPABASE_URL.trim().removeSurrounding("\"")
             val key = BuildConfig.SUPABASE_ANON_KEY.ifBlank { BuildConfig.SUPABASE_PUBLISHABLE_KEY }.trim().removeSurrounding("\"")
-            val buildConfigConfigured = url.startsWith("https://") &&
-                !url.contains("your-project", ignoreCase = true) &&
-                !url.contains("demo.supabase.co", ignoreCase = true) &&
-                !url.contains("placeholder", ignoreCase = true) &&
-                key.isNotBlank() &&
-                !key.equals("your-anon-key", ignoreCase = true) &&
-                !key.equals("placeholder-anon-key", ignoreCase = true) &&
-                !key.equals("placeholder-publishable-key", ignoreCase = true) &&
-                !key.equals("demo-key", ignoreCase = true)
             // SECURITY FIX — no hardcoded production fallback: the only valid
             // sources are BuildConfig (`.env` via the secrets plugin) and the
             // runtime override stored by SupabaseClientProvider (SharedPreferences).
-            return buildConfigConfigured
+            //
+            // T-064 / SEC-005: the placeholder detection is now
+            // `looksLikePlaceholderConfig` — the old hyphen-only literal checks
+            // MISSED the `.env.example` values (`https://YOUR_PROJECT.supabase.co`
+            // has an underscore; `your-anon-key-here` failed the equals() check),
+            // so a unit-test build with unedited placeholders reported
+            // "configured" and attempted real network calls.
+            return !looksLikePlaceholderConfig(url, key)
         }
+
+    /**
+     * T-064 / SEC-005 — placeholder-credentials detection, extracted so it is
+     * directly unit-testable (BuildConfig is fixed at compile time). Pure
+     * function: true when the (url, key) pair is obviously template/demo
+     * values rather than a real project.
+     */
+    internal fun looksLikePlaceholderConfig(url: String, key: String): Boolean {
+        val u = url.trim().removeSurrounding("\"")
+        val k = key.trim().removeSurrounding("\"")
+        if (u.isBlank() || k.isBlank()) return true
+        if (!u.startsWith("https://")) return true
+        // URL: every known template/demo literal, hyphen AND underscore
+        // variants (`.env.example` uses YOUR_PROJECT), plus the inert
+        // fallback host from SupabaseClientProvider (defence in depth).
+        if (u.contains("your-project", true) || u.contains("your_project", true)) return true
+        if (u.contains("demo.supabase.co", true)) return true
+        if (u.contains("placeholder", true)) return true
+        if (u.contains("unconfigured.invalid", true)) return true
+        // Key: contains() (not equals) — `your-anon-key-here` and
+        // `your_anon_key_here` both carry the template stem.
+        if (k.contains("your-anon-key", true) || k.contains("your_anon_key", true)) return true
+        if (k.contains("your-publishable-key", true) || k.contains("your_publishable_key", true)) return true
+        if (k.contains("placeholder", true)) return true
+        if (k.contains("demo-key", true) || k.contains("demo_key", true)) return true
+        if (k.contains("inert-unconfigured-key", true)) return true
+        return false
+    }
 
     /**
      * Run [block] with a hard timeout. Returns `null` on timeout OR on any

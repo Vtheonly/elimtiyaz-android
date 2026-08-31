@@ -165,10 +165,30 @@ object LedgerEngine {
             .groupBy { it.accountId }
             .mapValues { (_, e) -> e.maxOf { parseIsoInstantSafe(it.at) } }
 
+    /**
+     * T-026 (BUSINESS-007): days-overdue measured from the DUE DATE, not the
+     * charge's creation date. An account is overdue under the canonical rule
+     * (INV-4, identical inputs to `computeParentSummary.totalOverdue`):
+     * balance > 0 AND the account's due date (latest charge `at`) is past.
+     * Days overdue = floor(now - dueDate) for each OVERDUE account; the
+     * result is the max across accounts (0 when nothing is overdue).
+     *
+     * The old implementation returned the age of the OLDEST charge entry —
+     * a charge created today for next year's tuition read as "~365 days
+     * overdue" even though nothing was due yet.
+     */
     fun maxDaysOverdueFromLedger(entries: List<LedgerEntry>, now: Instant = Instant.now()): Long {
-        val pastCharges = entries.filter { it.type == LedgerEntryType.CHARGE && parseIsoInstantSafe(it.at).isBefore(now) }
-        if (pastCharges.isEmpty()) return 0L
-        val oldest = pastCharges.minOf { parseIsoInstantSafe(it.at) }
-        return (now.toEpochMilli() - oldest.toEpochMilli()) / 86_400_000L
+        val dueDateMap = buildOverdueDueDateMap(entries)
+        val accountIds = entries.map { it.accountId }.distinct()
+        var maxDays = 0L
+        for (accId in accountIds) {
+            val due = dueDateMap[accId] ?: continue
+            if (!due.isBefore(now)) continue // not due yet — cannot be overdue
+            val balance = computeAccountBalance(entries, accId, now).balance
+            if (balance <= 0L) continue // settled account is never overdue
+            val days = (now.toEpochMilli() - due.toEpochMilli()) / 86_400_000L
+            if (days > maxDays) maxDays = days
+        }
+        return maxDays
     }
 }

@@ -568,6 +568,11 @@ data class WorkflowRunEntity(
     val tenantId: String,
     val workflowId: String,
     val workflowName: String,
+    // T-054 (WEAK-008): the run's REAL trigger (manual | scheduled | event) —
+    // added in MIGRATION_11_12. Previously the entity had no trigger column
+    // and toDomain() hardcoded "manual", so every pulled run displayed
+    // "Manuel" regardless of how it actually started.
+    val trigger: String = "manual",
     val status: String,
     val startedBy: String,
     val startedAt: String,

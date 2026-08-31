@@ -124,22 +124,28 @@ class SupabaseClientProvider @Inject constructor(
         val rawKey = getActiveAnonKey()
 
         // SECURITY FIX — never fall back to committed production credentials.
-        // When the app is unconfigured we build an inert client against a
-        // non-existent endpoint: requests fail loudly (and `isConfigured()`
-        // stays false so the Settings screen can prompt for values) instead
-        // of silently hitting the previous hardcoded project.
+        // T-064 / SEC-005: when the app is unconfigured the client is built
+        // against `https://supabase.unconfigured.invalid` — the `.invalid`
+        // TLD is reserved by RFC 2606 and can NEVER resolve, so an
+        // unconfigured build makes ZERO network calls to any real host
+        // (the old `demo.supabase.co` fallback pinged a live third-party
+        // endpoint on every cold start). Requests fail loudly (DNS) and
+        // `isConfigured()` stays false so the Settings screen can prompt
+        // for values.
         if (rawUrl.isBlank() || rawKey.isBlank()) {
             Log.e(TAG, "Construction du client Supabase avec une configuration VIDE — " +
                 "les requêtes réseau échoueront jusqu'à ce que les identifiants soient fournis.")
         }
 
+        // SEC-005 (T-064): RFC-2606 reserved, guaranteed-nonexistent host.
+        val inertUrl = INERT_FALLBACK_URL
         val validUrl = if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) {
             rawUrl
         } else {
-            "https://demo.supabase.co"
+            inertUrl
         }
 
-        val validKey = if (rawKey.isNotBlank()) rawKey else "demo-key"
+        val validKey = rawKey.ifBlank { INERT_FALLBACK_KEY }
 
         return try {
             createSupabaseClient(
@@ -156,9 +162,11 @@ class SupabaseClientProvider @Inject constructor(
                 httpEngine = Android.create()
             }
         } catch (e: Exception) {
+            // SEC-005 (T-064): the exception path ALSO builds the inert
+            // client — never a public demo endpoint.
             createSupabaseClient(
-                supabaseUrl = "https://demo.supabase.co",
-                supabaseKey = "demo-key",
+                supabaseUrl = inertUrl,
+                supabaseKey = INERT_FALLBACK_KEY,
             ) {
                 install(Auth) {
                     sessionManager = EncryptedSettingsStorage.createSessionManager(context)
@@ -173,6 +181,15 @@ class SupabaseClientProvider @Inject constructor(
         private const val TAG = "SupabaseClientProvider"
         private const val KEY_URL = "custom_supabase_url"
         private const val KEY_KEY = "custom_supabase_anon_key"
+
+        /**
+         * SEC-005 / T-064 — the SDK requires a non-blank URL to construct a
+         * client; this reserved `.invalid` host can never resolve (RFC 2606),
+         * so unconfigured builds make ZERO network calls to real hosts.
+         * Exposed for tests via reflection-free internal visibility.
+         */
+        internal const val INERT_FALLBACK_URL = "https://supabase.unconfigured.invalid"
+        internal const val INERT_FALLBACK_KEY = "inert-unconfigured-key"
 
         /** URL obviously meant as a template value (from .env.example). */
         private fun isPlaceholderUrl(url: String): Boolean =

@@ -199,10 +199,4 @@ class SyncService @Inject constructor(
     private suspend fun countByStatus(status: String): Int = withContext(Dispatchers.IO) {
         runCatching { syncQueueDao.countByStatus(status) }.getOrDefault(0)
     }
-
-    /** True when the Supabase URL is not the placeholder value. */
-    private fun isSupabaseConfigured(): Boolean {
-        val url = com.example.BuildConfig.SUPABASE_URL.trim().removeSurrounding("\"")
-        return url.startsWith("https://") && !url.contains("your-project") && !url.contains("demo.supabase.co")
-    }
 }
