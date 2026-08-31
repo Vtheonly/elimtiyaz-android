@@ -1285,6 +1285,17 @@ class LocalPaymentRepository @Inject constructor(
 
     override suspend fun refund(paymentId: String, reason: String, actorId: String, actorName: String): Result<Payment> {
         val existing = paymentDao.getById(paymentId) ?: return Result.Err(Errors.notFound("Payment $paymentId not found"))
+        // T-017 / BUSINESS-102 — ALREADY-REFUNDED GUARD (idempotency): the
+        // refund flow is NOT idempotent by itself — a second call on the same
+        // payment would enqueue a SECOND refund push and create a SECOND
+        // reversal ledger entry (double-counting the refund on both Room and
+        // the server after drain). A refunded payment is in a TERMINAL
+        // state (canonical `revert_payment_allocation` guards terminal
+        // states the same way): return the already-refunded row unchanged
+        // and touch nothing — no queue entry, no reversal, no audit row.
+        if (existing.status == PaymentStatus.REFUNDED.code) {
+            return Result.Ok(LocalMappers.run { existing.toDomain() })
+        }
         val now = Instant.now().toString()
         val updated = existing.copy(status = PaymentStatus.REFUNDED.code, updatedAt = now)
         paymentDao.update(updated)
@@ -1296,6 +1307,10 @@ class LocalPaymentRepository @Inject constructor(
             payload = syncJson {
                 put("id", existing.id); put("status", PaymentStatus.REFUNDED.code)
                 put("receiptNumber", existing.receiptNumber); put("updatedAt", now)
+                // T-017 — the refund reason travels with the payload so the
+                // server-side audit trail records WHY (was only in the local
+                // audit row, never synced).
+                put("reason", reason)
             },
             isMock = false, sourceScreen = "PaymentDetailScreen",
         )
