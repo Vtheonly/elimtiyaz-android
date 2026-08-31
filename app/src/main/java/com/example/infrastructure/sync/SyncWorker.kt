@@ -9,14 +9,14 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
 /**
- * Sync worker — drains the pending sync queue AND pulls the latest
- * parents + students from Supabase into the local Room cache.
+ * Sync worker — drains the pending sync queue (push) and pulls the latest
+ * data from Supabase into the local Room cache.
  *
- * The worker is a thin wrapper around:
- *   1. [SyncService.drainPending] — pushes pending offline mutations to Supabase.
- *   2. [PullSyncRepository.pullAll] — fetches the latest parents + students
- *      from Supabase and upserts them into Room (the FIX for the previous
- *      "push-only" sync architecture).
+ * The worker is a thin wrapper around [SyncService.drainPending], which
+ * pushes pending offline mutations AND performs the trailing pull of the
+ * latest parents/students (T-050/WEAK-010: the worker previously called
+ * pullAll() itself right after drainPending() — every WorkManager tick ran
+ * the full pull TWICE; drainPending's trailing pull is the single source).
  *
  * The worker is scheduled by WorkManager every 15 minutes when the device
  * is online. All the actual drain logic, push dispatch, retry, backoff,
@@ -28,8 +28,7 @@ import dagger.assisted.AssistedInject
  * @param workerParams Injected by Hilt's WorkerFactory.
  * @param sessionManager Used to bail early when no session is active.
  * @param onlineDetector Used to bail early when offline.
- * @param syncService The push-side drain executor.
- * @param pullSyncRepository The pull-side fetcher (NEW — migration 0028).
+ * @param syncService The push-side drain executor (also performs the pull).
  */
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
@@ -38,20 +37,15 @@ class SyncWorker @AssistedInject constructor(
     private val sessionManager: SessionManager,
     private val onlineDetector: OnlineDetector,
     private val syncService: SyncService,
-    private val pullSyncRepository: PullSyncRepository,
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
         if (!onlineDetector.isOnline()) return Result.success()
         if (sessionManager.current() == null) return Result.success()
-        // PUSH: drain pending offline mutations to Supabase.
+        // PUSH + PULL: drainPending pushes the queue AND performs the
+        // trailing pullAll (single pull per tick — T-050/WEAK-010 removed
+        // the duplicate full pull that used to run here).
         runCatching { syncService.drainPending() }
-        // PULL: fetch the latest parents + students from Supabase into Room.
-        // This is the FIX that lets Android see what the Desktop imported.
-        // We pull with `since = null` (full refresh) for now — incremental
-        // sync via `p_since` can be layered on later by persisting the
-        // last-pull timestamp.
-        runCatching { pullSyncRepository.pullAll(sinceIso = null) }
         return Result.success()
     }
 

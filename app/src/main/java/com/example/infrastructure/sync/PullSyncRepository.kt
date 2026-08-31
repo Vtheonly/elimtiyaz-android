@@ -21,6 +21,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -30,6 +32,15 @@ class PullSyncRepository @Inject constructor(
     private val provider: SupabaseClientProvider,
     private val sessionManager: SessionManager,
 ) {
+    /**
+     * WEAK-010 dedup: pullAll historically fired from 6 call sites (startup,
+     * navigation, session change, roster refresh, SyncWorker — TWICE per tick
+     * via drainPending + its own call). One real pull per window; concurrent
+     * calls collapse; the rest return Ok(0) without touching the network.
+     */
+    private val pullInFlight = AtomicBoolean(false)
+    private val lastPullStartedAtMs = AtomicLong(0L)
+
     suspend fun pullParents(sinceIso: String? = null): Result<Int> = withContext(Dispatchers.IO) {
         val targetUrl = provider.getActiveUrl()
         Log.i("PullSync", "pullParents -> Connecting to $targetUrl")
@@ -262,6 +273,27 @@ class PullSyncRepository @Inject constructor(
     }
 
     suspend fun pullAll(sinceIso: String? = null): Result<Int> = withContext(Dispatchers.IO) {
+        // WEAK-010: deduplicated gate — skip when a pull is running or one
+        // started within the dedup window (the "single pull per cycle"
+        // contract from T-050).
+        if (pullInFlight.get() || !pullInFlight.compareAndSet(false, true)) {
+            Log.i("PullSync", "pullAll deduplicated: a pull is already in flight")
+            return@withContext Result.Ok(0)
+        }
+        try {
+            val now = System.currentTimeMillis()
+            if (now - lastPullStartedAtMs.get() < PULL_DEDUP_WINDOW_MS) {
+                Log.i("PullSync", "pullAll deduplicated: last pull started ${now - lastPullStartedAtMs.get()}ms ago (window ${PULL_DEDUP_WINDOW_MS}ms)")
+                return@withContext Result.Ok(0)
+            }
+            lastPullStartedAtMs.set(now)
+            doPullAll(sinceIso)
+        } finally {
+            pullInFlight.set(false)
+        }
+    }
+
+    private suspend fun doPullAll(sinceIso: String? = null): Result<Int> {
         Log.i("PullSync", "=== STARTING PULL ALL FROM SUPABASE ===")
         val p = (pullParents(sinceIso) as? Result.Ok)?.value ?: 0
         val s = (pullStudents(sinceIso) as? Result.Ok)?.value ?: 0
@@ -277,6 +309,11 @@ class PullSyncRepository @Inject constructor(
         val total = p + s + pay + led + cls + sub + ins + per + dep + notif + wfr
 
         Log.i("PullSync", "=== PULL COMPLETE: Total $total records synchronized ===")
-        Result.Ok(total)
+        return Result.Ok(total)
+    }
+
+    companion object {
+        /** Dedup window — one real pullAll per 10 s however many call sites fire. */
+        const val PULL_DEDUP_WINDOW_MS: Long = 10_000L
     }
 }

@@ -143,8 +143,9 @@ class SyncService @Inject constructor(
     /** Immediate one-shot sync on a direct coroutine (NOT via WorkManager). */
     fun syncNow(): Result<Unit> {
         scope.launch {
+            // T-050/WEAK-010: drainPending performs the trailing pull itself —
+            // the extra pullAll() here double-pulled on every manual sync.
             runCatching { drainPending() }
-            runCatching { pullSyncRepository.pullAll() }
         }
         return Result.Ok(Unit)
     }
