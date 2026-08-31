@@ -145,13 +145,20 @@ class SyncSupport @Inject constructor(
     }
 
     /**
-     * Attempt [mutation]. If it throws a network/offline error AND the
-     * device is currently offline, enqueue the operation to [SyncService]
-     * and return [Result.Err] with [AppError.CODE_OFFLINE] so the UI can
-     * show "queued for sync".
+     * Attempt [mutation]. If it fails TRANSIENTLY — offline, network,
+     * timeout, or a 5xx from the server (T-020/SYNC-103) — enqueue the
+     * operation to [SyncService] and return [Result.Err] with
+     * [AppError.CODE_OFFLINE] so the UI can show "queued for sync".
      *
-     * For online errors (validation, server, etc.) the original error is
-     * returned without enqueuing.
+     * Permanent rejections (4xx validation, 401/403 RLS/auth) are returned
+     * as their mapped error WITHOUT enqueuing — the mutation must be fixed
+     * by the user, not retried (fail fast).
+     *
+     * TRANSIENT CONTRACT: the local Room write has ALREADY happened when the
+     * caller invokes this (Room is the source of truth), so every transient
+     * failure MUST end up in the queue — including 5xx, which previously was
+     * dropped here and the mutation never reached the server (SYNC-103).
+     * Classification lives in [SyncErrorClassifier.isTransient].
      *
      * @param entity Sync entity type ("parent", "student", "payment", ...)
      * @param operation Operation type ("create", "update", "delete", ...)
@@ -174,11 +181,9 @@ class SyncSupport @Inject constructor(
             Result.Ok(mutation())
         } catch (e: Exception) {
             val error = Errors.fromException(e)
-            if (error.code == Errors.CODE_NETWORK || error.code == Errors.CODE_OFFLINE
-                || error.code == Errors.CODE_TIMEOUT
-                || !onlineDetector.isOnline()
-            ) {
-                // Offline — enqueue for later sync
+            if (SyncErrorClassifier.isTransient(e, onlineDetector.isOnline())) {
+                // Transient (offline / network / timeout / 5xx) — the Room
+                // write already happened; enqueue for the next drain.
                 runCatching {
                     syncService.enqueue(
                         entity = entity,
@@ -192,6 +197,7 @@ class SyncSupport @Inject constructor(
                     "Mutation mise en file d'attente — sera synchronisée quand la connexion reviendra.",
                 ))
             } else {
+                // Permanent (4xx) — surface the real error, no queue entry.
                 Result.Err(error)
             }
         }
