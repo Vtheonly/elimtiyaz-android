@@ -1,0 +1,1274 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.8.0" type="baseline" client="gradle" dependencies="false" name="AGP (8.8.0)" variant="all" version="8.8.0">
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `enableOnBackInvokedCallback` is only used in API level 33 and higher (current min is 24)"
+        errorLine1="        android:enableOnBackInvokedCallback=&quot;true&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="23"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="RedundantLabel"
+        message="Redundant label can be removed"
+        errorLine1="            android:label=&quot;@string/app_name&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="34"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="SelectedPhotoAccess"
+        message="Your app is currently not handling Selected Photos Access introduced in Android 14+"
+        errorLine1="    &lt;uses-permission android:name=&quot;android.permission.READ_MEDIA_IMAGES&quot; />"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="9"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 8.8.0 is available: 9.3.2. (There is also a newer version of 8.8.𝑥 available, if upgrading to 9.3.2 is difficult: 8.8.2)"
+        errorLine1="agp = &quot;8.8.0&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 8.8.0 is available: 9.3.2. (There is also a newer version of 8.8.𝑥 available, if upgrading to 9.3.2 is difficult: 8.8.2)"
+        errorLine1="agp = &quot;8.8.0&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 8.8.0 is available: 9.3.2. (There is also a newer version of 8.8.𝑥 available, if upgrading to 9.3.2 is difficult: 8.8.2)"
+        errorLine1="agp = &quot;8.8.0&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.19.0"
+        errorLine1="coreKtx = &quot;1.15.0&quot;"
+        errorLine2="          ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="3"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.19.0"
+        errorLine1="coreKtx = &quot;1.15.0&quot;"
+        errorLine2="          ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="3"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.15.0 is available: 1.19.0"
+        errorLine1="coreKtx = &quot;1.15.0&quot;"
+        errorLine2="          ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="3"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.8.7 is available: 2.11.0"
+        errorLine1="lifecycleRuntimeKtx = &quot;2.8.7&quot;"
+        errorLine2="                      ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="7"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.8.7 is available: 2.11.0"
+        errorLine1="lifecycleRuntimeKtx = &quot;2.8.7&quot;"
+        errorLine2="                      ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="7"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.8.7 is available: 2.11.0"
+        errorLine1="lifecycleRuntimeKtx = &quot;2.8.7&quot;"
+        errorLine2="                      ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="7"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.11.0"
+        errorLine1="lifecycleViewmodelCompose = &quot;2.8.7&quot;"
+        errorLine2="                            ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="8"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.11.0"
+        errorLine1="lifecycleViewmodelCompose = &quot;2.8.7&quot;"
+        errorLine2="                            ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="8"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-viewmodel-compose than 2.8.7 is available: 2.11.0"
+        errorLine1="lifecycleViewmodelCompose = &quot;2.8.7&quot;"
+        errorLine2="                            ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="8"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.11.0"
+        errorLine1="lifecycleRuntimeCompose = &quot;2.8.7&quot;"
+        errorLine2="                          ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="9"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.11.0"
+        errorLine1="lifecycleRuntimeCompose = &quot;2.8.7&quot;"
+        errorLine2="                          ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="9"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.8.7 is available: 2.11.0"
+        errorLine1="lifecycleRuntimeCompose = &quot;2.8.7&quot;"
+        errorLine2="                          ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="9"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0"
+        errorLine1="activityCompose = &quot;1.10.1&quot;"
+        errorLine2="                  ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="10"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0"
+        errorLine1="activityCompose = &quot;1.10.1&quot;"
+        errorLine2="                  ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="10"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0"
+        errorLine1="activityCompose = &quot;1.10.1&quot;"
+        errorLine2="                  ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="10"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose:compose-bom than 2024.09.00 is available: 2026.08.00"
+        errorLine1="composeBom = &quot;2024.09.00&quot;"
+        errorLine2="             ~~~~~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="12"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose:compose-bom than 2024.09.00 is available: 2026.08.00"
+        errorLine1="composeBom = &quot;2024.09.00&quot;"
+        errorLine2="             ~~~~~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="12"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose:compose-bom than 2024.09.00 is available: 2026.08.00"
+        errorLine1="composeBom = &quot;2024.09.00&quot;"
+        errorLine2="             ~~~~~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="12"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-compose than 2.8.9 is available: 2.10.0"
+        errorLine1="navigationCompose = &quot;2.8.9&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="14"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-compose than 2.8.9 is available: 2.10.0"
+        errorLine1="navigationCompose = &quot;2.8.9&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="14"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-compose than 2.8.9 is available: 2.10.0"
+        errorLine1="navigationCompose = &quot;2.8.9&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="14"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-runtime than 2.7.0 is available: 2.8.4"
+        errorLine1="roomRuntime = &quot;2.7.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="15"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-runtime than 2.7.0 is available: 2.8.4"
+        errorLine1="roomRuntime = &quot;2.7.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="15"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-runtime than 2.7.0 is available: 2.8.4"
+        errorLine1="roomRuntime = &quot;2.7.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="15"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-ktx than 2.7.0 is available: 2.8.4"
+        errorLine1="roomKtx = &quot;2.7.0&quot;"
+        errorLine2="          ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="16"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-ktx than 2.7.0 is available: 2.8.4"
+        errorLine1="roomKtx = &quot;2.7.0&quot;"
+        errorLine2="          ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="16"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-ktx than 2.7.0 is available: 2.8.4"
+        errorLine1="roomKtx = &quot;2.7.0&quot;"
+        errorLine2="          ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="16"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-compiler than 2.7.0 is available: 2.8.4"
+        errorLine1="roomCompiler = &quot;2.7.0&quot;"
+        errorLine2="               ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="17"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-compiler than 2.7.0 is available: 2.8.4"
+        errorLine1="roomCompiler = &quot;2.7.0&quot;"
+        errorLine2="               ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="17"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-compiler than 2.7.0 is available: 2.8.4"
+        errorLine1="roomCompiler = &quot;2.7.0&quot;"
+        errorLine2="               ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="17"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-testing than 2.7.0 is available: 2.8.4"
+        errorLine1="roomTesting = &quot;2.7.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="18"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-testing than 2.7.0 is available: 2.8.4"
+        errorLine1="roomTesting = &quot;2.7.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="18"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-testing than 2.7.0 is available: 2.8.4"
+        errorLine1="roomTesting = &quot;2.7.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="18"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:core than 1.6.1 is available: 1.7.0"
+        errorLine1="core = &quot;1.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="20"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:core than 1.6.1 is available: 1.7.0"
+        errorLine1="core = &quot;1.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="20"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:core than 1.6.1 is available: 1.7.0"
+        errorLine1="core = &quot;1.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="20"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0"
+        errorLine1="runner = &quot;1.6.2&quot;"
+        errorLine2="         ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="21"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0"
+        errorLine1="runner = &quot;1.6.2&quot;"
+        errorLine2="         ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="21"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test:runner than 1.6.2 is available: 1.7.0"
+        errorLine1="runner = &quot;1.6.2&quot;"
+        errorLine2="         ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="21"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.android.gms:play-services-location than 21.3.0 is available: 21.4.0"
+        errorLine1="playServicesLocation = &quot;21.3.0&quot;"
+        errorLine2="                       ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="28"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.android.gms:play-services-location than 21.3.0 is available: 21.4.0"
+        errorLine1="playServicesLocation = &quot;21.3.0&quot;"
+        errorLine2="                       ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="28"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.android.gms:play-services-location than 21.3.0 is available: 21.4.0"
+        errorLine1="playServicesLocation = &quot;21.3.0&quot;"
+        errorLine2="                       ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="28"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-camera2 than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraCamera2 = &quot;1.5.0&quot;"
+        errorLine2="                ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="29"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-camera2 than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraCamera2 = &quot;1.5.0&quot;"
+        errorLine2="                ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="29"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-camera2 than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraCamera2 = &quot;1.5.0&quot;"
+        errorLine2="                ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="29"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-lifecycle than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraLifecycle = &quot;1.5.0&quot;"
+        errorLine2="                  ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="30"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-lifecycle than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraLifecycle = &quot;1.5.0&quot;"
+        errorLine2="                  ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="30"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-lifecycle than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraLifecycle = &quot;1.5.0&quot;"
+        errorLine2="                  ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="30"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-view than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraView = &quot;1.5.0&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="31"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-view than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraView = &quot;1.5.0&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="31"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-view than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraView = &quot;1.5.0&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="31"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-core than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraCore = &quot;1.5.0&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="32"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-core than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraCore = &quot;1.5.0&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="32"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-core than 1.5.0 is available: 1.6.2"
+        errorLine1="cameraCore = &quot;1.5.0&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="32"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.squareup.okhttp3:okhttp than 4.10.0 is available: 4.12.0"
+        errorLine1="okhttp = &quot;4.10.0&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="34"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.squareup.okhttp3:okhttp than 4.10.0 is available: 4.12.0"
+        errorLine1="okhttp = &quot;4.10.0&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="34"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.squareup.okhttp3:okhttp than 4.10.0 is available: 4.12.0"
+        errorLine1="okhttp = &quot;4.10.0&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="34"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.datastore:datastore-preferences than 1.1.7 is available: 1.2.1"
+        errorLine1="datastorePreferences = &quot;1.1.7&quot;"
+        errorLine2="                       ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="37"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.datastore:datastore-preferences than 1.1.7 is available: 1.2.1"
+        errorLine1="datastorePreferences = &quot;1.1.7&quot;"
+        errorLine2="                       ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="37"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.datastore:datastore-preferences than 1.1.7 is available: 1.2.1"
+        errorLine1="datastorePreferences = &quot;1.1.7&quot;"
+        errorLine2="                       ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="37"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.firebase:firebase-bom than 34.15.0 is available: 34.18.0"
+        errorLine1="firebaseBom = &quot;34.15.0&quot;"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="40"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.firebase:firebase-bom than 34.15.0 is available: 34.18.0"
+        errorLine1="firebaseBom = &quot;34.15.0&quot;"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="40"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.firebase:firebase-bom than 34.15.0 is available: 34.18.0"
+        errorLine1="firebaseBom = &quot;34.15.0&quot;"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="40"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.credentials:credentials than 1.5.0 is available: 1.6.0"
+        errorLine1="credentials = &quot;1.5.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="43"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.credentials:credentials than 1.5.0 is available: 1.6.0"
+        errorLine1="credentials = &quot;1.5.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="43"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.credentials:credentials than 1.5.0 is available: 1.6.0"
+        errorLine1="credentials = &quot;1.5.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="43"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.credentials:credentials-play-services-auth than 1.5.0 is available: 1.6.0"
+        errorLine1="credentials = &quot;1.5.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="43"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.credentials:credentials-play-services-auth than 1.5.0 is available: 1.6.0"
+        errorLine1="credentials = &quot;1.5.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="43"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.credentials:credentials-play-services-auth than 1.5.0 is available: 1.6.0"
+        errorLine1="credentials = &quot;1.5.0&quot;"
+        errorLine2="              ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="43"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.android.libraries.identity.googleid:googleid than 1.1.1 is available: 1.2.0"
+        errorLine1="googleid = &quot;1.1.1&quot;"
+        errorLine2="           ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="44"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.android.libraries.identity.googleid:googleid than 1.1.1 is available: 1.2.0"
+        errorLine1="googleid = &quot;1.1.1&quot;"
+        errorLine2="           ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="44"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.android.libraries.identity.googleid:googleid than 1.1.1 is available: 1.2.0"
+        errorLine1="googleid = &quot;1.1.1&quot;"
+        errorLine2="           ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="44"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.4.0"
+        errorLine1="hiltNavigationCompose = &quot;1.2.0&quot;"
+        errorLine2="                        ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="48"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.4.0"
+        errorLine1="hiltNavigationCompose = &quot;1.2.0&quot;"
+        errorLine2="                        ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="48"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-navigation-compose than 1.2.0 is available: 1.4.0"
+        errorLine1="hiltNavigationCompose = &quot;1.2.0&quot;"
+        errorLine2="                        ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="48"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-work than 1.2.0 is available: 1.4.0"
+        errorLine1="hiltWork = &quot;1.2.0&quot;"
+        errorLine2="           ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="49"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-work than 1.2.0 is available: 1.4.0"
+        errorLine1="hiltWork = &quot;1.2.0&quot;"
+        errorLine2="           ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="49"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-work than 1.2.0 is available: 1.4.0"
+        errorLine1="hiltWork = &quot;1.2.0&quot;"
+        errorLine2="           ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="49"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-compiler than 1.2.0 is available: 1.4.0"
+        errorLine1="hiltCompiler = &quot;1.2.0&quot;"
+        errorLine2="               ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="50"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-compiler than 1.2.0 is available: 1.4.0"
+        errorLine1="hiltCompiler = &quot;1.2.0&quot;"
+        errorLine2="               ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="50"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.hilt:hilt-compiler than 1.2.0 is available: 1.4.0"
+        errorLine1="hiltCompiler = &quot;1.2.0&quot;"
+        errorLine2="               ~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="50"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.work:work-runtime-ktx than 2.10.0 is available: 2.11.2"
+        errorLine1="workRuntimeKtx = &quot;2.10.0&quot;"
+        errorLine2="                 ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="56"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.work:work-runtime-ktx than 2.10.0 is available: 2.11.2"
+        errorLine1="workRuntimeKtx = &quot;2.10.0&quot;"
+        errorLine2="                 ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="56"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.work:work-runtime-ktx than 2.10.0 is available: 2.11.2"
+        errorLine1="workRuntimeKtx = &quot;2.10.0&quot;"
+        errorLine2="                 ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="56"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.security:security-crypto than 1.1.0-alpha06 is available: 1.1.0"
+        errorLine1="securityCrypto = &quot;1.1.0-alpha06&quot;"
+        errorLine2="                 ~~~~~~~~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="57"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.security:security-crypto than 1.1.0-alpha06 is available: 1.1.0"
+        errorLine1="securityCrypto = &quot;1.1.0-alpha06&quot;"
+        errorLine2="                 ~~~~~~~~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="57"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.security:security-crypto than 1.1.0-alpha06 is available: 1.1.0"
+        errorLine1="securityCrypto = &quot;1.1.0-alpha06&quot;"
+        errorLine2="                 ~~~~~~~~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="57"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.firebase:firebase-messaging than 24.1.0 is available: 25.1.2"
+        errorLine1="firebaseMessaging = &quot;24.1.0&quot;"
+        errorLine2="                    ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="58"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.firebase:firebase-messaging than 24.1.0 is available: 25.1.2"
+        errorLine1="firebaseMessaging = &quot;24.1.0&quot;"
+        errorLine2="                    ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="58"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.firebase:firebase-messaging than 24.1.0 is available: 25.1.2"
+        errorLine1="firebaseMessaging = &quot;24.1.0&quot;"
+        errorLine2="                    ~~~~~~~~">
+        <location
+            file="$HOME/my-project/repos/elimtiyaz-android/gradle/libs.versions.toml"
+            line="58"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="LockedOrientationActivity"
+        message="Expecting `android:screenOrientation=&quot;unspecified&quot;` or `&quot;fullSensor&quot;` for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices"
+        errorLine1="            android:screenOrientation=&quot;portrait&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="35"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NonResizeableActivity"
+        message="Expecting `android:resizeableActivity=&quot;true&quot;` for this activity so the user can take advantage of the multi-window environment on all devices. NOTE: beginning with Android 12, all apps run in multi-window mode on large screen devices."
+        errorLine1="            android:resizeableActivity=&quot;false&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="36"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ComposableNaming"
+        message="Composable functions that return Unit should start with an uppercase letter"
+        errorLine1="internal fun rbacGate("
+        errorLine2="             ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/navigation/rbacGate.kt"
+            line="9"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="fun ElSkeletonCircle(sizeDp: Int = 40, modifier: Modifier = Modifier) {"
+        errorLine2="                                       ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/designsystem/components/feedback/ElSkeleton.kt"
+            line="57"
+            column="40"/>
+    </issue>
+
+    <issue
+        id="UnnecessaryComposedModifier"
+        message="Unnecessary use of Modifier.composed"
+        errorLine1="): Modifier = composed {"
+        errorLine2="              ~~~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/designsystem/foundation/ShadowModifier.kt"
+            line="29"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="DiscouragedApi"
+        message="Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed."
+        errorLine1="            android:screenOrientation=&quot;portrait&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="35"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="DiscouragedApi"
+        message="Activity should not be non-resizable. With this setting, apps cannot be used in multi-window or free form mode."
+        errorLine1="            android:resizeableActivity=&quot;false&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="36"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.purple_200` appears to be unused"
+        errorLine1="    &lt;color name=&quot;purple_200&quot;>#FFBB86FC&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="3"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.purple_500` appears to be unused"
+        errorLine1="    &lt;color name=&quot;purple_500&quot;>#FF6200EE&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="4"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.purple_700` appears to be unused"
+        errorLine1="    &lt;color name=&quot;purple_700&quot;>#FF3700B3&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="5"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.teal_200` appears to be unused"
+        errorLine1="    &lt;color name=&quot;teal_200&quot;>#FF03DAC5&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="6"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.teal_700` appears to be unused"
+        errorLine1="    &lt;color name=&quot;teal_700&quot;>#FF018786&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="7"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.black` appears to be unused"
+        errorLine1="    &lt;color name=&quot;black&quot;>#FF000000&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="8"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.color.white` appears to be unused"
+        errorLine1="    &lt;color name=&quot;white&quot;>#FFFFFFFF&lt;/color>"
+        errorLine2="           ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/colors.xml"
+            line="9"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.el_imtiyaz_logo_1784940470791` appears to be unused">
+        <location
+            file="src/main/res/drawable/el_imtiyaz_logo_1784940470791.jpg"/>
+    </issue>
+
+    <issue
+        id="UseOfNonLambdaOffsetOverload"
+        message="State backed values should use the lambda overload of Modifier.offset"
+        errorLine1="                .offset(x = thumbOffset),"
+        errorLine2="                 ~~~~~~">
+        <location
+            file="src/main/java/com/example/ui/designsystem/components/input/ElSwitch.kt"
+            line="112"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="IconDipSize"
+        message="The image `ic_launcher.webp` varies significantly in its density-independent (dip) size across the various density versions: mipmap-hdpi/ic_launcher.webp: 48x48 dp (72x72 px), mipmap-xhdpi/ic_launcher.webp: 48x48 dp (96x96 px), mipmap-xxhdpi/ic_launcher.webp: 12268x3140438 dp (36803x9421313 px)">
+        <location
+            file="src/main/res/mipmap-xhdpi/ic_launcher.webp"/>
+        <location
+            file="src/main/res/mipmap-hdpi/ic_launcher.webp"/>
+        <location
+            file="src/main/res/mipmap-xxhdpi/ic_launcher.webp"/>
+    </issue>
+
+    <issue
+        id="IconDipSize"
+        message="The image `ic_launcher_round.webp` varies significantly in its density-independent (dip) size across the various density versions: mipmap-hdpi/ic_launcher_round.webp: 48x48 dp (72x72 px), mipmap-xhdpi/ic_launcher_round.webp: 48x48 dp (96x96 px), mipmap-xxhdpi/ic_launcher_round.webp: 12268x3140438 dp (36803x9421313 px), mipmap-xxxhdpi/ic_launcher_round.webp: 12273x3141760 dp (49091x12567041 px)">
+        <location
+            file="src/main/res/mipmap-xhdpi/ic_launcher_round.webp"/>
+        <location
+            file="src/main/res/mipmap-hdpi/ic_launcher_round.webp"/>
+        <location
+            file="src/main/res/mipmap-xxhdpi/ic_launcher_round.webp"/>
+        <location
+            file="src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp"/>
+    </issue>
+
+    <issue
+        id="IconLocation"
+        message="Found bitmap drawable `res/drawable/el_imtiyaz_logo_1784940470791.jpg` in densityless folder">
+        <location
+            file="src/main/res/drawable/el_imtiyaz_logo_1784940470791.jpg"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="  coreLibraryDesugaring(&quot;com.android.tools:desugar_jdk_libs:2.1.5&quot;)"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="197"
+            column="25"/>
+    </issue>
+
+</issues>

@@ -1255,7 +1255,9 @@ class LocalPaymentRepository @Inject constructor(
             ledgerDao.upsert(creditEntry.toEntity())
             // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the parent_credit
             // adjustment for sync push so the desktop sees it.
-        val parentCode = parentCodeFor(creditEntry.parentId) ?: ""
+            // T-082: `parentCode` re-indented to its block level — lint's
+            // SuspiciousIndentation flagged the misleading 8-space indent.
+            val parentCode = parentCodeFor(creditEntry.parentId) ?: ""
             syncSupport?.enqueueOnly(
                 entity = "ledger_entry",
                 operation = "create",
@@ -1322,7 +1324,9 @@ class LocalPaymentRepository @Inject constructor(
             ledgerDao.upsert(reversal.toEntity())
             // CANONICAL-FINANCIAL-LOGIC.md §8.1 — enqueue the reversal ledger
             // entry for sync push.
-        val parentCode = parentCodeFor(reversal.parentId) ?: ""
+            // T-082: `parentCode` re-indented to its block level — lint's
+            // SuspiciousIndentation flagged the misleading 8-space indent.
+            val parentCode = parentCodeFor(reversal.parentId) ?: ""
             syncSupport?.enqueueOnly(
                 entity = "ledger_entry",
                 operation = "reverse",

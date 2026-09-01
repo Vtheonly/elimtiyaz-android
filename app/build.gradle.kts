@@ -69,6 +69,13 @@ android {
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
+    // T-082 / ARCH-008: core-library desugaring — the ONLY correct fix for
+    // the 337 NewApi errors (all API-26 java.time symbols: LocalDate,
+    // Instant, ZoneOffset… used throughout the financial engine on minSdk
+    // 24). Without it the lint gate was inoperable (339 pre-existing
+    // errors, no baseline ever existed); with it lint itself acknowledges
+    // "or core library desugaring" for every one of these findings.
+    isCoreLibraryDesugaringEnabled = true
   }
   kotlinOptions {
     jvmTarget = "11"
@@ -78,6 +85,22 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+  lint {
+    // T-082 / ARCH-008 (the T-078 desktop precedent): the lint gate is
+    // RESTORED. Errors abort the build; the committed baseline pins the
+    // pre-existing WARNING backlog to exact findings (116 at creation:
+    // GradleDependency 90 [dependency-version suggestions], UnusedResources
+    // 8, AndroidGradlePluginVersion 3, DiscouragedApi 2, IconDipSize 2,
+    // UnusedAttribute 1, RedundantLabel 1, SelectedPhotoAccess 1,
+    // LockedOrientationActivity 1, NonResizeableActivity 1,
+    // ComposableNaming 1, ModifierParameter 1, UnnecessaryComposedModifier
+    // 1, SuspiciousIndentation 0 [both fixed in code], NewApi 0 [fixed by
+    // core-library desugaring]). Any NEW finding fails the gate — the
+    // backlog shrinks by EDITING the baseline, never by widening it.
+    baseline = file("lint-baseline.xml")
+    abortOnError = true
+    warningsAsErrors = false
+  }
   sourceSets {
     // T-046-gap: the exported Room schema history (app/schemas/*.json) must
     // reach Robolectric's asset manager. Robolectric resolves assets from
@@ -169,6 +192,9 @@ dependencies {
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
   ksp(libs.androidx.room.compiler)
+
+  // ── Core-library desugaring (T-082 / ARCH-008) ─────────────────────
+  coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
   // ── WorkManager (sync) ────────────────────────────────────────────────
   implementation(libs.androidx.work.runtime.ktx)
