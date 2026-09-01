@@ -117,7 +117,15 @@ class SyncQueueDispatcher @Inject constructor(
      * no dedicated upsert RPC.
      */
     private suspend fun pushHomework(entry: SyncQueueEntity, p: JsonObject) {
-        val id = p.str("id") ?: return
+        // T-024 / HOMEWORK-101: the server's `homework.id` column is a UUID
+        // PRIMARY KEY (migration 0029). Idempotency is on that primary key, so
+        // the SAME logical row must always push the SAME server id. New rows
+        // (post-T-024) are created with a bare UUID local id; LEGACY Room rows
+        // and queue entries still carry the "hwk-" prefix — strip it here so
+        // they can finally reach the server, and so a re-pushed legacy row
+        // lands on the same server id as the stripped form (never a duplicate).
+        val rawId = p.str("id") ?: return
+        val id = rawId.removePrefix("hwk-")
         val classId = p.str("classId") ?: p.str("class_id") ?: return
         val subjectId = p.str("subjectId") ?: p.str("subject_id") ?: return
         val row = buildJsonObject {
@@ -194,6 +202,20 @@ class SyncQueueDispatcher @Inject constructor(
             put("p_enrollment_status", p.str("status") ?: "active")
             put("p_medical_notes", p.str("medicalNotes") ?: p.str("medical_notes"))
             put("p_is_active", true)
+            // T-024 / STUDENT-100: the promotion flow (operation="promote")
+            // updates the local gradeLevel and enqueues a student payload with
+            // the NEW grade — but this push never forwarded it, and the server
+            // column students.grade_level_code was silently left at the old
+            // value (cross-platform state drift: Android shows the new grade,
+            // desktop/website show the old one). The RPC has accepted
+            // p_grade_level_code since migration 0037 (verified live
+            // 2026-09-01 via pg_get_functiondef) — send it on every student
+            // push so promotions propagate. The RPC's COALESCE keeps the
+            // server value when the payload omits the field (null-safe).
+            (p.str("gradeLevel") ?: p.str("grade_level") ?: p.str("gradeLevelCode"))
+                ?.takeIf { it.isNotBlank() }
+                ?.let { put("p_grade_level_code", it) }
+            (p.str("transportTier") ?: p.str("transport_tier"))?.let { put("p_transport_tier", it) }
         }
         NetworkTimeouts.guardSyncPush("sync.pushStudent", timeoutMs = 5_000L) {
             supabaseProvider.postgrest.rpc("upsert_student_from_import", params)

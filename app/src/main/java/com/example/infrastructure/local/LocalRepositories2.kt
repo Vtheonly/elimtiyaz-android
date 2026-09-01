@@ -1515,7 +1515,16 @@ class LocalHomeworkRepository @Inject constructor(
 
         val now = Instant.now().toString()
         val entity = HomeworkEntity(
-            id = "hwk-${UUID.randomUUID()}", tenantId = auditContext.tenantId(),
+            // T-024 / HOMEWORK-101: the server's `homework.id` column is a
+            // UUID PRIMARY KEY (migration 0029) and this entity's id is pushed
+            // VERBATIM into that column. The old "hwk-" prefix convention
+            // ("hwk-${UUID.randomUUID()}") made every sync push fail with
+            // `invalid input syntax for type uuid` — the canonical table has
+            // received ZERO Android rows since the feature shipped. Homework
+            // is the ONLY entity whose local id lands in a UUID column (all
+            // other pushes go through RPCs that omit the id), so homework is
+            // the ONLY entity that must use a bare UUID as its local id.
+            id = UUID.randomUUID().toString(), tenantId = auditContext.tenantId(),
             classId = input.classId, subjectId = input.subjectId, subjectName = "",
             teacherId = actorId, teacherName = actorName,
             title = input.title, description = input.description, dueDate = input.dueDate,
