@@ -24,6 +24,18 @@ import com.example.infrastructure.room.StudentEntity
  *   - students.grade_level_code, students.transport_tier, students.payment_plan
  * The mappers below propagate these fields into the domain models + Room entities
  * so the Android UI shows the COMPLETE data the Desktop imported.
+ *
+ * TENANT CONVENTION (DTO-TENANT, session 18 — closes the T-051 out-of-scope
+ * note): PULL-side mappers default a NULL server tenant_id to the EMPTY
+ * STRING — never to the demo tenant UUID. The canonical tables carry
+ * tenant_id NOT NULL, so a null here is a defensive/anomalous case, and
+ * stamping it with the demo UUID (the old behaviour) silently attributed
+ * server rows to the demo tenant, contaminating the store exactly the way
+ * WEAK-012 did on the query side. Nothing on the local read path filters
+ * by tenantId (verified), so "" cannot hide rows; pushes use the
+ * session-stamped tenantId from AuditContext (T-051), not these values.
+ * The demo tenant remains ONLY in AuditContext.DEMO_TENANT_ID (the
+ * signed-out seeding fallback) and DatabaseSeeder (the demo sandbox).
  */
 
 /** Convert a [ParentDto] (Supabase row) to the [Parent] domain model. */
@@ -141,7 +153,7 @@ fun StudentDto.toEntity(): StudentEntity = StudentEntity(
 /** Convert a [ClassDto] to an [AcademicClassEntity] for Room upsert. */
 fun ClassDto.toEntity(): com.example.infrastructure.room.AcademicClassEntity = com.example.infrastructure.room.AcademicClassEntity(
     id = id,
-    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
+    tenantId = tenantId ?: "",
     code = code,
     name = name ?: "Classe $section",
     level = gradeCode ?: "1ap",
@@ -161,7 +173,7 @@ fun ClassDto.toEntity(): com.example.infrastructure.room.AcademicClassEntity = c
 /** Convert a [SubjectDto] to a [SubjectEntity] for Room upsert. */
 fun SubjectDto.toEntity(): com.example.infrastructure.room.SubjectEntity = com.example.infrastructure.room.SubjectEntity(
     id = id,
-    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
+    tenantId = tenantId ?: "",
     code = code,
     name = nameFr,
     category = domain,
@@ -182,7 +194,7 @@ fun SubjectDto.toEntity(): com.example.infrastructure.room.SubjectEntity = com.e
 /** Convert an [InstallmentDto] to an [InstallmentEntity] for Room upsert. */
 fun InstallmentDto.toEntity(): com.example.infrastructure.room.InstallmentEntity = com.example.infrastructure.room.InstallmentEntity(
     id = id,
-    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
+    tenantId = tenantId ?: "",
     parentId = parentId,
     studentId = studentId,
     category = category,
@@ -203,7 +215,7 @@ fun InstallmentDto.toEntity(): com.example.infrastructure.room.InstallmentEntity
 /** Convert a [DepartmentDto] to a [DepartmentEntity] for Room upsert. */
 fun DepartmentDto.toEntity(): com.example.infrastructure.room.DepartmentEntity = com.example.infrastructure.room.DepartmentEntity(
     id = id,
-    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
+    tenantId = tenantId ?: "",
     name = nameFr,
     description = description,
     headPersonnelId = headPersonnelId,
@@ -215,7 +227,7 @@ fun DepartmentDto.toEntity(): com.example.infrastructure.room.DepartmentEntity =
 /** Convert a [PersonnelDto] to a [PersonnelEntity] for Room upsert. */
 fun PersonnelDto.toEntity(): com.example.infrastructure.room.PersonnelEntity = com.example.infrastructure.room.PersonnelEntity(
     id = id,
-    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
+    tenantId = tenantId ?: "",
     code = personnelCode,
     firstName = firstName,
     lastName = lastName,
@@ -234,7 +246,7 @@ fun PersonnelDto.toEntity(): com.example.infrastructure.room.PersonnelEntity = c
 /** Convert a [NotificationDto] to a [NotificationEntity] for Room upsert. */
 fun NotificationDto.toEntity(): com.example.infrastructure.room.NotificationEntity = com.example.infrastructure.room.NotificationEntity(
     id = id,
-    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
+    tenantId = tenantId ?: "",
     title = title,
     body = body ?: "",
     type = kind,
@@ -253,7 +265,7 @@ fun NotificationDto.toEntity(): com.example.infrastructure.room.NotificationEnti
 /** Convert a [WorkflowRunDto] to a [WorkflowRunEntity] for Room upsert. */
 fun WorkflowRunDto.toEntity(): com.example.infrastructure.room.WorkflowRunEntity = com.example.infrastructure.room.WorkflowRunEntity(
     id = id,
-    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
+    tenantId = tenantId ?: "",
     workflowId = workflowId,
     workflowName = workflowName ?: workflowId,
     // T-054 (WEAK-008): keep the server's REAL trigger (the column was
@@ -270,7 +282,7 @@ fun WorkflowRunDto.toEntity(): com.example.infrastructure.room.WorkflowRunEntity
 /** Convert a [PaymentDto] to a [PaymentEntity] for Room upsert. */
 fun PaymentDto.toEntity(): com.example.infrastructure.room.PaymentEntity = com.example.infrastructure.room.PaymentEntity(
     id = id,
-    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
+    tenantId = tenantId ?: "",
     receiptNumber = receiptNumber ?: paymentNumber,
     parentId = parentId,
     studentId = studentId,
@@ -297,7 +309,7 @@ fun PaymentDto.toEntity(): com.example.infrastructure.room.PaymentEntity = com.e
 /** Convert a [LedgerEntryDto] to a [LedgerEntryEntity] for Room upsert. */
 fun LedgerEntryDto.toEntity(): com.example.infrastructure.room.LedgerEntryEntity = com.example.infrastructure.room.LedgerEntryEntity(
     id = id,
-    tenantId = tenantId ?: "00000000-0000-0000-0000-000000000001",
+    tenantId = tenantId ?: "",
     accountId = accountId,
     parentId = parentId,
     studentId = studentId,
