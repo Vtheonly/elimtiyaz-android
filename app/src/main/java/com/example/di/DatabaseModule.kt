@@ -96,6 +96,10 @@ object DatabaseModule {
                 // each pulled run (was hardcoded "manual" at the mapping
                 // boundary). Default 'manual' preserves existing rows' meaning.
                 ElImtiyazDatabase.MIGRATION_11_12,
+                // T-039 / NOTIF-105: notifications.targetRole — lets the pull
+                // layer evict stale role-broadcasts after a role change.
+                // Nullable, no default: direct/tenant broadcasts keep NULL.
+                ElImtiyazDatabase.MIGRATION_12_13,
             )
             // T-046 / ARCH-004: NO destructive fallback. A missing migration
             // now fails LOUDLY (IllegalStateException) instead of wiping the

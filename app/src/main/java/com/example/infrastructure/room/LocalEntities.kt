@@ -450,6 +450,12 @@ data class NotificationEntity(
     val entityType: String?,
     val entityId: String?,
     val targetUserId: String?,
+    // T-039 / NOTIF-105: role broadcasts (target_user_id IS NULL, target_role
+    // set) previously left no trace of WHICH role they targeted, so Room could
+    // never evict them when the signed-in user's role changed. Storing the
+    // role (from the server's target_role column) makes the cache honest:
+    // evictNotVisibleTo() can drop rows whose role no longer matches.
+    val targetRole: String? = null,
     val isRead: Boolean,
     val createdAt: String,
 )

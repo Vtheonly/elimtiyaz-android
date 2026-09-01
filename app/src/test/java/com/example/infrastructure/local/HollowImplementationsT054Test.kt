@@ -92,7 +92,12 @@ class HollowImplementationsT054Test {
             "MIGRATION_11_12 must add the trigger column",
             src.contains("ALTER TABLE workflow_runs ADD COLUMN trigger TEXT NOT NULL DEFAULT 'manual'"),
         )
-        assertTrue("database version must be 12", src.contains("version = 12,"))
+        // T-039 bumped the database to v13 (notifications.targetRole) — the
+        // 11→12 trigger-column migration stays registered; the version just
+        // needs to be AT LEAST 12 now (forward-compatible with later bumps).
+        val version = Regex("version\\s*=\\s*(\\d+),").find(src)?.groupValues?.get(1)?.toInt()
+            ?: error("@Database version not found")
+        assertTrue("database version must be >= 12 (was $version)", version >= 12)
     }
 
     @Test

@@ -3,8 +3,11 @@ package com.example.infrastructure.sync
 import android.util.Log
 import com.example.core.Result
 import com.example.infrastructure.room.ElImtiyazDatabase
+import com.example.infrastructure.supabase.AssessmentDto
+import com.example.infrastructure.supabase.AttendanceRecordDto
 import com.example.infrastructure.supabase.ClassDto
 import com.example.infrastructure.supabase.DepartmentDto
+import com.example.infrastructure.supabase.HomeworkDto
 import com.example.infrastructure.supabase.InstallmentDto
 import com.example.infrastructure.supabase.LedgerEntryDto
 import com.example.infrastructure.supabase.NotificationDto
@@ -17,6 +20,7 @@ import com.example.infrastructure.supabase.SupabaseClientProvider
 import com.example.infrastructure.supabase.WorkflowRunDto
 import com.example.infrastructure.supabase.toEntity
 import com.example.session.SessionManager
+import io.github.jan.supabase.postgrest.query.filter.FilterOperator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
@@ -58,10 +62,9 @@ class PullSyncRepository @Inject constructor(
                     put("p_limit", 2000)
                 }
                 val dtoList = provider.postgrest.rpc("pull_parents_for_sync", params).decodeList<ParentDto>()
-                for (dto in dtoList) {
-                    db.parentDao().upsert(dto.toEntity())
-                    count++
-                }
+                // T-039: batch upsert (single Room round-trip, was O(N)).
+                db.parentDao().upsertAll(dtoList.map { it.toEntity() })
+                count = dtoList.size
                 fetched = count > 0
                 Log.i("PullSync", "RPC pull_parents_for_sync success: $count parents")
             } catch (rpcEx: Throwable) {
@@ -71,10 +74,9 @@ class PullSyncRepository @Inject constructor(
             if (!fetched) {
                 try {
                     val dtoList = provider.postgrest.from("parents").select { limit(2000) }.decodeList<ParentDto>()
-                    for (dto in dtoList) {
-                        db.parentDao().upsert(dto.toEntity())
-                        count++
-                    }
+                    // T-039: batch upsert.
+                    db.parentDao().upsertAll(dtoList.map { it.toEntity() })
+                    count += dtoList.size
                     Log.i("PullSync", "Table parents select success: $count parents")
                 } catch (tEx: Throwable) {
                     Log.w("PullSync", "Table parents select failed: ${tEx.message}")
@@ -102,10 +104,9 @@ class PullSyncRepository @Inject constructor(
                     put("p_limit", 2000)
                 }
                 val dtoList = provider.postgrest.rpc("pull_students_for_sync", params).decodeList<StudentDto>()
-                for (dto in dtoList) {
-                    db.studentDao().upsert(dto.toEntity())
-                    count++
-                }
+                // T-039: batch upsert (single Room round-trip).
+                db.studentDao().upsertAll(dtoList.map { it.toEntity() })
+                count = dtoList.size
                 fetched = count > 0
                 Log.i("PullSync", "RPC pull_students_for_sync success: $count students")
             } catch (rpcEx: Throwable) {
@@ -115,10 +116,9 @@ class PullSyncRepository @Inject constructor(
             if (!fetched) {
                 try {
                     val dtoList = provider.postgrest.from("students").select { limit(2000) }.decodeList<StudentDto>()
-                    for (dto in dtoList) {
-                        db.studentDao().upsert(dto.toEntity())
-                        count++
-                    }
+                    // T-039: batch upsert.
+                    db.studentDao().upsertAll(dtoList.map { it.toEntity() })
+                    count += dtoList.size
                     Log.i("PullSync", "Table students select success: $count students")
                 } catch (tEx: Throwable) {
                     Log.w("PullSync", "Table students select failed: ${tEx.message}")
@@ -145,17 +145,15 @@ class PullSyncRepository @Inject constructor(
                     put("p_limit", 2000)
                 }
                 val dtoList = provider.postgrest.rpc("pull_payments_for_sync", params).decodeList<PaymentDto>()
-                for (dto in dtoList) {
-                    db.paymentDao().upsert(dto.toEntity())
-                    count++
-                }
+                // T-039: batch upsert.
+                db.paymentDao().upsertAll(dtoList.map { it.toEntity() })
+                count = dtoList.size
             } catch (_: Throwable) {
                 try {
                     val dtoList = provider.postgrest.from("payments").select { limit(2000) }.decodeList<PaymentDto>()
-                    for (dto in dtoList) {
-                        db.paymentDao().upsert(dto.toEntity())
-                        count++
-                    }
+                    // T-039: batch upsert.
+                    db.paymentDao().upsertAll(dtoList.map { it.toEntity() })
+                    count = dtoList.size
                 } catch (_: Throwable) {}
             }
             Log.i("PullSync", "Pulled $count payments")
@@ -179,17 +177,15 @@ class PullSyncRepository @Inject constructor(
                     put("p_limit", 2000)
                 }
                 val dtoList = provider.postgrest.rpc("pull_ledger_entries_for_sync", params).decodeList<LedgerEntryDto>()
-                for (dto in dtoList) {
-                    db.ledgerEntryDao().upsert(dto.toEntity())
-                    count++
-                }
+                // T-039: batch upsert.
+                db.ledgerEntryDao().upsertAll(dtoList.map { it.toEntity() })
+                count = dtoList.size
             } catch (_: Throwable) {
                 try {
                     val dtoList = provider.postgrest.from("ledger_entries").select { limit(2000) }.decodeList<LedgerEntryDto>()
-                    for (dto in dtoList) {
-                        db.ledgerEntryDao().upsert(dto.toEntity())
-                        count++
-                    }
+                    // T-039: batch upsert.
+                    db.ledgerEntryDao().upsertAll(dtoList.map { it.toEntity() })
+                    count = dtoList.size
                 } catch (_: Throwable) {}
             }
             Log.i("PullSync", "Pulled $count ledger entries")
@@ -202,7 +198,8 @@ class PullSyncRepository @Inject constructor(
     suspend fun pullClasses(): Result<Int> = withContext(Dispatchers.IO) {
         try {
             val dtoList = provider.postgrest.from("classes").select { limit(2000) }.decodeList<ClassDto>()
-            for (dto in dtoList) db.academicClassDao().upsert(dto.toEntity())
+            // T-039: batch upsert.
+            db.academicClassDao().upsertAll(dtoList.map { it.toEntity() })
             Log.i("PullSync", "Pulled ${dtoList.size} classes")
             Result.Ok(dtoList.size)
         } catch (e: Exception) {
@@ -213,7 +210,8 @@ class PullSyncRepository @Inject constructor(
     suspend fun pullSubjects(): Result<Int> = withContext(Dispatchers.IO) {
         try {
             val dtoList = provider.postgrest.from("subjects").select { limit(2000) }.decodeList<SubjectDto>()
-            for (dto in dtoList) db.subjectDao().upsert(dto.toEntity())
+            // T-039: batch upsert.
+            db.subjectDao().upsertAll(dtoList.map { it.toEntity() })
             Log.i("PullSync", "Pulled ${dtoList.size} subjects")
             Result.Ok(dtoList.size)
         } catch (e: Exception) {
@@ -224,7 +222,8 @@ class PullSyncRepository @Inject constructor(
     suspend fun pullInstallments(): Result<Int> = withContext(Dispatchers.IO) {
         try {
             val dtoList = provider.postgrest.from("installments").select { limit(2000) }.decodeList<InstallmentDto>()
-            for (dto in dtoList) db.installmentDao().upsert(dto.toEntity())
+            // T-039: batch upsert.
+            db.installmentDao().upsertAll(dtoList.map { it.toEntity() })
             Log.i("PullSync", "Pulled ${dtoList.size} installments")
             Result.Ok(dtoList.size)
         } catch (e: Exception) {
@@ -235,7 +234,8 @@ class PullSyncRepository @Inject constructor(
     suspend fun pullPersonnel(): Result<Int> = withContext(Dispatchers.IO) {
         try {
             val dtoList = provider.postgrest.from("personnel").select { limit(2000) }.decodeList<PersonnelDto>()
-            for (dto in dtoList) db.personnelDao().upsert(dto.toEntity())
+            // T-039: batch upsert.
+            db.personnelDao().upsertAll(dtoList.map { it.toEntity() })
             Log.i("PullSync", "Pulled ${dtoList.size} personnel")
             Result.Ok(dtoList.size)
         } catch (e: Exception) {
@@ -246,7 +246,8 @@ class PullSyncRepository @Inject constructor(
     suspend fun pullDepartments(): Result<Int> = withContext(Dispatchers.IO) {
         try {
             val dtoList = provider.postgrest.from("departments").select { limit(2000) }.decodeList<DepartmentDto>()
-            for (dto in dtoList) db.departmentDao().upsertAll(listOf(dto.toEntity()))
+            // T-039: batch upsert (was a per-row listOf() wrapper loop).
+            db.departmentDao().upsertAll(dtoList.map { it.toEntity() })
             Log.i("PullSync", "Pulled ${dtoList.size} departments")
             Result.Ok(dtoList.size)
         } catch (e: Exception) {
@@ -254,11 +255,114 @@ class PullSyncRepository @Inject constructor(
         }
     }
 
+    /**
+     * T-039 / NOTIF-105: the pull now (a) FILTERS by the signed-in user and
+     * their CURRENT role set — resolved fresh via the canonical
+     * `current_user_roles()` RPC (migration 0053), the same function the
+     * server's `notifications_select` RLS policy (migration 0019) uses — so
+     * the client filter mirrors the policy branch-for-branch: direct rows
+     * for the profile id, role-broadcasts for ANY held role, and tenant
+     * broadcasts (null/null) only for the staff trio the policy names;
+     * (b) BATCHES the Room upsert (one call, was O(N) per-row round-trips);
+     * and (c) EVICTS stale rows the user can no longer see (direct rows of
+     * other users + role-broadcasts for roles they no longer hold) —
+     * previously role-broadcast rows stayed in Room forever across role
+     * changes.
+     *
+     * Multi-role note: the server allows a user to hold SEVERAL
+     * role_assignments; the Android [com.example.core.Session] models a
+     * single primary role, so the filter set is re-resolved here per pull
+     * instead of trusting the session's single role — otherwise a
+     * teacher+financial_officer user would lose every financial_officer
+     * broadcast from the local cache on eviction.
+     */
     suspend fun pullNotifications(): Result<Int> = withContext(Dispatchers.IO) {
         try {
-            val dtoList = provider.postgrest.from("notifications").select { limit(200) }.decodeList<NotificationDto>()
-            for (dto in dtoList) db.notificationDao().upsertAll(listOf(dto.toEntity()))
-            Log.i("PullSync", "Pulled ${dtoList.size} notifications")
+            val session = sessionManager.current()
+                ?: return@withContext Result.Ok(0) // signed out — pull nothing (defensive; SyncWorker gates on session)
+            // Fresh multi-role resolution (canonical RPC, same as RLS).
+            // Fallback: the session's single role — a pull this early in a
+            // role transition still behaves like the pre-change session.
+            val roles: List<String> = runCatching {
+                provider.postgrest.rpc("current_user_roles").decodeList<String>()
+            }.getOrDefault(emptyList()).ifEmpty { listOf(session.role.code) }
+            // 0019 notifications_select: tenant broadcasts (target_user_id
+            // NULL + target_role NULL) are visible ONLY to this staff trio.
+            val staffBroadcast = roles.any { it in STAFF_BROADCAST_ROLES }
+            val dtoList = provider.postgrest.from("notifications").select {
+                limit(200)
+                filter {
+                    or {
+                        eq("target_user_id", session.userId)
+                        isIn("target_role", roles)
+                        if (staffBroadcast) {
+                            and {
+                                filter("target_user_id", FilterOperator.IS, null)
+                                filter("target_role", FilterOperator.IS, null)
+                            }
+                        }
+                    }
+                }
+            }.decodeList<NotificationDto>()
+            db.notificationDao().upsertAll(dtoList.map { it.toEntity() })
+            db.notificationDao().evictNotVisibleTo(session.userId, roles, if (staffBroadcast) 1 else 0)
+            Log.i("PullSync", "Pulled ${dtoList.size} notifications (roles=${roles.joinToString(",")})")
+            Result.Ok(dtoList.size)
+        } catch (e: Exception) {
+            Result.Err(com.example.core.Errors.fromException(e))
+        }
+    }
+
+    /**
+     * T-039 / HOMEWORK-103: pull the canonical `homework` table (migration
+     * 0029) so homework created on the DESKTOP (or by another device)
+     * appears on Android. Batch upsert into Room. Server RLS scopes the
+     * visible rows (tenant staff); the 15-min SyncWorker cycle remains the
+     * freshness window.
+     */
+    suspend fun pullHomework(): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            val dtoList = provider.postgrest.from("homework").select { limit(2000) }
+                .decodeList<HomeworkDto>()
+            db.homeworkDao().upsertAll(dtoList.map { it.toEntity() })
+            // Legacy local rows carry the pre-T-024 "hwk-" id prefix that could
+            // never reach the server; their post-fix push writes the bare-UUID
+            // form. Delete the legacy local copy of each pulled row so the
+            // same assignment does not appear twice after the pull.
+            dtoList.forEach { db.homeworkDao().deleteLegacyPrefixedCopy(it.id) }
+            Log.i("PullSync", "Pulled ${dtoList.size} homework rows")
+            Result.Ok(dtoList.size)
+        } catch (e: Exception) {
+            Result.Err(com.example.core.Errors.fromException(e))
+        }
+    }
+
+    /**
+     * T-039 / HOMEWORK-103: pull the canonical `attendance_records` table
+     * (migration 0041) — desktop roll calls become visible on Android.
+     */
+    suspend fun pullAttendance(): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            val dtoList = provider.postgrest.from("attendance_records").select { limit(2000) }
+                .decodeList<AttendanceRecordDto>()
+            db.attendanceDao().upsertAll(dtoList.map { it.toEntity() })
+            Log.i("PullSync", "Pulled ${dtoList.size} attendance records")
+            Result.Ok(dtoList.size)
+        } catch (e: Exception) {
+            Result.Err(com.example.core.Errors.fromException(e))
+        }
+    }
+
+    /**
+     * T-039 / HOMEWORK-103: pull the canonical `assessments` rows (0041
+     * per-student shape) — desktop-entered grades become visible on Android.
+     */
+    suspend fun pullAssessments(): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            val dtoList = provider.postgrest.from("assessments").select { limit(2000) }
+                .decodeList<AssessmentDto>()
+            db.assessmentDao().upsertAll(dtoList.map { it.toEntity() })
+            Log.i("PullSync", "Pulled ${dtoList.size} assessments")
             Result.Ok(dtoList.size)
         } catch (e: Exception) {
             Result.Err(com.example.core.Errors.fromException(e))
@@ -276,7 +380,8 @@ class PullSyncRepository @Inject constructor(
             val dtoList = provider.postgrest.from("workflow_runs")
                 .select { limit(50) }
                 .decodeList<WorkflowRunDto>()
-            for (dto in dtoList) db.workflowRunDao().upsert(dto.toEntity())
+            // T-039: batch upsert.
+            db.workflowRunDao().upsertAll(dtoList.map { it.toEntity() })
             Log.i("PullSync", "Pulled ${dtoList.size} workflow runs")
             Result.Ok(dtoList.size)
         } catch (e: Exception) {
@@ -318,7 +423,13 @@ class PullSyncRepository @Inject constructor(
         val dep = (pullDepartments() as? Result.Ok)?.value ?: 0
         val notif = (pullNotifications() as? Result.Ok)?.value ?: 0
         val wfr = (pullWorkflowRuns() as? Result.Ok)?.value ?: 0
-        val total = p + s + pay + led + cls + sub + ins + per + dep + notif + wfr
+        // T-039 / HOMEWORK-103: the academic cluster — pull homework,
+        // attendance and assessments so desktop/other-device writes become
+        // visible here (bidirectional sync completes).
+        val hwk = (pullHomework() as? Result.Ok)?.value ?: 0
+        val att = (pullAttendance() as? Result.Ok)?.value ?: 0
+        val asm = (pullAssessments() as? Result.Ok)?.value ?: 0
+        val total = p + s + pay + led + cls + sub + ins + per + dep + notif + wfr + hwk + att + asm
 
         Log.i("PullSync", "=== PULL COMPLETE: Total $total records synchronized ===")
         return Result.Ok(total)
@@ -327,5 +438,15 @@ class PullSyncRepository @Inject constructor(
     companion object {
         /** Dedup window — one real pullAll per 10 s however many call sites fire. */
         const val PULL_DEDUP_WINDOW_MS: Long = 10_000L
+
+        /**
+         * T-039 / NOTIF-105 — the roles that may see tenant broadcasts
+         * (target_user_id NULL + target_role NULL). Mirrors the
+         * `notifications_select` RLS policy (migration 0019):
+         * `has_any_role(array['super_admin', 'financial_officer',
+         * 'support_staff'])`. If 0019 ever changes, this set must follow.
+         */
+        val STAFF_BROADCAST_ROLES: Set<String> =
+            setOf("super_admin", "financial_officer", "support_staff")
     }
 }

@@ -53,6 +53,14 @@ class DatabaseMigrationDisciplineT046Test {
     private lateinit var context: Context
     private val dbName = "t046-discipline-test.db"
 
+    /**
+     * The compiled @Database version. Every schema bump (T-039 → 13, …)
+     * must CONSCIOUSLY update this constant — that is the discipline this
+     * suite enforces (a bumped version without its migration registered in
+     * [buildDb] + DatabaseModule fails loud tests, never silently).
+     */
+    private val compiledVersion = 13
+
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
@@ -78,6 +86,7 @@ class DatabaseMigrationDisciplineT046Test {
             ElImtiyazDatabase.MIGRATION_9_10,
             ElImtiyazDatabase.MIGRATION_10_11,
             ElImtiyazDatabase.MIGRATION_11_12,
+            ElImtiyazDatabase.MIGRATION_12_13,
         )
         .allowMainThreadQueries()
         .build()
@@ -85,9 +94,9 @@ class DatabaseMigrationDisciplineT046Test {
     @Test
     fun `fresh open - write - reopen preserves data (no silent reset)`() {
         val db = buildDb()
-        db.openHelper.writableDatabase // force open at the compiled version (12)
+        db.openHelper.writableDatabase // force open at the compiled version
         val version = db.openHelper.readableDatabase.version
-        assertEquals("the compiled @Database version must stay 12", 12, version)
+        assertEquals("the compiled @Database version must stay $compiledVersion", compiledVersion, version)
 
         val dao = db.parentDao()
         val now = java.time.Instant.now().toString()
@@ -114,9 +123,10 @@ class DatabaseMigrationDisciplineT046Test {
     @Test
     fun `unresolvable version transition fails LOUDLY instead of wiping (fallback gone)`() {
         // Simulate a future install whose DB file is at a NEWER version than
-        // the app knows (version 13 > compiled 12) with no registered path.
+        // the app knows (compiledVersion + 1 > compiledVersion) with no
+        // registered path.
         val raw = context.openOrCreateDatabase(dbName, Context.MODE_PRIVATE, null)
-        raw.version = 13
+        raw.version = compiledVersion + 1
         raw.close()
 
         val db = buildDb()
@@ -144,7 +154,7 @@ class DatabaseMigrationDisciplineT046Test {
         for (m in listOf(
             "MIGRATION_3_4", "MIGRATION_4_5", "MIGRATION_5_6", "MIGRATION_6_7",
             "MIGRATION_7_8", "MIGRATION_8_9", "MIGRATION_9_10", "MIGRATION_10_11",
-            "MIGRATION_11_12",
+            "MIGRATION_11_12", "MIGRATION_12_13",
         )) {
             assertTrue(
                 "the explicit migration chain must keep $m registered",

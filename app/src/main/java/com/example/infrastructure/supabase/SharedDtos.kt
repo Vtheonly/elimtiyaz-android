@@ -184,10 +184,18 @@ data class AssessmentDto(
     @SerialName("weight") val weight: Double = 1.0,
     @SerialName("coefficient") val coefficient: Double = 1.0,
     @SerialName("scheduled_at") val scheduledAt: String? = null,
+    // T-039 / HOMEWORK-103: the canonical pull shape (migration 0041) — the
+    // per-student assessment row with the year + component scores.
+    @SerialName("academic_year") val academicYear: String? = null,
     @SerialName("devoir1") val devoir1: Double? = null,
     @SerialName("devoir2") val devoir2: Double? = null,
     @SerialName("examen") val examen: Double? = null,
     @SerialName("subject_average") val subjectAverage: Double? = null,
+    @SerialName("coefficient_devoir1") val coefficientDevoir1: Double? = null,
+    @SerialName("coefficient_devoir2") val coefficientDevoir2: Double? = null,
+    @SerialName("coefficient_examen") val coefficientExamen: Double? = null,
+    @SerialName("entered_by") val enteredBy: String? = null,
+    @SerialName("entered_at") val enteredAt: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
 )
@@ -238,6 +246,11 @@ data class HomeworkDto(
     @SerialName("description") val description: String,
     @SerialName("due_date") val dueDate: String,
     @SerialName("academic_year") val academicYear: String? = null,
+    // T-039 / HOMEWORK-103: attachments (jsonb array) + pushed_at exist on
+    // the canonical table (migration 0029) — decode so a pulled row round-
+    // trips into the local entity without losing fields.
+    @SerialName("attachments") val attachments: kotlinx.serialization.json.JsonElement? = null,
+    @SerialName("pushed_at") val pushedAt: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
 )
 
@@ -415,6 +428,10 @@ data class NotificationDto(
     @SerialName("priority") val priority: String = "medium",
     @SerialName("source") val source: String = "system",
     @SerialName("target_user_id") val targetUserId: String? = null,
+    // T-039 / NOTIF-105: role broadcasts carry the role in target_role
+    // (server column, migration 0013). Decoded so the local cache can evict
+    // role-broadcasts that no longer match the signed-in user's role.
+    @SerialName("target_role") val targetRole: String? = null,
     @SerialName("is_read") val isRead: Boolean = false,
     @SerialName("triggered_at") val triggeredAt: String? = null,
     @SerialName("created_at") val createdAt: String? = null,

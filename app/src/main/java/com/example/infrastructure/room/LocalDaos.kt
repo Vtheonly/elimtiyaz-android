@@ -268,8 +268,25 @@ interface HomeworkDao {
     @Query("SELECT * FROM homework ORDER BY createdAt DESC LIMIT 100")
     fun observeAll(): Flow<List<HomeworkEntity>>
 
+    @Query("SELECT * FROM homework WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): HomeworkEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: HomeworkEntity)
+
+    // T-039 / HOMEWORK-103: batch upsert for the pull path (single Room
+    // round-trip instead of O(N)).
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(rows: List<HomeworkEntity>)
+
+    /**
+     * T-039 / HOMEWORK-103 + T-024: legacy local rows created before the
+     * bare-UUID fix carry ids like "hwk-{uuid}"; the same logical row pulled
+     * from the server has the bare uuid. Delete the legacy copy so the pull
+     * does not leave a duplicate.
+     */
+    @Query("DELETE FROM homework WHERE id = 'hwk-' || :serverId")
+    suspend fun deleteLegacyPrefixedCopy(serverId: String)
 }
 
 // ─── Payment DAO ─────────────────────────────────────────────────────────────
@@ -308,6 +325,10 @@ interface PaymentDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: PaymentEntity)
+
+    // T-039: batch upsert for the pull path (single Room round-trip).
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(rows: List<PaymentEntity>)
 
     @Update
     suspend fun update(row: PaymentEntity)
@@ -512,11 +533,35 @@ interface NotificationDao {
     @Query("SELECT COUNT(*) FROM notifications WHERE isRead = 0")
     fun observeUnreadCount(): Flow<Int>
 
+    // T-039: snapshot read for tests + non-flow callers.
+    @Query("SELECT * FROM notifications ORDER BY createdAt DESC LIMIT 200")
+    suspend fun listAll(): List<NotificationEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<NotificationEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: NotificationEntity)
+
+    /**
+     * T-039 / NOTIF-105 — evict rows the signed-in user can no longer see.
+     * Mirrors the server's `notifications_select` RLS policy (migration
+     * 0019) branch-for-branch; a row SURVIVES iff it is visible:
+     *   - direct rows targeted to THIS user (targetUserId = :userId), or
+     *   - role-broadcasts for ANY role the user holds (:roles — resolved
+     *     fresh from current_user_roles()), or
+     *   - tenant broadcasts (NULL/NULL) when the user holds one of the
+     *     staff trio (0019: super_admin / financial_officer /
+     *     support_staff — passed as :canSeeTenantBroadcasts = 1|0).
+     */
+    @Query(
+        "DELETE FROM notifications WHERE NOT (" +
+            "(targetUserId IS NOT NULL AND targetUserId = :userId)" +
+            " OR (targetRole IS NOT NULL AND targetRole IN (:roles))" +
+            " OR (:canSeeTenantBroadcasts = 1 AND targetUserId IS NULL AND targetRole IS NULL)" +
+            ")",
+    )
+    suspend fun evictNotVisibleTo(userId: String, roles: List<String>, canSeeTenantBroadcasts: Int)
 
     @Query("UPDATE notifications SET isRead = 1 WHERE id = :id")
     suspend fun markRead(id: String)
@@ -641,4 +686,8 @@ interface WorkflowRunDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: WorkflowRunEntity)
+
+    // T-039: batch upsert for the pull path (single Room round-trip).
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(rows: List<WorkflowRunEntity>)
 }

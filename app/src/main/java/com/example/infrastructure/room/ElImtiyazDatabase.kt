@@ -51,7 +51,9 @@ import androidx.room.RoomDatabase
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
     ],
-    version = 12,
+    version = 13,
+    // T-046-gap (session 18): flipped to true (with the ksp schemaLocation
+    // arg + committed schemas/) in the schema-export follow-up commit.
     exportSchema = false,
 )
 abstract class ElImtiyazDatabase : RoomDatabase() {
@@ -403,6 +405,25 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
             override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE workflow_runs ADD COLUMN trigger TEXT NOT NULL DEFAULT 'manual'"
+                )
+            }
+        }
+
+        /**
+         * Room migration v12 → v13 (T-039 / NOTIF-105).
+         *
+         * Adds the nullable `targetRole` TEXT column to `notifications` so
+         * role-broadcast rows (server: target_user_id IS NULL + target_role
+         * set) record WHICH role they targeted. The pull layer uses it to
+         * evict stale role-broadcasts from the local cache when the signed-in
+         * user's role changes (the NOTIF-105 stale-cache defect). Nullable,
+         * no default — pre-existing rows (direct/tenant broadcasts) keep
+         * NULL and remain visible to everyone, exactly as before.
+         */
+        val MIGRATION_12_13 = object : androidx.room.migration.Migration(12, 13) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE notifications ADD COLUMN targetRole TEXT"
                 )
             }
         }

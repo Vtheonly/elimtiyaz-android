@@ -244,6 +244,8 @@ fun NotificationDto.toEntity(): com.example.infrastructure.room.NotificationEnti
     entityType = null,
     entityId = null,
     targetUserId = targetUserId,
+    // T-039 / NOTIF-105: preserve the broadcast role so eviction works.
+    targetRole = targetRole,
     isRead = isRead,
     createdAt = createdAt ?: "",
 )
@@ -326,3 +328,84 @@ fun LedgerEntryDto.toEntity(): com.example.infrastructure.room.LedgerEntryEntity
 )
 
 
+
+// ─── T-039 / HOMEWORK-103 — academic pull mappers (canonical shapes) ─────────
+//
+// The pull layer historically fetched ONLY the financial cluster
+// (parents/students/payments/ledger/installments + org tables). The academic
+// tables (homework migration 0029, attendance_records 0041, assessments
+// 0041) were never pulled — Android could never see homework/attendance/
+// grades created on the desktop. These mappers feed the new pull functions
+// in PullSyncRepository (pullHomework / pullAttendance / pullAssessments).
+
+/** Convert a [HomeworkDto] (canonical `homework` row) to a [HomeworkEntity]. */
+fun HomeworkDto.toEntity(): com.example.infrastructure.room.HomeworkEntity = com.example.infrastructure.room.HomeworkEntity(
+    id = id,
+    tenantId = tenantId ?: "",
+    classId = classId,
+    subjectId = subjectId,
+    subjectName = subjectName ?: "",
+    teacherId = teacherId ?: "",
+    teacherName = teacherName ?: "",
+    title = title,
+    description = description,
+    dueDate = dueDate,
+    // jsonb array → the local JSON-string convention ("[]" when absent).
+    attachmentsJson = attachments?.let { el ->
+        runCatching {
+            kotlinx.serialization.json.Json.encodeToString(
+                kotlinx.serialization.json.JsonElement.serializer(),
+                el,
+            )
+        }.getOrNull()
+    } ?: "[]",
+    createdAt = createdAt ?: "",
+    academicYear = academicYear,
+    pushedAt = pushedAt,
+)
+
+/** Convert an [AttendanceRecordDto] (canonical `attendance_records` row) to an [AttendanceEntity]. */
+fun AttendanceRecordDto.toEntity(): com.example.infrastructure.room.AttendanceEntity = com.example.infrastructure.room.AttendanceEntity(
+    id = id,
+    tenantId = tenantId ?: "",
+    studentId = studentId,
+    classId = classId,
+    // 0041 column is record_date; the legacy `date` alias is kept as fallback.
+    date = recordDate ?: date ?: "",
+    session = session,
+    status = status,
+    arrivalTime = arrivalTime,
+    note = note,
+    recordedBy = recordedBy ?: "",
+    // The server row carries no recorded-by NAME — the local column stays
+    // empty for pulled rows (the local create path fills it with the actor).
+    recordedBy_name = "",
+    recordedAt = createdAt ?: "",
+)
+
+/** Convert an [AssessmentDto] (canonical 0041 assessments row) to an [AssessmentEntity]. */
+fun AssessmentDto.toEntity(): com.example.infrastructure.room.AssessmentEntity {
+    // WIRE: the DB column is INTEGER 1|2|3; the local domain uses "T1"|"T2"|"T3"
+    // (the same inverse of pushGrade's T?→int mapping).
+    val termWire = "T" + term.coerceIn(1, 3)
+    return com.example.infrastructure.room.AssessmentEntity(
+        id = id,
+        tenantId = tenantId ?: "",
+        studentId = studentId ?: "",
+        subjectId = subjectId ?: "",
+        classId = classId ?: "",
+        term = termWire,
+        academicYear = academicYear ?: "",
+        devoir1 = devoir1,
+        devoir2 = devoir2,
+        examen = examen,
+        coefficient = coefficient,
+        isExtracurricular = false,
+        subjectAverage = subjectAverage,
+        enteredBy = enteredBy ?: "",
+        enteredAt = enteredAt ?: createdAt ?: "",
+        coefficientDevoir1 = coefficientDevoir1 ?: 1.0,
+        coefficientDevoir2 = coefficientDevoir2 ?: 1.0,
+        coefficientExamen = coefficientExamen ?: 2.0,
+    )
+}
