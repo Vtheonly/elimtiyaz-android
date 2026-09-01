@@ -52,9 +52,11 @@ import androidx.room.RoomDatabase
         WorkflowRunEntity::class,
     ],
     version = 13,
-    // T-046-gap (session 18): flipped to true (with the ksp schemaLocation
-    // arg + committed schemas/) in the schema-export follow-up commit.
-    exportSchema = false,
+    // T-046-gap (session 18): schemas are exported from now on (ksp arg
+    // room.schemaLocation → app/schemas/) so MigrationTestHelper upgrade
+    // tests can pin every future schema bump. 12.json was backfilled from
+    // the T-024 commit's entity set; 13.json is the first live export.
+    exportSchema = true,
 )
 abstract class ElImtiyazDatabase : RoomDatabase() {
     // ── Original cache DAOs ──

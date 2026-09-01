@@ -78,6 +78,16 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+  sourceSets {
+    // T-046-gap: the exported Room schema history (app/schemas/*.json) must
+    // reach Robolectric's asset manager. Robolectric resolves assets from
+    // android_merged_assets (build/intermediates/assets/debug/mergeDebugAssets
+    // — see generateDebugUnitTestConfig), which merges the MAIN + DEBUG
+    // sourceSets, NOT the test sourceSet. Scoping to `debug` keeps the
+    // RELEASE APK free of test fixtures while letting MigrationTestHelper
+    // createDatabase(name, N) from the committed history.
+    getByName("debug").assets.srcDir("$projectDir/schemas")
+  }
   packaging {
     resources {
       excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -92,6 +102,14 @@ android {
 secrets {
   propertiesFileName = ".env"
   defaultPropertiesFileName = ".env.example"
+}
+
+// T-046-gap: Room schema export location (companion to exportSchema=true on
+// ElImtiyazDatabase). Every schema bump lands as app/schemas/<db>/<N>.json
+// and MUST be committed — MigrationTestHelper upgrade tests depend on the
+// committed history.
+ksp {
+  arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
@@ -195,6 +213,8 @@ dependencies {
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.robolectric)
+  // T-046-gap: MigrationTestHelper for schema-upgrade data-preservation tests.
+  testImplementation(libs.androidx.room.testing)
   // FIX (broken screenshot test): AppNavHost uses hiltViewModel() — the test
   // needs the Hilt test environment or it crashes with
   // "GeneratedComponentManager" IllegalStateException.
