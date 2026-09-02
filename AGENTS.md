@@ -18,8 +18,10 @@ app/src/main/java/com/example/
 ├── infrastructure/
 │   ├── local/         # Local*Repository implementations (Room-first, sync-enqueued writes)
 │   ├── room/          # Room DB (v11), entities, DAOs  ⚠ two parallel layers (legacy cache + Local*) — DUP-005
-│   ├── supabase/      # SupabaseClientProvider, DTOs, mappers
-│   ├── sync/          # SyncService, SyncQueueDispatcher, PullSyncRepository, OnlineDetector, SyncSupport
+│   ├── supabase/      # SupabaseClientProvider, DTOs, mappers, SupabaseRealtimeEventSource (T-069)
+│   ├── sync/          # SyncService, SyncQueueDispatcher, PullSyncRepository, OnlineDetector, SyncSupport,
+│   │                  #   RealtimeSyncManager (T-069: postgres-change subscriptions → granular pulls;
+│   │                  #   session-reactive; the 15-min cycle is the fallback)
 │   └── notifications/ # FCM service + registrar
 ├── di/                # Hilt modules (RepositoryModule binds EVERYTHING to Local*)  ⚠ ARCH-003
 ├── session/           # SessionManager

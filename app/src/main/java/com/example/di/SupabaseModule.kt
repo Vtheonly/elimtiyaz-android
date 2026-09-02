@@ -50,4 +50,26 @@ object SupabaseModule {
     fun provideSupabaseClient(
         provider: com.example.infrastructure.supabase.SupabaseClientProvider,
     ): SupabaseClient = provider.client
+
+    // ── T-069 / REALTIME-104: realtime freshness wiring ─────────────────────
+    // The single production RealtimeEventSource, the OnlineGate adapter, and
+    // the RealtimePullTarget binding (PullSyncRepository implements the seam —
+    // Hilt needs the interface→impl binding explicit). RealtimeSyncManager
+    // consumes these; unit tests provide fakes directly.
+
+    @Provides @Singleton
+    fun provideRealtimePullTarget(
+        repo: com.example.infrastructure.sync.PullSyncRepository,
+    ): com.example.infrastructure.sync.RealtimePullTarget = repo
+
+    @Provides @Singleton
+    fun provideRealtimeEventSource(
+        source: com.example.infrastructure.supabase.SupabaseRealtimeEventSource,
+    ): com.example.infrastructure.sync.RealtimeEventSource = source
+
+    @Provides @Singleton
+    fun provideOnlineGate(
+        detector: com.example.infrastructure.sync.OnlineDetector,
+    ): com.example.infrastructure.sync.OnlineGate =
+        com.example.infrastructure.sync.OnlineGate { detector.isOnline() }
 }

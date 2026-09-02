@@ -35,7 +35,13 @@ class PullSyncRepository @Inject constructor(
     private val db: ElImtiyazDatabase,
     private val provider: SupabaseClientProvider,
     private val sessionManager: SessionManager,
-) {
+) : RealtimePullTarget {
+    // T-069 / REALTIME-104: this class implements the RealtimePullTarget
+    // seam so RealtimeSyncManager can trigger the granular pulls WITHOUT
+    // constructing this heavyweight repository (Room + Supabase client) in
+    // unit tests. The four overrides below are the methods the manager's
+    // routing map consumes — the interface is a SEAM, not a second
+    // implementation.
     /**
      * WEAK-010 dedup: pullAll historically fired from 6 call sites (startup,
      * navigation, session change, roster refresh, SyncWorker — TWICE per tick
@@ -131,7 +137,10 @@ class PullSyncRepository @Inject constructor(
         }
     }
 
-    suspend fun pullPayments(sinceIso: String? = null): Result<Int> = withContext(Dispatchers.IO) {
+    // Override of the RealtimePullTarget seam — the `sinceIso` default value
+    // lives on the interface (Kotlin forbids defaults on overrides); callers
+    // without arguments keep compiling via the inherited default.
+    override suspend fun pullPayments(sinceIso: String?): Result<Int> = withContext(Dispatchers.IO) {
         // T-051/WEAK-012: no session tenant (signed out / global admin without
         // a tenant choice) -> pull NOTHING. The old fallback pulled the DEMO
         // tenant's rows into the local store.
@@ -219,7 +228,7 @@ class PullSyncRepository @Inject constructor(
         }
     }
 
-    suspend fun pullInstallments(): Result<Int> = withContext(Dispatchers.IO) {
+    override suspend fun pullInstallments(): Result<Int> = withContext(Dispatchers.IO) {
         try {
             val dtoList = provider.postgrest.from("installments").select { limit(2000) }.decodeList<InstallmentDto>()
             // T-039: batch upsert.
@@ -276,7 +285,7 @@ class PullSyncRepository @Inject constructor(
      * teacher+financial_officer user would lose every financial_officer
      * broadcast from the local cache on eviction.
      */
-    suspend fun pullNotifications(): Result<Int> = withContext(Dispatchers.IO) {
+    override suspend fun pullNotifications(): Result<Int> = withContext(Dispatchers.IO) {
         try {
             val session = sessionManager.current()
                 ?: return@withContext Result.Ok(0) // signed out — pull nothing (defensive; SyncWorker gates on session)
@@ -320,7 +329,7 @@ class PullSyncRepository @Inject constructor(
      * visible rows (tenant staff); the 15-min SyncWorker cycle remains the
      * freshness window.
      */
-    suspend fun pullHomework(): Result<Int> = withContext(Dispatchers.IO) {
+    override suspend fun pullHomework(): Result<Int> = withContext(Dispatchers.IO) {
         try {
             val dtoList = provider.postgrest.from("homework").select { limit(2000) }
                 .decodeList<HomeworkDto>()

@@ -64,6 +64,10 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
     @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var fcmTokenRegistrar: com.example.infrastructure.notifications.FcmTokenRegistrar
 
+    // T-069 / REALTIME-104: push-based freshness — subscribes to realtime
+    // postgres-changes on the canonical tables when a session is active.
+    @Inject lateinit var realtimeSyncManager: com.example.infrastructure.sync.RealtimeSyncManager
+
     /** Long-running scope for background sync and observers. */
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -95,6 +99,21 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
         fetchAndRegisterFcmTokenOnStartup()
         observeSessionForFcmToken()
         triggerInitialSupabasePull()
+        startRealtimeSubscriptions()
+    }
+
+    /**
+     * T-069 / REALTIME-104: start the realtime freshness backbone. The
+     * manager observes the session itself — subscriptions activate on
+     * sign-in and deactivate on sign-out (the same reactive pattern as the
+     * FCM topic observer above). The 15-minute periodic sync REMAINS the
+     * fallback (dead websocket, missed events, background kills).
+     */
+    private fun startRealtimeSubscriptions() {
+        runCatching { realtimeSyncManager.start() }
+            .onFailure { e ->
+                android.util.Log.w("ElImtiyazApp", "Realtime sync manager failed to start", e)
+            }
     }
 
     private fun triggerInitialSupabasePull() {
