@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.Payments
@@ -29,6 +30,7 @@ internal fun DashboardQuickActionsRow(
     onNavigateToFinancials: () -> Unit,
     onNavigateToAcademics: () -> Unit,
     onNavigateToDebtDashboard: () -> Unit,
+    onNavigateToChat: () -> Unit = {},
 ) {
     ElSectionHeader(
         title = "Actions Rapides",
@@ -82,6 +84,15 @@ internal fun DashboardQuickActionsRow(
                 variant = ElButtonVariant.OUTLINED,
                 size = ElButtonSize.MEDIUM,
                 icon = Icons.Default.Assessment,
+            )
+        }
+        item {
+            ElButton(
+                text = "Messagerie",
+                onClick = onNavigateToChat,
+                variant = ElButtonVariant.OUTLINED,
+                size = ElButtonSize.MEDIUM,
+                icon = Icons.Default.Forum,
             )
         }
     }

@@ -41,6 +41,15 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- PUSH-101 (T-127): FCM notification taps — the canonical EF's
+                 android.notification.click_action carries this action name
+                 (hub EF, T-126). Tapping a notification opens MainActivity
+                 with the deep-link extras (type + route) instead of falling
+                 back to the launcher default. -->
+            <intent-filter>
+                <action android:name="${applicationId}.NOTIFICATION_CLICK" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <service

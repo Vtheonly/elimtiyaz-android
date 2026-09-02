@@ -9,6 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.onSubscription
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -143,14 +144,18 @@ class RealtimeSyncT069Test {
     // ── 1. Reactive lifecycle ────────────────────────────────────────────────
 
     @Test
-    fun `sign-in activates subscriptions on the four canonical tables`() {
+    fun `sign-in activates subscriptions on the canonical tables including chat since T-102`() {
         manager.start()
         signIn()
         waitForSubscriptions()
 
         assertEquals(
-            "The manager subscribes to exactly the website's table set (chat_messages lands with T-102)",
-            setOf("payments", "installments", "notifications", "homework"),
+            "The manager subscribes to the website's table set + the chat tables " +
+                "(T-102-follow-up: chat_channels + chat_messages, online-only v1 — no Room pulls)",
+            setOf(
+                "payments", "installments", "notifications", "homework",
+                "chat_channels", "chat_messages",
+            ),
             manager.activeTables,
         )
     }
@@ -174,7 +179,9 @@ class RealtimeSyncT069Test {
         signIn()
         waitForSubscriptions()
 
-        assertEquals(4, source.subscribed.size)
+        // 6 since T-102-follow-up (chat_channels + chat_messages joined
+        // the website-parity set)
+        assertEquals(6, source.subscribed.size)
     }
 
     @Test
@@ -277,5 +284,47 @@ class RealtimeSyncT069Test {
         val scheduler = File("src/main/java/com/example/infrastructure/sync/SyncScheduler.kt").readText()
         assertTrue(worker.contains("syncService.drainPending()"))
         assertTrue(scheduler.contains("15, TimeUnit.MINUTES"))
+    }
+
+    // ── T-102-follow-up: chat event bus ──────────────────────────────────────
+
+    @Test
+    fun `a chat_messages event emits on tableEvents and triggers NO Room pull`() {
+        manager.start()
+        signIn()
+        waitForSubscriptions()
+
+        val seen = java.util.concurrent.ConcurrentLinkedQueue<String>()
+        val collector = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined).launch {
+            manager.tableEvents.collect { seen.add(it) }
+        }
+        try {
+            kotlinx.coroutines.runBlocking { source.emit("chat_messages") }
+            awaitUntil { seen.contains("chat_messages") }
+            assertEquals(listOf("chat_messages"), seen.toList())
+            // online-only chat: the event must NOT have triggered any Room pull
+            Thread.sleep(250) // > debounce
+            assertEquals(0, pulls.payments.get() + pulls.installments.get() + pulls.notifications.get() + pulls.homework.get())
+        } finally {
+            collector.cancel()
+        }
+    }
+
+    @Test
+    fun `a chat_channels event also emits on tableEvents`() {
+        manager.start()
+        signIn()
+        waitForSubscriptions()
+
+        val seen = java.util.concurrent.ConcurrentLinkedQueue<String>()
+        val collector = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined).launch {
+            manager.tableEvents.collect { seen.add(it) }
+        }
+        try {
+            kotlinx.coroutines.runBlocking { source.emit("chat_channels") }
+            awaitUntil { seen.contains("chat_channels") }
+        } finally {
+            collector.cancel()
+        }
     }
 }

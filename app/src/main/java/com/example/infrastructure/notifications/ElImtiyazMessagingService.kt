@@ -1,9 +1,13 @@
 package com.example.infrastructure.notifications
 
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import androidx.core.app.NotificationCompat
+import com.example.BuildConfig
 import com.example.ElImtiyazApplication
+import com.example.MainActivity
 import com.example.R
 import com.example.core.Result
 import com.example.infrastructure.supabase.NetworkTimeouts
@@ -32,6 +36,17 @@ import kotlinx.serialization.json.put
  *   high   → CHANNEL_HIGH (default importance)
  *   medium → CHANNEL_MEDIUM (low importance)
  *   low    → CHANNEL_LOW (minimum importance)
+ *
+ * PUSH-101 fix (T-127, 2026-09-02): the canonical EF (hub, T-126) now
+ * propagates `priority` + `type` into the FCM `data` field, and
+ * `android.notification.click_action` carries the intent action name
+ * [NOTIFICATION_CLICK_ACTION] (matched by the manifest intent-filter).
+ * The receiver resolves content with fallbacks in BOTH directions
+ * (`data` first — the canonical sender's routing fields — then the
+ * standard `notification` payload for title/body), and taps are delivered
+ * to [MainActivity] as a deep-link intent carrying the notification type
+ * + optional route, published to [NotificationDeepLink] so the bottom-nav
+ * host can select the matching hub tab.
  */
 @AndroidEntryPoint
 class ElImtiyazMessagingService : FirebaseMessagingService() {
@@ -39,29 +54,36 @@ class ElImtiyazMessagingService : FirebaseMessagingService() {
     @Inject lateinit var tokenRegistrar: FcmTokenRegistrar
 
     override fun onMessageReceived(message: RemoteMessage) {
-        val data = message.data
-        val title = data["title"] ?: message.notification?.title ?: "El-Imtiyaz"
-        val body = data["body"] ?: message.notification?.body ?: ""
-        val priority = data["priority"] ?: "medium"
-        val type = data["type"] ?: "system"
+        val content = resolveNotificationContent(
+            data = message.data,
+            notificationTitle = message.notification?.title,
+            notificationBody = message.notification?.body,
+        )
 
-        val channelId = when (priority) {
-            "urgent" -> ElImtiyazApplication.CHANNEL_URGENT
-            "high"   -> ElImtiyazApplication.CHANNEL_HIGH
-            "low"    -> ElImtiyazApplication.CHANNEL_LOW
-            else     -> ElImtiyazApplication.CHANNEL_MEDIUM
+        // Deep-link tap intent: the SAME action the EF sets as
+        // android.notification.click_action (so background taps — handled
+        // by the system from the notification payload — and foreground
+        // taps — handled by THIS contentIntent — open MainActivity
+        // identically, with the routing extras attached).
+        val tapIntent = Intent(this, MainActivity::class.java).apply {
+            action = NOTIFICATION_CLICK_ACTION
+            putExtra(EXTRA_DEEPLINK_TYPE, content.type)
+            message.data["url"]?.let { putExtra(EXTRA_DEEPLINK_ROUTE, it) }
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
+        val contentIntent = PendingIntent.getActivity(
+            this,
+            content.type.hashCode(),
+            tapIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 
-        val notification = NotificationCompat.Builder(this, channelId)
+        val notification = NotificationCompat.Builder(this, channelFor(content.priority))
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(title)
-            .setContentText(body)
-            .setPriority(when (priority) {
-                "urgent" -> NotificationCompat.PRIORITY_HIGH
-                "high"   -> NotificationCompat.PRIORITY_DEFAULT
-                "low"    -> NotificationCompat.PRIORITY_MIN
-                else     -> NotificationCompat.PRIORITY_LOW
-            })
+            .setContentTitle(content.title)
+            .setContentText(content.body)
+            .setPriority(importanceFor(content.priority))
+            .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .build()
 
@@ -76,6 +98,61 @@ class ElImtiyazMessagingService : FirebaseMessagingService() {
         }
     }
 }
+
+/**
+ * PUSH-101 (T-127) — pure notification-content resolution, extracted for
+ * unit testing. FCM HTTP v1 delivers `title`/`body` in the standard
+ * `notification` payload; the canonical EF additionally propagates the
+ * routing fields (`priority`, `type`) into `data`. `data` wins for
+ * title/body too (legacy/foreign senders may put them there), then the
+ * `notification` payload, then defaults.
+ *
+ * The `priority` fallback is "high" — the canonical EF's own default
+ * (T-126) — so a payload missing the field still routes to the same
+ * channel the EF would have chosen.
+ */
+data class ResolvedNotification(
+    val title: String,
+    val body: String,
+    val priority: String,
+    val type: String,
+)
+
+fun resolveNotificationContent(
+    data: Map<String, String>,
+    notificationTitle: String?,
+    notificationBody: String?,
+): ResolvedNotification = ResolvedNotification(
+    title = data["title"] ?: notificationTitle ?: "El-Imtiyaz",
+    body = data["body"] ?: notificationBody ?: "",
+    priority = data["priority"] ?: "high",
+    type = data["type"] ?: "system",
+)
+
+/** Maps the resolved priority to the application's notification channel. */
+fun channelFor(priority: String): String = when (priority) {
+    "urgent" -> ElImtiyazApplication.CHANNEL_URGENT
+    "high"   -> ElImtiyazApplication.CHANNEL_HIGH
+    "low"    -> ElImtiyazApplication.CHANNEL_LOW
+    else     -> ElImtiyazApplication.CHANNEL_MEDIUM
+}
+
+/** Maps the resolved priority to a NotificationCompat priority constant. */
+fun importanceFor(priority: String): Int = when (priority) {
+    "urgent" -> NotificationCompat.PRIORITY_HIGH
+    "high"   -> NotificationCompat.PRIORITY_DEFAULT
+    "low"    -> NotificationCompat.PRIORITY_MIN
+    else     -> NotificationCompat.PRIORITY_LOW
+}
+
+/**
+ * PUSH-101 deep-link constants (T-127). The action string MUST match the
+ * manifest's `${applicationId}.NOTIFICATION_CLICK` intent-filter AND the
+ * EF's `androidClickAction` (hub, T-126).
+ */
+const val NOTIFICATION_CLICK_ACTION: String = BuildConfig.APPLICATION_ID + ".NOTIFICATION_CLICK"
+const val EXTRA_DEEPLINK_TYPE = "deeplink_notification_type"
+const val EXTRA_DEEPLINK_ROUTE = "deeplink_route"
 
 /**
  * Registers the FCM token with the backend so push notifications can be

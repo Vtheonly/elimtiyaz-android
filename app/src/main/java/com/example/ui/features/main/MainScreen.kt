@@ -17,6 +17,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -30,6 +31,7 @@ import com.example.core.Permission
 import com.example.core.Role
 import com.example.core.Session
 import com.example.domain.repository.AuthRepository
+import com.example.infrastructure.notifications.NotificationDeepLink
 import com.example.session.SessionManager
 import com.example.ui.components.ModernBottomNavBar
 import com.example.ui.features.academics.AcademicsHubScreen
@@ -67,6 +69,31 @@ data class HubTab(
     val requiresPermission: Permission?,
     val requiresRole: Set<Role>? = null,
 )
+
+/**
+ * PUSH-101 (T-127) — maps a notification deep-link type to the index of the
+ * matching hub tab WITHIN the visible (permission-filtered) tab list.
+ *
+ * Mapping by the hub's REQUIRED PERMISSION (a stable identifier), never by
+ * label text: financial notifications open the Finances hub
+ * (VIEW_FINANCIALS), academic notifications open the Pédagogie hub
+ * (VIEW_ACADEMICS), everything else opens the first visible tab. When the
+ * matching hub is not visible for the current role (no permission), the
+ * deep link degrades to the first tab — the RBAC matrix stays authoritative.
+ *
+ * Deeper routing (e.g. PaymentDetail with the payment id) is a documented
+ * follow-up on the notification-type -> route mapping table; see the
+ * PUSH-101 registry entry.
+ */
+fun deepLinkTargetTabIndex(type: String, visible: List<HubTab>): Int {
+    val targetPermission = when (type) {
+        "payment", "expense" -> Permission.VIEW_FINANCIALS
+        "absence", "grade", "homework", "calendar" -> Permission.VIEW_ACADEMICS
+        else -> null
+    }
+    val index = visible.indexOfFirst { it.requiresPermission == targetPermission }
+    return if (index >= 0) index else 0
+}
 
 val HUB_TABS = listOf(
     HubTab("Tableau", Icons.Default.Dashboard, null, Role.DASHBOARD_ROLES),
@@ -109,6 +136,7 @@ fun MainScreen(
     onNavigateToGlobalSearch: () -> Unit,
     onNavigateToReports: () -> Unit,
     onNavigateToAlerts: () -> Unit,
+    onNavigateToChat: () -> Unit = {},
     onNavigateToRouting: () -> Unit,
     onNavigateToRoutingMap: (String) -> Unit,
     onNavigateToTripHistory: () -> Unit,
@@ -127,6 +155,17 @@ fun MainScreen(
 
     var selectedTab by remember { mutableIntStateOf(0) }
     val safeSelected = selectedTab.coerceAtMost(visibleTabs.lastIndex)
+
+    // PUSH-101 (T-127): act ONCE on a pending notification deep-link by
+    // selecting the hub tab that matches the notification's type. The deep
+    // link survives the Splash -> (Login) -> Main flow because MainActivity
+    // published it before the nav host reached Main (see NotificationDeepLink).
+    val pendingDeepLink by NotificationDeepLink.pending.collectAsState()
+    LaunchedEffect(pendingDeepLink, visibleTabs.size) {
+        val link = pendingDeepLink ?: return@LaunchedEffect
+        selectedTab = deepLinkTargetTabIndex(link.type, visibleTabs).coerceIn(0, visibleTabs.lastIndex)
+        NotificationDeepLink.consume()
+    }
 
     Scaffold(
         topBar = {
@@ -161,6 +200,7 @@ fun MainScreen(
                     onNavigateToGlobalSearch = onNavigateToGlobalSearch,
                     onNavigateToReports = onNavigateToReports,
                     onNavigateToAlerts = onNavigateToAlerts,
+                    onNavigateToChat = onNavigateToChat,
                 )
                 "CRM" -> CrmHubScreen(
                     session = session,

@@ -60,6 +60,7 @@ fun DashboardHubScreen(
     onNavigateToGlobalSearch: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
     onNavigateToAlerts: () -> Unit = {},
+    onNavigateToChat: () -> Unit = {},
     onNavigateToRollCall: (String) -> Unit = {},
     onNavigateToExpenseDetail: (String) -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel(),
@@ -172,6 +173,7 @@ fun DashboardHubScreen(
                 onNavigateToFinancials = onNavigateToFinancials,
                 onNavigateToAcademics = onNavigateToAcademics,
                 onNavigateToDebtDashboard = onNavigateToDebtDashboard,
+                onNavigateToChat = onNavigateToChat,
             )
 
             // ── (4) Today's Class Roll-Call & Attendance Pulse ───────────────

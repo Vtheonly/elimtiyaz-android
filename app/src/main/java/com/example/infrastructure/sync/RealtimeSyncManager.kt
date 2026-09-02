@@ -8,6 +8,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -117,7 +119,18 @@ class RealtimeSyncManager @Inject constructor(
     private var sessionJob: Job? = null
     private val tableJobs = mutableMapOf<String, Job>()
 
-    /** Table → pull actions to run (debounced) when a change event arrives. */
+    /**
+     * Table → pull actions to run (debounced) when a change event arrives.
+     *
+     * T-102-follow-up (21st session): `chat_channels` + `chat_messages`
+     * are SUBSCRIBED with empty pull lists — chat is online-only in v1
+     * (no Room cache, deliberate scope decision recorded in the task
+     * entry), so a chat event triggers NO store pull; instead the raw
+     * debounced event is emitted on [tableEvents] and the chat
+     * ViewModels refresh their in-memory state directly. This is the
+     * "one-line routing entry" the 20th session predicted, plus the event
+     * tap that makes it useful without a Room layer.
+     */
     private val routing: Map<String, List<suspend () -> Result<Int>>> = mapOf(
         "payments" to listOf<suspend () -> Result<Int>> { pulls.pullPayments() },
         "installments" to listOf(
@@ -126,7 +139,20 @@ class RealtimeSyncManager @Inject constructor(
         ),
         "notifications" to listOf<suspend () -> Result<Int>> { pulls.pullNotifications() },
         "homework" to listOf<suspend () -> Result<Int>> { pulls.pullHomework() },
+        "chat_channels" to emptyList(),
+        "chat_messages" to emptyList(),
     )
+
+    /**
+     * T-102-follow-up — raw (debounced) table-change events, for screens
+     * that keep their OWN state instead of the Room store (chat v1).
+     * Emits the table name; collect `tableEvents` and filter for the
+     * tables you care about. Replay-free: subscribers only see events
+     * that arrive AFTER subscription (a screen refreshes once on open,
+     * then reacts to events).
+     */
+    private val _tableEvents = MutableSharedFlow<String>(extraBufferCapacity = 32)
+    val tableEvents: SharedFlow<String> = _tableEvents
 
     /**
      * Debounce window (ms) — collapses a burst of events into one pull pass
@@ -178,7 +204,10 @@ class RealtimeSyncManager @Inject constructor(
                     // BEFORE the session appears.
                     eventSource.changes(table)
                         .debounce(this@RealtimeSyncManager.debounceMs)
-                        .collect { triggerPulls(it.table) }
+                        .collect {
+                            _tableEvents.tryEmit(it.table)
+                            triggerPulls(it.table)
+                        }
                 }
             }
         }

@@ -1,5 +1,6 @@
 package com.example
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -14,6 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.example.infrastructure.notifications.EXTRA_DEEPLINK_ROUTE
+import com.example.infrastructure.notifications.EXTRA_DEEPLINK_TYPE
+import com.example.infrastructure.notifications.NOTIFICATION_CLICK_ACTION
+import com.example.infrastructure.notifications.NotificationDeepLink
 import com.example.ui.designsystem.theme.ElImtiyazTheme
 import com.example.ui.navigation.AppNavHost
 import com.example.ui.permissions.PermissionState
@@ -26,6 +31,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleNotificationDeepLink(intent)
         setContent {
             ElImtiyazTheme {
                 val notificationPerm = rememberNotificationPermissionState(
@@ -61,5 +67,25 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * PUSH-101 (T-127): a notification tap arrives as an intent whose action
+     * is [NOTIFICATION_CLICK_ACTION] (the EF's android click_action, matched
+     * by the manifest intent-filter) carrying the notification type +
+     * optional route extras. Publish to [NotificationDeepLink] so the
+     * bottom-nav host selects the matching hub once the user is signed in.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleNotificationDeepLink(intent)
+    }
+
+    private fun handleNotificationDeepLink(intent: Intent?) {
+        if (intent?.action != NOTIFICATION_CLICK_ACTION) return
+        val type = intent.getStringExtra(EXTRA_DEEPLINK_TYPE) ?: return
+        val route = intent.getStringExtra(EXTRA_DEEPLINK_ROUTE)
+        NotificationDeepLink.publish(NotificationDeepLink.Pending(type = type, route = route))
+        android.util.Log.i("MainActivity", "Notification deep-link: type=$type route=$route")
     }
 }

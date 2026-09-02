@@ -75,6 +75,14 @@ object Routes {
     @Serializable data class RoutingMap(val vehicleId: String) : Route
     @Serializable object TripHistory : Route
 
+    // Chat (T-102-follow-up / ANDR-CHAT-200 — read-side + online sends v1)
+    @Serializable object Chat : Route
+    @Serializable data class ChatDetail(
+        val channelId: String,
+        val name: String = "",
+        val isAnnouncement: Boolean = false,
+    ) : Route
+
     // Settings
     @Serializable object Settings : Route
     @Serializable object AuditLog : Route
@@ -103,6 +111,10 @@ val RoutePermissions: Map<KClass<out Route>, Permission> = mapOf(
     Routes.AcademicsHub::class to Permission.VIEW_ACADEMICS,
     Routes.FinancialsHub::class to Permission.VIEW_FINANCIALS,
     Routes.PersonnelHub::class to Permission.VIEW_PERSONNEL,
+
+    // Chat (T-102-follow-up): staff chat access — USE_CHAT (core/Rbak.kt)
+    Routes.Chat::class to Permission.USE_CHAT,
+    Routes.ChatDetail::class to Permission.USE_CHAT,
 
     // CRM detail routes
     Routes.StudentDetail::class to Permission.VIEW_ROSTER,

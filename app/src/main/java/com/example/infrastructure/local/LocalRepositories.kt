@@ -1012,11 +1012,11 @@ class LocalStudentRepository @Inject constructor(
                     isMock = false, sourceScreen = "BatchRegistrationScreen",
                 )
             }
-            // Installments (installment is not in the SyncQueueDispatcher's
-            // switch statement yet — it falls through to the no-op case,
-            // which is fine; the queue entry is marked "synced" and the
-            // desktop's pull-side `pull_installments_for_sync` will pick
-            // them up on next pull cycle.)
+            // Installments — pushed by the SyncQueueDispatcher's TIER 4
+            // case (migration 0037: idempotent `upsert_installment_from_import`).
+            // (Comment corrected 2026-09-02, T-128: the old note claimed the
+            // dispatcher had no installment case — it does, and the refund
+            // flow now relies on it too. See CROSS-103.)
             for (ins in installments) {
                 enqueueOnly(
                     entity = "installment",
@@ -1365,12 +1365,41 @@ class LocalPaymentRepository @Inject constructor(
             )
             revert.reverts.forEach { r ->
                 installmentDao.getById(r.installmentId)?.let { ins ->
-                    installmentDao.update(ins.copy(
+                    val reverted = ins.copy(
                         amountPaid = r.newAmountPaid,
                         amountPending = r.newAmountPending,
                         status = r.newStatus,
                         updatedAt = now,
-                    ))
+                    )
+                    installmentDao.update(reverted)
+                    val revertedParentCode = parentCodeFor(reverted.parentId) ?: ""
+                    // CROSS-103 (T-128, 2026-09-02): the locally-reverted
+                    // installment state MUST be enqueued for sync push —
+                    // nothing else propagates it. The payment-status upsert
+                    // and the reversal ledger entry above do NOT trigger any
+                    // server-side waterfall revert (verified against the
+                    // migration chain: the canonical server refund is the
+                    // explicit `revert_payment_allocation` RPC, which the
+                    // Android write path does not call — ARCH-003/ADR-005).
+                    // The dispatcher pushes these via the idempotent
+                    // `upsert_installment_from_import` RPC (TIER 4, migration
+                    // 0037) — the SAME path the batch-registration flow uses,
+                    // so the payload shape is identical by construction.
+                    syncSupport?.enqueueOnly(
+                        entity = "installment",
+                        operation = "update",
+                        payload = syncJson {
+                            put("id", reverted.id); put("tenantId", reverted.tenantId)
+                            put("parentId", reverted.parentId)
+                            put("parentCode", revertedParentCode)
+                            put("studentId", reverted.studentId ?: "")
+                            put("category", reverted.category); put("label", reverted.label)
+                            put("amountDue", reverted.amountDue); put("amountPaid", reverted.amountPaid)
+                            put("amountPending", reverted.amountPending); put("dueDate", reverted.dueDate)
+                            put("status", reverted.status)
+                        },
+                        isMock = false, sourceScreen = "PaymentDetailScreen",
+                    )
                 }
             }
         }

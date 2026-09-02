@@ -9,6 +9,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.example.ui.features.chat.ChatScreen
+import com.example.ui.features.chat.ChatDetailScreen
 import com.example.session.SessionManager
 import com.example.ui.features.academics.ClassDetailScreen
 import com.example.ui.features.academics.GradeEntryScreen
@@ -142,6 +144,7 @@ fun AppNavHost() {
                     onNavigateToGlobalSearch = { navController.navigate(Routes.GlobalSearch) },
                     onNavigateToReports = { navController.navigate(Routes.Reports) },
                     onNavigateToAlerts = { navController.navigate(Routes.Alerts) },
+                    onNavigateToChat = { navController.navigate(Routes.Chat) },
                     onNavigateToRouting = { navController.navigate(Routes.Routing) },
                     onNavigateToRoutingMap = { id -> navController.navigate(Routes.RoutingMap(id)) },
                     onNavigateToTripHistory = { navController.navigate(Routes.TripHistory) },
@@ -361,6 +364,35 @@ fun AppNavHost() {
                 )
             }
         }
+        // ── Chat routes (T-102-follow-up / ANDR-CHAT-200, v1) ──────────────
+        composable<Routes.Chat> {
+            rbacGate(navController, Routes.Chat::class) {
+                ChatScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenChannel = { channel ->
+                        navController.navigate(
+                            Routes.ChatDetail(
+                                channelId = channel.id,
+                                name = channel.name,
+                                isAnnouncement = channel.isAnnouncement,
+                            )
+                        )
+                    },
+                )
+            }
+        }
+        composable<Routes.ChatDetail> { backStackEntry ->
+            val route = backStackEntry.toRoute<Routes.ChatDetail>()
+            rbacGate(navController, Routes.ChatDetail::class) {
+                ChatDetailScreen(
+                    channelId = route.channelId,
+                    channelName = route.name.ifBlank { "Conversation" },
+                    isAnnouncement = route.isAnnouncement,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
+
         composable<Routes.Alerts> {
             rbacGate(navController, Routes.Alerts::class) {
                 AlertsScreen(
