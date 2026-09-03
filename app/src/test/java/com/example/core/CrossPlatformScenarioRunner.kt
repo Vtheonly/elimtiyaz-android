@@ -9,20 +9,21 @@ import org.junit.Test
 /**
  * Cross-platform financial consistency runner — Kotlin side.
  *
- * CANONICAL-FINANCIAL-LOGIC.md §9 + financial-tests/README.md — both
- * apps MUST produce the same domain state for the same operation.
- * This runner hardcodes the scenarios from
- * `financial-tests/scenarios` (the .yml files) and runs them through the canonical
- * Kotlin calc engine (LedgerEngine + DiscountEngine + WaterfallAllocation).
+ * CANONICAL-FINANCIAL-LOGIC.md §9 — both apps MUST produce the same domain
+ * state for the same operation. This runner hardcodes its scenario set and
+ * runs it through the canonical Kotlin calc engine (LedgerEngine +
+ * DiscountEngine + WaterfallAllocation).
+ * The original 8 YAML scenario files (`financial-tests/scenarios/`) were
+ * RETIRED 2026-09-03 (T-043 pass 2, ADR-006 — hub repo): every scenario's
+ * semantics live on in BOTH surviving places — the JSON corpus
+ * (`financial-tests/equivalence/scenarios/`) and this runner's hardcoded
+ * set. The .yml tree was documentation-only drift-bait (DEAD-004): neither
+ * runner ever READ the files.
  *
  * The TypeScript runner in
- * `src/test/cross-platform/ScenarioRunner.ts` runs the same scenarios
+ * `src/test/cross-platform/ScenarioRunner.test.ts` runs the same scenarios
  * through the TypeScript calc engine. Both runners produce the same
  * pass/fail results when the implementations are semantically equivalent.
- *
- * Future work: replace the hardcoded scenarios with a YAML parser so the
- * .yml files in `financial-tests/scenarios/` are the single source of
- * truth. For now, hardcoding keeps the test dependency-free.
  */
 class CrossPlatformScenarioRunner {
 
