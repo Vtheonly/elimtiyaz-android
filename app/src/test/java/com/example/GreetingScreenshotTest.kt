@@ -12,7 +12,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.ElImtiyazTheme
+import com.example.ui.designsystem.theme.ElImtiyazTheme
 import com.example.ui.theme.PrimaryBlue
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -26,6 +26,11 @@ import org.robolectric.annotation.GraphicsMode
 /**
  * Screenshot smoke test for the app's design system (theme, typography,
  * colors) — verifies the Compose rendering pipeline end-to-end.
+ *
+ * WEAK-013 fix (T-044 pass 1, 2026-09-03): migrated to the PRODUCTION theme
+ * (`com.example.ui.designsystem.theme.ElImtiyazTheme`) — the legacy
+ * `ui.theme.ElImtiyazTheme` composable was removed (DUP-004). This test now
+ * validates the theme MainActivity actually applies.
  *
  * FIX (permanent Hilt crash): the previous version rendered the full
  * [com.example.ui.navigation.AppNavHost], which resolves ViewModels via
