@@ -24,9 +24,9 @@ import androidx.compose.ui.unit.dp
 import com.example.BuildConfig
 import com.example.infrastructure.sync.SyncService
 import com.example.infrastructure.sync.SyncState
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElInfoRow
-import com.example.ui.components.ElSectionHeader
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.display.ElInfoRow
+import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.theme.PrimaryBlue
 
 @Composable

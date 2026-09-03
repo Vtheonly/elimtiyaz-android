@@ -20,10 +20,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.infrastructure.sync.SyncService
 import com.example.infrastructure.sync.SyncState
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElInfoRow
-import com.example.ui.components.ElSectionHeader
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.display.ElInfoRow
+import com.example.ui.designsystem.components.display.ElSectionHeader
 
 @Composable
 internal fun SyncSection(
@@ -77,7 +78,7 @@ internal fun SyncSection(
                     text = if (dbConfigured) "Modifier la connexion" else "Connecter la base de données",
                     onClick = { showConfigDialog = true },
                     icon = Icons.Default.Settings,
-                    style = com.example.ui.components.ElButtonStyle.Secondary,
+                    variant = ElButtonVariant.SECONDARY,
                     fullWidth = true,
                 )
             }

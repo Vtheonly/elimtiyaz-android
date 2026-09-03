@@ -24,9 +24,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.domain.model.AuditLog
 import com.example.domain.repository.AuditRepository
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElScaffold
-import com.example.ui.components.ElTopBar
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.theme.PrimaryBlue
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -51,9 +52,9 @@ fun AuditLogScreen(
 
     ElScaffold(
         topBar = { ElTopBar(title = "Journal d'audit", onBack = onBack) },
-    ) {
+    ) { innerPadding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(logs) { log ->
@@ -65,7 +66,7 @@ fun AuditLogScreen(
 
 @Composable
 private fun AuditLogCard(log: AuditLog) {
-    ElCard(modifier = Modifier.fillMaxWidth(), compact = true) {
+    ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.COMPACT) {
         Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
             Row {
                 Text(log.action, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, color = PrimaryBlue, fontSize = 13.sp), modifier = Modifier.weight(1f))

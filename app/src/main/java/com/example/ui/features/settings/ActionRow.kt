@@ -4,8 +4,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.core.Role
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElButtonStyle
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+
+// T-044 pass 2 (2026-09-03): migrated to the design-system button
+// (variant replaces the legacy ElButtonStyle).
 
 @Composable
 internal fun ActionRow(
@@ -19,7 +22,7 @@ internal fun ActionRow(
         text = label,
         onClick = onClick,
         icon = icon,
-        style = if (danger) ElButtonStyle.Danger else ElButtonStyle.Secondary,
+        variant = if (danger) ElButtonVariant.DANGER else ElButtonVariant.SECONDARY,
         fullWidth = true,
     )
 }

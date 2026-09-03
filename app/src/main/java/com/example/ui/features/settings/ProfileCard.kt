@@ -15,12 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
 import com.example.core.Session
-import com.example.ui.components.ElAvatar
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElTag
+import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.display.ElAvatarSize
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.display.ElTag
 
 @Composable
 internal fun ProfileCard(session: Session?) {
@@ -32,7 +31,7 @@ internal fun ProfileCard(session: Session?) {
         ) {
             ElAvatar(
                 initials = session.displayName.take(2).uppercase(),
-                size = 56,
+                size = ElAvatarSize.L,
             )
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -49,7 +48,7 @@ internal fun ProfileCard(session: Session?) {
                 Spacer(Modifier.height(6.dp))
                 ElTag(
                     text = roleLabel(session.role),
-                    color = roleColor(session.role),
+                    tone = roleTone(session.role),
                 )
             }
         }

@@ -12,8 +12,8 @@ import androidx.compose.material.icons.filled.Sync
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElSectionHeader
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.display.ElSectionHeader
 
 @Composable
 internal fun SecuritySection(

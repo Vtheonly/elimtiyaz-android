@@ -21,9 +21,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElDropdown
-import com.example.ui.components.ElSectionHeader
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.input.ElDropdown
+import com.example.ui.designsystem.components.input.ElDropdownOption
+import com.example.ui.designsystem.components.display.ElSectionHeader
 
 @Composable
 internal fun PreferencesSection(
@@ -73,9 +74,16 @@ internal fun PreferencesSection(
                     Box(modifier = Modifier.weight(1f)) {
                         ElDropdown(
                             label = "Langue",
-                            selectedValue = languageLabel(settings.language),
-                            options = listOf("Français", "العربية", "English"),
-                            onSelected = { code -> onLanguage(languageCodeFromLabel(code)) },
+                            // selectedValue must match option.value (the ISO code),
+                            // not the display label — the design-system dropdown
+                            // resolves the selected option by value equality.
+                            selectedValue = settings.language,
+                            options = listOf(
+                                ElDropdownOption(value = "fr", label = "Français"),
+                                ElDropdownOption(value = "ar", label = "العربية"),
+                                ElDropdownOption(value = "en", label = "English"),
+                            ),
+                            onSelected = { option -> onLanguage(option.value) },
                         )
                     }
                 }

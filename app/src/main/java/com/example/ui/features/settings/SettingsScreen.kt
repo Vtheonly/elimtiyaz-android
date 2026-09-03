@@ -16,8 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
-import com.example.ui.components.ElScaffold
-import com.example.ui.components.ElTopBar
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
@@ -42,11 +42,12 @@ fun SettingsScreen(
 
     ElScaffold(
         topBar = { ElTopBar(title = "Paramètres", onBack = onBack) },
-    ) {
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .padding(innerPadding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
