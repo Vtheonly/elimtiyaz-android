@@ -85,6 +85,28 @@ Every commit body must answer five questions (hub `AGENTS.md` §14, full templat
 ./gradlew test --tests "com.example.equivalence.AndroidEquivalenceTest"
 ```
 
+### 8.1 The `.env` / secrets-plugin location quirk (25th session, 2026-09-04 — T-159)
+
+The secrets-gradle-plugin **2.0.1 resolves BOTH `propertiesFileName` (`.env`) and
+`defaultPropertiesFileName` (`.env.example`) against the ROOT project** — not
+against `app/`. Bytecode + live-evidence verified: an `app/.env` is NEVER read;
+the generated `BuildConfig` fields come from the ROOT-level files only.
+
+- The committed ROOT `.env.example` intentionally ships `SUPABASE_ANON_KEY=`
+  and `SUPABASE_PUBLISHABLE_KEY=` EMPTY (template design) — those empty defaults
+  are what produce the bare `SUPABASE_ANON_KEY = ;` literals that fail
+  compilation (the AGENTS.md §11 hub quirk; the 22nd session diagnosed the
+  empty-values mechanism correctly but did not record the root-vs-app location).
+- **The fix, every session:** create a ROOT-level `.env` (gitignored — verified)
+  next to `gradle.properties` with the KEY values filled from the canonical
+  public publishable key (hub `docs/operations/credentials.md` §1; ADR-009 dual
+  acceptance — never service_role/sb_secret/sbp_ tokens). The re-runnable
+  provisioning recipe is `/home/z/my-project/scripts/android-env.sh` (container
+  resets wipe the toolchain; the script also re-creates this `.env` guidance).
+- Symptom → cause map for future agents: `SUPABASE_ANON_KEY = ;` in the generated
+  `BuildConfig.java` = the plugin found NO root-level `.env` (or the committed
+  root `.env.example`'s empty defaults won). It is NOT a `app/.env` problem.
+
 ## 9. Forbidden in this repository
 
 - Rewiring `RepositoryModule` bindings toward Supabase repositories before ADR-005 is Accepted.

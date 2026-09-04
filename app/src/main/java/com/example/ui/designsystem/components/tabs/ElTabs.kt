@@ -15,10 +15,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -26,6 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.ui.designsystem.foundation.noRippleClickable
 import com.example.ui.designsystem.theme.ElPillShape
@@ -63,6 +70,99 @@ fun ElTabRow(
                 )
             }
         }
+    }
+}
+
+/**
+ * Scrollable horizontal tab row — the DS answer to hub screens whose tab
+ * count exceeds what the fixed [ElTabRow] can present without squeezing
+ * each label. This is the T-044 pass-3 prerequisite: the 6-tab
+ * FinancialsHub (and the other ModernSecondaryTabRow call sites in the
+ * legacy tree) can only migrate to the design system once this component
+ * exists, so the migration becomes a mechanical import/argument swap.
+ *
+ * Parity with the legacy `ui.components.ModernSecondaryTabRow` this
+ * replaces (all of it preserved so call-site behaviour does not change):
+ *   - LazyRow of pill tabs, horizontally scrollable when the row overflows;
+ *   - the selected pill is auto-scrolled into view when the selection
+ *     changes programmatically (hub screens switch tabs from deep links);
+ *   - single-line labels.
+ * The visual language is the DS's own (ElTheme tokens, [ElPillShape] pills
+ * on a surfaceVariant track) — deliberately NOT the legacy MaterialTheme
+ * colors, per the DUP-003 migration direction.
+ *
+ * ADR-008 note: this component does NOT create navigation routes; it is a
+ * pure leaf widget — no repository, no session, no side effects.
+ */
+@Composable
+fun ElScrollableTabRow(
+    tabs: List<String>,
+    selectedIndex: Int,
+    onSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(selectedIndex) {
+        if (selectedIndex in tabs.indices) {
+            listState.animateScrollToItem(selectedIndex)
+        }
+    }
+
+    LazyRow(
+        state = listState,
+        modifier = modifier
+            .fillMaxWidth()
+            // Stable handle for UI tests: LazyRow composes only visible
+            // items, so tests must scroll via this tag before asserting on
+            // off-screen pills. Harmless in production semantics.
+            .testTag("el_scrollable_tab_row")
+            .clip(ElPillShape)
+            .background(ElTheme.colors.surfaceVariant)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        itemsIndexed(tabs) { index, label ->
+            ScrollableTabItem(
+                label = label,
+                isSelected = index == selectedIndex,
+                onClick = { onSelected(index) },
+            )
+        }
+    }
+}
+
+/** A single pill inside an [ElScrollableTabRow]. */
+@Composable
+private fun ScrollableTabItem(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+) {
+    val c = ElTheme.colors
+    val textColor by animateColorAsState(
+        if (isSelected) c.textOnColor else c.textSecondary,
+        label = "scrollable-tab-fg",
+    )
+    Box(
+        modifier = Modifier
+            .clip(ElPillShape)
+            .then(if (isSelected) Modifier.background(c.primaryBrush) else Modifier)
+            .noRippleClickable(role = Role.Tab, onClick = onClick)
+            // NB: the parameter is deliberately named `isSelected` so that
+            // `selected` inside this lambda resolves to the semantics
+            // receiver's extension var, not a val reassignment.
+            .semantics { selected = isSelected }
+            .padding(vertical = 10.dp, horizontal = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            color = textColor,
+            style = ElTheme.typography.labelLarge,
+            maxLines = 1,
+        )
     }
 }
 
