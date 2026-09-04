@@ -79,6 +79,9 @@ fun ParentDetailScreen(
     val summary by viewModel.summary.collectAsState()
     val payments by viewModel.payments.collectAsState()
     val installments by viewModel.installments.collectAsState()
+    // T-167 — canonical itemized billing breakdown (parity with the desktop
+    // parent-drawer Finances tab + the website Facturation tab).
+    val billingBreakdown by viewModel.billingBreakdown.collectAsState()
     val classes by viewModel.classes.collectAsState()
     val error by viewModel.error.collectAsState()
     val saveMessage by viewModel.saveMessage.collectAsState()
@@ -285,6 +288,120 @@ fun ParentDetailScreen(
                                     modifier = if (viewModel.canGenerateStatement) Modifier.weight(1f) else Modifier.fillMaxWidth(),
                                     enabled = !busy,
                                 )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── T-167 — Prestations facturées (itemized billing breakdown) ──
+            // Canonical derivation (core/BillingBreakdown.kt): per-child
+            // charge items + REAL tranche coverage; the 40/30/30 synthesis
+            // only fills display gaps for children without physical rows
+            // (flagged so staff knows the schedule is deduced, not stored).
+            billingBreakdown?.let { bd ->
+                if (bd.byChild.isNotEmpty() && bd.totalBilled > 0L) {
+                    ElCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                ElSectionHeader(title = "Prestations facturées")
+                                Text(
+                                    "Année ${bd.academicYear}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (bd.hasSyntheticTranches) {
+                                Text(
+                                    "Échéancier non matérialisé en base pour au moins un enfant — " +
+                                        "affichage déduit du décompte canonique (40/30/30, échéances " +
+                                        "15 sep / 15 déc / 15 mars). Les montants restent exacts.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = com.example.ui.theme.WarmGold,
+                                )
+                            }
+                            bd.byChild.forEach { childBd ->
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            "${childBd.child.displayName} (${childBd.child.gradeLevelLabel})",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                        )
+                                        Text(
+                                            "${(childBd.billedTotal / 100).formatDzd()} DZD",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                        )
+                                    }
+                                    // Itemized charge line items.
+                                    childBd.lineItems.forEach { item ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            Text(
+                                                item.label,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                            Text(
+                                                "${(item.amount / 100).formatDzd()} DZD",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
+                                    // Tranche coverage — where the money landed.
+                                    childBd.tranches.forEach { tr ->
+                                        val trancheLabel = "${tr.label} · ${tr.dueDate?.take(10) ?: "—"}"
+                                        val statusLabel = when (tr.status) {
+                                            com.example.core.TrancheDisplayStatus.PAID -> "Payée"
+                                            com.example.core.TrancheDisplayStatus.PARTIAL -> "Partielle"
+                                            com.example.core.TrancheDisplayStatus.PENDING -> "En attente"
+                                            com.example.core.TrancheDisplayStatus.UNPAID -> "Due"
+                                        }
+                                        val statusColor = when (tr.status) {
+                                            com.example.core.TrancheDisplayStatus.PAID -> SuccessGreen
+                                            com.example.core.TrancheDisplayStatus.PENDING -> com.example.ui.theme.WarmGold
+                                            else -> DangerRed
+                                        }
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(trancheLabel, style = MaterialTheme.typography.bodySmall)
+                                                Text(
+                                                    "Prévu ${(tr.amountDue / 100).formatDzd()} · " +
+                                                        "Payé ${(tr.amountPaid / 100).formatDzd()}" +
+                                                        if (tr.amountPending > 0L) {
+                                                            " · En attente ${(tr.amountPending / 100).formatDzd()}"
+                                                        } else "",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                            Column(horizontalAlignment = Alignment.End) {
+                                                ElTag(text = statusLabel, color = statusColor)
+                                                Text(
+                                                    "Reste ${(tr.remaining / 100).formatDzd()} DZD",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = if (tr.remaining > 0L) DangerRed else SuccessGreen,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(2.dp))
                             }
                         }
                     }

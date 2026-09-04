@@ -6,6 +6,12 @@ import com.example.core.ParentLedgerSummary
 import com.example.core.PaymentCategory
 import com.example.core.Permission
 import com.example.core.Result
+import com.example.core.BillingChildInfo
+import com.example.core.BillingInstallmentRow
+import com.example.core.LedgerEntry
+import com.example.core.ParentBillingBreakdown
+import com.example.core.PaymentStatus
+import com.example.core.parentBillingBreakdown
 import com.example.domain.model.Installment
 import com.example.domain.model.Parent
 import com.example.domain.model.Payment
@@ -61,6 +67,20 @@ class ParentDetailViewModel @Inject constructor(
     private val _installments = MutableStateFlow<List<Installment>>(emptyList())
     val installments: StateFlow<List<Installment>> = _installments.asStateFlow()
 
+    /**
+     * T-167 — the family's ledger charge entries, feeding the canonical
+     * billing breakdown ("Prestations facturées") alongside the real
+     * installment rows. Same derivation as the desktop parent-drawer
+     * Finances tab and the website Facturation tab (core/BillingBreakdown.kt
+     * mirrors domain/calc/payment/billing-breakdown.ts).
+     */
+    private val _ledgerEntries = MutableStateFlow<List<LedgerEntry>>(emptyList())
+    val ledgerEntries: StateFlow<List<LedgerEntry>> = _ledgerEntries.asStateFlow()
+
+    /** T-167 — canonical itemized billing breakdown (per child + per service). */
+    private val _billingBreakdown = MutableStateFlow<ParentBillingBreakdown?>(null)
+    val billingBreakdown: StateFlow<ParentBillingBreakdown?> = _billingBreakdown.asStateFlow()
+
     /** Whether the current session may add a child to an existing family. */
     val canAddChild: Boolean
         get() = sessionManager.current()?.can(Permission.CREATE_STUDENT) == true ||
@@ -105,12 +125,14 @@ class ParentDetailViewModel @Inject constructor(
     private var childrenJob: Job? = null
     private var paymentsJob: Job? = null
     private var installmentsJob: Job? = null
+    private var ledgerJob: Job? = null
 
     fun load(parentId: String) {
         parentJob?.cancel()
         childrenJob?.cancel()
         paymentsJob?.cancel()
         installmentsJob?.cancel()
+        ledgerJob?.cancel()
         parentJob = viewModelScope.launch {
             parentRepository.observeById(parentId).collect { p ->
                 _parent.value = p
@@ -122,23 +144,87 @@ class ParentDetailViewModel @Inject constructor(
         childrenJob = viewModelScope.launch {
             studentRepository.observeByParent(parentId).collect { kids ->
                 _children.value = kids
+                recomputeBilling()
             }
         }
         // Vault §04.05 — itemized payment ledger + installment schedules,
         // embedded INSIDE the parent drawer (never a separate top-level tab).
         paymentsJob = viewModelScope.launch {
-            paymentRepository.observeByParent(parentId).collect { _payments.value = it }
+            paymentRepository.observeByParent(parentId).collect {
+                _payments.value = it
+                recomputeBilling()
+            }
         }
         installmentsJob = viewModelScope.launch {
-            installmentRepository.observeByParent(parentId).collect { _installments.value = it }
+            installmentRepository.observeByParent(parentId).collect {
+                _installments.value = it
+                recomputeBilling()
+            }
         }
+        ledgerJob = viewModelScope.launch {
+            ledgerRepository.observeByParent(parentId).collect {
+                _ledgerEntries.value = it
+                recomputeBilling()
+            }
+        }
+    }
+
+    /**
+     * T-167 — recompute the canonical billing breakdown from the current
+     * streams (children / installments / payments / ledger). Pure derivation
+     * (core/BillingBreakdown.kt): real installment rows are authoritative;
+     * the 40/30/30 synthesis only fills display gaps for children without
+     * physical tranche rows.
+     */
+    private fun recomputeBilling() {
+        val kids = _children.value
+        val installments = _installments.value
+        val payments = _payments.value
+        val ledger = _ledgerEntries.value
+        if (kids.isEmpty()) {
+            _billingBreakdown.value = null
+            return
+        }
+        val clearedPaid = payments
+            .filter { it.status == PaymentStatus.PAID }
+            .sumOf { it.amount }
+        val rows = installments.map { i ->
+            BillingInstallmentRow(
+                id = i.id,
+                studentId = i.studentId,
+                category = i.category,
+                label = i.label,
+                amountDue = i.amountDue,
+                amountPaid = i.amountPaid,
+                amountPending = i.amountPending,
+                dueDate = i.dueDate,
+                status = i.status.code,
+            )
+        }
+        val children = kids.map { s ->
+            BillingChildInfo(
+                id = s.id,
+                displayName = s.fullName,
+                gradeLevelLabel = s.gradeLevel,
+            )
+        }
+        _billingBreakdown.value = parentBillingBreakdown(
+            ledgerEntries = ledger,
+            installments = rows,
+            clearedPaidTotal = clearedPaid,
+            children = children,
+            fallbackTotalDue = _summary.value?.totalCharged ?: 0L,
+        )
     }
 
     /** Re-compute the ledger summary (called on load + after each mutation). */
     private fun refreshSummary(parentId: String) {
         viewModelScope.launch {
             when (val result = ledgerRepository.summary(parentId)) {
-                is Result.Ok -> _summary.value = result.value
+                is Result.Ok -> {
+                    _summary.value = result.value
+                    recomputeBilling()
+                }
                 is Result.Err -> _error.value = result.error.userMessage
             }
         }
