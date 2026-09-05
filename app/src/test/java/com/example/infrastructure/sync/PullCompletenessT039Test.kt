@@ -297,6 +297,28 @@ class PullCompletenessT039Test {
         )
     }
 
+    // ── T-172 (NOTIF-200) — dismissed-server rows must not enter Room ──────
+
+    @Test
+    fun `notification pull excludes server-dismissed rows - desktop read-path parity`() {
+        val block = Regex("suspend fun pullNotifications[\\s\\S]*?\n    }")
+            .find(repoSrc())?.value ?: error("pullNotifications not found")
+        assertTrue(
+            "the pull must filter dismissed_at IS NULL — the run-overdue-scan lifecycle " +
+                "resolves alerts (dismissed_at set) when the installment is paid; the desktop " +
+                "repo filters the same column on every read (T-172, NOTIF-200)",
+            block.contains("""filter("dismissed_at", FilterOperator.IS, null)"""),
+        )
+        // The AND-of-OR structure: the dismissed filter must sit OUTSIDE the
+        // or-block so it applies to every branch, not just one.
+        val dismissedIdx = block.indexOf("filter(\"dismissed_at\"")
+        val orIdx = block.indexOf("or {")
+        assertTrue(
+            "the dismissed_at filter must be a top-level AND (before the or-block), not nested inside it",
+            dismissedIdx in 0 until orIdx,
+        )
+    }
+
     @Test
     fun `notification mapper preserves targetRole for eviction`() {
         val dto = NotificationDto(

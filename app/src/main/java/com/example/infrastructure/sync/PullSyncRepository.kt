@@ -301,6 +301,13 @@ class PullSyncRepository @Inject constructor(
             val dtoList = provider.postgrest.from("notifications").select {
                 limit(200)
                 filter {
+                    // T-172 (NOTIF-200): parity with the desktop's
+                    // SupabaseNotificationRepository.refresh() — rows the
+                    // server has dismissed (e.g. overdue alerts resolved by
+                    // the run-overdue-scan lifecycle once the installment is
+                    // paid) must not enter the local cache. The desktop
+                    // filters .is("dismissed_at", null) on every read.
+                    filter("dismissed_at", FilterOperator.IS, null)
                     or {
                         eq("target_user_id", session.userId)
                         isIn("target_role", roles)
