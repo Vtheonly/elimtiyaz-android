@@ -89,6 +89,12 @@ fun deepLinkTargetTabIndex(type: String, visible: List<HubTab>): Int {
     val targetPermission = when (type) {
         "payment", "expense" -> Permission.VIEW_FINANCIALS
         "absence", "grade", "homework", "calendar" -> Permission.VIEW_ACADEMICS
+        // T-196 (30th session): chat/message notifications land on the
+        // Tableau (Dashboard) tab — the alerts section lives there and the
+        // per-entity route ('chat_channel' → ChatDetail) fires from the
+        // AlertsScreen tap (AppNavHost.onNavigateToEntity). No dedicated
+        // chat hub tab exists (chat is a routed screen, not a tab).
+        "message", "chat" -> null
         else -> null
     }
     val index = visible.indexOfFirst { it.requiresPermission == targetPermission }

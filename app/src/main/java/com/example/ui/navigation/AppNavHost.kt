@@ -404,6 +404,18 @@ fun AppNavHost() {
                             "student" -> navController.navigate(Routes.StudentDetail(id))
                             "payment" -> navController.navigate(Routes.PaymentDetail(id))
                             "expense" -> navController.navigate(Routes.ExpenseDetail(id))
+                            // T-196 (30th session, migration 0075): chat
+                            // notifications deep-link to the conversation.
+                            // The pull-synced in-app notification carries
+                            // link_entity_type 'chat_channel' + the channel
+                            // id — exactly what ChatDetail needs.
+                            "chat_channel" -> navController.navigate(
+                                Routes.ChatDetail(channelId = id, name = "")
+                            )
+                            // NOTE: 'homework' notifications (migration
+                            // 0078) target PARENT accounts — the parent
+                            // portal (website) renders them; the staff app
+                            // intentionally has no route for them.
                         }
                     },
                 )
