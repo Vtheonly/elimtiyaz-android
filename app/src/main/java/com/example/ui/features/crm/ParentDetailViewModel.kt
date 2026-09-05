@@ -6,11 +6,15 @@ import com.example.core.ParentLedgerSummary
 import com.example.core.PaymentCategory
 import com.example.core.Permission
 import com.example.core.Result
+import com.example.core.BillingAdjustment
 import com.example.core.BillingChildInfo
 import com.example.core.BillingInstallmentRow
+import com.example.core.ClassifiedAdjustment
 import com.example.core.LedgerEntry
+import com.example.core.LedgerEntryType
 import com.example.core.ParentBillingBreakdown
 import com.example.core.PaymentStatus
+import com.example.core.classifyAdjustmentHistory
 import com.example.core.parentBillingBreakdown
 import com.example.domain.model.Installment
 import com.example.domain.model.Parent
@@ -80,6 +84,17 @@ class ParentDetailViewModel @Inject constructor(
     /** T-167 — canonical itemized billing breakdown (per child + per service). */
     private val _billingBreakdown = MutableStateFlow<ParentBillingBreakdown?>(null)
     val billingBreakdown: StateFlow<ParentBillingBreakdown?> = _billingBreakdown.asStateFlow()
+
+    /**
+     * T-168 — classified adjustment history (provenance: documented /
+     * reversal pair / undocumented), derived from the ledger's adjustment
+     * rows via the canonical core mirror — same labels as the desktop
+     * drawer and the website portal.
+     */
+    private val _classifiedAdjustments =
+        MutableStateFlow<List<ClassifiedAdjustment>>(emptyList())
+    val classifiedAdjustments: StateFlow<List<ClassifiedAdjustment>> =
+        _classifiedAdjustments.asStateFlow()
 
     /** Whether the current session may add a child to an existing family. */
     val canAddChild: Boolean
@@ -170,11 +185,13 @@ class ParentDetailViewModel @Inject constructor(
     }
 
     /**
-     * T-167 — recompute the canonical billing breakdown from the current
-     * streams (children / installments / payments / ledger). Pure derivation
-     * (core/BillingBreakdown.kt): real installment rows are authoritative;
-     * the 40/30/30 synthesis only fills display gaps for children without
-     * physical tranche rows.
+     * T-167/T-168 — recompute the canonical billing breakdown from the
+     * current streams (children / installments / payments / ledger). Pure
+     * derivation (core/BillingBreakdown.kt): real installment rows are
+     * authoritative; the 40/30/30 synthesis only fills display gaps for
+     * children without physical tranche rows. T-168 adds the adjustment
+     * provenance classification + the adjustment-aware reconciliation
+     * (bridge to the server-replayed balance).
      */
     private fun recomputeBilling() {
         val kids = _children.value
@@ -183,10 +200,14 @@ class ParentDetailViewModel @Inject constructor(
         val ledger = _ledgerEntries.value
         if (kids.isEmpty()) {
             _billingBreakdown.value = null
+            _classifiedAdjustments.value = emptyList()
             return
         }
         val clearedPaid = payments
             .filter { it.status == PaymentStatus.PAID }
+            .sumOf { it.amount }
+        val pendingPaid = payments
+            .filter { it.status == PaymentStatus.PENDING }
             .sumOf { it.amount }
         val rows = installments.map { i ->
             BillingInstallmentRow(
@@ -208,13 +229,32 @@ class ParentDetailViewModel @Inject constructor(
                 gradeLevelLabel = s.gradeLevel,
             )
         }
+        // T-168 — ledger adjustment rows feed the reconciliation + the
+        // provenance classification (reversals excluded, mirroring the
+        // desktop profile mapping).
+        val adjustments = ledger
+            .filter { it.type == LedgerEntryType.ADJUSTMENT && it.reversesId == null }
+            .map { e ->
+                BillingAdjustment(
+                    id = e.id,
+                    amount = e.amount,
+                    reason = e.description,
+                    at = e.at,
+                    approvedBy = e.actorName.ifBlank { e.actorId },
+                    receiptRef = e.receiptNumber,
+                )
+            }
         _billingBreakdown.value = parentBillingBreakdown(
             ledgerEntries = ledger,
             installments = rows,
             clearedPaidTotal = clearedPaid,
             children = children,
             fallbackTotalDue = _summary.value?.totalCharged ?: 0L,
+            adjustments = adjustments,
+            pendingPaidTotal = pendingPaid,
+            serverOutstanding = _summary.value?.totalOutstanding,
         )
+        _classifiedAdjustments.value = classifyAdjustmentHistory(adjustments)
     }
 
     /** Re-compute the ledger summary (called on load + after each mutation). */

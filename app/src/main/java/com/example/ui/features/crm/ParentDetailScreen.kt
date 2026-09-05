@@ -82,6 +82,7 @@ fun ParentDetailScreen(
     // T-167 — canonical itemized billing breakdown (parity with the desktop
     // parent-drawer Finances tab + the website Facturation tab).
     val billingBreakdown by viewModel.billingBreakdown.collectAsState()
+    val classifiedAdjustments by viewModel.classifiedAdjustments.collectAsState()
     val classes by viewModel.classes.collectAsState()
     val error by viewModel.error.collectAsState()
     val saveMessage by viewModel.saveMessage.collectAsState()
@@ -340,7 +341,10 @@ fun ParentDetailScreen(
                                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                         )
                                     }
-                                    // Itemized charge line items.
+                                    // Itemized charge line items — the child's
+                                    // "shopping list" (T-168: exhaustive — family
+                                    // rows are folded in for single-child
+                                    // families, listed separately otherwise).
                                     childBd.lineItems.forEach { item ->
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -402,6 +406,148 @@ fun ParentDetailScreen(
                                     }
                                 }
                                 Spacer(Modifier.height(2.dp))
+                            }
+
+                            // T-168 — family-level items (multi-child only):
+                            // keeps the shopping list exhaustive.
+                            if (bd.unattributedItems.isNotEmpty()) {
+                                Text(
+                                    "Famille — éléments non rattachés à un enfant",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                bd.unattributedItems.forEach { item ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        Text(
+                                            item.label,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        Text(
+                                            "${(item.amount / 100).formatDzd()} DZD",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+
+                            // T-168 — per-service recap (share % + attribution).
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Par service :",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            bd.byService.forEach { svc ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(svc.label, style = MaterialTheme.typography.bodySmall)
+                                        Text(
+                                            "${svc.sharePct} % du total · " + svc.childAttribution.joinToString(" · ") {
+                                                "${it.studentName} ${(it.amount / 100).formatDzd()}"
+                                            },
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Text(
+                                        "${(svc.amount / 100).formatDzd()} DZD",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
+
+                            // T-168 — adjustment-aware reconciliation footer
+                            // (every term visible; identical to the desktop
+                            // drawer + website Facturation tab).
+                            Spacer(Modifier.height(6.dp))
+                            val recon = bd.reconciliation
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(
+                                    "Réconciliation du compte",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                ReconLine("Brut facturé", recon.grossBilled)
+                                if (recon.adjustmentsCredit > 0L) {
+                                    ReconLine("− Remises / déductions", -recon.adjustmentsCredit, SuccessGreen)
+                                }
+                                if (recon.adjustmentsDebit > 0L) {
+                                    ReconLine("+ Majorations", recon.adjustmentsDebit, DangerRed)
+                                }
+                                ReconLine("= Net à payer", recon.netDue)
+                                ReconLine("− Encaissé confirmé", -recon.clearedPaid, SuccessGreen)
+                                if (recon.pendingPaid > 0L) {
+                                    ReconLine("− En attente (chèque/virement)", -recon.pendingPaid, com.example.ui.theme.WarmGold)
+                                }
+                                ReconLine("= Reste net (dérivé)", recon.derivedRemaining)
+                                if (recon.hasBridge) {
+                                    ReconLine("± Pont — autres écritures", recon.bridge, com.example.ui.theme.WarmGold)
+                                }
+                                recon.serverOutstanding?.let { server ->
+                                    ReconLine(
+                                        "Solde du compte (serveur)",
+                                        server,
+                                        if (server > 0L) DangerRed else SuccessGreen,
+                                        bold = true,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── T-168 — Classified adjustment history (provenance) ─────────
+            if (classifiedAdjustments.isNotEmpty()) {
+                ElCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ElSectionHeader(title = "Ajustements (${classifiedAdjustments.size})")
+                        classifiedAdjustments.forEach { c ->
+                            val isCredit = c.kind == "credit"
+                            val provenanceColor = when (c.provenance) {
+                                com.example.core.AdjustmentProvenance.DOCUMENTED -> SuccessGreen
+                                com.example.core.AdjustmentProvenance.REVERSAL_PAIR -> com.example.ui.theme.WarmGold
+                                com.example.core.AdjustmentProvenance.UNDOCUMENTED -> DangerRed
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "${if (isCredit) "−" else "+"}${(kotlin.math.abs(c.amount) / 100).formatDzd()} DZD",
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = if (isCredit) SuccessGreen else DangerRed,
+                                    )
+                                    ElTag(text = c.provenanceLabel, color = provenanceColor)
+                                }
+                                Text(
+                                    "${c.reasonLabel} · ${c.at.take(10)} · Auteur : ${c.approvedBy}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    c.meaningLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                         }
                     }
@@ -666,6 +812,34 @@ private val ADJUSTMENT_MOTIFS = listOf(
     "Correction d'erreur de saisie",
     "Autre",
 )
+
+/**
+ * T-168 — one labelled line of the reconciliation equation (mirrors the
+ * desktop ReconRow / the website recon footer rows).
+ */
+@Composable
+private fun ReconLine(
+    label: String,
+    amount: Long,
+    color: Color = MaterialTheme.colorScheme.onSurface,
+    bold: Boolean = false,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            "${if (amount < 0L) "−" else if (amount > 0L) "+" else ""}${(kotlin.math.abs(amount) / 100).formatDzd()} DZD",
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium),
+            color = color,
+        )
+    }
+}
 
 /** Categories applicable to debit adjustments (credits auto-route to parent_credit). */
 private val ADJUSTMENT_CATEGORIES = listOf(

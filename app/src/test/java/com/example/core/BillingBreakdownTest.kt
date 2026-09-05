@@ -260,4 +260,184 @@ class BillingBreakdownTest {
         assertTrue(debit.isDiagnosticFallback)
         assertTrue(debit.reasonLabel.contains("Régularisation"))
     }
+
+    /* ============================================================ */
+    /*  T-168 — parity corpus (identical vectors to the TS engines)  */
+    /* ============================================================ */
+
+private val kids2 = listOf(
+    BillingChildInfo(id = "s1", displayName = "Sara BENALI", gradeLevelLabel = "3AP"),
+    BillingChildInfo(id = "s2", displayName = "Yanis BENALI", gradeLevelLabel = "4AM"),
+)
+
+private val shoppingListCharges = listOf(
+    charge(id = "c-t1", studentId = "s1", amount = 28_500_000L, category = PaymentCategory.TUITION),
+    charge(id = "c-t2", studentId = "s2", amount = 28_500_000L, category = PaymentCategory.TUITION),
+    charge(id = "c-tr1", studentId = "s1", amount = 4_500_000L, category = PaymentCategory.TRANSPORT),
+    charge(id = "c-tr2", studentId = "s2", amount = 4_500_000L, category = PaymentCategory.TRANSPORT),
+    charge(
+        id = "c-ins",
+        studentId = null,
+        amount = 4_000_000L,
+        category = PaymentCategory.OTHER,
+        description = "Frais d'inscription (family-level)",
+    ),
+)
+
+@Test
+fun `t168 - accounts for every dinar - sum byChild plus unattributed equals totalBilled 700k`() {
+    val bd = parentBillingBreakdown(
+        ledgerEntries = shoppingListCharges,
+        installments = emptyList(),
+        clearedPaidTotal = 0L,
+        children = kids2,
+    )
+    assertEquals(70_000_000L, bd.totalBilled) // 700 000 DZD in centimes
+    assertEquals(listOf(33_000_000L, 33_000_000L), bd.byChild.map { it.billedTotal })
+    assertEquals(4_000_000L, bd.unattributedTotal)
+    assertEquals(
+        bd.totalBilled,
+        bd.byChild.sumOf { it.billedTotal } + bd.unattributedTotal,
+    )
+}
+
+@Test
+fun `t168 - per-service share pct and child attribution match the TS engines`() {
+    val bd = parentBillingBreakdown(
+        ledgerEntries = shoppingListCharges,
+        installments = emptyList(),
+        clearedPaidTotal = 0L,
+        children = kids2,
+    )
+    val tuition = bd.byService.first { it.category == PaymentCategory.TUITION }
+    val transport = bd.byService.first { it.category == PaymentCategory.TRANSPORT }
+    val other = bd.byService.first { it.category == PaymentCategory.OTHER }
+    assertEquals(57_000_000L, tuition.amount)
+    assertEquals(81, tuition.sharePct) // 570/700 = 81.4 → 81 (Math.round)
+    assertEquals(
+        listOf(
+            ServiceChildAttribution("s1", "Sara BENALI", 28_500_000L),
+            ServiceChildAttribution("s2", "Yanis BENALI", 28_500_000L),
+        ),
+        tuition.childAttribution,
+    )
+    assertEquals(13, transport.sharePct) // 90/700 = 12.857 → 13 (rounds like TS)
+    assertEquals(
+        listOf(ServiceChildAttribution(null, "Famille", 4_000_000L)),
+        other.childAttribution,
+    )
+    assertEquals(100, bd.byService.sumOf { it.sharePct })
+}
+
+@Test
+fun `t168 - single-child family owns family-level rows`() {
+    val bd = parentBillingBreakdown(
+        ledgerEntries = listOf(
+            charge(id = "c-t", studentId = "s1", amount = 28_500_000L, category = PaymentCategory.TUITION),
+            charge(id = "c-ins", studentId = null, amount = 4_000_000L, category = PaymentCategory.OTHER),
+        ),
+        installments = emptyList(),
+        clearedPaidTotal = 0L,
+        children = kids2.take(1),
+    )
+    assertEquals(32_500_000L, bd.byChild[0].billedTotal) // 325 000 DZD
+    assertTrue(bd.unattributedItems.isEmpty())
+}
+
+@Test
+fun `t168 - adjustment-aware reconciliation balances to the server figure`() {
+    val adjustments = listOf(
+        BillingAdjustment("adj-1", -7_100_000L, "Remise fratrie", "2025-09-02T10:00:00Z", "usr-admin"),
+        BillingAdjustment("adj-2", 2_000_000L, "Majoration transport", "2025-09-03T10:00:00Z", "usr-admin"),
+    )
+    val bd = parentBillingBreakdown(
+        ledgerEntries = listOf(charge(id = "c-1", studentId = "s1", amount = 28_500_000L)),
+        installments = emptyList(),
+        clearedPaidTotal = 9_500_000L,
+        pendingPaidTotal = 3_000_000L,
+        children = kids2.take(1),
+        adjustments = adjustments,
+        serverOutstanding = 10_900_000L,
+    )
+    val r = bd.reconciliation
+    assertEquals(28_500_000L, r.grossBilled)
+    assertEquals(7_100_000L, r.adjustmentsCredit)
+    assertEquals(2_000_000L, r.adjustmentsDebit)
+    assertEquals(23_400_000L, r.netDue) // 234 000 DZD
+    assertEquals(10_900_000L, r.derivedRemaining)
+    assertEquals(10_900_000L, r.serverOutstanding)
+    assertEquals(0L, r.bridge)
+    assertFalse(r.hasBridge)
+}
+
+@Test
+fun `t168 - bridge surfaces when the server balance has invisible items`() {
+    val bd = parentBillingBreakdown(
+        ledgerEntries = listOf(charge(id = "c-1", studentId = "s1", amount = 28_500_000L)),
+        installments = emptyList(),
+        clearedPaidTotal = 12_500_000L,
+        children = kids2.take(1),
+        serverOutstanding = 7_900_000L, // 10 000 DZD refund server-side only
+    )
+    assertEquals(16_000_000L, bd.reconciliation.derivedRemaining)
+    assertEquals(-8_100_000L, bd.reconciliation.bridge)
+    assertTrue(bd.reconciliation.hasBridge)
+}
+
+@Test
+fun `t168 - detects the plus-minus re-import flip-flop as reversal pairs`() {
+    val classified = classifyAdjustmentHistory(
+        listOf(
+            BillingAdjustment("adj-c1", 5_000_000L, "", "2025-09-05T09:00:00Z", "system"),
+            BillingAdjustment("adj-d2", -7_100_000L, "", "2025-09-06T09:00:00Z", "system"),
+            BillingAdjustment("adj-d1", 7_100_000L, "", "2025-09-05T10:00:00Z", "system"),
+            BillingAdjustment("adj-c2", -5_000_000L, "", "2025-09-06T10:00:00Z", "system"),
+        ),
+    )
+    val byId = classified.associateBy { it.id }
+    assertEquals("adj-d2", byId.getValue("adj-d1").pairedWithId)
+    assertEquals("adj-d1", byId.getValue("adj-d2").pairedWithId)
+    assertEquals("adj-c2", byId.getValue("adj-c1").pairedWithId)
+    classified.forEach {
+        assertEquals(AdjustmentProvenance.REVERSAL_PAIR, it.provenance)
+        assertEquals("Contrepassation", it.provenanceLabel)
+        assertTrue(it.meaningLabel.contains("nul"))
+    }
+}
+
+@Test
+fun `t168 - documented vs undocumented provenance labels`() {
+    val documented = classifyAdjustmentHistory(
+        listOf(BillingAdjustment("adj-1", -7_100_000L, "Remise fratrie (3 enfants)", "2025-09-02T10:00:00Z", "usr-admin")),
+    )
+    assertEquals(AdjustmentProvenance.DOCUMENTED, documented[0].provenance)
+    assertEquals("Documenté", documented[0].provenanceLabel)
+    assertTrue(documented[0].meaningLabel.contains("réduit le solde dû"))
+
+    val undocumented = classifyAdjustmentHistory(
+        listOf(BillingAdjustment("adj-2", -5_000_000L, "   ", "2025-09-02T10:00:00Z", "system")),
+    )
+    assertEquals(AdjustmentProvenance.UNDOCUMENTED, undocumented[0].provenance)
+    assertEquals("Non documenté", undocumented[0].provenanceLabel)
+    assertTrue(undocumented[0].meaningLabel.contains("auditer"))
+}
+
+@Test
+fun `t168 - never pairs same-sign entries and skips zero amounts`() {
+    val classified = classifyAdjustmentHistory(
+        listOf(
+            BillingAdjustment("adj-a", 5_000_000L, "Note A", "2025-09-01T09:00:00Z", "u1"),
+            BillingAdjustment("adj-b", 5_000_000L, "Note B", "2025-09-02T09:00:00Z", "u1"),
+            BillingAdjustment("adj-c", -5_000_000L, "Remise", "2025-09-03T09:00:00Z", "u1"),
+            BillingAdjustment("adj-z", 0L, "", "2025-09-04T09:00:00Z", "u1"),
+        ),
+    )
+    val byId = classified.associateBy { it.id }
+    assertEquals(AdjustmentProvenance.REVERSAL_PAIR, byId.getValue("adj-a").provenance)
+    assertEquals("adj-c", byId.getValue("adj-a").pairedWithId)
+    assertEquals(AdjustmentProvenance.DOCUMENTED, byId.getValue("adj-b").provenance)
+    assertNull(byId.getValue("adj-b").pairedWithId)
+    assertNull(byId.getValue("adj-z").pairedWithId)
+    assertEquals(listOf("adj-a", "adj-b", "adj-c", "adj-z"), classified.map { it.id })
+}
 }

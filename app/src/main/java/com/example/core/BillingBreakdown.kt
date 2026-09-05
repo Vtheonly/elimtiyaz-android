@@ -49,6 +49,13 @@ data class BillingLineItem(
     val amount: Long,
 )
 
+/** T-168 — per-child attribution inside one service ("shopping list"). */
+data class ServiceChildAttribution(
+    val studentId: String?,
+    val studentName: String,
+    val amount: Long,
+)
+
 /** Display status of a tranche coverage node. */
 enum class TrancheDisplayStatus { PAID, PARTIAL, PENDING, UNPAID }
 
@@ -86,6 +93,10 @@ data class ServiceTotalNode(
     val label: String,
     val amount: Long,
     val count: Int,
+    /** T-168: share of totalBilled, 0–100 rounded (display-only). */
+    val sharePct: Int,
+    /** T-168: per-child attribution inside this service. */
+    val childAttribution: List<ServiceChildAttribution>,
 )
 
 /** Full parent billing breakdown view model. */
@@ -97,6 +108,33 @@ data class ParentBillingBreakdown(
     val hasSyntheticTranches: Boolean,
     val byChild: List<ChildBillingBreakdown>,
     val byService: List<ServiceTotalNode>,
+    /** T-168: family-level charges with no child attribution (multi-child). */
+    val unattributedItems: List<BillingLineItem>,
+    val unattributedTotal: Long,
+    /** T-168: adjustment-aware reconciliation (every balance explained). */
+    val reconciliation: BillingReconciliation,
+)
+
+/**
+ * T-168 — adjustment-aware reconciliation (identical equation on every
+ * platform):
+ *
+ *   grossBilled − adjustmentsCredit + adjustmentsDebit = netDue
+ *   netDue − clearedPaid − pendingPaid               = derivedRemaining
+ *   derivedRemaining + bridge                        = serverOutstanding
+ */
+data class BillingReconciliation(
+    val grossBilled: Long,
+    val adjustmentsCredit: Long,
+    val adjustmentsDebit: Long,
+    val adjustmentsCount: Int,
+    val netDue: Long,
+    val clearedPaid: Long,
+    val pendingPaid: Long,
+    val derivedRemaining: Long,
+    val serverOutstanding: Long?,
+    val bridge: Long,
+    val hasBridge: Boolean,
 )
 
 /** Adjustment diagnostic shared by every platform's adjustments view. */
@@ -105,6 +143,56 @@ data class AdjustmentDiagnostic(
     val badgeLabel: String,
     val reasonLabel: String,
     val isDiagnosticFallback: Boolean,
+)
+
+/* ============================================================ */
+/*  T-168 — adjustment provenance classification                  */
+/* ============================================================ */
+
+/**
+ * What an adjustment entry actually IS — same classes as the desktop and
+ * website engines ("actual content / trap / mistake"):
+ *   DOCUMENTED    → actual content (operator decision, motive kept)
+ *   REVERSAL_PAIR → net-zero +X/−X pair (re-import / error correction)
+ *   UNDOCUMENTED  → legacy blank row (audit required)
+ */
+enum class AdjustmentProvenance {
+    DOCUMENTED, REVERSAL_PAIR, UNDOCUMENTED;
+}
+
+/** Canonical FR provenance badge labels (same wording as the TS engines). */
+val ADJUSTMENT_PROVENANCE_LABELS_FR: Map<AdjustmentProvenance, String> = mapOf(
+    AdjustmentProvenance.DOCUMENTED to "Documenté",
+    AdjustmentProvenance.REVERSAL_PAIR to "Contrepassation",
+    AdjustmentProvenance.UNDOCUMENTED to "Non documenté",
+)
+
+/** Minimal adjustment projection fed by the caller (repository row). */
+data class BillingAdjustment(
+    val id: String,
+    /** Signed centimes: negative = credit/remise, positive = debit. */
+    val amount: Long,
+    val reason: String?,
+    val at: String,
+    val approvedBy: String?,
+    val receiptRef: String? = null,
+)
+
+/** One classified adjustment row (view model for the history list). */
+data class ClassifiedAdjustment(
+    val id: String,
+    val amount: Long,
+    val at: String,
+    val approvedBy: String,
+    val kind: String, // "credit" | "debit"
+    val badgeLabel: String,
+    val reasonLabel: String,
+    val isDiagnosticFallback: Boolean,
+    val provenance: AdjustmentProvenance,
+    val provenanceLabel: String,
+    val meaningLabel: String,
+    val pairedWithId: String?,
+    val receiptRef: String?,
 )
 
 /** FR service labels — canonical wording shared across platforms. */
@@ -198,6 +286,11 @@ data class BillingInstallmentRow(
  * @param children the family's children (minimal descriptors).
  * @param fallbackTotalDue profile-level total due, used only when the ledger
  *   has no charge rows.
+ * @param academicYearOverride pre-resolved academic year (skips the heuristic).
+ * @param adjustments T-168: the family's account adjustments feeding the
+ *   reconciliation (signed centimes).
+ * @param pendingPaidTotal T-168: Σ uncleared cheques / transfers.
+ * @param serverOutstanding T-168: server-replayed balance for the bridge line.
  */
 fun parentBillingBreakdown(
     ledgerEntries: List<LedgerEntry>,
@@ -206,6 +299,9 @@ fun parentBillingBreakdown(
     children: List<BillingChildInfo>,
     fallbackTotalDue: Long = 0L,
     academicYearOverride: String? = null,
+    adjustments: List<BillingAdjustment> = emptyList(),
+    pendingPaidTotal: Long = 0L,
+    serverOutstanding: Long? = null,
 ): ParentBillingBreakdown {
     val chargeEntries = ledgerEntries.filter { it.type == LedgerEntryType.CHARGE }
     val academicYear = academicYearOverride ?: resolveBillingAcademicYear(chargeEntries)
@@ -226,8 +322,14 @@ fun parentBillingBreakdown(
     // -------- Pass 1: per-child derivation --------
     val pass1 = children.map { child ->
         var childCharges = chargeEntries.filter { it.studentId == child.id }
-        if (childCharges.isEmpty() && children.size == 1 && chargeEntries.isNotEmpty()) {
-            childCharges = chargeEntries
+        if (children.size == 1) {
+            // T-168: a single-child family OWNS the family-level (null
+            // studentId) rows as well — mirrors the desktop fix so the
+            // itemized breakdown stays exhaustive (no mystery money).
+            childCharges = childCharges + chargeEntries.filter { it.studentId == null }
+            if (childCharges.isEmpty() && chargeEntries.isNotEmpty()) {
+                childCharges = chargeEntries // legacy unknown attribution
+            }
         }
         val billedTotal = when {
             childCharges.isNotEmpty() -> childCharges.sumOf { it.amount }
@@ -322,15 +424,59 @@ fun parentBillingBreakdown(
         pass1
     }
 
-    // -------- Per-service consolidation --------
+    // -------- T-168: family-level charges with no child attribution --------
+    val unattributedItems =
+        if (children.size > 1) {
+            chargeEntries
+                .filter { it.studentId == null || children.none { c -> c.id == it.studentId } }
+                .map { c ->
+                    BillingLineItem(
+                        id = c.id,
+                        label = c.description.ifBlank { SERVICE_LABELS_FR[c.category] ?: "Scolarité" },
+                        category = c.category,
+                        amount = c.amount,
+                    )
+                }
+        } else {
+            emptyList()
+        }
+    val unattributedTotal = unattributedItems.sumOf { it.amount }
+
+    // -------- Per-service consolidation (T-168: share % + attribution) --------
+    val displayNameOf = { studentId: String? ->
+        if (studentId == null) {
+            "Famille"
+        } else {
+            children.firstOrNull { it.id == studentId }?.displayName ?: "Famille"
+        }
+    }
     val byService = chargeEntries
         .groupBy { it.category }
         .map { (category, rows) ->
+            val amount = rows.sumOf { it.amount }
+            val attribution = rows
+                .groupBy { it.studentId ?: "__family__" }
+        .map { (key, groupRows) ->
+                    ServiceChildAttribution(
+                        studentId = if (key == "__family__") null else key,
+                        studentName = displayNameOf(if (key == "__family__") null else key),
+                        amount = groupRows.sumOf { it.amount },
+                    )
+                }
+                .sortedByDescending { it.amount }
             ServiceTotalNode(
                 category = category,
                 label = SERVICE_LABELS_FR[category] ?: "Scolarité",
-                amount = rows.sumOf { it.amount },
+                amount = amount,
                 count = rows.size,
+                // Round like the TS engines (Math.round) so 90 000/700 000
+                // = 12.857 → 13 on every platform (integer division → 12).
+                sharePct = if (totalBilled > 0L) {
+                    Math.round(amount.toDouble() * 100.0 / totalBilled.toDouble())
+                        .toInt()
+                        .coerceIn(0, 100)
+                } else 0,
+                childAttribution = attribution,
             )
         }
         .sortedByDescending { it.amount }
@@ -342,10 +488,38 @@ fun parentBillingBreakdown(
                         label = "Scolarité Annuelle",
                         amount = totalBilled,
                         count = children.size,
+                        sharePct = 100,
+                        childAttribution = listOf(
+                            ServiceChildAttribution(null, "Famille", totalBilled),
+                        ),
                     )
                 )
             } else emptyList()
         }
+
+    // -------- T-168: adjustment-aware reconciliation --------
+    var adjustmentsCredit = 0L
+    var adjustmentsDebit = 0L
+    for (a in adjustments) {
+        if (a.amount < 0L) adjustmentsCredit += -a.amount
+        else adjustmentsDebit += a.amount
+    }
+    val netDue = totalBilled + adjustmentsDebit - adjustmentsCredit
+    val derivedRemaining = netDue - clearedPaidTotal - pendingPaidTotal
+    val bridge = serverOutstanding?.let { it - derivedRemaining } ?: 0L
+    val reconciliation = BillingReconciliation(
+        grossBilled = totalBilled,
+        adjustmentsCredit = adjustmentsCredit,
+        adjustmentsDebit = adjustmentsDebit,
+        adjustmentsCount = adjustments.size,
+        netDue = netDue,
+        clearedPaid = clearedPaidTotal,
+        pendingPaid = pendingPaidTotal,
+        derivedRemaining = derivedRemaining,
+        serverOutstanding = serverOutstanding,
+        bridge = bridge,
+        hasBridge = kotlin.math.abs(bridge) > 1L,
+    )
 
     return ParentBillingBreakdown(
         academicYear = academicYear,
@@ -354,6 +528,9 @@ fun parentBillingBreakdown(
         hasSyntheticTranches = byChild.any { it.isSyntheticSchedule },
         byChild = byChild,
         byService = byService,
+        unattributedItems = unattributedItems,
+        unattributedTotal = unattributedTotal,
+        reconciliation = reconciliation,
     )
 }
 
@@ -382,4 +559,92 @@ fun describeAdjustment(amount: Long, reason: String?): AdjustmentDiagnostic {
         },
         isDiagnosticFallback = !hasReason,
     )
+}
+
+/* ============================================================ */
+/*  T-168 — adjustment provenance classification (Kotlin mirror)  */
+/* ============================================================ */
+
+/** Meaning sentence for a provenance class + direction (identical FR
+ *  wording to the TS `meaningLabelOf` helpers). */
+private fun meaningLabelOf(provenance: AdjustmentProvenance, isCredit: Boolean): String =
+    when (provenance) {
+        AdjustmentProvenance.REVERSAL_PAIR ->
+            "Écriture annulée par une écriture inverse du même montant (probable ré-import ou correction d'erreur). Effet net sur le solde : nul."
+        AdjustmentProvenance.UNDOCUMENTED ->
+            if (isCredit) {
+                "Entrée héritée sans motif (import système antérieur à la contrainte 0069) : déduction au motif inconnu — à auditer."
+            } else {
+                "Entrée héritée sans motif (import système antérieur à la contrainte 0069) : rétablissement de dette au motif inconnu — à auditer."
+            }
+        AdjustmentProvenance.DOCUMENTED ->
+            if (isCredit) {
+                "Contenu réel : remise ou déduction appliquée par un opérateur, motif documenté — réduit le solde dû."
+            } else {
+                "Contenu réel : majoration ou annulation de remise appliquée par un opérateur, motif documenté — augmente le solde dû."
+            }
+    }
+
+/**
+ * Classify the family's adjustment history (T-168).
+ *
+ * Reversal-pair detection — IDENTICAL algorithm on every platform
+ * (desktop TS / website TS / Android Kotlin): chronological order
+ * (at, then id), a pool per |amount| of unmatched entries, FIFO pairing
+ * ONLY across opposite signs (two same-sign entries never pair), zero
+ * amounts skip pairing. Paired → REVERSAL_PAIR; blank reason →
+ * UNDOCUMENTED; everything else → DOCUMENTED. Pure function; the caller's
+ * order is preserved in the returned list.
+ */
+fun classifyAdjustmentHistory(
+    adjustments: List<BillingAdjustment>,
+): List<ClassifiedAdjustment> {
+    val chronological = adjustments
+        .filter { it.amount != 0L }
+        .sortedWith(compareBy({ it.at }, { it.id }))
+
+    // |amount| → FIFO queue of unmatched entries (opposite-sign pairing only).
+    data class PoolEntry(val id: String, val isCredit: Boolean)
+
+    val pool = mutableMapOf<Long, MutableList<PoolEntry>>()
+    val pairedWith = mutableMapOf<String, String>()
+    for (entry in chronological) {
+        val magnitude = kotlin.math.abs(entry.amount)
+        val isCredit = entry.amount < 0L
+        val queue = pool.getOrPut(magnitude) { mutableListOf() }
+        val siblingIndex = queue.indexOfFirst { it.isCredit != isCredit }
+        if (siblingIndex >= 0) {
+            val siblingId = queue.removeAt(siblingIndex).id
+            pairedWith[entry.id] = siblingId
+            pairedWith[siblingId] = entry.id
+        } else {
+            queue.add(PoolEntry(entry.id, isCredit))
+        }
+    }
+
+    return adjustments.map { a ->
+        val diagnostic = describeAdjustment(a.amount, a.reason)
+        val hasReason = !a.reason.isNullOrBlank()
+        val pairedWithId = pairedWith[a.id]
+        val provenance = when {
+            pairedWithId != null -> AdjustmentProvenance.REVERSAL_PAIR
+            hasReason -> AdjustmentProvenance.DOCUMENTED
+            else -> AdjustmentProvenance.UNDOCUMENTED
+        }
+        ClassifiedAdjustment(
+            id = a.id,
+            amount = a.amount,
+            at = a.at,
+            approvedBy = a.approvedBy ?: "system",
+            kind = diagnostic.kind,
+            badgeLabel = diagnostic.badgeLabel,
+            reasonLabel = diagnostic.reasonLabel,
+            isDiagnosticFallback = diagnostic.isDiagnosticFallback,
+            provenance = provenance,
+            provenanceLabel = ADJUSTMENT_PROVENANCE_LABELS_FR[provenance] ?: "—",
+            meaningLabel = meaningLabelOf(provenance, diagnostic.kind == "credit"),
+            pairedWithId = pairedWithId,
+            receiptRef = a.receiptRef,
+        )
+    }
 }
