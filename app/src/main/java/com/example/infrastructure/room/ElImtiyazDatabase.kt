@@ -51,7 +51,7 @@ import androidx.room.RoomDatabase
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
     ],
-    version = 13,
+    version = 14,
     // T-046-gap (session 18): schemas are exported from now on (ksp arg
     // room.schemaLocation → app/schemas/) so MigrationTestHelper upgrade
     // tests can pin every future schema bump. 12.json was backfilled from
@@ -426,6 +426,33 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
             override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE notifications ADD COLUMN targetRole TEXT"
+                )
+            }
+        }
+
+        /**
+         * Room migration v13 → v14 (T-181 / T-173b / NOTIF-200).
+         *
+         * Adds the nullable `dismissedAt` TEXT column to `notifications` so
+         * the local cache can record the server's dismissal state (the
+         * pull layer decodes `dismissed_at` since T-181). Nullable, no
+         * default — pre-existing rows keep NULL, meaning "active when last
+         * pulled"; the pull-side eviction (PullSyncRepository) then removes
+         * rows the server has since dismissed (e.g. overdue alerts resolved
+         * by the run-overdue-scan lifecycle once the installment is paid).
+         *
+         * Pre-T-181 those rows lingered in Room forever: the T-172 pull
+         * filter (`dismissed_at IS NULL`) only stops NEW dismissed rows from
+         * ENTERING the cache — already-cached rows that got dismissed
+         * server-side were never evicted (evictNotVisibleTo covers
+         * visibility, not dismissal). Desktop parity: its repository
+         * filters dismissed_at IS NULL on EVERY read; Room is a persistent
+         * cache, so the equivalent semantics need the column + eviction.
+         */
+        val MIGRATION_13_14 = object : androidx.room.migration.Migration(13, 14) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE notifications ADD COLUMN dismissedAt TEXT"
                 )
             }
         }

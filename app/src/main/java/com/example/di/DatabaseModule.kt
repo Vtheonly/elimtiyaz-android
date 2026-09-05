@@ -100,6 +100,11 @@ object DatabaseModule {
                 // layer evict stale role-broadcasts after a role change.
                 // Nullable, no default: direct/tenant broadcasts keep NULL.
                 ElImtiyazDatabase.MIGRATION_12_13,
+                // T-181 (T-173b / NOTIF-200): notifications.dismissedAt — the
+                // server's dismissal timestamp, so the pull layer can evict
+                // rows resolved server-side since the last pull (pre-T-181
+                // they lingered in Room forever). Nullable, no default.
+                ElImtiyazDatabase.MIGRATION_13_14,
             )
             // T-046 / ARCH-004: NO destructive fallback. A missing migration
             // now fails LOUDLY (IllegalStateException) instead of wiping the

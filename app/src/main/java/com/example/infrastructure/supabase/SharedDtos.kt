@@ -433,6 +433,13 @@ data class NotificationDto(
     // role-broadcasts that no longer match the signed-in user's role.
     @SerialName("target_role") val targetRole: String? = null,
     @SerialName("is_read") val isRead: Boolean = false,
+    // T-181 (T-173b / NOTIF-200): the server's dismissal timestamp. Decoded
+    // so the pull layer can (a) record it in Room (migration v14) and
+    // (b) evict local rows the server has dismissed since the last pull —
+    // the run-overdue-scan lifecycle resolves alerts (sets dismissed_at)
+    // when the installment is paid; pre-T-181 those rows lingered in Room
+    // forever because the T-172 pull filter only stops NEW dismissed rows.
+    @SerialName("dismissed_at") val dismissedAt: String? = null,
     @SerialName("triggered_at") val triggeredAt: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
 )

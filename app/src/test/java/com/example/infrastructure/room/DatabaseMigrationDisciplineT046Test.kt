@@ -59,7 +59,7 @@ class DatabaseMigrationDisciplineT046Test {
      * suite enforces (a bumped version without its migration registered in
      * [buildDb] + DatabaseModule fails loud tests, never silently).
      */
-    private val compiledVersion = 13
+    private val compiledVersion = 14
 
     @Before
     fun setUp() {
@@ -87,6 +87,7 @@ class DatabaseMigrationDisciplineT046Test {
             ElImtiyazDatabase.MIGRATION_10_11,
             ElImtiyazDatabase.MIGRATION_11_12,
             ElImtiyazDatabase.MIGRATION_12_13,
+            ElImtiyazDatabase.MIGRATION_13_14,
         )
         .allowMainThreadQueries()
         .build()
@@ -154,7 +155,7 @@ class DatabaseMigrationDisciplineT046Test {
         for (m in listOf(
             "MIGRATION_3_4", "MIGRATION_4_5", "MIGRATION_5_6", "MIGRATION_6_7",
             "MIGRATION_7_8", "MIGRATION_8_9", "MIGRATION_9_10", "MIGRATION_10_11",
-            "MIGRATION_11_12", "MIGRATION_12_13",
+            "MIGRATION_11_12", "MIGRATION_12_13", "MIGRATION_13_14",
         )) {
             assertTrue(
                 "the explicit migration chain must keep $m registered",

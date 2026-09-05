@@ -563,6 +563,18 @@ interface NotificationDao {
     )
     suspend fun evictNotVisibleTo(userId: String, roles: List<String>, canSeeTenantBroadcasts: Int)
 
+    /**
+     * T-181 (T-173b / NOTIF-200) — evict rows the SERVER has dismissed since
+     * the last pull. The pull layer resolves the stale candidates (local ids
+     * absent from the fresh active pull), asks the server which of them now
+     * carry `dismissed_at`, and deletes exactly those locally. Pre-T-181
+     * such rows lingered forever (the T-172 pull filter only stops NEW
+     * dismissed rows from entering the cache). Desktop parity: the desktop
+     * repository filters `dismissed_at IS NULL` on EVERY read.
+     */
+    @Query("DELETE FROM notifications WHERE id IN (:ids)")
+    suspend fun evictServerDismissed(ids: List<String>)
+
     @Query("UPDATE notifications SET isRead = 1 WHERE id = :id")
     suspend fun markRead(id: String)
 

@@ -457,6 +457,12 @@ data class NotificationEntity(
     // evictNotVisibleTo() can drop rows whose role no longer matches.
     val targetRole: String? = null,
     val isRead: Boolean,
+    // T-181 (T-173b / NOTIF-200): the server's dismissal timestamp (Room
+    // migration v14). Rows pulled while active keep NULL; the pull layer
+    // evicts rows the server has since dismissed (desktop parity: its reads
+    // filter dismissed_at IS NULL on EVERY read — Room is a persistent cache,
+    // so the same semantics need eviction at pull time).
+    val dismissedAt: String? = null,
     val createdAt: String,
 )
 

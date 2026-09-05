@@ -322,6 +322,37 @@ class PullSyncRepository @Inject constructor(
             }.decodeList<NotificationDto>()
             db.notificationDao().upsertAll(dtoList.map { it.toEntity() })
             db.notificationDao().evictNotVisibleTo(session.userId, roles, if (staffBroadcast) 1 else 0)
+            // T-181 (T-173b / NOTIF-200): evict rows the SERVER has
+            // dismissed since the last pull. The T-172 filter above stops
+            // NEW dismissed rows from entering the cache, but rows already
+            // in Room that got dismissed server-side (e.g. overdue alerts
+            // resolved by the run-overdue-scan lifecycle once the
+            // installment is paid) lingered forever — evictNotVisibleTo
+            // covers VISIBILITY, not dismissal. One targeted round-trip for
+            // the stale candidates (local ids absent from the fresh active
+            // pull) keeps the cache honest; rows that merely fell outside
+            // the 200-row window but are NOT dismissed stay untouched.
+            // Desktop parity: its repository filters dismissed_at IS NULL
+            // on EVERY read — Room is a persistent cache, so the same
+            // semantics need eviction at pull time.
+            val pulledIds = dtoList.map { it.id }.toSet()
+            val staleCandidates = db.notificationDao().listAll()
+                .map { it.id }
+                .filter { it !in pulledIds }
+            if (staleCandidates.isNotEmpty()) {
+                // Chunked (50 ids/query) to keep the PostgREST URL bounded.
+                val dismissedIds = staleCandidates.chunked(50).flatMap { chunk ->
+                    provider.postgrest.from("notifications").select {
+                        filter { isIn("id", chunk) }
+                    }.decodeList<NotificationDto>()
+                        .filter { it.dismissedAt != null }
+                        .map { it.id }
+                }
+                if (dismissedIds.isNotEmpty()) {
+                    db.notificationDao().evictServerDismissed(dismissedIds)
+                    Log.i("PullSync", "Evicted ${dismissedIds.size} server-dismissed notifications")
+                }
+            }
             Log.i("PullSync", "Pulled ${dtoList.size} notifications (roles=${roles.joinToString(",")})")
             Result.Ok(dtoList.size)
         } catch (e: Exception) {

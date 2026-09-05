@@ -258,6 +258,10 @@ fun NotificationDto.toEntity(): com.example.infrastructure.room.NotificationEnti
     targetUserId = targetUserId,
     // T-039 / NOTIF-105: preserve the broadcast role so eviction works.
     targetRole = targetRole,
+    // T-181 (T-173b / NOTIF-200): record the server's dismissal state so the
+    // cache is honest (active pulls keep null — the pull filter guarantees
+    // only non-dismissed rows arrive).
+    dismissedAt = dismissedAt,
     isRead = isRead,
     createdAt = createdAt ?: "",
 )
