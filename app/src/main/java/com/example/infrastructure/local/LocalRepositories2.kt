@@ -1851,22 +1851,49 @@ class LocalWorkflowRepository @Inject constructor(
     private val provider: com.example.infrastructure.supabase.SupabaseClientProvider,
 ) : WorkflowRepository {
 
-    private fun WorkflowRunEntity.toDomain() = com.example.domain.model.WorkflowRun(
-        id = id, workflowId = workflowId, workflowName = workflowName,
-        // T-054 (WEAK-008): the REAL trigger from the entity column — the
-        // old hardcode made every run display "Manuel".
-        trigger = com.example.domain.model.WorkflowTrigger.fromCode(trigger),
-        status = com.example.domain.model.WorkflowRunStatus.fromCode(status),
-        startedAt = startedAt, completedAt = finishedAt,
-        durationMs = runCatching {
-            val start = Instant.parse(startedAt)
-            val end = finishedAt?.let { Instant.parse(it) }
-            end?.let { it.toEpochMilli() - start.toEpochMilli() }
-        }.getOrNull(),
-        actorId = startedBy, actorName = null,
-        errorMessage = errorMessage,
-        outputPreview = resultJson?.takeIf { it.isNotBlank() && it != "{}" }?.take(120),
-    )
+    private fun WorkflowRunEntity.toDomain(): com.example.domain.model.WorkflowRun {
+        // T-231: resultJson carries the SERIALIZED node_results array (the
+        // EF's per-node outcomes) — decode into the domain model.
+        val nodeResults: List<com.example.domain.model.WorkflowNodeResult> =
+            resultJson?.takeIf { it.isNotBlank() }?.let { raw ->
+                runCatching {
+                    kotlinx.serialization.json.Json.decodeFromString(
+                        kotlinx.serialization.builtins.ListSerializer(
+                            com.example.infrastructure.supabase.WorkflowNodeResultDto.serializer(),
+                        ),
+                        raw,
+                    )
+                }.getOrNull()
+            }?.map { dto ->
+                com.example.domain.model.WorkflowNodeResult(
+                    nodeId = dto.nodeId,
+                    nodeName = dto.nodeLabel ?: dto.nodeId,
+                    nodeType = dto.nodeType ?: "action",
+                    status = com.example.domain.model.WorkflowNodeStatus.fromCode(dto.status),
+                    startedAt = dto.startedAt,
+                    completedAt = dto.completedAt,
+                    output = dto.output?.toString()?.take(200),
+                    error = dto.error,
+                )
+            } ?: emptyList()
+        return com.example.domain.model.WorkflowRun(
+            id = id, workflowId = workflowId, workflowName = workflowName,
+            // T-054 (WEAK-008): the REAL trigger from the entity column — the
+            // old hardcode made every run display "Manuel".
+            trigger = com.example.domain.model.WorkflowTrigger.fromCode(trigger),
+            status = com.example.domain.model.WorkflowRunStatus.fromCode(status),
+            startedAt = startedAt, completedAt = finishedAt,
+            durationMs = runCatching {
+                val start = Instant.parse(startedAt)
+                val end = finishedAt?.let { Instant.parse(it) }
+                end?.let { it.toEpochMilli() - start.toEpochMilli() }
+            }.getOrNull(),
+            actorId = startedBy, actorName = null,
+            errorMessage = errorMessage,
+            outputPreview = nodeResults.firstOrNull { it.output != null }?.output?.take(120),
+            nodeResults = nodeResults,
+        )
+    }
 
     override fun observeRuns(limit: Int): Flow<Result<List<com.example.domain.model.WorkflowRun>>> =
         workflowRunDao.observeRecent().map { rows ->

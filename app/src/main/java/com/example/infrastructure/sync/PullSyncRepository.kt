@@ -424,8 +424,11 @@ class PullSyncRepository @Inject constructor(
      */
     suspend fun pullWorkflowRuns(): Result<Int> = withContext(Dispatchers.IO) {
         try {
+            // T-231: select the REAL columns + the workflows(name) embed
+            // (workflow_name is not a column — it resolves via the join,
+            // same as the desktop's PostgREST embed).
             val dtoList = provider.postgrest.from("workflow_runs")
-                .select { limit(50) }
+                .select(io.github.jan.supabase.postgrest.query.Columns.raw("*, workflows(name)")) { limit(50) }
                 .decodeList<WorkflowRunDto>()
             // T-039: batch upsert.
             db.workflowRunDao().upsertAll(dtoList.map { it.toEntity() })

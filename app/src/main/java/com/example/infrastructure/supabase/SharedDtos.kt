@@ -448,19 +448,54 @@ data class NotificationDto(
  * Workflow-run row (read-only on mobile — the DAG editor is desktop-only per
  * plan §10.02). Pulled so the Workflow Monitor shows REAL server executions.
  */
+/**
+ * T-231 (34th session) — the REAL workflow_runs contract. The previous DTO
+ * was written against a *planned* schema (trigger/started_by/finished_at/
+ * result_json) that never existed: every pulled run decoded with null
+ * trigger (→ "Manuel"), null timestamps and null results. The live columns
+ * (migration 0012 + 0081) are trigger_type/actor_id/completed_at/
+ * node_results; workflow_name resolves via the `workflows(name)` embed
+ * (the pull selects "*, workflows(name)").
+ */
 @Serializable
 data class WorkflowRunDto(
     @SerialName("id") val id: String,
     @SerialName("tenant_id") val tenantId: String? = null,
     @SerialName("workflow_id") val workflowId: String = "",
-    @SerialName("workflow_name") val workflowName: String? = null,
-    @SerialName("trigger") val trigger: String? = null,
+    @SerialName("workflows") val workflow: WorkflowEmbedDto? = null,
+    @SerialName("trigger_type") val triggerType: String? = null,
     @SerialName("status") val status: String = "running",
-    @SerialName("started_by") val startedBy: String? = null,
+    @SerialName("actor_id") val actorId: String? = null,
     @SerialName("started_at") val startedAt: String? = null,
-    @SerialName("finished_at") val finishedAt: String? = null,
-    @SerialName("result_json") val resultJson: String? = null,
+    @SerialName("completed_at") val completedAt: String? = null,
+    @SerialName("duration_ms") val durationMs: Long? = null,
+    @SerialName("node_results") val nodeResults: List<WorkflowNodeResultDto>? = null,
     @SerialName("error_message") val errorMessage: String? = null,
+)
+
+/** The PostgREST many-to-one embed of workflows(name) on workflow_runs. */
+@Serializable
+data class WorkflowEmbedDto(
+    @SerialName("name") val name: String? = null,
+    @SerialName("code") val code: String? = null,
+)
+
+/**
+ * One node outcome inside workflow_runs.node_results — the exact shape the
+ * workflow-execute EF writes (node_id/node_type/node_subtype/node_label/
+ * status/started_at/completed_at/output/error).
+ */
+@Serializable
+data class WorkflowNodeResultDto(
+    @SerialName("node_id") val nodeId: String = "",
+    @SerialName("node_type") val nodeType: String? = null,
+    @SerialName("node_subtype") val nodeSubtype: String? = null,
+    @SerialName("node_label") val nodeLabel: String? = null,
+    @SerialName("status") val status: String = "skipped",
+    @SerialName("started_at") val startedAt: String? = null,
+    @SerialName("completed_at") val completedAt: String? = null,
+    @SerialName("output") val output: JsonElement? = null,
+    @SerialName("error") val error: String? = null,
 )
 
 @Serializable

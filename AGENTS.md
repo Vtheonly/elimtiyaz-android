@@ -108,6 +108,18 @@ the generated `BuildConfig` fields come from the ROOT-level files only.
   `BuildConfig.java` = the plugin found NO root-level `.env` (or the committed
   root `.env.example`'s empty defaults won). It is NOT a `app/.env` problem.
 
+- **T-231 (34th session) — the workflow_runs pull contract:** the DTO must mirror the LIVE
+  columns (`trigger_type` / `actor_id` / `completed_at` / `node_results`, workflow name via the
+  PostgREST embed — `select(Columns.raw("*, workflows(name)"))`; postgrest-kt 3.1.1 takes a
+  `Columns` value, NOT a string). The pre-T-231 DTO targeted a *planned* schema that never
+  existed, so every pulled run decoded with a null trigger and null results. The
+  `node_results` array serializes into the entity's existing `resultJson` column (no Room
+  schema change) and decodes into `WorkflowNodeResult`s on the domain side. The
+  `WorkflowTrigger.fromCode` contract: manual_run/manual → Manual, schedule/scheduled →
+  Scheduled, EVERYTHING else → Event (unknown codes are EVENTS — server-side automatic
+  triggers — never silently "Manuel"). Pinned by
+  `app/src/test/.../supabase/WorkflowRunContractT231Test.kt`.
+
 ## 9. Forbidden in this repository
 
 - Rewiring `RepositoryModule` bindings toward Supabase repositories before ADR-005 is Accepted.

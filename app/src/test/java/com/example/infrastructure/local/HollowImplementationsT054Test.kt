@@ -2,6 +2,7 @@ package com.example.infrastructure.local
 
 import com.example.domain.model.WorkflowTrigger
 import com.example.infrastructure.room.WorkflowRunEntity
+import com.example.infrastructure.supabase.WorkflowEmbedDto
 import com.example.infrastructure.supabase.WorkflowRunDto
 import com.example.infrastructure.supabase.toEntity
 import org.junit.Assert.assertEquals
@@ -35,20 +36,23 @@ class HollowImplementationsT054Test {
 
     @Test
     fun `dto trigger is kept by the entity mapping`() {
+        // T-231: the DTO now carries the REAL server column trigger_type.
         val entity = WorkflowRunDto(
             id = "wfr-1", tenantId = null, workflowId = "wf-1",
-            workflowName = "Recouvrement", trigger = "scheduled",
-            status = "success", startedBy = "cron", startedAt = "2026-08-31T08:00:00Z",
+            workflow = WorkflowEmbedDto(name = "Recouvrement"),
+            triggerType = "schedule",
+            status = "succeeded", actorId = "cron", startedAt = "2026-08-31T08:00:00Z",
         ).toEntity()
-        assertEquals("scheduled", entity.trigger)
+        assertEquals("schedule", entity.trigger)
+        assertEquals("Recouvrement", entity.workflowName)
     }
 
     @Test
-    fun `missing dto trigger defaults to manual (historical rows)`() {
+    fun `missing dto trigger defaults to manual_run (historical rows)`() {
         val entity = WorkflowRunDto(
-            id = "wfr-2", workflowId = "wf-2", trigger = null, status = "success",
+            id = "wfr-2", workflowId = "wf-2", triggerType = null, status = "success",
         ).toEntity()
-        assertEquals("manual", entity.trigger)
+        assertEquals("manual_run", entity.trigger)
     }
 
     @Test
@@ -64,10 +68,14 @@ class HollowImplementationsT054Test {
     @Test
     fun `the domain trigger enum resolves the wire codes`() {
         assertEquals(WorkflowTrigger.Scheduled, WorkflowTrigger.fromCode("scheduled"))
+        assertEquals(WorkflowTrigger.Scheduled, WorkflowTrigger.fromCode("schedule"))
         assertEquals(WorkflowTrigger.Event, WorkflowTrigger.fromCode("event"))
         assertEquals(WorkflowTrigger.Manual, WorkflowTrigger.fromCode("manual"))
-        // Unknown codes fall back to Manual (the enum's contract).
-        assertEquals(WorkflowTrigger.Manual, WorkflowTrigger.fromCode("webhook-unknown"))
+        assertEquals(WorkflowTrigger.Manual, WorkflowTrigger.fromCode("manual_run"))
+        // T-231: unknown/automatic codes are EVENTS (server-side automatic
+        // triggers), never silently "Manuel" — the WEAK-008 family stays dead.
+        assertEquals(WorkflowTrigger.Event, WorkflowTrigger.fromCode("payment_overdue"))
+        assertEquals(WorkflowTrigger.Event, WorkflowTrigger.fromCode("webhook-unknown"))
     }
 
     // ── source-scan regression pins ──────────────────────────────────────

@@ -266,20 +266,33 @@ fun NotificationDto.toEntity(): com.example.infrastructure.room.NotificationEnti
     createdAt = createdAt ?: "",
 )
 
-/** Convert a [WorkflowRunDto] to a [WorkflowRunEntity] for Room upsert. */
+/**
+ * Convert a [WorkflowRunDto] to a [WorkflowRunEntity] for Room upsert.
+ * T-231: the DTO now carries the REAL server columns (trigger_type/
+ * actor_id/completed_at/node_results); node_results is serialized into the
+ * entity's resultJson column (no Room schema change — the column already
+ * exists) and decoded back into node results on the domain side.
+ */
 fun WorkflowRunDto.toEntity(): com.example.infrastructure.room.WorkflowRunEntity = com.example.infrastructure.room.WorkflowRunEntity(
     id = id,
     tenantId = tenantId ?: "",
     workflowId = workflowId,
-    workflowName = workflowName ?: workflowId,
-    // T-054 (WEAK-008): keep the server's REAL trigger (the column was
-    // dropped at this boundary before — every run read back "manual").
-    trigger = trigger ?: "manual",
+    workflowName = workflow?.name ?: workflowId,
+    // T-054 (WEAK-008): keep the server's REAL trigger. T-231: the column is
+    // trigger_type (the EF stores manual_run/schedule/payment_overdue/…).
+    trigger = triggerType ?: "manual_run",
     status = status,
-    startedBy = startedBy ?: "system",
+    startedBy = actorId ?: "system",
     startedAt = startedAt ?: "",
-    finishedAt = finishedAt,
-    resultJson = resultJson,
+    finishedAt = completedAt,
+    resultJson = nodeResults?.let { nodes ->
+        runCatching {
+            kotlinx.serialization.json.Json.encodeToString(
+                kotlinx.serialization.builtins.ListSerializer(WorkflowNodeResultDto.serializer()),
+                nodes,
+            )
+        }.getOrNull()
+    },
     errorMessage = errorMessage,
 )
 

@@ -23,9 +23,14 @@ enum class WorkflowRunStatus(val wireCode: String, val displayFr: String) {
 /**
  * What triggered a workflow run.
  *
- * Note: per plan §10.06, the desktop is **manual-trigger only** — automatic and scheduled
- * triggers fire server-side via the `workflow-execute` Edge Function. The mobile monitor
- * surfaces all three trigger types for display purposes.
+ * T-231: the REAL workflow_runs.trigger_type enum (0012 + 0081) is
+ * manual_run | schedule | payment_overdue | student_enrolled |
+ * payment_recorded | absence_limit | debt_over_threshold |
+ * grade_below_threshold | payment_cleared_or_bounced | document_expiration
+ * | calendar_cron_event | stock_level_critical. The coarse display union
+ * maps manual_run→Manuel, schedule→Programmé, everything else→Événement
+ * (the previous default-to-Manual made every automatic run display
+ * "Manuel" — the exact WEAK-008 defect family).
  */
 @Serializable
 enum class WorkflowTrigger(val wireCode: String, val displayFr: String) {
@@ -34,8 +39,12 @@ enum class WorkflowTrigger(val wireCode: String, val displayFr: String) {
     Event("event", "Événement");
 
     companion object {
-        fun fromCode(code: String?): WorkflowTrigger =
-            entries.firstOrNull { it.wireCode.equals(code, ignoreCase = true) } ?: Manual
+        fun fromCode(code: String?): WorkflowTrigger = when (code?.trim()?.lowercase()) {
+            "manual", "manual_run" -> Manual
+            "schedule", "scheduled" -> Scheduled
+            null, "" -> Manual
+            else -> Event
+        }
     }
 }
 
