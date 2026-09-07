@@ -160,6 +160,59 @@ class RolePermissionTest {
         assertFalse(Permission.REFUND_PAYMENT in teacherPerms)
     }
 
+    // ── T-237 / RBAC-300 (35th session): strict workspace boundaries ──────
+
+    @Test fun `T-237 Teacher loses the module-entry permissions (CRM + Pédagogie hubs hidden)`() {
+        val teacherPerms = Permission.DEFAULT_ROLE_PERMISSIONS[Role.TEACHER]!!
+        assertFalse(Permission.VIEW_ROSTER in teacherPerms, "VIEW_ROSTER must be absent (CRM hub)")
+        assertFalse(Permission.VIEW_ACADEMICS in teacherPerms, "VIEW_ACADEMICS must be absent (Pédagogie hub)")
+        assertFalse(Permission.VIEW_FINANCIALS in teacherPerms)
+        assertFalse(Permission.VIEW_DEBT in teacherPerms)
+        // The Personnel workspace stays reachable.
+        assertTrue(teacherPerms.isEmpty().not())
+    }
+
+    @Test fun `T-237 Teacher keeps the ACTION permissions exercised inside Personnel`() {
+        val teacherPerms = Permission.DEFAULT_ROLE_PERMISSIONS[Role.TEACHER]!!
+        assertTrue(Permission.ENTER_GRADES in teacherPerms)
+        assertTrue(Permission.ROLL_CALL in teacherPerms)
+        assertTrue(Permission.USE_CHAT in teacherPerms)
+    }
+
+    @Test fun `T-237 SupportStaff gains the clerk front-office duties`() {
+        val clerkPerms = Permission.DEFAULT_ROLE_PERMISSIONS[Role.SUPPORT_STAFF]!!
+        assertTrue(Permission.VIEW_FINANCIALS in clerkPerms)
+        assertTrue(Permission.MANAGE_CLASSES in clerkPerms)
+        assertTrue(Permission.PROMOTE_STUDENT in clerkPerms)
+    }
+
+    @Test fun `T-237 Manager loses VIEW_FINANCIALS (0019 payments_select server parity)`() {
+        val managerPerms = Permission.DEFAULT_ROLE_PERMISSIONS[Role.MANAGER]!!
+        assertFalse(Permission.VIEW_FINANCIALS in managerPerms,
+            "The live payments_select RLS does not grant managers financial reads; the UI must not either")
+    }
+
+    @Test fun `T-237 Operational roles are locked out of every administrative module entry`() {
+        val operational = listOf(Role.TEACHER, Role.BUYER, Role.DRIVER, Role.WAREHOUSE_WORKER, Role.WORKER)
+        operational.forEach { role ->
+            val perms = Permission.DEFAULT_ROLE_PERMISSIONS[role]!!
+            assertFalse(Permission.VIEW_ROSTER in perms, "$role must not enter CRM")
+            assertFalse(Permission.VIEW_ACADEMICS in perms, "$role must not enter Pédagogie")
+            assertFalse(Permission.VIEW_FINANCIALS in perms, "$role must not enter Finances")
+            assertFalse(role in Role.DASHBOARD_ROLES, "$role must not see the main dashboard")
+        }
+    }
+
+    @Test fun `T-237 Administrative roles keep CRM + Pédagogie + dashboard access`() {
+        val administrative = listOf(Role.SUPER_ADMIN, Role.FINANCIAL_OFFICER, Role.SUPPORT_STAFF, Role.MANAGER)
+        administrative.forEach { role ->
+            val perms = Permission.DEFAULT_ROLE_PERMISSIONS[role]!!
+            assertTrue(Permission.VIEW_ROSTER in perms, "$role needs CRM")
+            assertTrue(Permission.VIEW_ACADEMICS in perms, "$role needs Pédagogie")
+            assertTrue(role in Role.DASHBOARD_ROLES, "$role needs the dashboard")
+        }
+    }
+
     @Test fun `Parent and Student default permissions are empty`() {
         assertEquals(emptySet<Permission>(), Permission.DEFAULT_ROLE_PERMISSIONS[Role.PARENT])
         assertEquals(emptySet<Permission>(), Permission.DEFAULT_ROLE_PERMISSIONS[Role.STUDENT])

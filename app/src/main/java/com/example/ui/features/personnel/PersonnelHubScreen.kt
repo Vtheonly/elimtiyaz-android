@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.core.Permission
+import com.example.core.Role
 import com.example.core.Session
 import com.example.ui.components.ModernSecondaryTabRow
 import androidx.compose.runtime.setValue
@@ -27,10 +28,15 @@ import androidx.compose.runtime.getValue
 /**
  * Personnel hub — restored navigation callbacks for personnel detail + workflow monitor + routing.
  *
- * 4-tab layout: Employés / Activité / Audit / Déconnexion.
+ * T-237 / RBAC-300 (35th session): teachers get a FIRST tab — "Mon espace" —
+ * the dedicated in-Personnel workspace (TeacherWorkspaceScreen: my homeroom
+ * classes → Appel/Notes). The teacher role lost VIEW_ROSTER/VIEW_ACADEMICS
+ * in core/Rbac.kt, so the CRM and Pédagogie bottom-nav hub tabs are no
+ * longer visible for teachers; this workspace is their single pedagogical
+ * entry point (desktop T-235 mirror).
  *
- * The Driver role sees a 5th implicit action — a "Tournées" button in the
- * Employés tab header — gated by [Permission.ACCESS_DRIVER_MODE].
+ * Non-teacher staff see the original layout: Employés / Activité / Audit /
+ * (+ Tournées for drivers) / Déconnexion.
  */
 @Composable
 fun PersonnelHubScreen(
@@ -41,12 +47,21 @@ fun PersonnelHubScreen(
     onNavigateToAuditLog: () -> Unit,
     onNavigateToRouting: () -> Unit = {},
     onSignOut: () -> Unit,
+    onNavigateToRollCall: (String) -> Unit = {},
+    onNavigateToGradeEntry: (String) -> Unit = {},
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = if (session.can(Permission.ACCESS_DRIVER_MODE)) {
-        listOf("Employés", "Activité", "Audit", "Tournées", "Déconnexion")
-    } else {
-        listOf("Employés", "Activité", "Audit", "Déconnexion")
+    val isTeacher = session.role == Role.TEACHER
+
+    // Tab layout: teachers get "Mon espace" as their first tab; everyone
+    // keeps the shared directory/activity/audit tabs.
+    val tabs = buildList {
+        if (isTeacher) add("Mon espace")
+        add("Employés")
+        add("Activité")
+        add("Audit")
+        if (session.can(Permission.ACCESS_DRIVER_MODE)) add("Tournées")
+        add("Déconnexion")
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -59,20 +74,29 @@ fun PersonnelHubScreen(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
             contentAlignment = Alignment.TopStart,
         ) {
-            // FIX (dead conditional): was `if (session.can(ACCESS_DRIVER_MODE))
-            // selectedTab else selectedTab` — both branches identical. The tab
-            // INDEX layout below already accounts for the conditional 5th
-            // "Tournées" tab, so the selected index maps directly.
             when (selectedTab) {
-                0 -> EmployeeDirectoryScreen(session, onNavigateToPersonnelDetail = onNavigateToPersonnelDetail)
-                1 -> ReleveScreen(session, onNavigateToReleve = onNavigateToReleve)
-                2 -> AuditStreamScreen(session, onNavigateToAuditLog = onNavigateToAuditLog)
-                3 -> if (session.can(Permission.ACCESS_DRIVER_MODE)) {
-                    DriverRoutingEntry(onNavigateToRouting = onNavigateToRouting, onNavigateToWorkflowMonitor = onNavigateToWorkflowMonitor)
+                // ── Teacher workspace (T-237) ─────────────────────────────
+                0 -> if (isTeacher) {
+                    TeacherWorkspaceScreen(
+                        session = session,
+                        onNavigateToRollCall = onNavigateToRollCall,
+                        onNavigateToGradeEntry = onNavigateToGradeEntry,
+                    )
                 } else {
-                    SignOutScreen(session, onSignOut = onSignOut)
+                    // Non-teacher: index 0 = Employés (original layout).
+                    EmployeeDirectoryScreen(session, onNavigateToPersonnelDetail = onNavigateToPersonnelDetail)
                 }
-                4 -> SignOutScreen(session, onSignOut = onSignOut)
+                else -> when (tabs[selectedTab]) {
+                    "Employés" -> EmployeeDirectoryScreen(session, onNavigateToPersonnelDetail = onNavigateToPersonnelDetail)
+                    "Activité" -> ReleveScreen(session, onNavigateToReleve = onNavigateToReleve)
+                    "Audit" -> AuditStreamScreen(session, onNavigateToAuditLog = onNavigateToAuditLog)
+                    "Tournées" -> DriverRoutingEntry(
+                        onNavigateToRouting = onNavigateToRouting,
+                        onNavigateToWorkflowMonitor = onNavigateToWorkflowMonitor,
+                    )
+                    "Déconnexion" -> SignOutScreen(session, onSignOut = onSignOut)
+                    else -> SignOutScreen(session, onSignOut = onSignOut)
+                }
             }
         }
     }

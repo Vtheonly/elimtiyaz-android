@@ -74,7 +74,10 @@ enum class Permission(val code: String) {
         val DEFAULT_ROLE_PERMISSIONS: Map<Role, Set<Permission>> = mapOf(
             Role.SUPER_ADMIN to entries.toSet(),
             Role.FINANCIAL_OFFICER to setOf(
-                VIEW_ROSTER, VIEW_FINANCIALS, COLLECT_PAYMENT, REFUND_PAYMENT,
+                // T-237: VIEW_ACADEMICS added — the 0023 server seed and the
+                // desktop matrix both grant it to financial officers (billing
+                // context); Android was the lone divergent platform.
+                VIEW_ROSTER, VIEW_ACADEMICS, VIEW_FINANCIALS, COLLECT_PAYMENT, REFUND_PAYMENT,
                 ADJUST_ACCOUNT, GENERATE_RECEIPT, VIEW_DEBT, SEND_REMINDER,
                 SUBMIT_EXPENSE, APPROVE_EXPENSE, DISBURSE_EXPENSE, SETTLE_EXPENSE_PROOF,
                 VIEW_PERSONNEL, VIEW_AUDIT_LOG, VIEW_RELEVE, MANAGE_PRICING,
@@ -83,7 +86,13 @@ enum class Permission(val code: String) {
                 UPDATE_TASK_STATUS, VIEW_PERFORMANCE, USE_CHAT, VIEW_WORKFORCE_REPORTS,
             ),
             Role.TEACHER to setOf(
-                VIEW_ROSTER, VIEW_ACADEMICS, ENTER_GRADES, ASSIGN_HOMEWORK,
+                // T-237 / RBAC-300 (35th session): VIEW_ROSTER and VIEW_ACADEMICS
+                // REMOVED from teacher — they were the module-ENTRY permissions
+                // that kept the CRM and Pédagogie hub tabs visible for teachers.
+                // Teachers keep the ACTION permissions and exercise them from
+                // the in-Personnel "Mon espace" workspace (mirrors desktop T-235;
+                // server-side data scoping = migration 0083).
+                ENTER_GRADES, ASSIGN_HOMEWORK,
                 ROLL_CALL, VIEW_ATTENDANCE, CLOCK_IN_OUT, SUBMIT_REQUESTS,
                 VIEW_TASKS, UPDATE_TASK_STATUS, USE_CHAT, USE_AI,
             ),
@@ -92,12 +101,18 @@ enum class Permission(val code: String) {
                 VIEW_ACADEMICS, VIEW_ATTENDANCE, ROLL_CALL, VIEW_FINANCIALS,
                 COLLECT_PAYMENT, GENERATE_RECEIPT, SUBMIT_EXPENSE, CLOCK_IN_OUT,
                 SUBMIT_REQUESTS, VIEW_TASKS, UPDATE_TASK_STATUS, USE_CHAT,
+                // T-237 / RBAC-300: clerk front-office duties — class assignment
+                // and year-end promotions (desktop parity, T-234).
+                MANAGE_CLASSES, PROMOTE_STUDENT,
             ),
             Role.MANAGER to setOf(
                 VIEW_ROSTER, CREATE_PARENT, EDIT_PARENT, DELETE_PARENT,
                 CREATE_STUDENT, EDIT_STUDENT, PROMOTE_STUDENT, VIEW_ACADEMICS,
                 MANAGE_SUBJECTS, MANAGE_CLASSES, ASSIGN_HOMEWORK, ROLL_CALL,
-                VIEW_FINANCIALS, VIEW_DEBT, SEND_REMINDER, SUBMIT_EXPENSE,
+                // T-237: VIEW_FINANCIALS REMOVED — the 0019 payments_select RLS
+                // does NOT grant managers financial reads server-side (desktop
+                // parity, pinned by the desktop role-boundaries test).
+                VIEW_DEBT, SEND_REMINDER, SUBMIT_EXPENSE,
                 APPROVE_EXPENSE, VIEW_PERSONNEL, MANAGE_PERSONNEL, VIEW_AUDIT_LOG,
                 VIEW_RELEVE, MANAGE_SETTINGS, MANAGE_PRICING, VIEW_WORKFLOW_RUNS,
                 EXECUTE_WORKFLOW, USE_AI, VIEW_DEPARTMENTS, MANAGE_DEPARTMENTS,

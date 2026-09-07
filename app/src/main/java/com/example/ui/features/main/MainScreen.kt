@@ -241,6 +241,10 @@ fun MainScreen(
                     onNavigateToAuditLog = onNavigateToAuditLog,
                     onNavigateToRouting = onNavigateToRouting,
                     onSignOut = { viewModel.signOut(onSignOut) },
+                    // T-237 / RBAC-300: the teacher's in-Personnel workspace
+                    // navigates to the ROLL_CALL/ENTER_GRADES-gated routes.
+                    onNavigateToRollCall = onNavigateToRollCall,
+                    onNavigateToGradeEntry = onNavigateToGradeEntry,
                 )
             }
         }
