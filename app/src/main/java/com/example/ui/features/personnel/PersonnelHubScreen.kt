@@ -1,5 +1,6 @@
 package com.example.ui.features.personnel
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -13,8 +14,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -22,22 +25,7 @@ import com.example.core.Permission
 import com.example.core.Role
 import com.example.core.Session
 import com.example.ui.components.ModernSecondaryTabRow
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 
-/**
- * Personnel hub — restored navigation callbacks for personnel detail + workflow monitor + routing.
- *
- * T-237 / RBAC-300 (35th session): teachers get a FIRST tab — "Mon espace" —
- * the dedicated in-Personnel workspace (TeacherWorkspaceScreen: my homeroom
- * classes → Appel/Notes). The teacher role lost VIEW_ROSTER/VIEW_ACADEMICS
- * in core/Rbac.kt, so the CRM and Pédagogie bottom-nav hub tabs are no
- * longer visible for teachers; this workspace is their single pedagogical
- * entry point (desktop T-235 mirror).
- *
- * Non-teacher staff see the original layout: Employés / Activité / Audit /
- * (+ Tournées for drivers) / Déconnexion.
- */
 @Composable
 fun PersonnelHubScreen(
     session: Session,
@@ -50,11 +38,9 @@ fun PersonnelHubScreen(
     onNavigateToRollCall: (String) -> Unit = {},
     onNavigateToGradeEntry: (String) -> Unit = {},
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val isTeacher = session.role == Role.TEACHER
 
-    // Tab layout: teachers get "Mon espace" as their first tab; everyone
-    // keeps the shared directory/activity/audit tabs.
     val tabs = buildList {
         if (isTeacher) add("Mon espace")
         add("Employés")
@@ -62,6 +48,10 @@ fun PersonnelHubScreen(
         add("Audit")
         if (session.can(Permission.ACCESS_DRIVER_MODE)) add("Tournées")
         add("Déconnexion")
+    }
+
+    BackHandler(enabled = selectedTab != 0) {
+        selectedTab = 0
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -75,7 +65,6 @@ fun PersonnelHubScreen(
             contentAlignment = Alignment.TopStart,
         ) {
             when (selectedTab) {
-                // ── Teacher workspace (T-237) ─────────────────────────────
                 0 -> if (isTeacher) {
                     TeacherWorkspaceScreen(
                         session = session,
@@ -83,7 +72,6 @@ fun PersonnelHubScreen(
                         onNavigateToGradeEntry = onNavigateToGradeEntry,
                     )
                 } else {
-                    // Non-teacher: index 0 = Employés (original layout).
                     EmployeeDirectoryScreen(session, onNavigateToPersonnelDetail = onNavigateToPersonnelDetail)
                 }
                 else -> when (tabs[selectedTab]) {

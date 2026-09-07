@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Whatsapp
@@ -71,8 +72,8 @@ import com.example.ui.util.PhoneUtils
 fun ParentDetailScreen(
     parentId: String,
     onBack: () -> Unit,
-    /** Opens a child's dossier — the children list was previously not tappable. */
     onOpenStudent: (String) -> Unit = {},
+    onNavigateToCounter: (parentId: String?, studentId: String?) -> Unit = { _, _ -> },
     viewModel: ParentDetailViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(parentId) { viewModel.load(parentId) }
@@ -81,8 +82,6 @@ fun ParentDetailScreen(
     val summary by viewModel.summary.collectAsState()
     val payments by viewModel.payments.collectAsState()
     val installments by viewModel.installments.collectAsState()
-    // T-167 — canonical itemized billing breakdown (parity with the desktop
-    // parent-drawer Finances tab + the website Facturation tab).
     val billingBreakdown by viewModel.billingBreakdown.collectAsState()
     val classifiedAdjustments by viewModel.classifiedAdjustments.collectAsState()
     val classes by viewModel.classes.collectAsState()
@@ -93,16 +92,10 @@ fun ParentDetailScreen(
     val context = LocalContext.current
     val tokens = elDesignTokens()
 
-    // FIX (missing edit feature): edit dialog state.
     var showEditDialog by remember { mutableStateOf(false) }
-
-    // Vault §04.05 — "Add Another Child" action embedded in the drawer.
     var showAddChildDialog by remember { mutableStateOf(false) }
-
-    // Manual account adjustment dialog state (PaymentRepository.adjust UI).
     var showAdjustDialog by remember { mutableStateOf(false) }
 
-    // Share the freshly generated account-statement PDF (FileProvider + ACTION_SEND).
     LaunchedEffect(pdfFile) {
         val file = pdfFile ?: return@LaunchedEffect
         try {
@@ -220,7 +213,6 @@ fun ParentDetailScreen(
                         Spacer(Modifier.height(4.dp))
                         ElInfoRow(label = "Code", value = p.code)
                         ElInfoRow(label = "Téléphone", value = p.phone)
-                        // Vault §04.03 — secondary phone shown when distinct.
                         p.whatsapp?.takeIf { it.isNotBlank() && it != p.phone }?.let {
                             ElInfoRow(label = "Téléphone secondaire", value = it)
                         }
@@ -256,10 +248,16 @@ fun ParentDetailScreen(
                             ElInfoRow(label = "En retard", value = "${(s.totalOverdue / 100).formatDzd()} DZD", valueColor = DangerRed)
                         }
 
-                        // Financial actions — account statement PDF export +
-                        // manual adjustment (both RBAC-gated in the ViewModel).
                         Spacer(Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ElButton(
+                                text = "Encaisser",
+                                onClick = { parent?.id?.let { onNavigateToCounter(it, null) } },
+                                style = com.example.ui.components.ElButtonStyle.Primary,
+                                icon = Icons.Default.Payments,
+                                modifier = Modifier.weight(1f),
+                                enabled = !busy,
+                            )
                             if (viewModel.canGenerateStatement) {
                                 ElButton(
                                     text = if (busy) "Génération…" else "Relevé PDF",
@@ -276,7 +274,7 @@ fun ParentDetailScreen(
                                     onClick = { showAdjustDialog = true },
                                     style = com.example.ui.components.ElButtonStyle.Secondary,
                                     icon = Icons.Default.Tune,
-                                    modifier = if (viewModel.canGenerateStatement) Modifier.weight(1f) else Modifier.fillMaxWidth(),
+                                    modifier = Modifier.weight(1f),
                                     enabled = !busy,
                                 )
                             }
@@ -285,11 +283,6 @@ fun ParentDetailScreen(
                 }
             }
 
-            // ── T-167 — Prestations facturées (itemized billing breakdown) ──
-            // Canonical derivation (core/BillingBreakdown.kt): per-child
-            // charge items + REAL tranche coverage; the 40/30/30 synthesis
-            // only fills display gaps for children without physical rows
-            // (flagged so staff knows the schedule is deduced, not stored).
             billingBreakdown?.let { bd ->
                 if (bd.byChild.isNotEmpty() && bd.totalBilled > 0L) {
                     ElCard(modifier = Modifier.fillMaxWidth()) {
@@ -331,10 +324,6 @@ fun ParentDetailScreen(
                                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                         )
                                     }
-                                    // Itemized charge line items — the child's
-                                    // "shopping list" (T-168: exhaustive — family
-                                    // rows are folded in for single-child
-                                    // families, listed separately otherwise).
                                     childBd.lineItems.forEach { item ->
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -353,7 +342,6 @@ fun ParentDetailScreen(
                                             )
                                         }
                                     }
-                                    // Tranche coverage — where the money landed.
                                     childBd.tranches.forEach { tr ->
                                         val trancheLabel = "${tr.label} · ${tr.dueDate?.take(10) ?: "—"}"
                                         val statusLabel = when (tr.status) {
@@ -398,8 +386,6 @@ fun ParentDetailScreen(
                                 Spacer(Modifier.height(2.dp))
                             }
 
-                            // T-168 — family-level items (multi-child only):
-                            // keeps the shopping list exhaustive.
                             if (bd.unattributedItems.isNotEmpty()) {
                                 Text(
                                     "Famille — éléments non rattachés à un enfant",
@@ -426,7 +412,6 @@ fun ParentDetailScreen(
                                 }
                             }
 
-                            // T-168 — per-service recap (share % + attribution).
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 "Par service :",
@@ -457,9 +442,6 @@ fun ParentDetailScreen(
                                 }
                             }
 
-                            // T-168 — adjustment-aware reconciliation footer
-                            // (every term visible; identical to the desktop
-                            // drawer + website Facturation tab).
                             Spacer(Modifier.height(6.dp))
                             val recon = bd.reconciliation
                             Column(
@@ -503,7 +485,6 @@ fun ParentDetailScreen(
                 }
             }
 
-            // ── T-168 — Classified adjustment history (provenance) ─────────
             if (classifiedAdjustments.isNotEmpty()) {
                 ElCard(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -561,7 +542,6 @@ fun ParentDetailScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         ElSectionHeader(title = "Enfants (${children.size})")
-                        // Vault §04.05 — "Add Another Child" direct action.
                         if (viewModel.canAddChild) {
                             com.example.ui.components.ElButton(
                                 text = "Ajouter un enfant",
@@ -571,8 +551,6 @@ fun ParentDetailScreen(
                             )
                         }
                     }
-                    // FIX (not tappable): children rows now open the student
-                    // dossier (parity with GlobalSearch and the desktop).
                     children.forEach { kid ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -598,9 +576,6 @@ fun ParentDetailScreen(
                 }
             }
 
-            // ── Vault §04.05 — Active services across all children ─────────
-            // Derived from the family's installments: every distinct service
-            // category with a remaining balance is an active service.
             if (installments.isNotEmpty()) {
                 val childById = children.associateBy { it.id }
                 val activeServices = installments
@@ -637,8 +612,6 @@ fun ParentDetailScreen(
                 }
             }
 
-            // ── Vault §04.05 — Installment schedules (embedded, never a
-            // separate top-level tab) ────────────────────────────────────────
             val upcoming = installments
                 .filter { it.status != com.example.core.PaymentStatus.PAID }
                 .sortedBy { it.dueDate }
@@ -673,7 +646,6 @@ fun ParentDetailScreen(
                 }
             }
 
-            // ── Vault §04.05 — Itemized ledger of historic payments ─────────
             if (payments.isNotEmpty()) {
                 val recent = payments.sortedByDescending { it.collectedAt }.take(10)
                 ElCard(modifier = Modifier.fillMaxWidth()) {
@@ -725,8 +697,6 @@ fun ParentDetailScreen(
         }
     }
 
-    // FIX (missing edit feature): edit dialog — first class UI for
-    // `updateParent` (identity + contact).
     if (showEditDialog && parent != null) {
         val p = parent!!
         var firstName by remember { mutableStateOf(p.firstName) }
@@ -773,8 +743,6 @@ fun ParentDetailScreen(
         )
     }
 
-    // Manual account adjustment dialog — UI entry for
-    // `PaymentRepository.adjust` (previously repository-only).
     if (showAdjustDialog && parent != null) {
         AdjustAccountDialog(
             outstanding = summary?.totalOutstanding,
@@ -787,8 +755,6 @@ fun ParentDetailScreen(
         )
     }
 
-    // Vault §04.05 — "Add Another Child" dialog (canonical createStudent,
-    // parent-first dependency enforced by the repository).
     if (showAddChildDialog && parent != null) {
         AddChildDialog(
             parentName = parent!!.fullName,
@@ -803,7 +769,6 @@ fun ParentDetailScreen(
     }
 }
 
-/** Standard adjustment motifs (reason codes persisted in the ledger entry). */
 private val ADJUSTMENT_MOTIFS = listOf(
     "Remise fratrie",
     "Remise direction",
@@ -813,10 +778,6 @@ private val ADJUSTMENT_MOTIFS = listOf(
     "Autre",
 )
 
-/**
- * T-168 — one labelled line of the reconciliation equation (mirrors the
- * desktop ReconRow / the website recon footer rows).
- */
 @Composable
 private fun ReconLine(
     label: String,
@@ -841,7 +802,6 @@ private fun ReconLine(
     }
 }
 
-/** Categories applicable to debit adjustments (credits auto-route to parent_credit). */
 private val ADJUSTMENT_CATEGORIES = listOf(
     PaymentCategory.TUITION to "Scolarité",
     PaymentCategory.TRANSPORT to "Transport",
@@ -851,14 +811,6 @@ private val ADJUSTMENT_CATEGORIES = listOf(
     PaymentCategory.OTHER to "Autre",
 )
 
-/**
- * Manual account adjustment dialog — mirrors the desktop's
- * `AdjustAccountModal` (parent-detail-drawer.tsx): signed amount, mandatory
- * motif (reason code for audit), category, and an optional note.
- *
- * Sign convention follows the CANONICAL engine (core/Ledger.kt):
- * positive = debit (pénalité / majoration), negative = crédit (remise / avoir).
- */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun AdjustAccountDialog(
@@ -943,7 +895,7 @@ private fun AdjustAccountDialog(
         },
     )
 }
-/** French display label for a payment category (vault §04.05 services list). */
+
 private fun categoryFrenchLabel(category: PaymentCategory): String = when (category) {
     PaymentCategory.TUITION -> "Scolarité"
     PaymentCategory.TRANSPORT -> "Transport"
@@ -958,11 +910,6 @@ private fun categoryFrenchLabel(category: PaymentCategory): String = when (categ
     PaymentCategory.OTHER -> "Autre"
 }
 
-/**
- * Vault §04.05 / §04.01 — "Add Another Child" dialog embedded in the Parent
- * drawer. The child is created through the canonical `createStudent`, which
- * enforces the parent-first dependency (parentId is mandatory).
- */
 @Composable
 private fun AddChildDialog(
     parentName: String,
@@ -1002,7 +949,6 @@ private fun AddChildDialog(
                 OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Prénom *") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Nom") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = birthDate, onValueChange = { birthDate = it }, label = { Text("Date de naissance (AAAA-MM-JJ) *") }, modifier = Modifier.fillMaxWidth())
-                // Gender chips (vault §04.03 child block: Gender).
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     genderOptions.forEach { opt ->
                         ElTag(text = opt, selected = genderLabel == opt, color = PrimaryBlue, onClick = { genderLabel = opt })

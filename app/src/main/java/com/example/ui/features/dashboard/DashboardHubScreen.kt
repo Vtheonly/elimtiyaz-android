@@ -50,12 +50,12 @@ fun DashboardHubScreen(
     session: Session,
     onNavigateToStudent: (String) -> Unit,
     onNavigateToParent: (String) -> Unit,
-    onNavigateToCounterPayment: () -> Unit,
+    onNavigateToCounterPayment: (parentId: String?, studentId: String?) -> Unit = { _, _ -> },
     onNavigateToDebtDashboard: () -> Unit,
     onNavigateToBatchRegistration: () -> Unit = {},
     onNavigateToAcademics: () -> Unit = {},
     onNavigateToCrm: () -> Unit = {},
-    onNavigateToFinancials: () -> Unit = onNavigateToCounterPayment,
+    onNavigateToFinancials: () -> Unit = { onNavigateToCounterPayment(null, null) },
     onNavigateToPersonnel: () -> Unit = {},
     onNavigateToGlobalSearch: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
@@ -77,10 +77,6 @@ fun DashboardHubScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    // FIX (fabricated fallback): when KPIs had not loaded yet the screen
-    // rendered a fully invented dataset (390 students / 1.245M DZD revenue /
-    // 96.5% attendance). The fallback is now a truthful all-zero KPI — the
-    // reactive Room flow populates the real values as soon as they exist.
     val currentKpi = kpis ?: DashboardKpi(
         totalStudents = 0, totalParents = 0, totalStaff = 0,
         monthlyRevenue = 0L, outstandingDebt = 0L,
@@ -168,7 +164,7 @@ fun DashboardHubScreen(
 
             // ── (3) Direct Operational Quick Actions ─────────────────────────
             DashboardQuickActionsRow(
-                onNavigateToCounterPayment = onNavigateToCounterPayment,
+                onNavigateToCounterPayment = { onNavigateToCounterPayment(null, null) },
                 onNavigateToBatchRegistration = onNavigateToBatchRegistration,
                 onNavigateToFinancials = onNavigateToFinancials,
                 onNavigateToAcademics = onNavigateToAcademics,

@@ -96,7 +96,9 @@ fun AppNavHost() {
                     onNavigateToStudent = { id -> navController.navigate(Routes.StudentDetail(id)) },
                     onNavigateToParent = { id -> navController.navigate(Routes.ParentDetail(id)) },
                     onNavigateToBatchRegistration = { navController.navigate(Routes.BatchRegistration) },
-                    onNavigateToCounterPayment = { navController.navigate(Routes.CounterPayment) },
+                    onNavigateToCounterPayment = { parentId, studentId ->
+                        navController.navigate(Routes.CounterPayment(parentId, studentId))
+                    },
                     onNavigateToProofScanner = { navController.navigate(Routes.ProofScanner) },
                     onNavigateToDebtDashboard = { navController.navigate(Routes.DebtDashboard) },
                     onNavigateToInstallmentSchedule = { navController.navigate(Routes.InstallmentSchedule) },
@@ -136,6 +138,9 @@ fun AppNavHost() {
                     StudentDetailScreen(
                         studentId = route.studentId,
                         onBack = { navController.popBackStack() },
+                        onNavigateToCounter = { pId, sId ->
+                            navController.navigate(Routes.CounterPayment(pId, sId))
+                        },
                     )
                 }
             }
@@ -147,6 +152,9 @@ fun AppNavHost() {
                         parentId = route.parentId,
                         onBack = { navController.popBackStack() },
                         onOpenStudent = { id -> navController.navigate(Routes.StudentDetail(id)) },
+                        onNavigateToCounter = { pId, sId ->
+                            navController.navigate(Routes.CounterPayment(pId, sId))
+                        },
                     )
                 }
             }
@@ -184,9 +192,14 @@ fun AppNavHost() {
                 }
             }
 
-            composable<Routes.CounterPayment> {
+            composable<Routes.CounterPayment> { backStackEntry ->
                 rbacGate(navController, Routes.CounterPayment::class) {
-                    CounterPaymentScreen(onBack = { navController.popBackStack() })
+                    val route: Routes.CounterPayment = backStackEntry.toRoute()
+                    CounterPaymentScreen(
+                        initialParentId = route.parentId,
+                        initialStudentId = route.studentId,
+                        onBack = { navController.popBackStack() },
+                    )
                 }
             }
 
@@ -204,7 +217,13 @@ fun AppNavHost() {
 
             composable<Routes.DebtDashboard> {
                 rbacGate(navController, Routes.DebtDashboard::class) {
-                    DebtDashboardScreen(onBack = { navController.popBackStack() })
+                    DebtDashboardScreen(
+                        onBack = { navController.popBackStack() },
+                        onNavigateToParent = { id -> navController.navigate(Routes.ParentDetail(id)) },
+                        onNavigateToCounter = { pId, sId ->
+                            navController.navigate(Routes.CounterPayment(pId, sId))
+                        },
+                    )
                 }
             }
 

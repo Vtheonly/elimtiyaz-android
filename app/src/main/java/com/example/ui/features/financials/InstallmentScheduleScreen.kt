@@ -1,5 +1,6 @@
 package com.example.ui.features.financials
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,14 +11,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -38,11 +48,11 @@ import com.example.ui.components.ElProgressBar
 import com.example.ui.components.ElSectionHeader
 import com.example.ui.components.ElTag
 import com.example.ui.components.ElTextField
-import com.example.ui.components.ElTopBar
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InstallmentScheduleScreen(
     onBack: () -> Unit,
@@ -71,27 +81,48 @@ fun InstallmentScheduleScreen(
     val remainingDebt = (totalDue - totalPaid).coerceAtLeast(0L)
     val progress = if (totalDue > 0) (totalPaid.toFloat() / totalDue.toFloat()).coerceIn(0f, 1f) else 0f
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        ElTopBar(title = "Échéancier des Tranches", onBack = onBack)
+    BackHandler(enabled = !selectedParentId.isNullOrBlank()) {
+        viewModel.selectParent("")
+    }
 
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Échéancier des Tranches") },
+                navigationIcon = {
+                    IconButton(onClick = {
+                        if (!selectedParentId.isNullOrBlank()) {
+                            viewModel.selectParent("")
+                        } else {
+                            onBack()
+                        }
+                    }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    }
+                },
+            )
+        },
+    ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item {
-                ElTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    label = "Rechercher une famille",
-                    placeholder = "Nom, téléphone, matricule...",
-                    leadingIcon = Icons.Default.Search,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
             if (selectedParent == null) {
+                item {
+                    ElTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        label = "Rechercher une famille",
+                        placeholder = "Nom, téléphone, matricule...",
+                        leadingIcon = Icons.Default.Search,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
                 if (filteredParents.isEmpty()) {
                     item {
                         ElEmptyState(
@@ -131,6 +162,30 @@ fun InstallmentScheduleScreen(
                 }
             } else {
                 item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(MaterialTheme.shapes.small)
+                            .clickable { viewModel.selectParent("") }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Retour à la liste",
+                            tint = PrimaryBlue,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Retour à la liste des familles",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = PrimaryBlue,
+                        )
+                    }
+                }
+
+                item {
                     ElCard(modifier = Modifier.fillMaxWidth(), accent = PrimaryBlue) {
                         Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(
@@ -138,7 +193,7 @@ fun InstallmentScheduleScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Column {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(selectedParent.fullName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                                     Text("Code : ${selectedParent.code} • Tél : ${selectedParent.phone}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }

@@ -42,7 +42,10 @@ object Routes {
     // Financials detail routes
     @Serializable data class PaymentDetail(val paymentId: String) : Route
     @Serializable data class ExpenseDetail(val expenseId: String) : Route
-    @Serializable object CounterPayment : Route
+    @Serializable data class CounterPayment(
+        val parentId: String? = null,
+        val studentId: String? = null,
+    ) : Route
     @Serializable object ExpenseSubmit : Route
     @Serializable object ProofScanner : Route
     @Serializable object DebtDashboard : Route

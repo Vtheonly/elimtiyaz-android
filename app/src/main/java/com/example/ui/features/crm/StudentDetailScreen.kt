@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Whatsapp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -104,26 +105,14 @@ data class AttendanceStats(
     val rate: Double = 100.0,
 )
 
-/**
- * Vault §04.07 / §06.05 — one year of the permanent, append-only Student
- * Academic History. Grade level + promotion outcome are reconstructed from
- * the `student.promote` audit trail (each entry carries from/to/decision/year).
- */
 data class AcademicYearHistory(
     val academicYear: String,
-    /** Canonical GPA per term (T1/T2/T3) — null when the term has no grades. */
     val termGpas: Map<String, Double?>,
-    /** Canonical yearly GPA over every term's assessments. */
     val yearlyGpa: Double?,
-    /** Every assessment row of the year (subject breakdown + D1/D2/Examen). */
     val assessments: List<Assessment>,
-    /** Grade level held during that year (from the promotion audit trail). */
     val gradeLevel: String?,
-    /** Promotion outcome: promoted | repeated | graduated (null = pending). */
     val promotionOutcome: String?,
-    /** Attendance rate for the year (0–100). */
     val attendanceRate: Double?,
-    /** True when the year is closed (any promote audit exists for it). */
     val isArchived: Boolean,
 )
 
@@ -154,18 +143,12 @@ class StudentDetailViewModel @Inject constructor(
     private val _assessments = MutableStateFlow<List<Assessment>>(emptyList())
     val assessments: StateFlow<List<Assessment>> = _assessments.asStateFlow()
 
-    /** All subjects — resolves assessment subjectIds to display names. */
     private val _subjects = MutableStateFlow<List<com.example.domain.model.Subject>>(emptyList())
     val subjects: StateFlow<List<com.example.domain.model.Subject>> = _subjects.asStateFlow()
 
-    /**
-     * Class-wide assessments for the selected term — backs the student's rank
-     * and the class average, both derived from the canonical GPA engine.
-     */
     private val _classAssessments = MutableStateFlow<List<Assessment>>(emptyList())
     val classAssessments: StateFlow<List<Assessment>> = _classAssessments.asStateFlow()
 
-    /** Canonical GPA per term (T1 / T2 / T3) — real progression history. */
     private val _termGpas = MutableStateFlow<Map<String, Double?>>(emptyMap())
     val termGpas: StateFlow<Map<String, Double?>> = _termGpas.asStateFlow()
 
@@ -187,7 +170,6 @@ class StudentDetailViewModel @Inject constructor(
     private val _familySummary = MutableStateFlow<ParentLedgerSummary?>(null)
     val familySummary: StateFlow<ParentLedgerSummary?> = _familySummary.asStateFlow()
 
-    /** Vault §04.07 — permanent per-student academic history (all years). */
     private val _academicHistory = MutableStateFlow<List<AcademicYearHistory>>(emptyList())
     val academicHistory: StateFlow<List<AcademicYearHistory>> = _academicHistory.asStateFlow()
 
@@ -200,10 +182,6 @@ class StudentDetailViewModel @Inject constructor(
     private val _saveMessage = MutableStateFlow<String?>(null)
     val saveMessage: StateFlow<String?> = _saveMessage.asStateFlow()
 
-    // FIX (coroutine leak): the previous implementation nested one `collect`
-    // inside another inside another — every student emission spawned NEW inner
-    // collectors that were never cancelled, re-fetching the ledger summary
-    // per emission and duplicating work until the screen was destroyed.
     private var loadJob: kotlinx.coroutines.Job? = null
     private var detailJob: kotlinx.coroutines.Job? = null
     private var gradesJob: kotlinx.coroutines.Job? = null
@@ -218,7 +196,6 @@ class StudentDetailViewModel @Inject constructor(
             _isLoading.value = true
             val year = academicYear ?: currentAcademicYear()
             launch {
-                // Subject catalogue — resolves subjectIds to names/coefficients.
                 subjectRepository.observe().collect { _subjects.value = it }
             }
             studentRepository.observeById(studentId).collect { s ->
@@ -241,8 +218,6 @@ class StudentDetailViewModel @Inject constructor(
                             }
                         }
                         launch {
-                            // FIX (hardcoded term): grades are re-observable per
-                            // term — the UI now exposes a term selector.
                             gradesJob?.cancel()
                             gradesJob = launch {
                                 gradeRepository.observeForStudent(studentId, term, year).collect { list ->
@@ -250,9 +225,7 @@ class StudentDetailViewModel @Inject constructor(
                                 }
                             }
                         }
-                        // Per-term GPA history (T1/T2/T3) — canonical engine.
                         launch { loadTermGpas(studentId, year) }
-                        // Class-wide assessments for rank + class average.
                         s.classId?.let { cid ->
                             classGradesJob?.cancel()
                             classGradesJob = launch {
@@ -283,7 +256,6 @@ class StudentDetailViewModel @Inject constructor(
                                 _payments.value = it
                             }
                         }
-                        // Vault §04.07 — permanent academic history (all years).
                         launch { loadAcademicHistory(studentId, s.gradeLevel) }
                     }
                 }
@@ -292,7 +264,6 @@ class StudentDetailViewModel @Inject constructor(
         }
     }
 
-    /** Re-observe grades for a different term without reloading everything. */
     fun loadGradesForTerm(studentId: String, term: String, academicYear: String? = null) {
         val year = academicYear ?: currentAcademicYear()
         gradesJob?.cancel()
@@ -300,7 +271,6 @@ class StudentDetailViewModel @Inject constructor(
             gradeRepository.observeForStudent(studentId, term, year)
                 .collect { list -> _assessments.value = list }
         }
-        // Class-wide view follows the selected term too (rank + class average).
         val classId = _student.value?.classId
         if (classId != null) {
             classGradesJob?.cancel()
@@ -312,15 +282,6 @@ class StudentDetailViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Vault §04.07 / §06.05 — permanent academic history: every year the
-     * student has assessments for, with term-by-term GPAs (canonical engine),
-     * subject breakdown, attendance rate, and the promotion outcome
-     * reconstructed from the `student.promote` audit trail.
-     *
-     * READ-ONLY by construction — this loader never mutates anything; past
-     * years can only be superseded by a new audit-logged entry (append-only).
-     */
     private suspend fun loadAcademicHistory(studentId: String, currentGradeLevel: String) {
         val all = gradeRepository.observeAllForStudent(studentId).firstOrNull().orEmpty()
         if (all.isEmpty()) {
@@ -329,14 +290,11 @@ class StudentDetailViewModel @Inject constructor(
         }
         val attendance = attendanceRepository.observeByStudent(studentId).firstOrNull().orEmpty()
 
-        // Promotion audit trail: each `student.promote` entry carries
-        // after={"decision":…,"year":…,"from":…,"to":…} — `from` is the
-        // grade held DURING that year, `to` the next year's grade.
         val promoteAudits = auditRepository
             .observeByEntity("student", studentId)
             .firstOrNull().orEmpty()
             .filter { it.action == "student.promote" }
-        val outcomeByYear = mutableMapOf<String, Pair<String, String?>>() // year -> (decision, from)
+        val outcomeByYear = mutableMapOf<String, Pair<String, String?>>()
         promoteAudits.forEach { log ->
             val after = log.afterJson ?: return@forEach
             val decision = Regex("\\\"decision\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"").find(after)?.groupValues?.get(1)
@@ -354,7 +312,6 @@ class StudentDetailViewModel @Inject constructor(
                     termGpas[t] = if (termRows.isEmpty()) null else com.example.core.computeOverallGpa(termRows)
                 }
                 val yearlyAttendance = attendance.filter {
-                    // Academic year "2026-2027" covers 2026-09 .. 2027-06.
                     val y = it.date.take(4).toIntOrNull() ?: return@filter false
                     val parts = year.split("-")
                     val startYear = parts.getOrNull(0)?.toIntOrNull()
@@ -381,11 +338,6 @@ class StudentDetailViewModel @Inject constructor(
         _academicHistory.value = history
     }
 
-    /**
-     * Canonical GPA per term — one entry per term that has any assessment.
-     * Computed with [com.example.core.computeOverallGpa] (coefficient-weighted,
-     * extracurricular excluded, incomplete averages skipped).
-     */
     private suspend fun loadTermGpas(studentId: String, year: String) {
         val gpas = linkedMapOf<String, Double?>()
         for (t in listOf("T1", "T2", "T3")) {
@@ -400,7 +352,6 @@ class StudentDetailViewModel @Inject constructor(
         return if (now.monthValue >= 9) "${now.year}-${now.year + 1}" else "${now.year - 1}-${now.year}"
     }
 
-    /** FIX (missing edit feature): persist edits via updateStudent. */
     fun updateStudent(
         studentId: String,
         firstName: String,
@@ -437,12 +388,9 @@ class StudentDetailViewModel @Inject constructor(
         _saveMessage.value = null
     }
 
-    // ── Bulletin PDF (entity-specific report, per desktop spec §5.1) ──────
-
     private val _bulletinBusy = MutableStateFlow(false)
     val bulletinBusy: StateFlow<Boolean> = _bulletinBusy.asStateFlow()
 
-    /** One-shot share request: the freshly generated bulletin file. */
     private val _bulletinShareRequest = MutableStateFlow<java.io.File?>(null)
     val bulletinShareRequest: StateFlow<java.io.File?> = _bulletinShareRequest.asStateFlow()
 
@@ -461,7 +409,6 @@ class StudentDetailViewModel @Inject constructor(
         }
     }
 
-    /** Called by the UI once the share intent has been dispatched. */
     fun consumeBulletinShareRequest() { _bulletinShareRequest.value = null }
 }
 
@@ -469,6 +416,7 @@ class StudentDetailViewModel @Inject constructor(
 fun StudentDetailScreen(
     studentId: String,
     onBack: () -> Unit,
+    onNavigateToCounter: (parentId: String?, studentId: String?) -> Unit = { _, _ -> },
     viewModel: StudentDetailViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(studentId) { viewModel.load(studentId) }
@@ -480,10 +428,6 @@ fun StudentDetailScreen(
     val attendanceStats by viewModel.attendanceStats.collectAsState()
     val installments by viewModel.installments.collectAsState()
     val payments by viewModel.payments.collectAsState()
-    // TIER 4 FIX (bypass #1) — collect the canonical `ParentLedgerSummary`
-    // already materialized by the ViewModel from `ledgerRepository.summary()`
-    // (which calls `LedgerEngine.computeParentSummary`). Used by the
-    // Finances tab to avoid inline installment sums.
     val familySummary by viewModel.familySummary.collectAsState()
     val saveMessage by viewModel.saveMessage.collectAsState()
     val subjects by viewModel.subjects.collectAsState()
@@ -497,10 +441,7 @@ fun StudentDetailScreen(
 
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Profil & Famille", "Notes & Bulletins", "Présences & Retards", "Finances & Échéances", "Historique")
-    // FIX (hardcoded T1): term selector for the grades tab — previously only
-    // "T1" of a hardcoded academic year was ever shown.
     var selectedTerm by remember { mutableStateOf("T1") }
-    // FIX (missing edit feature): edit dialog state.
     var showEditDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedTerm) {
@@ -512,8 +453,6 @@ fun StudentDetailScreen(
             viewModel.clearMessages()
         }
     }
-    // Share the freshly generated bulletin PDF (ACTION_SEND via FileProvider —
-    // same mechanism as the payment-receipt share).
     LaunchedEffect(bulletinShareRequest) {
         bulletinShareRequest?.let { file ->
             runCatching {
@@ -539,9 +478,6 @@ fun StudentDetailScreen(
             ElTopBar(
                 title = student?.fullName ?: "Dossier Élève",
                 onBack = onBack,
-                // FIX (read-only dossier): an edit action is now available —
-                // `updateStudent` existed in the repository but was never
-                // reachable from any UI.
                 actions = {
                     if (student != null) {
                         IconButton(onClick = { showEditDialog = true }) {
@@ -587,7 +523,6 @@ fun StudentDetailScreen(
             )
 
             when (selectedTab) {
-                // ── 1. PROFIL & FAMILLE ──────────────────────────────────────
                 0 -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -684,13 +619,11 @@ fun StudentDetailScreen(
                     item { Spacer(Modifier.height(88.dp)) }
                 }
 
-                // ── 2. NOTES & BULLETINS ──────────────────────────────────────
                 1 -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     item {
-                        // Term selector (T1 / T2 / T3).
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf("T1", "T2", "T3").forEach { t ->
                                 ElTag(
@@ -703,12 +636,10 @@ fun StudentDetailScreen(
                         }
                     }
 
-                    // Subject-name resolution + canonical derived metrics.
                     val subjectById = subjects.associateBy { it.id }
                     val gpa = computeOverallGpa(assessments)
                     val mention = mentionFor(gpa)
 
-                    // Class rank + class average — canonical GPA per classmate.
                     val classGpas = classAssessments
                         .groupBy { it.studentId }
                         .map { (sid, list) -> sid to computeOverallGpa(list) }
@@ -727,7 +658,6 @@ fun StudentDetailScreen(
                         ?.let { (subjectById[it.subjectId]?.name ?: it.subjectId) to it.subjectAverage!! }
 
                     item {
-                        // ── GPA hero with mention + rank ──
                         ElCard(modifier = Modifier.fillMaxWidth(), accent = if ((gpa ?: 0.0) >= 10.0) SuccessGreen else DangerRed) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(
@@ -786,7 +716,6 @@ fun StudentDetailScreen(
                     }
 
                     item {
-                        // ── Per-term progression (canonical GPA per term) ──
                         if (termGpas.values.any { it != null }) {
                             ElCard(modifier = Modifier.fillMaxWidth()) {
                                 Column(modifier = Modifier.padding(14.dp)) {
@@ -839,7 +768,6 @@ fun StudentDetailScreen(
                     }
 
                     item {
-                        // ── Strengths / focus areas (derived, canonical values) ──
                         if (bestSubject != null || weakestSubject != null) {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 bestSubject?.let { (name, avg) ->
@@ -898,7 +826,6 @@ fun StudentDetailScreen(
                             )
                         }
 
-                        // ── Bulletin PDF (entity-specific report) ──
                         item {
                             ElCard(modifier = Modifier.fillMaxWidth(), accent = PrimaryBlue) {
                                 Column(modifier = Modifier.padding(14.dp)) {
@@ -926,7 +853,6 @@ fun StudentDetailScreen(
                     item { Spacer(Modifier.height(88.dp)) }
                 }
 
-                // ── 3. PRÉSENCES & RETARDS ───────────────────────────────────
                 2 -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -999,23 +925,11 @@ fun StudentDetailScreen(
                     item { Spacer(Modifier.height(88.dp)) }
                 }
 
-                // ── 4. FINANCES & ÉCHÉANCES ──────────────────────────────────
                 3 -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     item {
-                        // TIER 4 FIX (bypass #1) — replace the inline
-                        // `installments.sumOf { amountDue / amountPaid }` with
-                        // the canonical `ParentLedgerSummary` (produced by
-                        // `LedgerEngine.computeParentSummary`). The canonical
-                        // engine correctly excludes reversed originals, applies
-                        // overdue rules, and includes adjustments/credits — the
-                        // inline sum missed all three.
-                        // FIX (mislabel): the summary is FAMILY-scoped — for
-                        // multi-child families the previous "État financier de
-                        // l'élève" header wrongly presented sibling totals as
-                        // this student's own finances.
                         val studentDue = familySummary?.totalCharged ?: 0L
                         val studentPaid = familySummary?.totalPaid ?: 0L
                         val studentRest = (familySummary?.totalOutstanding ?: 0L).coerceAtLeast(0L)
@@ -1028,7 +942,17 @@ fun StudentDetailScreen(
                                 Spacer(Modifier.height(6.dp))
                                 ElInfoRow(label = "Tranches de cet élève (dû)", value = "${(ownDue / 100).formatDzd()} DZD")
                                 ElInfoRow(label = "Tranches de cet élève (payé)", value = "${(ownPaid / 100).formatDzd()} DZD", valueColor = SuccessGreen)
-                                Spacer(Modifier.height(8.dp))
+
+                                Spacer(Modifier.height(10.dp))
+                                ElButton(
+                                    text = "Encaisser pour cet élève",
+                                    onClick = { student?.let { s -> onNavigateToCounter(s.parentId, s.id) } },
+                                    style = com.example.ui.components.ElButtonStyle.Primary,
+                                    icon = Icons.Default.Payments,
+                                    fullWidth = true,
+                                )
+
+                                Spacer(Modifier.height(10.dp))
                                 ElSectionHeader(title = "Solde familial consolidé (tous enfants)")
                                 Spacer(Modifier.height(4.dp))
                                 ElInfoRow(label = "Total scolarité & transport", value = "${(studentDue / 100).formatDzd()} DZD")
@@ -1093,9 +1017,6 @@ fun StudentDetailScreen(
                     item { Spacer(Modifier.height(88.dp)) }
                 }
 
-                // ── 5. HISTORIQUE ACADÉMIQUE (vault §04.07 / §06.05) ─────
-                // Permanent, append-only history embedded in the Student
-                // Profile drawer — NOT a separate top-level page.
                 4 -> AcademicHistoryTab(
                     history = academicHistory,
                     subjects = subjects,
@@ -1112,8 +1033,6 @@ fun StudentDetailScreen(
         }
     }
 
-    // FIX (missing edit feature): edit dialog — first class UI for
-    // `updateStudent` (identity + placement + medical notes).
     if (showEditDialog && student != null) {
         val s = student!!
         var firstName by remember { mutableStateOf(s.firstName) }
@@ -1163,9 +1082,7 @@ fun StudentDetailScreen(
         )
     }
 }
-// ── Notes & Bulletins helpers (canonical display, no re-derived logic) ─────
 
-/** Standard French bulletin mention — presentation only. */
 private fun mentionFor(gpa: Double?): String = when {
     gpa == null -> "En attente des examens"
     gpa >= 16 -> "Très Bien"
@@ -1183,7 +1100,6 @@ private fun GradeStat(label: String, value: String) {
     }
 }
 
-/** Compact "Point fort / À renforcer" card — canonical subject average. */
 @Composable
 private fun SubjectHighlightCard(
     label: String,
@@ -1211,11 +1127,6 @@ private fun SubjectHighlightCard(
     }
 }
 
-/**
- * Full per-subject grade card: marks with the ×2 examen weight made explicit,
- * canonical subject average, coefficient, per-subject progress bar and the
- * pass/fail verdict against the SUBJECT's own passing grade.
- */
 @Composable
 private fun SubjectGradeCard(
     subjectName: String,
@@ -1327,18 +1238,6 @@ private fun MarkPill(label: String, value: Double?) {
     }
 }
 
-// ── Vault §04.07 / §06.05 — Student Academic History (append-only) ──────────
-
-/**
- * The permanent Academic History tab: term-by-term performance for every
- * enrolled year. Clicking a year expands the complete report card (subject
- * breakdown with Devoir 1 / Devoir 2 / Examen, coefficients, canonical
- * averages), attendance rate, and the promotion outcome
- * (APPROVED_FOR_PROMOTION / RETAINED_SAME_YEAR / GRADUATED).
- *
- * Archived years are strictly READ-ONLY (vault rule: corrections require a
- * new audit-logged entry that supersedes the original — no in-place edits).
- */
 @Composable
 private fun AcademicHistoryTab(
     history: List<AcademicYearHistory>,
@@ -1384,7 +1283,6 @@ private fun AcademicHistoryTab(
     }
 }
 
-/** One academic year: summary row + expandable full report card. */
 @Composable
 private fun AcademicYearCard(
     year: AcademicYearHistory,
@@ -1439,7 +1337,6 @@ private fun AcademicYearCard(
                 }
             }
 
-            // Term-by-term GPA chips.
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 year.termGpas.forEach { (term, gpa) ->
                     val tColor = when {
@@ -1463,7 +1360,6 @@ private fun AcademicYearCard(
                 }
             }
 
-            // Promotion outcome (audit trail).
             year.promotionOutcome?.let { outcome ->
                 when (outcome) {
                     "promoted" -> ElTag(text = "APPROVED_FOR_PROMOTION", color = SuccessGreen)
@@ -1484,7 +1380,6 @@ private fun AcademicYearCard(
                 bySubject.forEach { (subjectId, rows) ->
                     val subject = subjectById[subjectId]
                     val name = subject?.name ?: subjectId
-                    // Latest term row per subject shows the year's final marks.
                     val last = rows.maxByOrNull { it.term } ?: rows.first()
                     Column(modifier = Modifier.padding(vertical = 2.dp)) {
                         Row(
@@ -1525,5 +1420,4 @@ private fun AcademicYearCard(
     }
 }
 
-/** Null-safe yearly GPA accessor for color derivation. */
 private fun AcademicYearHistory.yearlyGpaSafe(): Double = yearlyGpa ?: 0.0

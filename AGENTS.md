@@ -120,6 +120,23 @@ the generated `BuildConfig` fields come from the ROOT-level files only.
   triggers — never silently "Manuel"). Pinned by
   `app/src/test/.../supabase/WorkflowRunContractT231Test.kt`.
 
+- **Navigation stack + counter-payment member selection (35th session, 2026-09-08):**
+  two UX defects closed in one pass. (1) Back-press previously reset the bottom-nav
+  host to the Dashboard hub regardless of the user's tab trail; `MainScreen` now keeps a
+  `rememberSaveable` `tabHistory` and its `BackHandler` pops to the previous TAB in the
+  trail (deeper detail screens already popped correctly via `popBackStack` — the defect
+  was only the in-host tab reset). `FinancialsHubScreen`/`DebtDashboardScreen` gained
+  `BackHandler`s that step back one level (tab 0 / `onBack`) instead of escaping to the
+  dashboard. (2) `CounterPayment` deep-links from Student/Parent/Debt screens used to
+  skip straight to the payment form; the route now carries optional
+  `parentId`/`studentId` prefill args and the screen enforces an explicit
+  "Choisir le membre de la famille" step (`isFamilyMemberChosen`) — an internal
+  `BackHandler` unwinds member → parent → list before letting the system back take over.
+  State/logic moved to a new `CounterPaymentViewModel` (SavedStateHandle route args).
+  ⚠ The provided patch file's `DebtDashboardScreen.kt` used `Modifier.width(1.dp)`
+  without the `androidx.compose.foundation.layout.width` import — added during apply;
+  if a future session re-bases this change, watch for the same omission.
+
 ## 9. Forbidden in this repository
 
 - Rewiring `RepositoryModule` bindings toward Supabase repositories before ADR-005 is Accepted.

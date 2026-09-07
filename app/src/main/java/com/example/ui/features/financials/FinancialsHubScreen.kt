@@ -1,5 +1,6 @@
 package com.example.ui.features.financials
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CheckCircle
@@ -35,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,7 +71,6 @@ import com.example.ui.components.ElTag
 import com.example.ui.components.ElTextField
 import com.example.ui.components.ModernSecondaryTabRow
 import com.example.ui.theme.DangerRed
-import com.example.ui.theme.ElPillShape
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.WarmGold
@@ -77,7 +79,7 @@ import com.example.ui.util.PhoneUtils
 @Composable
 fun FinancialsHubScreen(
     session: Session,
-    onNavigateToCounterPayment: () -> Unit,
+    onNavigateToCounterPayment: (parentId: String?, studentId: String?) -> Unit = { _, _ -> },
     onNavigateToProofScanner: () -> Unit,
     onNavigateToDebtDashboard: () -> Unit,
     onNavigateToInstallmentSchedule: () -> Unit,
@@ -101,8 +103,12 @@ fun FinancialsHubScreen(
     val parentSummary by installmentViewModel.parentSummary.collectAsState()
     val installmentBusy by installmentViewModel.busy.collectAsState()
 
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val tabs = listOf("Encaissements", "Tranches", "Créances", "Dépenses", "Journal", "Scanner")
+
+    BackHandler(enabled = selectedTab != 0) {
+        selectedTab = 0
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -119,7 +125,7 @@ fun FinancialsHubScreen(
                         monthlyRevenue = kpis?.monthlyRevenue ?: 0L,
                         payments = recentPayments,
                         onNavigateToPayment = onNavigateToPaymentDetail,
-                        onNewPayment = onNavigateToCounterPayment,
+                        onNewPayment = { onNavigateToCounterPayment(null, null) },
                     )
                     1 -> TranchesTab(
                         parents = parents,
@@ -129,12 +135,13 @@ fun FinancialsHubScreen(
                         busy = installmentBusy,
                         onSelectParent = { installmentViewModel.selectParent(it) },
                         onMarkPaid = { installmentViewModel.markPaid(it) },
-                        onNavigateToCounter = onNavigateToCounterPayment,
+                        onNavigateToCounter = { pId, sId -> onNavigateToCounterPayment(pId, sId) },
                     )
                     2 -> CreancesTab(
                         outstandingDebt = kpis?.outstandingDebt ?: 0L,
                         debtors = debtors,
                         onNavigateToDebtor = onNavigateToDebtDashboard,
+                        onNavigateToCounter = { pId, sId -> onNavigateToCounterPayment(pId, sId) },
                     )
                     3 -> DepensesTab(
                         expenses = expenses,
@@ -287,7 +294,7 @@ private fun TranchesTab(
     busy: Boolean,
     onSelectParent: (String) -> Unit,
     onMarkPaid: (String) -> Unit,
-    onNavigateToCounter: () -> Unit,
+    onNavigateToCounter: (parentId: String?, studentId: String?) -> Unit,
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val filteredParents = remember(searchQuery, parents) {
@@ -305,24 +312,28 @@ private fun TranchesTab(
     val remainingDebt = (totalDue - totalPaid).coerceAtLeast(0L)
     val progress = if (totalDue > 0) (totalPaid.toFloat() / totalDue.toFloat()).coerceIn(0f, 1f) else 0f
 
+    BackHandler(enabled = selectedParent != null) {
+        onSelectParent("")
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        item {
-            ElTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = "Rechercher une famille",
-                placeholder = "Nom, téléphone, code...",
-                leadingIcon = Icons.Default.Search,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-
         if (selectedParent == null) {
+            item {
+                ElTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = "Rechercher une famille",
+                    placeholder = "Nom, téléphone, code...",
+                    leadingIcon = Icons.Default.Search,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
             item {
                 Text(
                     "Sélectionnez une famille (${filteredParents.size} trouvées) :",
@@ -349,6 +360,30 @@ private fun TranchesTab(
             }
         } else {
             item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.small)
+                        .clickable { onSelectParent("") }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Retour à la liste",
+                        tint = PrimaryBlue,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Retour à la liste des familles",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = PrimaryBlue,
+                    )
+                }
+            }
+
+            item {
                 ElCard(modifier = Modifier.fillMaxWidth(), accent = PrimaryBlue) {
                     Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(
@@ -356,7 +391,7 @@ private fun TranchesTab(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(selectedParent.fullName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                                 Text("Code: ${selectedParent.code} • ${selectedParent.phone}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -382,6 +417,15 @@ private fun TranchesTab(
                             "Reste à payer : ${(remainingDebt / 100).formatDzd()} DZD",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                             color = if (remainingDebt > 0) DangerRed else SuccessGreen,
+                        )
+
+                        Spacer(Modifier.height(6.dp))
+                        ElButton(
+                            text = "Encaisser un paiement pour cette famille",
+                            onClick = { onNavigateToCounter(selectedParent.id, null) },
+                            style = ElButtonStyle.Primary,
+                            fullWidth = true,
+                            icon = Icons.Default.Payments,
                         )
                     }
                 }
@@ -422,7 +466,7 @@ private fun TranchesTab(
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     ElButton(
                                         text = "Encaisser au guichet",
-                                        onClick = onNavigateToCounter,
+                                        onClick = { onNavigateToCounter(selectedParent.id, inst.studentId) },
                                         style = ElButtonStyle.Primary,
                                         modifier = Modifier.weight(1f),
                                     )
@@ -448,6 +492,7 @@ private fun CreancesTab(
     outstandingDebt: Long,
     debtors: List<DebtSummary>,
     onNavigateToDebtor: () -> Unit,
+    onNavigateToCounter: (parentId: String?, studentId: String?) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
     var bucketFilter by remember { mutableStateOf<String?>(null) }
@@ -510,9 +555,14 @@ private fun CreancesTab(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            if (debtor.parentPhone.isNotBlank()) {
-                                IconButton(onClick = { PhoneUtils.dial(context, debtor.parentPhone) }) {
-                                    Icon(Icons.Default.Call, contentDescription = "Appeler", tint = SuccessGreen)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { onNavigateToCounter(debtor.parentId, null) }) {
+                                    Icon(Icons.Default.Payments, contentDescription = "Encaisser", tint = PrimaryBlue)
+                                }
+                                if (debtor.parentPhone.isNotBlank()) {
+                                    IconButton(onClick = { PhoneUtils.dial(context, debtor.parentPhone) }) {
+                                        Icon(Icons.Default.Call, contentDescription = "Appeler", tint = SuccessGreen)
+                                    }
                                 }
                             }
                         }
@@ -665,7 +715,6 @@ private fun JournalTab(
                     else -> PrimaryBlue to entry.type.code.replaceFirstChar { it.uppercase() }
                 }
 
-                // Clarify raw technical import descriptions
                 val displayDescription = remember(entry.description) {
                     cleanDescription(entry.description, entry.category.name)
                 }

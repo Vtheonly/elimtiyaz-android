@@ -1,5 +1,7 @@
 package com.example.ui.features.financials
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,10 +11,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,6 +64,8 @@ class DebtDashboardViewModel @Inject constructor(
 @Composable
 fun DebtDashboardScreen(
     onBack: () -> Unit,
+    onNavigateToParent: (String) -> Unit = {},
+    onNavigateToCounter: (parentId: String?, studentId: String?) -> Unit = { _, _ -> },
     viewModel: DebtDashboardViewModel = hiltViewModel(),
 ) {
     val debtors by viewModel.debtors.collectAsState()
@@ -69,6 +75,8 @@ fun DebtDashboardScreen(
     var bucketFilter by remember { mutableStateOf<String?>(null) }
     val filtered = if (bucketFilter == null) debtors else debtors.filter { it.bucket == bucketFilter }
     val context = LocalContext.current
+
+    BackHandler { onBack() }
 
     Column(modifier = Modifier.fillMaxSize()) {
         ElTopBar(title = "Créances & Retards", onBack = onBack)
@@ -136,7 +144,9 @@ fun DebtDashboardScreen(
                         else -> DangerRed
                     }
                     ElCard(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onNavigateToParent(debtor.parentId) },
                         accent = if (debtor.daysOverdue > 0) DangerRed else null,
                         compact = true,
                     ) {
@@ -156,13 +166,20 @@ fun DebtDashboardScreen(
                             ElInfoRow(label = "Téléphone", value = debtor.parentPhone)
                             ElInfoRow(label = "Montant dû", value = "${(debtor.outstandingAmount / 100).formatDzd()} DZD", valueColor = DangerRed)
 
-                            if (debtor.daysOverdue > 0) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (debtor.daysOverdue > 0) {
                                     Text("En retard de ${debtor.daysOverdue} jours", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold), color = DangerRed)
+                                } else {
+                                    Spacer(Modifier.width(1.dp))
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = { onNavigateToCounter(debtor.parentId, null) }) {
+                                        Icon(Icons.Default.Payments, contentDescription = "Encaisser", tint = PrimaryBlue)
+                                    }
                                     if (debtor.parentPhone.isNotBlank()) {
                                         IconButton(onClick = { PhoneUtils.dial(context, debtor.parentPhone) }) {
                                             Icon(Icons.Default.Call, contentDescription = "Appeler", tint = SuccessGreen)

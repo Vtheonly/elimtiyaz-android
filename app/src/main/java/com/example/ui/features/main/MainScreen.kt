@@ -1,5 +1,6 @@
 package com.example.ui.features.main
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -21,7 +22,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -96,7 +98,7 @@ fun MainScreen(
     onNavigateToStudent: (String) -> Unit,
     onNavigateToParent: (String) -> Unit,
     onNavigateToBatchRegistration: () -> Unit,
-    onNavigateToCounterPayment: () -> Unit,
+    onNavigateToCounterPayment: (parentId: String?, studentId: String?) -> Unit,
     onNavigateToProofScanner: () -> Unit,
     onNavigateToDebtDashboard: () -> Unit,
     onNavigateToInstallmentSchedule: () -> Unit,
@@ -133,13 +135,31 @@ fun MainScreen(
         permOk && roleOk
     }
 
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val safeSelected = selectedTab.coerceAtMost(visibleTabs.lastIndex)
+    val tabHistory = rememberSaveable { mutableStateListOf(0) }
+
+    val selectTab: (Int) -> Unit = { index ->
+        val validIndex = index.coerceIn(0, visibleTabs.lastIndex)
+        if (selectedTab != validIndex) {
+            tabHistory.remove(validIndex)
+            tabHistory.add(validIndex)
+            selectedTab = validIndex
+        }
+    }
+
+    BackHandler(enabled = tabHistory.size > 1) {
+        tabHistory.removeAt(tabHistory.lastIndex)
+        selectedTab = tabHistory.last().coerceIn(0, visibleTabs.lastIndex)
+    }
 
     val pendingDeepLink by NotificationDeepLink.pending.collectAsState()
     LaunchedEffect(pendingDeepLink, visibleTabs.size) {
         val link = pendingDeepLink ?: return@LaunchedEffect
-        selectedTab = deepLinkTargetTabIndex(link.type, visibleTabs).coerceIn(0, visibleTabs.lastIndex)
+        val target = deepLinkTargetTabIndex(link.type, visibleTabs).coerceIn(0, visibleTabs.lastIndex)
+        if (selectedTab != target) {
+            selectTab(target)
+        }
         NotificationDeepLink.consume()
     }
 
@@ -161,7 +181,7 @@ fun MainScreen(
             ModernBottomNavBar(
                 tabs = visibleTabs,
                 selectedTabIndex = safeSelected,
-                onTabSelected = { selectedTab = it },
+                onTabSelected = selectTab,
             )
         },
     ) { padding ->
@@ -176,19 +196,19 @@ fun MainScreen(
                     onNavigateToBatchRegistration = onNavigateToBatchRegistration,
                     onNavigateToAcademics = {
                         val idx = visibleTabs.indexOfFirst { it.label == "Pédagogie" }
-                        if (idx >= 0) selectedTab = idx
+                        if (idx >= 0) selectTab(idx)
                     },
                     onNavigateToCrm = {
                         val idx = visibleTabs.indexOfFirst { it.label == "CRM" }
-                        if (idx >= 0) selectedTab = idx
+                        if (idx >= 0) selectTab(idx)
                     },
                     onNavigateToFinancials = {
                         val idx = visibleTabs.indexOfFirst { it.label == "Finances" }
-                        if (idx >= 0) selectedTab = idx
+                        if (idx >= 0) selectTab(idx)
                     },
                     onNavigateToPersonnel = {
                         val idx = visibleTabs.indexOfFirst { it.label == "Personnel" }
-                        if (idx >= 0) selectedTab = idx
+                        if (idx >= 0) selectTab(idx)
                     },
                     onNavigateToGlobalSearch = onNavigateToGlobalSearch,
                     onNavigateToReports = onNavigateToReports,
