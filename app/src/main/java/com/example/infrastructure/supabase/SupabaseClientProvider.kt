@@ -1,6 +1,7 @@
 package com.example.infrastructure.supabase
 
 import android.content.Context
+import android.os.Looper
 import android.util.Log
 import com.example.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -56,6 +57,31 @@ class SupabaseClientProvider @Inject constructor(
     val storage get() = client.storage
     val realtime get() = client.realtime
     val functions get() = client.functions
+
+    /**
+     * ANR fix (login-blocks, iter 4): eagerly construct the Supabase client
+     * NOW, on the calling (background) dispatcher.
+     *
+     * `build()` is NOT free: it reads SharedPreferences (synchronous first
+     * disk load), mints an Android-Keystore `MasterKey`, and creates an
+     * `EncryptedSharedPreferences` file — hundreds of milliseconds on a
+     * healthy device, potentially seconds (or an effective hang) on a slow
+     * or contended Keystore TEE. None of it is cancellable by
+     * `withTimeout` (no suspension points), so the first caller previously
+     * blocked its own thread: when that caller was `viewModelScope`
+     * (Dispatchers.Main) — i.e. the first sign-in or a cold-start
+     * `refreshSession()` — the app froze at the exact moment the user
+     * submitted credentials (ANR: "the app blocks when you enter a
+     * credential, then stops working").
+     *
+     * `ElImtiyazApplication.onCreate` calls this on its IO application
+     * scope so the client (and all Keystore work) is ready long before any
+     * login attempt, and `NetworkTimeouts.guard` additionally relocates
+     * every guarded block to Dispatchers.IO as belt-and-braces.
+     */
+    fun warmUp() {
+        client // touching the getter triggers the double-checked build
+    }
 
     fun getActiveUrl(): String {
         val saved = prefs.getString(KEY_URL, "")?.trim() ?: ""
@@ -120,6 +146,18 @@ class SupabaseClientProvider @Inject constructor(
     }
 
     private fun build(): SupabaseClient {
+        // ANR fix (login-blocks, iter 4): surface any future regression where
+        // the client is constructed on the main thread (only the pre-warm on
+        // the application IO scope and NetworkTimeouts.guard's IO relocation
+        // keep this silent in production).
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            Log.w(
+                TAG,
+                "Supabase client built on the MAIN thread — Keystore/EncryptedSharedPreferences " +
+                    "work is blocking and can ANR the app. Expected: pre-warmed on IO at startup " +
+                    "(ElImtiyazApplication.prewarmSupabaseClient) or via NetworkTimeouts.guard.",
+            )
+        }
         val rawUrl = getActiveUrl()
         val rawKey = getActiveAnonKey()
 

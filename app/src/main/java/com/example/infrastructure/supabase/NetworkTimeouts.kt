@@ -1,7 +1,9 @@
 package com.example.infrastructure.supabase
 
 import com.example.BuildConfig
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
 /**
@@ -93,6 +95,19 @@ object NetworkTimeouts {
      * exception OR when Supabase is not configured.
      *
      * Callers MUST handle the null case by falling back to demo/offline data.
+     *
+     * ANR fix (login-blocks, iter 4): the block now runs on
+     * [Dispatchers.IO], never on the caller's dispatcher. Guarded blocks are
+     * network/DB work, but callers often launch them from `viewModelScope`
+     * (Dispatchers.Main.immediate). The FIRST guarded call in a process also
+     * constructs the Supabase client — `SupabaseClientProvider.build()` runs
+     * `MasterKey` + `EncryptedSharedPreferences` + the initial SharedPreferences
+     * disk load synchronously — all blocking Keystore/crypto/IO with NO
+     * suspension points, so `withTimeout` could never interrupt it: a slow
+     * or contended Android Keystore froze the MAIN thread at exactly the
+     * moment the user submitted login credentials → ANR ("the app blocks when
+     * you enter a credential, then stops working"). Relocating execution to
+     * IO keeps the main thread free AND makes the timeout actually reachable.
      */
     suspend fun <T> guard(
         tag: String,
@@ -102,7 +117,9 @@ object NetworkTimeouts {
     ): T? {
         if (onlyIfConfigured && !isSupabaseConfigured) return null
         return try {
-            withTimeout(timeoutMs) { block() }
+            withTimeout(timeoutMs) {
+                withContext(Dispatchers.IO) { block() }
+            }
         } catch (_: TimeoutCancellationException) {
             android.util.Log.w("NetworkTimeouts", "[$tag] timed out after ${timeoutMs}ms")
             null
@@ -144,7 +161,12 @@ object NetworkTimeouts {
     ): T? {
         if (onlyIfConfigured && !isSupabaseConfigured) return null
         return try {
-            withTimeout(timeoutMs) { block() }
+            withTimeout(timeoutMs) {
+                // ANR fix (login-blocks, iter 4): same relocation as guard() —
+                // see its KDoc. Pushes already ran on IO dispatchers, but the
+                // belt-and-braces wrap keeps that true for every future caller.
+                withContext(Dispatchers.IO) { block() }
+            }
         } catch (_: TimeoutCancellationException) {
             android.util.Log.w("NetworkTimeouts", "[$tag] sync push timed out after ${timeoutMs}ms")
             throw SyncPushTimeoutException(tag, timeoutMs)

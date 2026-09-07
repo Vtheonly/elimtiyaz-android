@@ -63,6 +63,7 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
     @Inject lateinit var pullSyncRepository: com.example.infrastructure.sync.PullSyncRepository
     @Inject lateinit var sessionManager: SessionManager
     @Inject lateinit var fcmTokenRegistrar: com.example.infrastructure.notifications.FcmTokenRegistrar
+    @Inject lateinit var supabaseClientProvider: com.example.infrastructure.supabase.SupabaseClientProvider
 
     // T-069 / REALTIME-104: push-based freshness — subscribes to realtime
     // postgres-changes on the canonical tables when a session is active.
@@ -93,6 +94,7 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannels()
+        prewarmSupabaseClient()
         startOnlineDetector()
         schedulePeriodicSync()
         observeRoleForFcmTopic()
@@ -100,6 +102,28 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
         observeSessionForFcmToken()
         triggerInitialSupabasePull()
         startRealtimeSubscriptions()
+    }
+
+    /**
+     * ANR fix (login-blocks, iter 4): construct the Supabase client on the
+     * application IO scope BEFORE any sign-in / session-restore path can
+     * touch it. The first `SupabaseClientProvider.build()` performs blocking
+     * Android-Keystore + EncryptedSharedPreferences + initial-prefs disk
+     * work that `withTimeout` cannot cancel (no suspension points); when it
+     * ran inside `viewModelScope` (Main) at the first login attempt or the
+     * cold-start `refreshSession()`, the app froze exactly when the user
+     * submitted credentials ("blocks when you enter a credential, then the
+     * app stops working"). Pre-warming here + `NetworkTimeouts.guard`'s
+     * Dispatchers.IO relocation keeps every Keystore/prefs access off the
+     * main thread for the whole process lifetime.
+     */
+    private fun prewarmSupabaseClient() {
+        appScope.launch {
+            runCatching { supabaseClientProvider.warmUp() }
+                .onFailure { e ->
+                    android.util.Log.w("ElImtiyazApp", "Supabase client pre-warm failed", e)
+                }
+        }
     }
 
     /**

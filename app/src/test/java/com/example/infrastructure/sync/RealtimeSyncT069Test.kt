@@ -137,8 +137,19 @@ class RealtimeSyncT069Test {
         }
     }
 
+    /**
+     * Poll until all canonical tables are subscribed.
+     *
+     * FLAKY-TEST FIX (login-blocks iter 4 fallout): the threshold was still
+     * `>= 4` — the count from BEFORE chat_channels + chat_messages joined the
+     * subscription set (T-102-follow-up) — while the assertions expect 6.
+     * Waiting for 4 then asserting 6 raced the two trailing
+     * `onSubscription` side effects (they run asynchronously on
+     * Dispatchers.Default); any scheduling shift surfaced it. The threshold
+     * now matches the asserted table set, so the helper is deterministic.
+     */
     private fun waitForSubscriptions() {
-        awaitUntil { source.subscribed.size >= 4 }
+        awaitUntil { source.subscribed.size >= 6 }
     }
 
     // ── 1. Reactive lifecycle ────────────────────────────────────────────────

@@ -62,20 +62,35 @@ class LoginViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, signedIn = false)
-            when (val result = authRepository.signIn(email, password)) {
-                is Result.Ok -> {
-                    // Propagate to SessionManager — AppNavHost observes this
-                    // and will navigate to Main. Then flip signedIn so the
-                    // LoginScreen's safety-net LaunchedEffect also fires.
-                    sessionManager.setSession(result.value)
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = null, signedIn = true)
+            // ANR-fix companion (login-blocks, iter 4): an exception thrown
+            // anywhere inside the sign-in path (Room audit write, session
+            // serialization, provider hiccup) used to kill this coroutine with
+            // isLoading stuck at true — the button spun "Connexion…" forever
+            // (an unhandled viewModelScope exception also crashes the app).
+            // The catch-all guarantees the UI ALWAYS resolves: either a
+            // session, or a visible error, never a stranded spinner.
+            try {
+                when (val result = authRepository.signIn(email, password)) {
+                    is Result.Ok -> {
+                        // Propagate to SessionManager — AppNavHost observes this
+                        // and will navigate to Main. Then flip signedIn so the
+                        // LoginScreen's safety-net LaunchedEffect also fires.
+                        sessionManager.setSession(result.value)
+                        _uiState.value = _uiState.value.copy(isLoading = false, error = null, signedIn = true)
+                    }
+                    is Result.Err -> {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = result.error.userMessage.ifBlank { "Échec de la connexion." },
+                        )
+                    }
                 }
-                is Result.Err -> {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = result.error.userMessage.ifBlank { "Échec de la connexion." },
-                    )
-                }
+            } catch (t: Throwable) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    signedIn = false,
+                    error = "Connexion impossible — veuillez réessayer. (${t.message ?: "erreur inattendue"})",
+                )
             }
         }
     }

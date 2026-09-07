@@ -160,6 +160,40 @@ the generated `BuildConfig` fields come from the ROOT-level files only.
   `fix.patch` (1229 lines, corrupt at line 490, fully absorbed into the tree,
   committed by ebb833b as drift bait — same pattern as CROSS-003) was REMOVED.
 
+- **Login ANR — Supabase client built on the MAIN thread (37th session, 2026-09-08):**
+  user report: "the app blocks when you enter a credential, then stops working."
+  Root cause (visible only on CONFIGURED builds — i.e. since `.env` keys are baked
+  in, every delivered APK): the FIRST `SupabaseClientProvider.build()` call ran
+  inside `NetworkTimeouts.guard { supabaseProvider.auth… }` launched from
+  `viewModelScope` (Dispatchers.Main.immediate) — at the first sign-in tap OR the
+  cold-start `refreshSession()`. `build()` performs blocking Android-Keystore
+  (`MasterKey`), `EncryptedSharedPreferences` creation, and the initial synchronous
+  SharedPreferences disk load — NONE of which has a suspension point, so
+  `withTimeout` could never interrupt it: a slow/contended Keystore froze the main
+  thread → ANR exactly at credential submission. Three-layer fix: (1)
+  `NetworkTimeouts.guard`/`guardSyncPush` now wrap every block in
+  `withContext(Dispatchers.IO)` (27 call sites — all infrastructure, none touch UI);
+  (2) `ElImtiyazApplication.onCreate` pre-warms the client via
+  `supabaseClientProvider.warmUp()` on the application IO scope;
+  `SupabaseClientProvider.build()` logs a warning if ever invoked on the main thread;
+  (3) `LoginViewModel.signIn` gained a catch-all so an unexpected throw can never
+  strand `isLoading=true` (spinner-forever) or crash `viewModelScope`. Also fixed:
+  the LoginScreen safety-net navigation to Main lacked `launchSingleTop` → raced
+  the session observer's `LaunchedEffect(currentSession)` in the same frame and
+  double-pushed Main (duplicate back-stack entry). Regression-pinned by
+  `NetworkTimeoutsAnrRegressionTest` (3 tests). Fallout fix:
+  `RealtimeSyncT069Test.waitForSubscriptions` polled a stale `>=4` threshold while
+  assertions expect 6 tables (chat pair joined in T-102-follow-up) — a latent race
+  any scheduler shift could surface; now `>=6`. ⚠ Known inconsistency left
+  deliberately untouched: `AuthEnvironment.fromBuildConfig()` uses
+  `NetworkTimeouts.isSupabaseConfigured` (BuildConfig-only) while
+  `SupabaseClientProvider.isConfigured()` also honours the runtime SharedPreferences
+  override — a user configuring Supabase ONLY via Settings gets the demo sandbox
+  (debug) instead of real auth. Fixing this changes SEC-101 semantics and needs its
+  own task. Same class of debt: `SupabaseChatRepository` methods call
+  `provider.postgrest` directly (no `withContext(IO)`) — post-warm this is jank-only,
+  not an ANR, but a future task should route them through the guard.
+
 ## 9. Forbidden in this repository
 
 - Rewiring `RepositoryModule` bindings toward Supabase repositories before ADR-005 is Accepted.

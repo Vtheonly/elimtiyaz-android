@@ -78,8 +78,15 @@ fun AppNavHost() {
             composable<Routes.Login> {
                 LoginScreen(
                     onSignedIn = {
+                        // login-blocks fix (iter 4): launchSingleTop is MANDATORY
+                        // here — this safety-net navigation races with the
+                        // session observer's LaunchedEffect(currentSession)
+                        // below in the SAME frame; without singleTop, Main was
+                        // pushed TWICE (duplicate back-stack entry: back button
+                        // bounced off a second Main, looked like a frozen app).
                         navController.navigate(Routes.Main) {
                             popUpTo(Routes.Login) { inclusive = true }
+                            launchSingleTop = true
                         }
                     },
                     onChangePassword = { navController.navigate(Routes.ChangePassword) },
