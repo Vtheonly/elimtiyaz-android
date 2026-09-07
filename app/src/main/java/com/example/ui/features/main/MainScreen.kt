@@ -70,30 +70,10 @@ data class HubTab(
     val requiresRole: Set<Role>? = null,
 )
 
-/**
- * PUSH-101 (T-127) — maps a notification deep-link type to the index of the
- * matching hub tab WITHIN the visible (permission-filtered) tab list.
- *
- * Mapping by the hub's REQUIRED PERMISSION (a stable identifier), never by
- * label text: financial notifications open the Finances hub
- * (VIEW_FINANCIALS), academic notifications open the Pédagogie hub
- * (VIEW_ACADEMICS), everything else opens the first visible tab. When the
- * matching hub is not visible for the current role (no permission), the
- * deep link degrades to the first tab — the RBAC matrix stays authoritative.
- *
- * Deeper routing (e.g. PaymentDetail with the payment id) is a documented
- * follow-up on the notification-type -> route mapping table; see the
- * PUSH-101 registry entry.
- */
 fun deepLinkTargetTabIndex(type: String, visible: List<HubTab>): Int {
     val targetPermission = when (type) {
         "payment", "expense" -> Permission.VIEW_FINANCIALS
         "absence", "grade", "homework", "calendar" -> Permission.VIEW_ACADEMICS
-        // T-196 (30th session): chat/message notifications land on the
-        // Tableau (Dashboard) tab — the alerts section lives there and the
-        // per-entity route ('chat_channel' → ChatDetail) fires from the
-        // AlertsScreen tap (AppNavHost.onNavigateToEntity). No dedicated
-        // chat hub tab exists (chat is a routed screen, not a tab).
         "message", "chat" -> null
         else -> null
     }
@@ -109,12 +89,6 @@ val HUB_TABS = listOf(
     HubTab("Personnel", Icons.Default.Person, Permission.VIEW_PERSONNEL, null),
 )
 
-/**
- * Main screen — bottom-nav host with 5 hub tabs.
- *
- * All navigation callbacks are passed in from [com.example.ui.navigation.AppNavHost]
- * so hub screens can drill down to detail screens without holding a NavController.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
@@ -162,10 +136,6 @@ fun MainScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     val safeSelected = selectedTab.coerceAtMost(visibleTabs.lastIndex)
 
-    // PUSH-101 (T-127): act ONCE on a pending notification deep-link by
-    // selecting the hub tab that matches the notification's type. The deep
-    // link survives the Splash -> (Login) -> Main flow because MainActivity
-    // published it before the nav host reached Main (see NotificationDeepLink).
     val pendingDeepLink by NotificationDeepLink.pending.collectAsState()
     LaunchedEffect(pendingDeepLink, visibleTabs.size) {
         val link = pendingDeepLink ?: return@LaunchedEffect
@@ -203,10 +173,29 @@ fun MainScreen(
                     onNavigateToParent = onNavigateToParent,
                     onNavigateToCounterPayment = onNavigateToCounterPayment,
                     onNavigateToDebtDashboard = onNavigateToDebtDashboard,
+                    onNavigateToBatchRegistration = onNavigateToBatchRegistration,
+                    onNavigateToAcademics = {
+                        val idx = visibleTabs.indexOfFirst { it.label == "Pédagogie" }
+                        if (idx >= 0) selectedTab = idx
+                    },
+                    onNavigateToCrm = {
+                        val idx = visibleTabs.indexOfFirst { it.label == "CRM" }
+                        if (idx >= 0) selectedTab = idx
+                    },
+                    onNavigateToFinancials = {
+                        val idx = visibleTabs.indexOfFirst { it.label == "Finances" }
+                        if (idx >= 0) selectedTab = idx
+                    },
+                    onNavigateToPersonnel = {
+                        val idx = visibleTabs.indexOfFirst { it.label == "Personnel" }
+                        if (idx >= 0) selectedTab = idx
+                    },
                     onNavigateToGlobalSearch = onNavigateToGlobalSearch,
                     onNavigateToReports = onNavigateToReports,
                     onNavigateToAlerts = onNavigateToAlerts,
                     onNavigateToChat = onNavigateToChat,
+                    onNavigateToRollCall = onNavigateToRollCall,
+                    onNavigateToExpenseDetail = onNavigateToExpenseDetail,
                 )
                 "CRM" -> CrmHubScreen(
                     session = session,
@@ -241,8 +230,6 @@ fun MainScreen(
                     onNavigateToAuditLog = onNavigateToAuditLog,
                     onNavigateToRouting = onNavigateToRouting,
                     onSignOut = { viewModel.signOut(onSignOut) },
-                    // T-237 / RBAC-300: the teacher's in-Personnel workspace
-                    // navigates to the ROLL_CALL/ENTER_GRADES-gated routes.
                     onNavigateToRollCall = onNavigateToRollCall,
                     onNavigateToGradeEntry = onNavigateToGradeEntry,
                 )

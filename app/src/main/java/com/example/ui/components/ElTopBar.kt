@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -27,12 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.ElButtonShape
 
-// ── ElTopBar ───────────────────────────────────────────────────────────────
-
-/**
- * Custom top app bar with gradient title, optional back button, and
- * action slot. Replaces stock [TopAppBar].
- */
 @Composable
 fun ElTopBar(
     title: String,
@@ -45,6 +40,7 @@ fun ElTopBar(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
+            .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Row(
@@ -78,7 +74,7 @@ fun ElTopBar(
                     text = title,
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp,
+                        fontSize = 20.sp,
                     ),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,

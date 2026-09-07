@@ -62,7 +62,7 @@ internal fun DashboardQuickActionsRow(
         item {
             ElButton(
                 text = "Faire l'Appel",
-                onClick = onNavigateToAcademics,
+                onClick = { onNavigateToAcademics() }, // or pass onNavigateToRollCall("")
                 variant = ElButtonVariant.OUTLINED,
                 size = ElButtonSize.MEDIUM,
                 icon = Icons.Default.HowToReg,

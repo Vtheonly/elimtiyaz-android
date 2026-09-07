@@ -145,7 +145,7 @@ fun StudentRosterScreen(
 
     // Trigger load once on first composition
     LaunchedEffect(Unit) {
-        if (isConfigured && students.size <= 6) {
+        if (isConfigured) {
             viewModel.syncFromCloud()
         }
     }

@@ -63,6 +63,7 @@ import com.example.ui.components.ElTopBar
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
+import com.example.ui.theme.WarmGold
 import com.example.ui.theme.elDesignTokens
 
 @Composable
@@ -516,38 +517,47 @@ fun ParentDetailScreen(
             // ── T-168 — Classified adjustment history (provenance) ─────────
             if (classifiedAdjustments.isNotEmpty()) {
                 ElCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         ElSectionHeader(title = "Ajustements (${classifiedAdjustments.size})")
                         classifiedAdjustments.forEach { c ->
                             val isCredit = c.kind == "credit"
                             val provenanceColor = when (c.provenance) {
                                 com.example.core.AdjustmentProvenance.DOCUMENTED -> SuccessGreen
-                                com.example.core.AdjustmentProvenance.REVERSAL_PAIR -> com.example.ui.theme.WarmGold
+                                com.example.core.AdjustmentProvenance.REVERSAL_PAIR -> WarmGold
                                 com.example.core.AdjustmentProvenance.UNDOCUMENTED -> DangerRed
                             }
-                            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(MaterialTheme.shapes.small)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                    .padding(12.dp),
+                            ) {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            "${if (isCredit) "−" else "+"}${(kotlin.math.abs(c.amount) / 100).formatDzd()} DZD",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = if (isCredit) SuccessGreen else DangerRed,
+                                        )
+                                        ElTag(text = c.provenanceLabel, color = provenanceColor)
+                                    }
                                     Text(
-                                        "${if (isCredit) "−" else "+"}${(kotlin.math.abs(c.amount) / 100).formatDzd()} DZD",
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = if (isCredit) SuccessGreen else DangerRed,
+                                        text = c.reasonLabel,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                     )
-                                    ElTag(text = c.provenanceLabel, color = provenanceColor)
+                                    Text(
+                                        text = "${c.at.take(10)} • Auteur: ${c.approvedBy}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
-                                Text(
-                                    "${c.reasonLabel} · ${c.at.take(10)} · Auteur : ${c.approvedBy}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Text(
-                                    c.meaningLabel,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
                             }
                         }
                     }

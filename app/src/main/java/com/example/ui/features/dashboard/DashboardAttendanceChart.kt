@@ -14,7 +14,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.EditNote
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,10 +34,6 @@ import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.theme.ElTheme
 
-/**
- * Section (4) — Today's Class Roll-Call & Live Attendance Pulse.
- * Displays class-by-class live attendance status and 7-day attendance trend.
- */
 @Composable
 internal fun DashboardAttendanceChart(
     classStatuses: List<ClassRollCallStatus>,
@@ -51,8 +46,8 @@ internal fun DashboardAttendanceChart(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ElSectionHeader(
-            title = "Vie Scolaire & Suivi des Présences",
-            subtitle = "Validation de l'appel du matin et tendance hebdomadaire",
+            title = "Vie Scolaire & Présences",
+            subtitle = "Appel du jour et assiduité hebdomadaire",
             trailing = {
                 ElButton(
                     text = "Pédagogie",
@@ -63,7 +58,6 @@ internal fun DashboardAttendanceChart(
             },
         )
 
-        // ── Class-by-Class Roll Call Grid ────────────────────────────────────
         ElCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -163,7 +157,6 @@ internal fun DashboardAttendanceChart(
                 )
                 Spacer(Modifier.height(10.dp))
 
-                // ── 7-Day Attendance Trend ────────────────────────────────────
                 Text(
                     text = "Taux de présence sur 7 jours (%.1f%% aujourd'hui)".format(attendanceRateToday),
                     style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -179,11 +172,8 @@ internal fun DashboardAttendanceChart(
                         gradientFill = true,
                     )
                 } else {
-                    // FIX (truthful empty state): previously nothing was shown
-                    // when there was no attendance data — now the user gets an
-                    // explicit explanation instead of a silently missing chart.
                     Text(
-                        text = "Aucun appel enregistré ces 7 derniers jours — la tendance apparaîtra dès le premier appel.",
+                        text = "Aucun appel enregistré ces 7 derniers jours.",
                         style = ElTheme.typography.bodySmall,
                         color = ElTheme.colors.textSecondary,
                         modifier = Modifier.padding(vertical = 12.dp),

@@ -19,6 +19,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -51,28 +52,20 @@ class GradeEntryViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     private val _subjects = MutableStateFlow<List<Subject>>(emptyList())
-    val subjects: StateFlow<List<Subject>> = _subjects
+    val subjects: StateFlow<List<Subject>> = _subjects.asStateFlow()
 
     private val _students = MutableStateFlow<List<Student>>(emptyList())
-    val students: StateFlow<List<Student>> = _students
+    val students: StateFlow<List<Student>> = _students.asStateFlow()
 
-    /**
-     * FIX (thin UI): the existing assessments for the selected
-     * (class, subject, term) — powers the class gradebook roster and the
-     * class-level statistics (completion, class average, pass rate).
-     */
     private val _classAssessments = MutableStateFlow<List<Assessment>>(emptyList())
-    val classAssessments: StateFlow<List<Assessment>> = _classAssessments
+    val classAssessments: StateFlow<List<Assessment>> = _classAssessments.asStateFlow()
 
     private val _busy = MutableStateFlow(false)
-    val busy: StateFlow<Boolean> = _busy
+    val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
     private val _message = MutableStateFlow<String?>(null)
-    val message: StateFlow<String?> = _message
+    val message: StateFlow<String?> = _message.asStateFlow()
 
-    // FIX (collector leak): each loadSubjectsForClass / loadStudentsForClass
-    // call previously launched a NEW never-cancelled collect — switching
-    // classes repeatedly stacked observers that kept overwriting each other.
     private var subjectsJob: Job? = null
     private var studentsJob: Job? = null
     private var gradebookJob: Job? = null
@@ -91,10 +84,6 @@ class GradeEntryViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Observe the real assessment rows for (class, subject, term, year) so the
-     * gradebook roster reflects persisted marks and updates live after saves.
-     */
     fun loadGradebook(classId: String, subjectId: String, term: String, academicYear: String) {
         gradebookJob?.cancel()
         gradebookJob = viewModelScope.launch {
@@ -103,17 +92,12 @@ class GradeEntryViewModel @Inject constructor(
         }
     }
 
-    /**
-     * FIX (blind edit): fetch the existing assessment for a
-     * (student, subject, term, year) and hand it to the caller so the grade
-     * entry form can pre-fill the fields instead of silently overwriting.
-     */
     fun loadExistingMark(
         studentId: String,
         subjectId: String,
         term: String,
         academicYear: String,
-        onLoaded: (com.example.domain.model.Assessment?) -> Unit,
+        onLoaded: (Assessment?) -> Unit,
     ) {
         viewModelScope.launch {
             val existing = gradeRepository
@@ -136,6 +120,7 @@ class GradeEntryViewModel @Inject constructor(
         coefficient: Double,
         actorId: String,
         actorName: String,
+        onSuccess: () -> Unit = {},
     ) {
         viewModelScope.launch {
             _busy.value = true
@@ -148,13 +133,14 @@ class GradeEntryViewModel @Inject constructor(
             val result = gradeRepository.enterGrade(input, actorId, actorName)
             _busy.value = false
             result.onSuccess { assessment ->
-                // The message mirrors the CANONICAL persisted average (server
-                // trigger is the authority) — not a client-side guess.
                 _message.value = assessment.subjectAverage?.let { avg ->
-                    "Note sauvegardée — moyenne officielle : %.2f / 20.".format(avg)
-                } ?: "Note sauvegardée (moyenne incomplète — 3 notes requises)."
+                    "Note enregistrée — moyenne : %.2f / 20".format(avg)
+                } ?: "Notes enregistrées (3 notes requises pour calculer la moyenne)."
+                loadGradebook(classId, subjectId, term, academicYear)
+                onSuccess()
+            }.onFailure {
+                _message.value = it.userMessage
             }
-                .onFailure { _message.value = it.userMessage }
         }
     }
 

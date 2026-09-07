@@ -6,12 +6,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -30,7 +32,13 @@ fun ElCard(
 ) {
     val tokens = elDesignTokens()
     val shape = if (compact) ElCardShapeSmall else ElCardShape
-    val bgBrush = if (gradient) tokens.surfaceBrush else Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surface))
+    val bgBrush = if (gradient) {
+        tokens.surfaceBrush
+    } else {
+        Brush.verticalGradient(
+            listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surface)
+        )
+    }
 
     val clickMod = if (onClick != null) {
         Modifier.clickable(
@@ -40,29 +48,32 @@ fun ElCard(
         )
     } else Modifier
 
+    val borderColor = if (accent != null) {
+        accent.copy(alpha = 0.35f)
+    } else {
+        tokens.cardBorder.copy(alpha = 0.5f)
+    }
+
     Box(
         modifier = modifier
             .clip(shape)
             .then(clickMod)
             .background(bgBrush, shape)
-            .border(1.dp, tokens.cardBorder.copy(alpha = 0.5f), shape)
-            .then(if (accent != null) Modifier.padding(start = 3.dp) else Modifier),
+            .border(1.dp, borderColor, shape)
+            .drawBehind {
+                if (accent != null) {
+                    drawRect(
+                        color = accent,
+                        topLeft = Offset.Zero,
+                        size = Size(4.dp.toPx(), size.height),
+                    )
+                }
+            },
     ) {
-        if (accent != null) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .padding(end = 3.dp)
-                    .clip(shape)
-                    .background(MaterialTheme.colorScheme.surface),
-            )
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .matchParentSize()
-                    .background(accent),
-            )
+        Box(
+            modifier = if (accent != null) Modifier.padding(start = 4.dp) else Modifier
+        ) {
+            content()
         }
-        content()
     }
 }

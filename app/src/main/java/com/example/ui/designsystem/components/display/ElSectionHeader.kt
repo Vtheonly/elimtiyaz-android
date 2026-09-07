@@ -16,21 +16,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.ui.designsystem.theme.ElTheme
 
-/**
- * Section header — title, optional subtitle, optional leading icon, and an
- * optional trailing slot (typically a "See all" link or filter button).
- *
- * Use at the top of grouped content blocks to maintain a consistent
- * vertical rhythm: the header sits in 16dp of bottom padding before the
- * content begins.
- *
- * @param title     Section title — uses `headlineSmall` weight.
- * @param subtitle  Optional supporting line under the title.
- * @param modifier  Outer modifier.
- * @param trailing  Optional trailing composable, right-aligned.
- * @param icon      Optional leading icon composable, left-aligned.
- * @param divider   When true, draws a thin divider under the header.
- */
 @Composable
 fun ElSectionHeader(
     title: String,
@@ -60,8 +45,8 @@ fun ElSectionHeader(
                     Text(
                         text = title,
                         color = c.textPrimary,
-                        style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        maxLines = 1,
+                        style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                     if (subtitle != null) {

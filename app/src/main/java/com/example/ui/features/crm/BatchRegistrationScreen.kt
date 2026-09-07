@@ -3,8 +3,10 @@ package com.example.ui.features.crm
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -14,10 +16,13 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -39,16 +44,9 @@ import com.example.ui.components.ElTextField
 import com.example.ui.components.ElTopBar
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 
-/** Vault §04.03 — Relationship values (Father / Mother / Guardian). */
 private val RELATIONSHIPS = listOf("Père", "Mère", "Tuteur")
-
-/** Vault §06 (Assessment/billing) — canonical payment plans. */
 private val PAYMENT_PLANS = listOf("tranches" to "Tranches (3 échéances)", "full_annual" to "Paiement annuel intégral")
-
 private val GENDERS = listOf("M" to "Masculin", "F" to "Féminin")
 
 @Composable
@@ -57,7 +55,6 @@ fun BatchRegistrationScreen(
     onBack: (() -> Unit)? = null,
     viewModel: BatchRegistrationViewModel = hiltViewModel(),
 ) {
-    // ── Step 1: Parent master info (vault §04.03) ─────────────────────────
     var parentFirstName by remember { mutableStateOf("") }
     var parentLastName by remember { mutableStateOf("") }
     var parentPhone by remember { mutableStateOf("") }
@@ -75,9 +72,6 @@ fun BatchRegistrationScreen(
     val error by viewModel.error.collectAsState()
     val activationCode by viewModel.activationCode.collectAsState()
 
-    // FIX (no form reset): clear the form after a successful registration so
-    // a second registration doesn't silently re-submit the previous family's
-    // pre-filled values.
     LaunchedEffect(activationCode) {
         if (activationCode != null) {
             parentFirstName = ""
@@ -96,7 +90,6 @@ fun BatchRegistrationScreen(
     }
 
     ElScaffold(
-        // FIX (no back affordance): the standalone route had no way back.
         topBar = {
             ElTopBar(
                 title = "Inscription famille",
@@ -104,8 +97,6 @@ fun BatchRegistrationScreen(
             )
         },
         floatingActionButton = {
-            // Vault §04.02 — "Add Another Child" with NO upper bound (the
-            // earlier 4-child cap is removed; the list is fully dynamic).
             ElFab(
                 icon = Icons.Default.Add,
                 onClick = { children.add(ChildFormState()) },
@@ -114,11 +105,20 @@ fun BatchRegistrationScreen(
         },
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            ElCard(modifier = Modifier.fillMaxWidth(), accent = PrimaryBlue) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Clean Card without color collision
+            ElCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     ElSectionHeader(title = "Étape 1 — Parent / Tuteur")
                     ElTextField(value = parentFirstName, onValueChange = { parentFirstName = it }, label = "Prénom *", modifier = Modifier.fillMaxWidth())
                     ElTextField(value = parentLastName, onValueChange = { parentLastName = it }, label = "Nom *", modifier = Modifier.fillMaxWidth())
@@ -141,24 +141,31 @@ fun BatchRegistrationScreen(
                         label = "Destination transport (optionnel — ex: ville_boumerdes)",
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Text(
-                        "La destination de transport déclenche la facturation transport automatique (moteur canonique).",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
 
-            // ── Step 2: Dynamic children blocks (1..N, vault §04.02/§04.03) ──
+            // Step 2: Dynamic Child Cards
             Text(
                 "Étape 2 — Enfants (${children.size})",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             )
             children.forEachIndexed { index, child ->
                 ElCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Enfant ${index + 1}", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 15.sp), modifier = Modifier.weight(1f))
+                            Text(
+                                "Enfant ${index + 1}",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 15.sp,
+                                ),
+                                modifier = Modifier.weight(1f),
+                            )
                             if (children.size > 1) {
                                 ElIconButton(
                                     icon = Icons.Default.Delete,
@@ -182,11 +189,6 @@ fun BatchRegistrationScreen(
                             },
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        // FIX (broken level derivation): free-text level input
-                        // with string-surgery classification misclassified
-                        // lycée ("1ere_annee") and uppercase ("2AM") codes as
-                        // "primaire". Replaced with a canonical dropdown +
-                        // `academicLevelForGradeCode`.
                         ElDropdown(
                             label = "Niveau scolaire",
                             selectedValue = child.gradeLevel,
@@ -194,10 +196,6 @@ fun BatchRegistrationScreen(
                             onSelected = { children[index] = child.copy(gradeLevel = it, classId = null) },
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        // Vault §04.03 — "Assigned Academic Level & Class": the
-                        // class dropdown only offers classes of the chosen
-                        // grade's cycle (grouped by cycle in UI selectors,
-                        // vault §05.02 rule).
                         val cycle = academicLevelForGradeCode(child.gradeLevel)
                         val cycleClasses = classes.filter { it.level == cycle }
                         if (child.gradeLevel.isNotBlank() && cycleClasses.isNotEmpty()) {
@@ -214,9 +212,6 @@ fun BatchRegistrationScreen(
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }
-                        // ── Step 3 (per-child billing): payment plan drives the
-                        // canonical discount engine + tranche split in
-                        // batchRegister (CANONICAL-FINANCIAL-LOGIC.md §5-§6).
                         ElDropdown(
                             label = "Modalité de paiement",
                             selectedValue = PAYMENT_PLANS.first { it.first == child.paymentPlan }.second,
@@ -241,22 +236,21 @@ fun BatchRegistrationScreen(
 
             activationCode?.let { code ->
                 ElCard(modifier = Modifier.fillMaxWidth(), accent = SuccessGreen) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Inscription réussie!", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = SuccessGreen)
-                        Text("Code d'activation: $code", style = MaterialTheme.typography.bodyMedium)
-                        Text("Donnez ce code au parent pour qu'il puisse se connecter au portail web.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text("Inscription réussie !", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = SuccessGreen)
+                        Text("Code d'activation : $code", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("Donnez ce code au parent pour qu'il active son portail web.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
 
-            Text(
-                "Étape 4 — Validation atomique : le parent et les ${children.size} enfant(s) seront créés en une seule transaction (tout ou rien).",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
             ElButton(
-                text = if (isLoading) "Inscription..." else "Inscrire la famille",
+                text = if (isLoading) "Inscription en cours..." else "Inscrire la famille",
                 onClick = {
                     val parent = CreateParentInput(
                         firstName = parentFirstName, lastName = parentLastName, phone = parentPhone,
