@@ -137,6 +137,29 @@ the generated `BuildConfig` fields come from the ROOT-level files only.
   without the `androidx.compose.foundation.layout.width` import — added during apply;
   if a future session re-bases this change, watch for the same omission.
 
+- **God-file modularization + ebb833b cleanup (36th session, 2026-09-08):** the 5
+  files >800 lines were split into 37 focused same-package files (behaviour-neutral
+  moves; zero logic changes except one, see below): `LocalRepositories.kt` (1859) and
+  `LocalRepositories2.kt` (2048) → one file per repository class in
+  `infrastructure/local/`; `StudentDetailScreen.kt` (1423) → ViewModel + screen +
+  `StudentDetailAcademicComponents.kt`; `ParentDetailScreen.kt` (996) → screen +
+  `ParentDetailDialogs.kt`; `FinancialsHubScreen.kt` (801) → screen + 5 tab files +
+  `FinancialsSharedComponents.kt`. Private top-level declarations referenced across
+  the new file boundaries became `internal`. Largest file after the split: 770 lines.
+  ⚠ **CRITICAL discovery — the test suite is partially SOURCE-ANCHORED:** 7 test
+  classes (`TenantStampingT051Test`, `HollowImplementationsT054Test`,
+  `LocalAuthRepositoryTest` SEC-102 guard, `RefundCorrectnessT017Test`,
+  `RefundInstallmentSyncT128Test`, `HomeworkPromotionT024Test`,
+  `OverdueRuleT026Test`) open source FILES by hardcoded path and pin their content —
+  any file rename/split in `infrastructure/local/` MUST update those scans (they now
+  read a directory union; `AuditContext.kt` is excluded from the demo-UUID scan because
+  it is the sanctioned single home of `DEMO_TENANT_ID`). Also fixed en passant:
+  `LocalLedgerRepository.reconcile()` called `computeParentSummary` WITHOUT the
+  due-date map (bare-call latent bug — T-026/WEAK-007 contract; the old test scope
+  missed it) — now passes `buildOverdueDueDateMap(parentEntries)`. The stray
+  `fix.patch` (1229 lines, corrupt at line 490, fully absorbed into the tree,
+  committed by ebb833b as drift bait — same pattern as CROSS-003) was REMOVED.
+
 ## 9. Forbidden in this repository
 
 - Rewiring `RepositoryModule` bindings toward Supabase repositories before ADR-005 is Accepted.

@@ -82,7 +82,7 @@ class HollowImplementationsT054Test {
 
     @Test
     fun `toDomain maps the REAL trigger column - no hardcode`() {
-        val src = readMainSource("infrastructure/local/LocalRepositories2.kt")
+        val src = readMainSourceDir("infrastructure/local")
         assertTrue(
             "toDomain must use WorkflowTrigger.fromCode(trigger)",
             src.contains("WorkflowTrigger.fromCode(trigger)"),
@@ -110,7 +110,7 @@ class HollowImplementationsT054Test {
 
     @Test
     fun `regenerateForCycle re-derives due dates from the official schedule`() {
-        val src = readMainSource("infrastructure/local/LocalRepositories.kt")
+        val src = readMainSourceDir("infrastructure/local")
         val body = Regex(
             "override suspend fun regenerateForCycle[\\s\\S]*?\\n    override suspend fun findOverdue",
         ).find(src)?.value ?: error("regenerateForCycle not found")
@@ -150,5 +150,20 @@ class HollowImplementationsT054Test {
         val inRepoRoot = File(cwd.parentFile ?: cwd, relative)
         if (inRepoRoot.isFile) return inRepoRoot.readText()
         error("Source file not found from either ${cwd.absolutePath} or ${cwd.parentFile}: $relative")
+    }
+
+    /** Union of every Kotlin file in a main-source directory — since the
+     * 2026-09-08 modularization the local-repositories pins scan the whole
+     * package (the god files were split into one class per file). */
+    private fun readMainSourceDir(relativeUnderSrcMainJava: String): String {
+        val relative = "src/main/java/com/example/$relativeUnderSrcMainJava"
+        val cwd = File(System.getProperty("user.dir") ?: ".")
+        val dir = listOf(File(cwd, relative), File(cwd.parentFile ?: cwd, relative))
+            .firstOrNull { it.isDirectory }
+            ?: error("Source directory not found: $relative")
+        return dir.listFiles { f: File -> f.isFile && f.name.endsWith(".kt") }
+            ?.sortedBy { it.name }
+            ?.joinToString("\n") { it.readText() }
+            ?: error("No .kt files in $relative")
     }
 }

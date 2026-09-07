@@ -35,7 +35,7 @@ class RefundCorrectnessT017Test {
 
     @Test
     fun `refund guards the already-refunded terminal state before any side effect`() {
-        val src = File("src/main/java/com/example/infrastructure/local/LocalRepositories.kt").readText()
+        val src = localRepositoriesSource()
         val block = Regex(
             "override suspend fun refund\\(paymentId: String[\\s\\S]*?syncSupport\\?\\.enqueueOnly",
         ).find(src)?.value ?: error("refund flow not found")
@@ -57,7 +57,7 @@ class RefundCorrectnessT017Test {
 
     @Test
     fun `refund sync payload carries the reason (CROSS-102)`() {
-        val src = File("src/main/java/com/example/infrastructure/local/LocalRepositories.kt").readText()
+        val src = localRepositoriesSource()
         val block = Regex(
             "override suspend fun refund\\(paymentId: String[\\s\\S]*?\\n    \\}",
         ).find(src)?.value ?: error("refund flow not found")
@@ -69,7 +69,7 @@ class RefundCorrectnessT017Test {
 
     @Test
     fun `the refund audit row still records the reason locally (unchanged contract)`() {
-        val src = File("src/main/java/com/example/infrastructure/local/LocalRepositories.kt").readText()
+        val src = localRepositoriesSource()
         assertTrue(
             "the local audit entry keeps the reason in its afterJson payload",
             src.contains("{\"reason\":"),
@@ -83,4 +83,9 @@ class RefundCorrectnessT017Test {
             block.contains("after = \"\"\"{\"reason\":\"\"}\"\"\""),
         )
     }
+    /** Since the 2026-09-08 modularization the refund flow lives in
+     * LocalPaymentRepository.kt (split from the LocalRepositories.kt god file);
+     * this helper keeps the pin pointed at the payment repository. */
+    private fun localRepositoriesSource(): String =
+        File("src/main/java/com/example/infrastructure/local/LocalPaymentRepository.kt").readText()
 }

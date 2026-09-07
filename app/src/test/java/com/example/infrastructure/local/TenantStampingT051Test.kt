@@ -16,6 +16,22 @@ import java.io.File
 import java.time.Instant
 
 /**
+ * Union of every Kotlin source in the local-repositories package, EXCEPT
+ * [AuditContext] — the single sanctioned home of [com.example.infrastructure.local.AuditContext.DEMO_TENANT_ID]
+ * (fallback for the signed-out state only). Since the 2026-09-08
+ * modularization (god files LocalRepositories.kt / LocalRepositories2.kt
+ * split into one class per file), the source-scan regression pins read the
+ * whole package instead of two umbrella files.
+ */
+private fun localSourcesUnion(): String =
+    File("src/main/java/com/example/infrastructure/local")
+        .takeIf { it.isDirectory }
+        ?.listFiles { f: File -> f.isFile && f.name.endsWith(".kt") && f.name != "AuditContext.kt" }
+        ?.sortedBy { it.name }
+        ?.joinToString("\n") { it.readText() }
+        ?: error("local repositories directory not found from " + File(".").absolutePath)
+
+/**
  * T-051 / WEAK-011 + TENANT-104 + WEAK-012 — tenant stamping + audit identity.
  *
  * The defects:
@@ -100,37 +116,34 @@ class TenantStampingT051Test {
     // ── Wiring: no hardcoded demo tenant left in the repositories ─────────
 
     @Test
-    fun `no demo-tenant literal remains in either LocalRepositories file (TENANT-104 closed)`() {
-        for (f in listOf("src/main/java/com/example/infrastructure/local/LocalRepositories.kt", "src/main/java/com/example/infrastructure/local/LocalRepositories2.kt")) {
-            val src = File(f).readText()
-            assertFalse(
-                "$f still hardcodes the demo tenant UUID",
-                src.contains("00000000-0000-0000-0000-000000000001"),
-            )
-            assertTrue(
-                "$f must route tenant stamping through auditContext",
-                src.contains("auditContext.tenantId()"),
-            )
-        }
+    fun `no demo-tenant literal remains in the local repositories (TENANT-104 closed)`() {
+        val union = localSourcesUnion()
+        assertFalse(
+            "the local repositories still hardcode the demo tenant UUID",
+            union.contains("00000000-0000-0000-0000-000000000001"),
+        )
+        assertTrue(
+            "the local repositories must route tenant stamping through auditContext",
+            union.contains("auditContext.tenantId()"),
+        )
     }
 
     @Test
     fun `all repository classes inject AuditContext and the old helpers are gone`() {
-        val src1 = File("src/main/java/com/example/infrastructure/local/LocalRepositories.kt").readText()
-        val src2 = File("src/main/java/com/example/infrastructure/local/LocalRepositories2.kt").readText()
+        val union = localSourcesUnion()
         for (cls in listOf("LocalAuthRepository", "LocalParentRepository", "LocalStudentRepository", "LocalPaymentRepository", "LocalInstallmentRepository", "LocalLedgerRepository")) {
-            val block = Regex("class %s @Inject constructor\\([\\s\\S]*?\\) : ".format(cls)).find(src1)?.value
+            val block = Regex("class %s @Inject constructor\\([\\s\\S]*?\\) : ".format(cls)).find(union)?.value
                 ?: error("$cls not found")
             assertTrue("$cls must inject AuditContext", block.contains("private val auditContext: AuditContext,"))
         }
         for (cls in listOf("LocalClassRepository", "LocalAttendanceRepository", "LocalGradeRepository", "LocalExpenseRepository", "LocalPersonnelRepository", "LocalDepartmentRepository")) {
-            val block = Regex("class %s @Inject constructor\\([\\s\\S]*?\\) : ".format(cls)).find(src2)?.value
+            val block = Regex("class %s @Inject constructor\\([\\s\\S]*?\\) : ".format(cls)).find(union)?.value
                 ?: error("$cls not found")
             assertTrue("$cls must inject AuditContext", block.contains("private val auditContext: AuditContext,"))
         }
         // The old file-private helpers are gone (their bodies carried the defect).
-        assertFalse(src1.contains("private fun audit(action: String"))
-        assertFalse(src2.contains("private fun auditLog(action: String"))
+        assertFalse(union.contains("private fun audit(action: String"))
+        assertFalse(union.contains("private fun auditLog(action: String"))
     }
 
     @Test

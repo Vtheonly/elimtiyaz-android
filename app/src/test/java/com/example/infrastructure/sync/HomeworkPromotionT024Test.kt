@@ -41,10 +41,10 @@ class HomeworkPromotionT024Test {
         File("src/main/java/com/example/infrastructure/sync/SyncQueueDispatcher.kt").readText()
 
     private fun homeworkRepoSrc(): String =
-        File("src/main/java/com/example/infrastructure/local/LocalRepositories2.kt").readText()
+        File("src/main/java/com/example/infrastructure/local/LocalHomeworkRepository.kt").readText()
 
     private fun promotionSrc(): String =
-        File("src/main/java/com/example/infrastructure/local/LocalRepositories.kt").readText()
+        File("src/main/java/com/example/infrastructure/local/LocalStudentRepository.kt").readText()
 
     // ── HOMEWORK-101 ────────────────────────────────────────────────────────
 

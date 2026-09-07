@@ -38,7 +38,7 @@ import java.io.File
 class RefundInstallmentSyncT128Test {
 
     private fun source(): String =
-        File("src/main/java/com/example/infrastructure/local/LocalRepositories.kt").readText()
+        File("src/main/java/com/example/infrastructure/local/LocalPaymentRepository.kt").readText()
 
     private fun refundBlock(src: String): String =
         Regex("override suspend fun refund\\(paymentId: String[\\s\\S]*?\\n    \\}")

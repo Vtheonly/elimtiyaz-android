@@ -251,16 +251,21 @@ class LocalAuthRepositoryTest {
 
     @Test
     fun `SEC-102 source guard — no email-substring role inference anywhere in LocalRepositories`() {
+        // Since the 2026-09-08 modularization (god files split into one class
+        // per file), the SEC-102 guard scans the WHOLE local package.
         val candidates = mutableListOf<File>()
         var dir: File? = File(System.getProperty("user.dir") ?: ".")
         repeat(4) {
             val d = dir ?: return@repeat
-            candidates.add(File(d, "src/main/java/com/example/infrastructure/local/LocalRepositories.kt"))
-            candidates.add(File(d, "app/src/main/java/com/example/infrastructure/local/LocalRepositories.kt"))
+            candidates.add(File(d, "src/main/java/com/example/infrastructure/local"))
+            candidates.add(File(d, "app/src/main/java/com/example/infrastructure/local"))
             dir = d.parentFile
         }
-        val source = candidates.firstOrNull { it.exists() }?.readText()
-            ?: error("LocalRepositories.kt not found from ${System.getProperty("user.dir")}; searched: $candidates")
+        val source = candidates.firstOrNull { it.isDirectory }
+            ?.listFiles { f: File -> f.isFile && f.name.endsWith(".kt") }
+            ?.sortedBy { it.name }
+            ?.joinToString("\n") { it.readText() }
+            ?: error("local repositories directory not found from ${System.getProperty("user.dir")}; searched: $candidates")
 
         val forbiddenFragments = listOf(
             "contains(\"finance\"", "contains(\"teacher\"", "contains(\"manager\"",

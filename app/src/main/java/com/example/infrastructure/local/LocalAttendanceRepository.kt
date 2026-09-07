@@ -1,0 +1,248 @@
+package com.example.infrastructure.local
+
+import com.example.core.Errors
+import com.example.core.Result
+import com.example.core.absenceAlertThreshold
+import com.example.core.currentTermWindow
+import com.example.core.agingBucketFromDays
+import com.example.core.daysBetweenFloor
+import com.example.core.formatDzd
+import com.example.core.LedgerEngine
+import com.example.domain.model.AcademicClass
+import com.example.domain.model.AppNotification
+import com.example.domain.model.Assessment
+import com.example.domain.model.AttendanceRecord
+import com.example.domain.model.AuditLog
+import com.example.domain.model.ClassRollCallStatus
+import com.example.domain.model.DashboardKpi
+import com.example.domain.model.DashboardOperationalAlert
+import com.example.domain.model.DebtSummary
+import com.example.domain.model.Department
+import com.example.domain.model.Expense
+import com.example.domain.model.GradeLevelTuition
+import com.example.domain.model.Homework
+import com.example.domain.model.Installment
+import com.example.domain.model.Parent
+import com.example.domain.model.Payment
+import com.example.domain.model.PaymentMethodSummary
+import com.example.domain.model.Personnel
+import com.example.domain.model.PricingConfig
+import com.example.domain.model.ReleveEntry
+import com.example.domain.model.Student
+import com.example.domain.model.Subject
+import com.example.domain.repository.AuditFilter
+import com.example.domain.repository.AuditLogInput
+import com.example.domain.repository.AuditRepository
+import com.example.domain.repository.ClassRepository
+import com.example.domain.repository.CreateClassInput
+import com.example.domain.repository.CreateDepartmentInput
+import com.example.domain.repository.CreatePersonnelInput
+import com.example.domain.repository.CreateSubjectInput
+import com.example.domain.repository.DashboardRepository
+import com.example.domain.repository.DebtRepository
+import com.example.domain.repository.DepartmentRepository
+import com.example.domain.repository.EnterGradeInput
+import com.example.domain.repository.ExpenseRepository
+import com.example.domain.repository.GradeRepository
+import com.example.domain.repository.HomeworkRepository
+import com.example.domain.repository.NotificationRepository
+import com.example.domain.repository.ParentFinancialProfile
+import com.example.domain.repository.PricingRepository
+import com.example.domain.repository.PushHomeworkInput
+import com.example.domain.repository.ReleveRepository
+import com.example.domain.repository.RollCallEntry
+import com.example.domain.repository.RoutingRepository
+import com.example.domain.repository.StorageRepository
+import com.example.domain.repository.SubmitExpenseInput
+import com.example.domain.repository.SubjectRepository
+import com.example.domain.repository.UpdateClassInput
+import com.example.domain.repository.UpdatePersonnelInput
+import com.example.domain.repository.UpdateSubjectInput
+import com.example.domain.repository.WorkflowRepository
+import com.example.domain.model.GeoPoint
+import com.example.infrastructure.routing.OsrmClient
+import com.example.infrastructure.routing.TspSolver
+import com.example.infrastructure.room.AcademicClassDao
+import com.example.infrastructure.room.AcademicClassEntity
+import com.example.infrastructure.room.AssessmentDao
+import com.example.infrastructure.room.AssessmentEntity
+import com.example.infrastructure.room.AttendanceDao
+import com.example.infrastructure.room.AttendanceEntity
+import com.example.infrastructure.room.AuditLogDao
+import com.example.infrastructure.room.AuditLogEntity
+import com.example.infrastructure.room.ClassSubjectDao
+import com.example.infrastructure.room.ClassSubjectEntity
+import com.example.infrastructure.room.DepartmentDao
+import com.example.infrastructure.room.DepartmentEntity
+import com.example.infrastructure.room.ElImtiyazDatabase
+import com.example.infrastructure.room.ExpenseDao
+import com.example.infrastructure.room.ExpenseEntity
+import com.example.infrastructure.room.HomeworkDao
+import com.example.infrastructure.room.HomeworkEntity
+import com.example.infrastructure.room.InstallmentEntity
+import com.example.infrastructure.room.LedgerEntryEntity
+import com.example.infrastructure.room.LocalMappers
+import com.example.infrastructure.room.NotificationDao
+import com.example.infrastructure.room.NotificationEntity
+import com.example.infrastructure.room.ParentDao
+import com.example.infrastructure.room.ParentEntity
+import com.example.infrastructure.room.PaymentDao
+import com.example.infrastructure.room.PaymentEntity
+import com.example.infrastructure.room.PersonnelDao
+import com.example.infrastructure.room.PersonnelEntity
+import com.example.infrastructure.room.PricingConfigDao
+import com.example.infrastructure.room.PricingConfigEntity
+import com.example.infrastructure.room.PricingDiscountEntity
+import com.example.infrastructure.room.ReleveEntryDao
+import com.example.infrastructure.room.ReleveEntryEntity
+import com.example.infrastructure.room.StudentDao
+import com.example.infrastructure.room.StudentEntity
+import com.example.infrastructure.room.SubjectDao
+import com.example.infrastructure.room.SubjectEntity
+import com.example.infrastructure.room.TransportPricingEntity
+import com.example.infrastructure.room.TripLogDao
+import com.example.infrastructure.room.TripLogEntity
+import com.example.infrastructure.room.VehicleDao
+import com.example.infrastructure.room.VehicleEntity
+import com.example.infrastructure.room.RoutingStopDao
+import com.example.infrastructure.room.RoutingStopEntity
+import com.example.infrastructure.room.WorkflowRunDao
+import com.example.infrastructure.room.WorkflowRunEntity
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.put
+import java.time.Instant
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
+import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
+
+// ─── Attendance Repository ──────────────────────────────────────────────────
+
+@Singleton
+class LocalAttendanceRepository @Inject constructor(
+    private val auditContext: AuditContext,
+    private val attendanceDao: AttendanceDao,
+    private val auditDao: AuditLogDao,
+    private val notificationDao: NotificationDao,
+    private val studentDao: StudentDao,
+    // VAULT §06.03 — roll call is the PRIMARY mobile flow; records must reach
+    // the shared backend so the portal's Absence Justification feature sees
+    // them. The dispatcher upserts into `attendance_records` on the canonical
+    // (tenant, student, record_date, session) key (migration 0041).
+    private val syncSupport: com.example.infrastructure.sync.SyncSupport? = null,
+) : com.example.domain.repository.AttendanceRepository {
+
+    override fun observeByClass(classId: String, date: String): Flow<List<AttendanceRecord>> =
+        attendanceDao.observeByClassAndDate(classId, date).map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
+
+    override fun observeByStudent(studentId: String): Flow<List<AttendanceRecord>> {
+        val since = LocalDate.now(ZoneOffset.UTC).minusDays(90).toString()
+        return attendanceDao.observeByStudent(studentId, since).map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
+    }
+
+    override suspend fun recordRollCall(classId: String, date: String, session: String, records: List<RollCallEntry>, actorId: String, actorName: String): Result<Unit> {
+        val now = Instant.now().toString()
+        // FIX (duplicate roll-call records): previously every submission
+        // generated fresh UUIDs and INSERTed new rows — re-saving a roll call
+        // duplicated every record and inflated attendance stats. Re-use the
+        // existing row's ID for the same (student, date, session) so the
+        // REPLACE-strategy upsert updates in place (idempotent re-submission).
+        val entities = records.map { r ->
+            val existing = attendanceDao.getByStudentDateSession(r.studentId, date, session)
+            AttendanceEntity(
+                id = existing?.id ?: "att-${UUID.randomUUID()}",
+                tenantId = auditContext.tenantId(),
+                studentId = r.studentId, classId = classId, date = date, session = session,
+                status = r.status, arrivalTime = null, note = r.note ?: existing?.note,
+                recordedBy = actorId, recordedBy_name = actorName, recordedAt = now,
+            )
+        }
+        attendanceDao.upsertAll(entities)
+        // VAULT §06.03 — enqueue every record for the Supabase push.
+        entities.forEach { entity ->
+            syncSupport?.enqueueOnly(
+                entity = "attendance",
+                operation = "upsert",
+                payload = buildAttendanceSyncPayload(entity),
+                isMock = false,
+                sourceScreen = "RollCallScreen",
+            )
+        }
+        auditDao.upsert(auditContext.auditLog("attendance.rollCall", "class", classId, actorId, actorName,
+            after = """{"date":"$date","session":"$session","count":${records.size}}"""))
+        return Result.Ok(Unit)
+    }
+
+    // FIX (hollow action): alertAbsences previously wrote ONLY audit rows —
+    // no parent was ever alerted. Now a real in-app notification is created
+    // for each FLAGGED student (linked to the parent's record) in addition
+    // to the audit trail, so the alert actually surfaces in the Alerts inbox.
+    //
+    // T-063 (ATT-103): the threshold is now the DESKTOP rule — ≥3 absences
+    // (absent_unexcused + absent_excused, LATE excluded) within the CURRENT
+    // TERM (core/Terms.kt, mirror of terms.ts). Previously Android alerted
+    // for EVERY student in the input (effective threshold 1) — alert
+    // fatigue + cross-platform divergence.
+    override suspend fun alertAbsences(studentIds: List<String>, actorId: String, actorName: String): Result<Unit> {
+        val now = Instant.now().toString()
+        val window = currentTermWindow()
+        val flagged = studentIds.mapNotNull { studentId ->
+            val records = attendanceDao.listByStudent(studentId, window.start.toString())
+            absenceAlertThreshold(
+                records.map { it.studentId to it.status },
+                records.map { it.date },
+                window,
+            ).firstOrNull()
+        }
+        flagged.forEach { (studentId, count) ->
+            val student = studentDao.getById(studentId) ?: return@forEach
+            auditDao.upsert(auditContext.auditLog("attendance.alert", "student", studentId, actorId, actorName))
+            notificationDao.upsert(
+                NotificationEntity(
+                    id = "ntf-abs-${UUID.randomUUID()}",
+                    tenantId = auditContext.tenantId(),
+                    // Mirror of the desktop message (byte-identical semantics).
+                    title = "Alerte absences",
+                    body = "Votre enfant a accumulé $count absences ce trimestre (${window.label}). Merci de contacter l'administration.",
+                    type = "attendance_alert",
+                    priority = "high",
+                    source = "roll_call",
+                    sourceLabel = "Module Présences",
+                    entityType = "student",
+                    entityId = studentId,
+                    targetUserId = null,
+                    isRead = false,
+                    createdAt = now,
+                ),
+            )
+        }
+        return Result.Ok(Unit)
+    }
+}
+
+// ─── Grade Repository ───────────────────────────────────────────────────────
+
+@Singleton
+/** Canonical attendance_records-row payload for the sync dispatcher (§06.03). */
+private fun buildAttendanceSyncPayload(e: com.example.infrastructure.room.AttendanceEntity): String =
+    kotlinx.serialization.json.buildJsonObject {
+        put("id", e.id)
+        put("tenantId", e.tenantId)
+        put("studentId", e.studentId)
+        put("classId", e.classId)
+        put("date", e.date)
+        put("recordDate", e.date)
+        put("session", e.session)
+        put("status", e.status)
+        e.arrivalTime?.let { put("arrivalTime", it) }
+        e.note?.let { put("note", it) }
+        put("recordedBy", e.recordedBy)
+        put("recordedAt", e.recordedAt)
+    }.toString()

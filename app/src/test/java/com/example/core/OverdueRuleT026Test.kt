@@ -151,7 +151,7 @@ class OverdueRuleT026Test {
 
     @Test
     fun `all production computeParentSummary call sites build and pass the due-date map`() {
-        val src = readMainSource("infrastructure/local/LocalRepositories2.kt")
+        val src = readMainSourceDir("infrastructure/local")
         // Every call that passes totalOverdue semantics must carry the map.
         val callsWithMap = Regex("computeParentSummary\\([^)]*dueDateMap").findAll(src).count()
         assertTrue(
@@ -171,5 +171,19 @@ class OverdueRuleT026Test {
         val inRepoRoot = File(cwd.parentFile ?: cwd, relative)
         if (inRepoRoot.isFile) return inRepoRoot.readText()
         error("Source file not found: $relative")
+    }
+    /** Union of every Kotlin file in a main-source directory — since the
+     * 2026-09-08 modularization the computeParentSummary call-site pins scan
+     * the whole local-repositories package (one class per file now). */
+    private fun readMainSourceDir(relativeUnderSrcMainJava: String): String {
+        val relative = "src/main/java/com/example/$relativeUnderSrcMainJava"
+        val cwd = File(System.getProperty("user.dir") ?: ".")
+        val dir = listOf(File(cwd, relative), File(cwd.parentFile ?: cwd, relative))
+            .firstOrNull { it.isDirectory }
+            ?: error("Source directory not found: $relative")
+        return dir.listFiles { f: File -> f.isFile && f.name.endsWith(".kt") }
+            ?.sortedBy { it.name }
+            ?.joinToString("\n") { it.readText() }
+            ?: error("No .kt files in $relative")
     }
 }
