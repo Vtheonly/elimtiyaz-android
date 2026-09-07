@@ -86,6 +86,7 @@ import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.WarmGold
 import com.example.ui.theme.elDesignTokens
+import com.example.ui.util.PhoneUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -627,10 +628,7 @@ fun StudentDetailScreen(
                                                 .height(38.dp)
                                                 .clip(MaterialTheme.shapes.small)
                                                 .background(tokens.successBrush)
-                                                .clickable {
-                                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${p.phone}"))
-                                                    context.startActivity(intent)
-                                                },
+                                                .clickable { PhoneUtils.dial(context, p.phone) },
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -645,12 +643,7 @@ fun StudentDetailScreen(
                                                 .height(38.dp)
                                                 .clip(MaterialTheme.shapes.small)
                                                 .background(tokens.successBrush)
-                                                .clickable {
-                                                    val clean = (p.whatsapp ?: p.phone).replace("[^0-9]".toRegex(), "")
-                                                    val formatted = if (clean.startsWith("0")) "213${clean.substring(1)}" else clean
-                                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$formatted"))
-                                                    context.startActivity(intent)
-                                                },
+                                                .clickable { PhoneUtils.openWhatsApp(context, p.whatsapp ?: p.phone) },
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -688,6 +681,7 @@ fun StudentDetailScreen(
                             }
                         }
                     }
+                    item { Spacer(Modifier.height(88.dp)) }
                 }
 
                 // ── 2. NOTES & BULLETINS ──────────────────────────────────────
@@ -929,6 +923,7 @@ fun StudentDetailScreen(
                             }
                         }
                     }
+                    item { Spacer(Modifier.height(88.dp)) }
                 }
 
                 // ── 3. PRÉSENCES & RETARDS ───────────────────────────────────
@@ -1001,6 +996,7 @@ fun StudentDetailScreen(
                             }
                         }
                     }
+                    item { Spacer(Modifier.height(88.dp)) }
                 }
 
                 // ── 4. FINANCES & ÉCHÉANCES ──────────────────────────────────
@@ -1094,6 +1090,7 @@ fun StudentDetailScreen(
                             }
                         }
                     }
+                    item { Spacer(Modifier.height(88.dp)) }
                 }
 
                 // ── 5. HISTORIQUE ACADÉMIQUE (vault §04.07 / §06.05) ─────
@@ -1383,6 +1380,7 @@ private fun AcademicHistoryTab(
         items(history, key = { it.academicYear }) { year ->
             AcademicYearCard(year = year, subjectById = subjectById, currentYear = currentYear)
         }
+        item { Spacer(Modifier.height(88.dp)) }
     }
 }
 

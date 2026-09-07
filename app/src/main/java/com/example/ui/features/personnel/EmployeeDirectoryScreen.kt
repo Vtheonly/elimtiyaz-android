@@ -1,7 +1,5 @@
 package com.example.ui.features.personnel
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,6 +53,7 @@ import com.example.ui.components.ElScrollableTabRow
 import com.example.ui.components.ElSectionHeader
 import com.example.ui.components.ElTag
 import com.example.ui.theme.PrimaryBlue
+import com.example.ui.util.PhoneUtils
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
@@ -71,7 +70,6 @@ private fun roleDisplayLabel(code: String): String = when (code.lowercase()) {
     else -> code.replace("_", " ").replaceFirstChar { it.uppercase() }
 }
 
-/** Staff role options for the create-employee form (code -> singular FR label). */
 private val STAFF_ROLE_OPTIONS: List<Pair<String, String>> = listOf(
     "teacher" to "Enseignant",
     "super_admin" to "Direction",
@@ -112,8 +110,6 @@ fun EmployeeDirectoryScreen(
         else personnel.filter { it.staffCategory == rawCategories[selectedCategoryTab] }
     }
 
-    // Create-employee FAB — visible only with the MANAGE_PERSONNEL permission
-    // (the repository layer already exposes createPersonnel; this is its UI).
     val canManage = session.can(Permission.MANAGE_PERSONNEL) || viewModel.canManage
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -149,6 +145,9 @@ fun EmployeeDirectoryScreen(
                             onClick = { onNavigateToPersonnelDetail(staff.id) },
                             context = context,
                         )
+                    }
+                    item {
+                        Spacer(Modifier.height(80.dp))
                     }
                 }
             }
@@ -218,8 +217,8 @@ private fun EmployeeCard(
 
             Spacer(Modifier.height(8.dp))
             Text(
-                text = if (staff.phone.isNotBlank()) "Tél: ${staff.phone} • Embauché: ${staff.hireDate.take(10)}"
-                       else "Embauché: ${staff.hireDate.take(10)}",
+                text = if (staff.phone.isNotBlank()) "Tél : ${staff.phone} • Embauché : ${staff.hireDate.take(10)}"
+                       else "Embauché : ${staff.hireDate.take(10)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -228,10 +227,7 @@ private fun EmployeeCard(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ElButton(
                     text = "Appeler",
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${staff.phone}"))
-                        runCatching { context.startActivity(intent) }
-                    },
+                    onClick = { PhoneUtils.dial(context, staff.phone) },
                     style = ElButtonStyle.Secondary,
                     icon = Icons.Default.Phone,
                     modifier = Modifier.weight(1f),
@@ -241,7 +237,7 @@ private fun EmployeeCard(
                     text = "Email",
                     onClick = {
                         staff.email?.let { email ->
-                            val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$email"))
+                            val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.parse("mailto:$email"))
                             runCatching { context.startActivity(intent) }
                         }
                     },
@@ -255,11 +251,6 @@ private fun EmployeeCard(
     }
 }
 
-/**
- * Create-employee dialog — UI entry for [com.example.domain.repository.PersonnelRepository.createPersonnel].
- * Fields mirror [CreatePersonnelInput]: names, role, department, phone,
- * email, position, hire date, and salary (all-French labels).
- */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun CreateEmployeeDialog(
@@ -291,20 +282,8 @@ private fun CreateEmployeeDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OutlinedTextField(
-                    value = firstName,
-                    onValueChange = { firstName = it },
-                    label = { Text("Prénom *") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = lastName,
-                    onValueChange = { lastName = it },
-                    label = { Text("Nom *") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Prénom *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Nom *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
 
                 Text("Rôle *", style = MaterialTheme.typography.labelMedium)
                 androidx.compose.foundation.layout.FlowRow(
@@ -347,34 +326,10 @@ private fun CreateEmployeeDialog(
                     }
                 }
 
-                OutlinedTextField(
-                    value = position,
-                    onValueChange = { position = it },
-                    label = { Text("Poste") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = phone,
-                    onValueChange = { phone = it },
-                    label = { Text("Téléphone *") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Email") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                OutlinedTextField(
-                    value = hireDate,
-                    onValueChange = { hireDate = it },
-                    label = { Text("Date d'embauche (AAAA-MM-JJ) *") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                OutlinedTextField(value = position, onValueChange = { position = it }, label = { Text("Poste") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Téléphone *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = hireDate, onValueChange = { hireDate = it }, label = { Text("Date d'embauche (AAAA-MM-JJ) *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(
                     value = salaryDzd,
                     onValueChange = { raw -> salaryDzd = raw.filter { it.isDigit() }.take(12) },
@@ -382,11 +337,6 @@ private fun CreateEmployeeDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    "Un identifiant PER-XXX sera généré automatiquement.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         },

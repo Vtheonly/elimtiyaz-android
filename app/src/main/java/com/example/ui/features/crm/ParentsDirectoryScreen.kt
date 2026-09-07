@@ -6,6 +6,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,6 +46,7 @@ import com.example.ui.components.ElCard
 import com.example.ui.components.ElEmptyState
 import com.example.ui.components.ElTextField
 import com.example.ui.theme.elDesignTokens
+import com.example.ui.util.PhoneUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -102,11 +104,11 @@ fun ParentsDirectoryScreen(
         ElTextField(
             value = query,
             onValueChange = viewModel::setQuery,
-            label = "Rechercher un parent",
+            label = "Rechercher un parent (${parents.size})",
             placeholder = "Nom, téléphone, code...",
             leadingIcon = Icons.Default.Person,
             singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
         )
 
         error?.let { err ->
@@ -117,24 +119,20 @@ fun ParentsDirectoryScreen(
             ElEmptyState(
                 icon = Icons.Default.Person,
                 title = "Aucun parent trouvé",
-                message = "Essayez de modifier votre recherche ou ajoutez un nouveau parent.",
+                message = if (query.isBlank()) "Aucun parent enregistré." else "Essayez de modifier votre recherche.",
                 modifier = Modifier.padding(top = 32.dp),
             )
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 88.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                items(parents) { parent ->
+                items(parents, key = { it.id }) { parent ->
                     ParentCard(
                         parent = parent,
                         onClick = { onParentClick(parent.id) },
-                        onCall = {
-                            val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
-                                data = android.net.Uri.parse("tel:${parent.phone}")
-                            }
-                            context.startActivity(intent)
-                        },
+                        onCall = { PhoneUtils.dial(context, parent.phone) },
                     )
                 }
             }
@@ -162,8 +160,7 @@ private fun ParentCard(
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(parent.fullName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
-                Text(parent.code, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(parent.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Code : ${parent.code} • Tél : ${parent.phone}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Box(
                 modifier = Modifier

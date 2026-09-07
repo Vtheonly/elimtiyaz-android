@@ -1,7 +1,5 @@
 package com.example.ui.features.dashboard
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,14 +10,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.HowToReg
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -38,11 +34,8 @@ import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.theme.ElTheme
+import com.example.ui.util.PhoneUtils
 
-/**
- * Actionable Alerts & Daily Workflow Stream.
- * Surfaces real urgent tasks from live data with 1-tap actions.
- */
 @Composable
 internal fun DashboardAlertsSection(
     error: String?,
@@ -125,14 +118,10 @@ internal fun DashboardAlertsSection(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        // If phone number is available, offer direct dial action
                         if (!alert.phone.isNullOrBlank()) {
                             ElButton(
                                 text = "Appeler",
-                                onClick = {
-                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${alert.phone}"))
-                                    runCatching { context.startActivity(intent) }
-                                },
+                                onClick = { PhoneUtils.dial(context, alert.phone) },
                                 variant = ElButtonVariant.OUTLINED,
                                 size = ElButtonSize.SMALL,
                                 icon = Icons.Default.Call,
@@ -140,7 +129,6 @@ internal fun DashboardAlertsSection(
                             Spacer(Modifier.size(8.dp))
                         }
 
-                        // Primary workflow button
                         ElButton(
                             text = alert.actionLabel ?: "Traiter",
                             onClick = {

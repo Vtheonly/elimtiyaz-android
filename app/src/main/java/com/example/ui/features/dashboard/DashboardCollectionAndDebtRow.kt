@@ -1,7 +1,5 @@
 package com.example.ui.features.dashboard
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,7 +21,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.core.formatDzd
 import com.example.domain.model.DashboardKpi
 import com.example.domain.model.DebtSummary
@@ -36,6 +33,7 @@ import com.example.ui.designsystem.components.data.ElDonutSegment
 import com.example.ui.designsystem.components.data.ElProgressRing
 import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.designsystem.theme.ElTheme
+import com.example.ui.util.PhoneUtils
 
 @Composable
 internal fun DashboardCollectionAndDebtRow(
@@ -69,10 +67,6 @@ internal fun DashboardCollectionAndDebtRow(
                 val collected = (currentKpi.monthlyRevenue / 100).toFloat()
                 val pending = (currentKpi.outstandingDebt / 100).toFloat()
                 val total = collected + pending
-                // FIX (fabricated rate): previously fell back to a hardcoded
-                // 78% when no data existed. With no real figures the honest
-                // rate is 0% — the reactive KPI flow fills it in with real
-                // numbers as soon as payments/charges exist.
                 val rate = if (total > 0f) (collected / total).coerceIn(0f, 1f) else 0f
 
                 Column(
@@ -137,11 +131,6 @@ internal fun DashboardCollectionAndDebtRow(
                         )
                     } else null
                 }
-
-                // FIX (fabricated donut): previously rendered an invented
-                // aging distribution (120k/85k/64k/51k DZD) whenever the real
-                // ledger had no outstanding debt. Now the donut shows ONLY
-                // real buckets — with an explicit empty state otherwise.
 
                 val totalDebtAmount = debtAging.sumOf { it.outstandingAmount }.takeIf { it > 0L }
                     ?: currentKpi.outstandingDebt
@@ -209,7 +198,7 @@ internal fun DashboardCollectionAndDebtRow(
                                     color = ElTheme.colors.textPrimary,
                                 )
                                 Text(
-                                    text = "${debtor.studentCount} enfant(s) • Retard: ${debtor.daysOverdue} j",
+                                    text = "${debtor.studentCount} enfant(s) • Retard : ${debtor.daysOverdue} j",
                                     style = ElTheme.typography.bodySmall,
                                     color = ElTheme.colors.textSecondary,
                                 )
@@ -224,10 +213,7 @@ internal fun DashboardCollectionAndDebtRow(
                                 )
                                 if (debtor.parentPhone.isNotBlank()) {
                                     IconButton(
-                                        onClick = {
-                                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${debtor.parentPhone}"))
-                                            runCatching { context.startActivity(intent) }
-                                        },
+                                        onClick = { PhoneUtils.dial(context, debtor.parentPhone) },
                                         modifier = Modifier.size(28.dp),
                                     ) {
                                         Icon(

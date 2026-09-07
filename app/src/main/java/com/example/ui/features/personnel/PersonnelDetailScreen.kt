@@ -65,34 +65,24 @@ import com.example.domain.repository.PersonnelRepository
 import com.example.domain.repository.ReleveRepository
 import com.example.domain.repository.UpdatePersonnelInput
 import com.example.session.SessionManager
+import com.example.ui.util.PhoneUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.DayOfWeek
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.plus
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
-import java.time.DayOfWeek
 
-/**
- * Personnel detail ViewModel.
- *
- * Restored behavior (commit a34333a):
- *  - Loads personnel + current-week (Mon→Sun) Relevé entries.
- *  - Computes `hoursLoggedThisWeek` from actual Relevé entries (NOT from
- *    `Personnel.weeklyHoursLogged` which the Supabase DTO hardcodes to 0).
- *  - Per-day breakdown (Mon→Sun) of hours.
- *  - Salary visible only to SUPER_ADMIN / FINANCIAL_OFFICER (per desktop §09.04).
- */
 @HiltViewModel
 class PersonnelDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -121,7 +111,6 @@ class PersonnelDetailViewModel @Inject constructor(
                 session.can(Permission.VIEW_SALARY)
         } ?: false
 
-    /** Whether the current session may manage personnel (edit / delete). */
     val canManage: Boolean
         get() = sessionManager.current()?.can(Permission.MANAGE_PERSONNEL) == true ||
             sessionManager.current()?.let { session ->
@@ -134,7 +123,6 @@ class PersonnelDetailViewModel @Inject constructor(
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
 
-    /** UI entry for [PersonnelRepository.updatePersonnel] (previously repo-only). */
     fun updatePersonnel(id: String, input: UpdatePersonnelInput) {
         viewModelScope.launch {
             _busy.value = true
@@ -148,11 +136,6 @@ class PersonnelDetailViewModel @Inject constructor(
         }
     }
 
-    /**
-     * UI entry for [PersonnelRepository.deletePersonnel] — a SOFT delete:
-     * the repository marks the row `terminated` (preserving the Relevé
-     * history), mirroring the guard-free semantics of the repo contract.
-     */
     fun deletePersonnel(id: String) {
         viewModelScope.launch {
             _busy.value = true
@@ -179,7 +162,6 @@ class PersonnelDetailViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-                // dayOfWeek.value: 1=Monday..7=Sunday (ISO). Move back to Monday.
                 val monday = today.minus(today.dayOfWeek.value - 1, DateTimeUnit.DAY)
                 val sunday = monday.plus(6, DateTimeUnit.DAY)
                 _isLoading.value = true
@@ -196,14 +178,12 @@ class PersonnelDetailViewModel @Inject constructor(
         }
     }
 
-    /** Sum of (hoursOut - hoursIn) for the current week, in hours. */
     val hoursLoggedThisWeek: StateFlow<Double> = _weekEntries.asStateFlow().let { sf ->
         sf.map { entries ->
             entries.sumOf { it.durationMinutes?.toDouble()?.div(60.0) ?: 0.0 }
         }.stateIn(viewModelScope, SharingStarted.Lazily, 0.0)
     }
 
-    /** Per-day breakdown: Mon→Sun hours. */
     val perDayBreakdown: StateFlow<Map<DayOfWeek, Double>> = _weekEntries.asStateFlow().let { sf ->
         sf.map { entries ->
             val map = mutableMapOf<DayOfWeek, Double>()
@@ -223,9 +203,8 @@ class PersonnelDetailViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Lazily, 0)
 
     val recentEntries: StateFlow<List<ReleveEntry>> = _weekEntries.asStateFlow().let { sf ->
-        sf.map { entries ->
-            entries.take(10)
-        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        sf.map { entries -> entries.take(10) }
+            .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
     }
 }
 
@@ -237,7 +216,6 @@ fun PersonnelDetailScreen(
     viewModel: PersonnelDetailViewModel = hiltViewModel(),
 ) {
     val personnel by viewModel.personnel.collectAsState()
-    val weekEntries by viewModel.weekEntries.collectAsState()
     val recentEntries by viewModel.recentEntries.collectAsState()
     val hoursLogged by viewModel.hoursLoggedThisWeek.collectAsState()
     val hoursTarget by viewModel.hoursTarget.collectAsState()
@@ -248,7 +226,6 @@ fun PersonnelDetailScreen(
     val message by viewModel.message.collectAsState()
     val context = LocalContext.current
 
-    // Edit + delete dialog state (RBAC-gated actions).
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -267,10 +244,7 @@ fun PersonnelDetailScreen(
                         }
                     }
                     IconButton(onClick = {
-                        personnel?.phone?.let { phone ->
-                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
-                            context.startActivity(Intent.createChooser(intent, "Appeler"))
-                        }
+                        personnel?.phone?.let { PhoneUtils.dial(context, it) }
                     }) { Icon(Icons.Default.Call, contentDescription = "Appeler") }
                     personnel?.email?.let { email ->
                         IconButton(onClick = {
@@ -316,8 +290,8 @@ fun PersonnelDetailScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(p.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text(p.position, style = MaterialTheme.typography.bodySmall)
-                                Text("Catégorie: ${p.staffCategory}", style = MaterialTheme.typography.labelSmall)
-                                Text("Statut: ${p.status}", style = MaterialTheme.typography.labelSmall)
+                                Text("Catégorie : ${p.staffCategory}", style = MaterialTheme.typography.labelSmall)
+                                Text("Statut : ${p.status}", style = MaterialTheme.typography.labelSmall)
                             }
                         }
                         Spacer(Modifier.height(12.dp))
@@ -327,8 +301,6 @@ fun PersonnelDetailScreen(
                         p.terminationDate?.let { InfoRow("Date de fin", it) }
                         if (viewModel.canViewSalary && p.salary != null) {
                             InfoRow("Salaire", "${(p.salary / 100).formatDzd()} DZD")
-                        } else if (!viewModel.canViewSalary && p.salary != null) {
-                            Text("Salaire masqué (permission requise)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                         }
                         message?.let {
                             Spacer(Modifier.height(8.dp))
@@ -360,9 +332,6 @@ fun PersonnelDetailScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                         )
-                        if (hoursTarget == 0) {
-                            Text("Cible hebdomadaire non configurée.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                        }
 
                         Spacer(Modifier.height(12.dp))
                         Text("Répartition par jour", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
@@ -400,7 +369,6 @@ fun PersonnelDetailScreen(
         }
     }
 
-    // ── Edit dialog (RBAC: MANAGE_PERSONNEL) ──────────────────────────
     if (showEditDialog && personnel != null) {
         val p = personnel!!
         var phone by remember { mutableStateOf(p.phone) }
@@ -408,7 +376,6 @@ fun PersonnelDetailScreen(
         var position by remember { mutableStateOf(p.position) }
         var salaryDzd by remember { mutableStateOf(p.salary?.let { (it / 100).toString() } ?: "") }
         var status by remember { mutableStateOf(if (p.status == "terminated") "terminated" else "active") }
-
         val salaryCentimes = salaryDzd.replace(" ", "").toLongOrNull()?.let { it * 100L }
 
         AlertDialog(
@@ -416,56 +383,10 @@ fun PersonnelDetailScreen(
             title = { Text("Modifier l'employé") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = phone,
-                        onValueChange = { phone = it },
-                        label = { Text("Téléphone") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        label = { Text("Email") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = position,
-                        onValueChange = { position = it },
-                        label = { Text("Poste") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = salaryDzd,
-                        onValueChange = { raw -> salaryDzd = raw.filter { it.isDigit() }.take(12) },
-                        label = { Text("Salaire mensuel (DZD)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text("Statut", style = MaterialTheme.typography.labelMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = { status = "active" }) {
-                            Text(
-                                "Actif",
-                                color = if (status == "active") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = if (status == "active") FontWeight.Bold else FontWeight.Normal,
-                            )
-                        }
-                        TextButton(onClick = { status = "terminated" }) {
-                            Text(
-                                "Terminé",
-                                color = if (status == "terminated") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = if (status == "terminated") FontWeight.Bold else FontWeight.Normal,
-                            )
-                        }
-                    }
-                    Text(
-                        "Nom et rôle (${p.staffCategory}) ne sont pas modifiables.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Téléphone") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = position, onValueChange = { position = it }, label = { Text("Poste") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = salaryDzd, onValueChange = { raw -> salaryDzd = raw.filter { it.isDigit() }.take(12) }, label = { Text("Salaire mensuel (DZD)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
             },
             confirmButton = {
@@ -492,7 +413,6 @@ fun PersonnelDetailScreen(
         )
     }
 
-    // ── Delete confirmation (soft delete — mirrors repo semantics) ───
     if (showDeleteDialog && personnel != null) {
         val p = personnel!!
         AlertDialog(
@@ -500,9 +420,7 @@ fun PersonnelDetailScreen(
             title = { Text("Retirer ${p.fullName} ?") },
             text = {
                 Text(
-                    "Suppression logique : l'employé sera marqué comme « terminé » et retiré " +
-                        "du registre actif, mais son dossier et son historique de relevés seront " +
-                        "conservés. Cette action ne peut pas être annulée depuis l'application.",
+                    "L'employé sera marqué comme « terminé » et retiré du registre actif.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             },

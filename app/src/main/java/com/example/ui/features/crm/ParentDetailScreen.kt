@@ -65,6 +65,7 @@ import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.WarmGold
 import com.example.ui.theme.elDesignTokens
+import com.example.ui.util.PhoneUtils
 
 @Composable
 fun ParentDetailScreen(
@@ -180,12 +181,7 @@ fun ParentDetailScreen(
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
-                                        onClick = {
-                                            val intent = Intent(Intent.ACTION_DIAL).apply {
-                                                data = Uri.parse("tel:${p.phone}")
-                                            }
-                                            context.startActivity(intent)
-                                        },
+                                        onClick = { PhoneUtils.dial(context, p.phone) },
                                     ),
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -204,14 +200,7 @@ fun ParentDetailScreen(
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
-                                        onClick = {
-                                            val cleanPhone = (p.whatsapp ?: p.phone).replace("[^0-9]".toRegex(), "")
-                                            val formatted = if (cleanPhone.startsWith("0")) "213${cleanPhone.substring(1)}" else cleanPhone
-                                            val intent = Intent(Intent.ACTION_VIEW).apply {
-                                                data = Uri.parse("https://wa.me/$formatted")
-                                            }
-                                            context.startActivity(intent)
-                                        },
+                                        onClick = { PhoneUtils.openWhatsApp(context, p.whatsapp ?: p.phone) },
                                     ),
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -732,6 +721,7 @@ fun ParentDetailScreen(
             saveMessage?.let {
                 Text(it, color = SuccessGreen, style = MaterialTheme.typography.bodySmall)
             }
+            Spacer(Modifier.height(88.dp))
         }
     }
 

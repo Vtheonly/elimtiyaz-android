@@ -1,15 +1,21 @@
 package com.example.ui.features.academics
 
-import android.graphics.BitmapFactory
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
@@ -19,21 +25,23 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import coil.compose.AsyncImage
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.Box
 import com.example.core.Session
 import com.example.ui.components.ElAlertBanner
 import com.example.ui.components.ElAlertSeverity
@@ -47,18 +55,12 @@ import com.example.ui.components.ElTextField
 import com.example.ui.theme.SuccessGreen
 import java.io.File
 import java.time.LocalDate
-import java.util.UUID
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 
 @Composable
 fun HomeworkPushScreen(
     session: Session,
     onNavigateToHomeworkPush: (String) -> Unit = {},
-    /** Pre-selected class when opened standalone from ClassDetail. */
     initialClassId: String? = null,
-    /** Back affordance when pushed as a standalone route (hidden when embedded in the hub). */
     onBack: (() -> Unit)? = null,
     viewModel: HomeworkPushViewModel = hiltViewModel(),
 ) {
@@ -66,6 +68,7 @@ fun HomeworkPushScreen(
     val subjects by viewModel.subjects.collectAsState()
     val busy by viewModel.busy.collectAsState()
     val message by viewModel.message.collectAsState()
+    val context = LocalContext.current
 
     var selectedClassId by remember { mutableStateOf<String?>(initialClassId) }
     var selectedSubjectId by remember { mutableStateOf<String?>(null) }
@@ -73,30 +76,48 @@ fun HomeworkPushScreen(
     var description by remember { mutableStateOf("") }
     var dueDate by remember { mutableStateOf(LocalDate.now().plusDays(7).toString()) }
 
-    // ── Vault §06.06 — REAL whiteboard photo capture ──────────────────────
-    // The previous implementation was a fake boolean toggle ("Capturer" just
-    // flipped `photoAttached` without opening any camera). We now use
-    // [ActivityResultContracts.TakePicture] — the system camera app captures
-    // a full-res photo to a cache file (same pattern as ProofScannerScreen),
-    // and the file name rides the homework's attachments list.
     var capturedPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var capturedPhotoName by remember { mutableStateOf<String?>(null) }
-    val context = androidx.compose.ui.platform.LocalContext.current
+    var photoFile by remember { mutableStateOf<File?>(null) }
 
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture(),
     ) { success: Boolean ->
-        if (!success) {
+        if (success) {
+            photoFile?.let { file ->
+                capturedPhotoName = file.name
+            }
+        } else {
             capturedPhotoUri = null
             capturedPhotoName = null
         }
     }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted: Boolean ->
+        if (granted) {
+            val cameraDir = File(context.cacheDir, "camera").apply { mkdirs() }
+            val file = File(cameraDir, "homework_board_${System.currentTimeMillis()}.jpg")
+            photoFile = file
+            try {
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                capturedPhotoUri = uri
+                cameraLauncher.launch(uri)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Erreur caméra : ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            Toast.makeText(context, "Permission caméra requise pour photographier le tableau", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
     ) { uri: Uri? ->
         if (uri != null) {
             capturedPhotoUri = uri
-            capturedPhotoName = "tableau_${UUID.randomUUID().toString().take(8)}.jpg"
+            capturedPhotoName = "tableau_${System.currentTimeMillis()}.jpg"
         }
     }
 
@@ -119,7 +140,10 @@ fun HomeworkPushScreen(
     val selectedSubject = subjects.firstOrNull { it.id == selectedSubjectId }
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (onBack != null) {
@@ -131,7 +155,7 @@ fun HomeworkPushScreen(
         ElGradientStatCard(
             title = "Diffusion des Devoirs",
             value = selectedClass?.name ?: "Sélectionnez une classe",
-            subtitle = "Publiez sur le portail élèves & parents",
+            subtitle = "Publiez directement sur le portail élèves & parents",
             modifier = Modifier.fillMaxWidth(),
         )
 
@@ -165,16 +189,10 @@ fun HomeworkPushScreen(
             )
         }
 
-        ElTextField(value = title, onValueChange = { title = it }, label = "Titre du Devoir", modifier = Modifier.fillMaxWidth())
+        ElTextField(value = title, onValueChange = { title = it }, label = "Titre du Devoir *", modifier = Modifier.fillMaxWidth())
         ElTextField(value = description, onValueChange = { description = it }, label = "Consignes et Détails", modifier = Modifier.fillMaxWidth(), singleLine = false)
-        ElTextField(value = dueDate, onValueChange = { dueDate = it }, label = "Date de Rendu (AAAA-MM-JJ)", modifier = Modifier.fillMaxWidth())
-        Text(
-            "La date de rendu doit être aujourd'hui ou ultérieure (aucune diffusion rétroactive).",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        ElTextField(value = dueDate, onValueChange = { dueDate = it }, label = "Date de Rendu (AAAA-MM-JJ) *", modifier = Modifier.fillMaxWidth())
 
-        // ── Whiteboard photo card: REAL capture + preview + remove ─────────
         ElCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(
@@ -183,9 +201,9 @@ fun HomeworkPushScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Photo du Tableau", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                        Text("Photo du Tableau / Support", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
                         Text(
-                            if (capturedPhotoName != null) "✓ ${capturedPhotoName}" else "Aucune photo jointe",
+                            if (capturedPhotoName != null) "✓ $capturedPhotoName" else "Aucune photo jointe",
                             style = MaterialTheme.typography.bodySmall,
                             color = if (capturedPhotoName != null) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -196,6 +214,7 @@ fun HomeworkPushScreen(
                             onClick = {
                                 capturedPhotoUri = null
                                 capturedPhotoName = null
+                                photoFile = null
                             },
                             style = ElButtonStyle.Secondary,
                         )
@@ -216,11 +235,21 @@ fun HomeworkPushScreen(
                     ElButton(
                         text = "Caméra",
                         onClick = {
-                            val tempFile = File(context.cacheDir, "homework_board_${UUID.randomUUID()}.jpg")
-                            val uri = Uri.fromFile(tempFile)
-                            capturedPhotoUri = uri
-                            capturedPhotoName = tempFile.name
-                            cameraLauncher.launch(uri)
+                            val hasPerm = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+                            if (hasPerm) {
+                                val cameraDir = File(context.cacheDir, "camera").apply { mkdirs() }
+                                val file = File(cameraDir, "homework_board_${System.currentTimeMillis()}.jpg")
+                                photoFile = file
+                                try {
+                                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                                    capturedPhotoUri = uri
+                                    cameraLauncher.launch(uri)
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Erreur caméra : ${e.message}", Toast.LENGTH_LONG).show()
+                                }
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
                         },
                         style = ElButtonStyle.Secondary,
                         icon = Icons.Default.CameraAlt,
@@ -265,5 +294,7 @@ fun HomeworkPushScreen(
             icon = Icons.Default.Send,
             enabled = !busy && selectedClassId != null && selectedSubjectId != null && title.isNotBlank(),
         )
+
+        Spacer(Modifier.height(80.dp))
     }
 }
