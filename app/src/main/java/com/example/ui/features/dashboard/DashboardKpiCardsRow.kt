@@ -38,7 +38,10 @@ import com.example.ui.designsystem.theme.ElTheme
 internal fun DashboardKpiCardsRow(
     currentKpi: DashboardKpi,
 ) {
-    val revenueToShow = if (currentKpi.totalRevenue > 0L) currentKpi.totalRevenue else currentKpi.monthlyRevenue
+    // PARITY-002: the revenue KPI is the canonical ENCAISSÉ (all-time paid
+    // total) — no monthly fallback substitution (the swap masked the real
+    // figure whenever the annual total was zero).
+    val revenueToShow = currentKpi.totalRevenue
 
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),

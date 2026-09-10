@@ -86,7 +86,7 @@ internal fun CreancesTab(
     val context = LocalContext.current
     var bucketFilter by remember { mutableStateOf<String?>(null) }
     val filtered = if (bucketFilter == null) debtors else debtors.filter { it.bucket == bucketFilter }
-    val totalOverdue = debtors.filter { it.daysOverdue > 0 }.sumOf { it.outstandingAmount }
+    val totalOverdue = debtors.sumOf { it.overdueAmount }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -107,12 +107,13 @@ internal fun CreancesTab(
                     "0_30" to "0-30j",
                     "31_60" to "31-60j",
                     "61_90" to "61-90j",
+                    "91_180" to "91-180j",
                     "180_plus" to "180j+",
                 ).forEach { (b, label) ->
                     ElTag(
                         text = label,
                         selected = bucketFilter == b,
-                        color = if (b == "180_plus") DangerRed else PrimaryBlue,
+                        color = if (b == "180_plus" || b == "91_180") DangerRed else PrimaryBlue,
                         onClick = { bucketFilter = b },
                     )
                 }

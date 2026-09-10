@@ -78,11 +78,9 @@ fun DashboardHubScreen(
     var selectedViewTab by rememberSaveable { mutableIntStateOf(0) }
     val viewTabs = listOf("Vue d'ensemble", "Analytique")
 
-    val currentKpi = kpis ?: DashboardKpi(
-        totalStudents = 0, totalParents = 0, totalStaff = 0,
-        monthlyRevenue = 0L, outstandingDebt = 0L,
-        pendingExpenses = 0, attendanceRateToday = 0.0, overdueAlerts = 0,
-    )
+    // PARITY-002: honest all-zero loading placeholder (defaults) — the real
+    // KPIs arrive from the repository via StatisticsEngine.
+    val currentKpi = kpis ?: DashboardKpi()
 
     val todayFormatted = remember {
         val now = LocalDate.now()

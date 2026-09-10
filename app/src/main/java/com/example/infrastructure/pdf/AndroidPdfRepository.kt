@@ -7,6 +7,7 @@ import com.example.core.Result
 import com.example.core.agingBucketFromDays
 import com.example.core.computeOverallGpa
 import com.example.domain.repository.ClassRepository
+import com.example.domain.repository.DebtRepository
 import com.example.domain.repository.ExpenseRepository
 import com.example.domain.repository.GradeRepository
 import com.example.domain.repository.LedgerRepository
@@ -46,6 +47,7 @@ class AndroidPdfRepository @Inject constructor(
     private val classRepository: ClassRepository,
     private val gradeRepository: GradeRepository,
     private val subjectRepository: SubjectRepository,
+    private val debtRepository: DebtRepository,
 ) : PdfRepository {
 
     override suspend fun generatePaymentReceipt(paymentId: String): Result<File> {
@@ -281,31 +283,27 @@ class AndroidPdfRepository @Inject constructor(
     }
 
     private suspend fun debtAgingReport(): File {
-        val parents = parentRepository.observe().first()
-        val ledger = ledgerRepository.observe().first()
+        // PARITY-002 (T-286): the report consumes the SAME canonical debt
+        // derivation as the dashboard and the debt screens
+        // (DebtRepository.observeSummary — per-parent Σ INV-4 remaining,
+        // dueDate-based aging). The previous ledger-only version called
+        // computeParentSummary WITHOUT the due-date map ("En retard"
+        // permanently 0) and ignored installments entirely — the PDF showed
+        // different numbers from every screen.
+        val summaries = debtRepository.observeSummary().first()
 
-        val rows = parents.mapNotNull { parent ->
-            val entries = ledger.filter { it.parentId == parent.id }
-            val summary = LedgerEngine.computeParentSummary(entries, parent.id, parent.fullName)
-            val outstanding = summary.totalOutstanding.coerceAtLeast(0L)
-            if (outstanding <= 0L) return@mapNotNull null
-            val days = LedgerEngine.maxDaysOverdueFromLedger(entries)
+        val rows = summaries.map { s ->
             listOf(
-                parent.fullName,
-                "${PdfGenerator.formatDa(outstanding)} DA",
-                "${PdfGenerator.formatDa(summary.totalOverdue.coerceAtLeast(0L))} DA",
-                agingLabel(agingBucketFromDays(days)),
-                "$days j",
+                s.parentName,
+                "${PdfGenerator.formatDa(s.outstandingAmount)} DA",
+                "${PdfGenerator.formatDa(s.overdueAmount)} DA",
+                agingLabel(s.bucket),
+                "${s.daysOverdue} j",
             )
-        }.sortedByDescending { row ->
-            row[1].filter { it.isDigit() }.replace(Regex("\\s+"), "").toLongOrNull() ?: 0L
         }
 
-        val totalOutstanding = rows.size
-        val totalAmount = parents.sumOf { parent ->
-            LedgerEngine.computeParentSummary(ledger.filter { it.parentId == parent.id }, parent.id, parent.fullName)
-                .totalOutstanding.coerceAtLeast(0L)
-        }
+        val totalOutstanding = summaries.size
+        val totalAmount = summaries.sumOf { it.outstandingAmount }
         return PdfGenerator.generateTableReport(
             title = "Créances Âgées",
             columns = listOf("Famille", "Solde dû", "En retard", "Tranche d'âge", "Retard"),

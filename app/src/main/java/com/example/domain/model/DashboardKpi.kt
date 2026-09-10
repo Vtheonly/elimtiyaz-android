@@ -4,6 +4,12 @@ import kotlinx.serialization.Serializable
 
 /**
  * Snapshot of dashboard KPIs — unified with the desktop canonical analytics model.
+ *
+ * PARITY-002 (44th session): every derived statistic (collection rate, aging
+ * buckets, funnel, descriptive stats, bins, category mix) is computed by
+ * `core/StatisticsEngine.kt` (the desktop's analytics-derivations mirror) at
+ * the REPOSITORY level — the UI layer only renders. Honest defaults: no
+ * fabricated "Août" best month, no 100% critical funnel, no 0.49f rate.
  */
 @Serializable
 data class DashboardKpi(
@@ -15,11 +21,12 @@ data class DashboardKpi(
     val monthlyRevenue: Long = 0L,
     val todayRevenue: Long = 0L,
     val todayPaymentsCount: Int = 0,
+    // Descriptive statistics (desktop derivePaymentStats — sample σ, Math.round mean/median)
     val totalOperationsCount: Int = 0,
     val averageBasketAmount: Long = 0L,
     val medianBasketAmount: Long = 0L,
     val volatilityAmount: Long = 0L,
-    val bestMonthName: String = "Août",
+    val bestMonthName: String? = null,
     val bestMonthAmount: Long = 0L,
     val outstandingDebt: Long = 0L,
     val overdueDebt: Long = 0L,
@@ -34,23 +41,43 @@ data class DashboardKpi(
     val pendingChecksCount: Int = 0,
     val pendingChecksAmount: Long = 0L,
     val overdueAlerts: Int = 0,
-    // Recovery Funnel (§15)
-    val recoveryFunnelCriticalPct: Int = 100,
-    val recoveryFunnelOverdueTotal: Int = 0,
-    val recoveryFunnelUnder60Days: Int = 0,
-    val recoveryFunnel61To90Days: Int = 0,
-    val recoveryFunnelOver90Days: Int = 0,
-    // Amount Distribution Bins (§15)
+    // The annual collection rate — computed by StatisticsEngine.collectionRatePct
+    // (encaissé / (encaissé + créances), Math.round, clamp 100). Rendered, never re-derived in UI.
+    val collectionRatePct: Int = 0,
+    // Debt aging census (StatisticsEngine.deriveDebtAging — per-installment INV-4,
+    // distinct families per bucket; the desktop Supabase canonical path).
+    val debtByAging: List<DebtAgingBucketItem> = emptyList(),
+    // Recovery funnel (StatisticsEngine.deriveRecoveryFunnel — computed from the
+    // aging census; empty list = honest "no overdue families", NEVER 100% critical).
+    val recoveryFunnel: List<RecoveryFunnelStageItem> = emptyList(),
+    // Amount Distribution Bins (StatisticsEngine.deriveAmountHistogram)
     val amountBins: List<AmountBinItem> = emptyList(),
-    // Category Breakdown (§15)
+    // Category Breakdown (StatisticsEngine.deriveCategoryMix — ALL canonical categories)
     val categoryBreakdown: List<CategoryRevenueItem> = emptyList(),
+)
+
+@Serializable
+data class DebtAgingBucketItem(
+    val bucket: String,      // "0_30" | "31_60" | "61_90" | "91_180" | "180_plus"
+    val label: String,       // "0–30 j" … "180+ j"
+    val amount: Long,        // Σ remaining (centimes)
+    val debtorCount: Int,    // distinct families in the bucket
+    val sharePct: Int,       // share of total outstanding (Math.round)
+)
+
+@Serializable
+data class RecoveryFunnelStageItem(
+    val name: String,        // "En retard" | "≤ 60 j" | "61–90 j" | "> 90 j"
+    val count: Int,
+    val sharePct: Int,
 )
 
 @Serializable
 data class AmountBinItem(
     val label: String,
     val count: Int,
-    val percentage: Double,
+    val amount: Long = 0L,
+    val percentage: Int = 0,
 )
 
 @Serializable
@@ -59,7 +86,7 @@ data class CategoryRevenueItem(
     val label: String,
     val amount: Long,
     val count: Int,
-    val percentage: Double,
+    val percentage: Int,
 )
 
 /** Summary of revenue collected by payment method (cash, check, transfer). */

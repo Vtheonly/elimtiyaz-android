@@ -32,35 +32,10 @@ class DashboardViewModel @Inject constructor(
     notificationRepository: NotificationRepository,
 ) : ViewModel() {
 
-    private val defaultKpi = DashboardKpi(
-        totalStudents = 0,
-        totalParents = 0,
-        totalStaff = 0,
-        totalFamilies = 0,
-        totalRevenue = 0L,
-        monthlyRevenue = 0L,
-        todayRevenue = 0L,
-        todayPaymentsCount = 0,
-        totalOperationsCount = 0,
-        averageBasketAmount = 0L,
-        medianBasketAmount = 0L,
-        volatilityAmount = 0L,
-        bestMonthName = "Août",
-        bestMonthAmount = 0L,
-        outstandingDebt = 0L,
-        overdueDebt = 0L,
-        overdueFamiliesCount = 0,
-        pendingExpenses = 0,
-        pendingExpensesAmount = 0L,
-        attendanceRateToday = 100.0,
-        todayPresentCount = 0,
-        todayAbsentCount = 0,
-        classesCompletedRollCall = 0,
-        totalClassesCount = 0,
-        pendingChecksCount = 0,
-        pendingChecksAmount = 0L,
-        overdueAlerts = 0,
-    )
+    // PARITY-002: the loading placeholder is HONEST — all-zero, no fabricated
+    // best month, no 100% attendance, no funnel. Real values arrive from
+    // LocalDashboardRepository (which computes via core/StatisticsEngine).
+    private val defaultKpi = DashboardKpi()
 
     val kpis: StateFlow<DashboardKpi?> = dashboardRepository.observeKpis()
         .stateIn(viewModelScope, SharingStarted.Lazily, defaultKpi)

@@ -8,6 +8,19 @@ import com.example.core.agingBucketFromDays
 import com.example.core.daysBetweenFloor
 import com.example.core.formatDzd
 import com.example.core.LedgerEngine
+import com.example.core.StatsPayment
+import com.example.core.StatsInstallment
+import com.example.core.derivePaymentStats
+import com.example.core.deriveAmountHistogram
+import com.example.core.deriveCategoryMix
+import com.example.core.deriveDebtAging
+import com.example.core.deriveRecoveryFunnel
+import com.example.core.deriveAgingComposition
+import com.example.core.collectionRatePct
+import com.example.core.attendanceRatePct
+import com.example.core.mathRound
+import com.example.core.MONTH_LABELS_FR
+import com.example.core.installmentRemaining
 import com.example.domain.model.AcademicClass
 import com.example.domain.model.AmountBinItem
 import com.example.domain.model.AppNotification
@@ -18,6 +31,7 @@ import com.example.domain.model.CategoryRevenueItem
 import com.example.domain.model.ClassRollCallStatus
 import com.example.domain.model.DashboardKpi
 import com.example.domain.model.DashboardOperationalAlert
+import com.example.domain.model.DebtAgingBucketItem
 import com.example.domain.model.DebtSummary
 import com.example.domain.model.Department
 import com.example.domain.model.Expense
@@ -29,6 +43,7 @@ import com.example.domain.model.Payment
 import com.example.domain.model.PaymentMethodSummary
 import com.example.domain.model.Personnel
 import com.example.domain.model.PricingConfig
+import com.example.domain.model.RecoveryFunnelStageItem
 import com.example.domain.model.ReleveEntry
 import com.example.domain.model.Student
 import com.example.domain.model.Subject
@@ -168,7 +183,6 @@ class LocalDashboardRepository @Inject constructor(
             DashboardGroup2(installments, ledger, expenses, attendance, classes)
         },
     ) { g1, g2 ->
-        val nowIso = Instant.now().toString()
         val todayIso = LocalDate.now(ZoneOffset.UTC).toString()
         val monthStart = OffsetDateTime.now(ZoneOffset.UTC)
             .withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0)
@@ -181,69 +195,37 @@ class LocalDashboardRepository @Inject constructor(
         val activeStaff = g1.staff.filter { it.status == "active" }
         val activeClasses = g2.classes.filter { it.isActive }
 
-        // All-time cleared collections (Desktop Total Encaissé)
-        val allPaidPayments = g1.payments.filter { it.status == "paid" }
-        val totalRevenue = allPaidPayments.sumOf { it.amount }
-        val totalOps = allPaidPayments.size
+        // ── PARITY-002 (T-284): every derived statistic comes from
+        // core/StatisticsEngine (the desktop analytics-derivations mirror).
+        // NO inline math, NO hard-coded fallbacks — honest empty states.
+        val paidSlice = g1.payments
+            .filter { it.status == "paid" }
+            .map { StatsPayment(it.id, it.amount, it.method, it.status, it.category, it.collectedAt) }
+        val stats = derivePaymentStats(paidSlice)
+        val totalRevenue = stats.total
+        val totalOps = stats.count
 
-        // Mean, Median, and Volatility (Standard Deviation)
-        val avgBasket = if (totalOps > 0) totalRevenue / totalOps else 0L
-        val sortedAmounts = allPaidPayments.map { it.amount }.sorted()
-        val medianBasket = if (totalOps > 0) {
-            if (totalOps % 2 == 0) (sortedAmounts[totalOps / 2 - 1] + sortedAmounts[totalOps / 2]) / 2
-            else sortedAmounts[totalOps / 2]
-        } else 0L
+        // Amount bins + category mix — engine-derived (all 11 categories,
+        // Math.round'd shares, desc-by-amount order).
+        val histogram = deriveAmountHistogram(paidSlice)
+        val binTotal = histogram.sumOf { it.count }.coerceAtLeast(1)
+        val amountBins = histogram.map { b ->
+            AmountBinItem(
+                label = b.label,
+                count = b.count,
+                amount = b.amount,
+                percentage = if (stats.count > 0) mathRound(b.count.toDouble() / binTotal * 100).toInt() else 0,
+            )
+        }
+        val categoryBreakdown = deriveCategoryMix(paidSlice, topN = 6).map {
+            CategoryRevenueItem(it.key, it.label, it.amount, it.count, it.percent)
+        }
 
-        val volatility = if (totalOps > 1) {
-            val meanDouble = totalRevenue.toDouble() / totalOps.toDouble()
-            val sumDiffSquares = allPaidPayments.sumOf {
-                val diff = it.amount.toDouble() - meanDouble
-                diff * diff
-            }
-            kotlin.math.sqrt(sumDiffSquares / totalOps).toLong()
-        } else 0L
-
-        // Best Month
-        val monthLabelsFr = listOf("Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov", "Déc")
-        val revenueByMonth = allPaidPayments.groupBy {
-            val monthIdx = runCatching { LocalDate.parse(it.collectedAt.take(10)).monthValue - 1 }.getOrDefault(7)
-            monthLabelsFr.getOrElse(monthIdx) { "Août" }
-        }.mapValues { it.value.sumOf { p -> p.amount } }
-        val bestMonthEntry = revenueByMonth.maxByOrNull { it.value }
-        val bestMonthName = bestMonthEntry?.key ?: "Août"
-        val bestMonthAmount = bestMonthEntry?.value ?: totalRevenue
-
-        // Amount Bins Distribution (§15.16)
-        val b0to5 = allPaidPayments.count { it.amount < 500_000L }
-        val b5to10 = allPaidPayments.count { it.amount in 500_000L until 1_000_000L }
-        val b10to20 = allPaidPayments.count { it.amount in 1_000_000L until 2_000_000L }
-        val b20to50 = allPaidPayments.count { it.amount in 2_000_000L until 5_000_000L }
-        val b50plus = allPaidPayments.count { it.amount >= 5_000_000L }
-        val totalOpsDouble = totalOps.toDouble().coerceAtLeast(1.0)
-        val amountBins = listOf(
-            AmountBinItem("0–5k", b0to5, (b0to5 / totalOpsDouble) * 100.0),
-            AmountBinItem("5k–10k", b5to10, (b5to10 / totalOpsDouble) * 100.0),
-            AmountBinItem("10k–20k", b10to20, (b10to20 / totalOpsDouble) * 100.0),
-            AmountBinItem("20k–50k", b20to50, (b20to50 / totalOpsDouble) * 100.0),
-            AmountBinItem("50k+", b50plus, (b50plus / totalOpsDouble) * 100.0),
-        )
-
-        // Category Breakdown
-        val scolariteAmount = allPaidPayments.filter { it.category == "tuition" || it.category == "other" }.sumOf { it.amount }
-        val transportAmount = allPaidPayments.filter { it.category == "transport" }.sumOf { it.amount }
-        val scolariteCount = allPaidPayments.count { it.category == "tuition" || it.category == "other" }
-        val transportCount = allPaidPayments.count { it.category == "transport" }
-        val totalRevDouble = totalRevenue.toDouble().coerceAtLeast(1.0)
-        val categoryBreakdown = listOf(
-            CategoryRevenueItem("scolarite", "Scolarité", scolariteAmount, scolariteCount, (scolariteAmount.toDouble() / totalRevDouble) * 100.0),
-            CategoryRevenueItem("transport", "Transport", transportAmount, transportCount, (transportAmount.toDouble() / totalRevDouble) * 100.0),
-        )
-
-        val todayPayments = allPaidPayments.filter { it.collectedAt.startsWith(todayIso) }
+        val todayPayments = paidSlice.filter { it.collectedAt.startsWith(todayIso) }
         val todayRevenue = todayPayments.sumOf { it.amount }
         val todayPaymentsCount = todayPayments.size
 
-        val monthlyPayments = allPaidPayments.filter {
+        val monthlyPayments = paidSlice.filter {
             it.collectedAt >= monthStart && it.collectedAt < nextMonthStart
         }
         val monthlyRevenue = monthlyPayments.sumOf { it.amount }
@@ -256,71 +238,40 @@ class LocalDashboardRepository @Inject constructor(
         val pendingExpensesCount = submittedExpenses.size
         val pendingExpensesAmount = submittedExpenses.sumOf { it.amount }
 
-        val domainLedger = g2.ledger.map { LocalMappers.run { it.toDomain() } }
-        val parentIds = domainLedger.map { it.parentId }.distinct()
-        val ledgerOutstanding = parentIds.sumOf { pid ->
-            val parentEntries = domainLedger.filter { it.parentId == pid }
-            val dueDateMap = LedgerEngine.buildOverdueDueDateMap(parentEntries)
-            LedgerEngine.computeParentSummary(parentEntries, pid, "", dueDateMap).totalOutstanding.coerceAtLeast(0L)
+        // ── Debt (canonical INV-4 installments path — the desktop Supabase
+        // kpisForRange/outstandingDebt computation, migration 0042 parity):
+        // outstanding = Σ max(0, due − paid − pending) over unpaid installments;
+        // overdue = the same restricted to dueDate past; families = distinct.
+        // The aging census + funnel + collection rate all share ONE derivation.
+        val statsInstallments = g2.installments.map {
+            StatsInstallment(it.id, it.parentId, it.amountDue, it.amountPaid, it.amountPending, it.dueDate, it.status)
         }
-        val instOutstanding = g2.installments
-            .filter { it.status != "paid" }
-            .sumOf { (it.amountDue - it.amountPaid - it.amountPending).coerceAtLeast(0L) }
-        val totalOutstanding = if (ledgerOutstanding > 0L) ledgerOutstanding else instOutstanding
-
-        val overdueDebtFromLedger = parentIds.sumOf { pid ->
-            val parentEntries = domainLedger.filter { it.parentId == pid }
-            val dueDateMap = LedgerEngine.buildOverdueDueDateMap(parentEntries)
-            LedgerEngine.computeParentSummary(parentEntries, pid, "", dueDateMap).totalOverdue.coerceAtLeast(0L)
-        }
-        val overdueDebtFromInst = g2.installments
-            .filter { it.status != "paid" && it.dueDate < nowIso }
-            .sumOf { (it.amountDue - it.amountPaid - it.amountPending).coerceAtLeast(0L) }
-        val overdueDebt = if (overdueDebtFromLedger > 0L) overdueDebtFromLedger else overdueDebtFromInst
-
-        val overdueFamiliesFromLedger = parentIds.count { pid ->
-            val parentEntries = domainLedger.filter { it.parentId == pid }
-            val dueDateMap = LedgerEngine.buildOverdueDueDateMap(parentEntries)
-            LedgerEngine.computeParentSummary(parentEntries, pid, "", dueDateMap).totalOverdue > 0L
-        }
-        val overdueFamiliesFromInst = g2.installments
-            .filter { it.status != "paid" && it.dueDate < nowIso && (it.amountDue - it.amountPaid) > 0L }
+        val nowEpochMs = System.currentTimeMillis()
+        val agingCensus = deriveDebtAging(statsInstallments, nowEpochMs)
+        val totalOutstanding = statsInstallments.sumOf { installmentRemaining(it) }
+        val overdueDebt = statsInstallments
+            .filter { it.status != "paid" && daysBetweenFloor(it.dueDate, nowEpochMs) > 0 }
+            .sumOf { installmentRemaining(it) }
+        val overdueFamiliesCount = statsInstallments
+            .filter {
+                it.status != "paid" && daysBetweenFloor(it.dueDate, nowEpochMs) > 0 && installmentRemaining(it) > 0L
+            }
             .map { it.parentId }
             .distinct()
             .size
-        val overdueFamiliesCount = if (overdueFamiliesFromLedger > 0) overdueFamiliesFromLedger else overdueFamiliesFromInst
-
-        // Recovery Funnel (§15) calculation
-        val unpaidInstallmentsByParent = g2.installments
-            .filter { it.status != "paid" && (it.amountDue - it.amountPaid) > 0L }
-            .groupBy { it.parentId }
-        var under60 = 0
-        var bet61and90 = 0
-        var over90 = 0
-        unpaidInstallmentsByParent.forEach { (_, insts) ->
-            val oldest = insts.filter { it.dueDate < nowIso }.minOfOrNull { it.dueDate }
-            if (oldest != null) {
-                val days = daysBetweenFloor(oldest)
-                when {
-                    days <= 60 -> under60++
-                    days in 61..90 -> bet61and90++
-                    else -> over90++
-                }
-            }
+        val funnelStages = deriveRecoveryFunnel(agingCensus)
+        val debtByAgingItems = deriveAgingComposition(agingCensus).map {
+            DebtAgingBucketItem(it.bucket, it.label, it.amount, it.debtorCount, it.share)
         }
-        val funnelTotal = under60 + bet61and90 + over90
-        val effectiveFunnelTotal = if (funnelTotal > 0) funnelTotal else overdueFamiliesCount
-        val effectiveOver90 = if (funnelTotal > 0) over90 else overdueFamiliesCount
-        val criticalPct = if (effectiveFunnelTotal > 0) ((effectiveOver90.toDouble() / effectiveFunnelTotal) * 100).toInt() else 100
+        val collectionRate = collectionRatePct(totalRevenue, totalOutstanding)
 
         val todayAttendance = g2.attendance.filter { it.date == todayIso }
-        val todayPresent = todayAttendance.count { it.status == "present" }
+        val todayPresent = todayAttendance.count { it.status == "present" || it.status == "late" }
         val todayAbsent = todayAttendance.count { it.status == "absent_unexcused" || it.status == "absent_excused" }
-        val attendanceRateToday = if (todayAttendance.isNotEmpty()) {
-            (todayPresent.toDouble() / todayAttendance.size.toDouble() * 100.0)
-        } else {
-            100.0 // Canonical default when roll-call is clear
-        }
+        // Canonical desktop attendance rate: (present + late) / total; null
+        // (rendered as the honest "no roll call" state) when no records.
+        val attendanceRate = attendanceRatePct(todayAttendance.map { it.status })
+        val attendanceRateToday = (attendanceRate ?: 0).toDouble()
         val classesWithRollCall = todayAttendance.map { it.classId }.distinct().size
 
         DashboardKpi(
@@ -333,12 +284,12 @@ class LocalDashboardRepository @Inject constructor(
             todayRevenue = todayRevenue,
             todayPaymentsCount = todayPaymentsCount,
             totalOperationsCount = totalOps,
-            averageBasketAmount = avgBasket,
-            medianBasketAmount = medianBasket,
-            volatilityAmount = volatility,
-            bestMonthName = bestMonthName,
-            bestMonthAmount = bestMonthAmount,
-            outstandingDebt = totalOutstanding.coerceAtLeast(0L),
+            averageBasketAmount = stats.mean,
+            medianBasketAmount = stats.median,
+            volatilityAmount = stats.stdDev,
+            bestMonthName = stats.bestMonth?.label,
+            bestMonthAmount = stats.bestMonth?.amount ?: 0L,
+            outstandingDebt = totalOutstanding,
             overdueDebt = overdueDebt,
             overdueFamiliesCount = overdueFamiliesCount,
             pendingExpenses = pendingExpensesCount,
@@ -351,11 +302,9 @@ class LocalDashboardRepository @Inject constructor(
             pendingChecksCount = pendingChecksCount,
             pendingChecksAmount = pendingChecksAmount,
             overdueAlerts = overdueFamiliesCount,
-            recoveryFunnelCriticalPct = criticalPct,
-            recoveryFunnelOverdueTotal = effectiveFunnelTotal,
-            recoveryFunnelUnder60Days = under60,
-            recoveryFunnel61To90Days = bet61and90,
-            recoveryFunnelOver90Days = effectiveOver90,
+            collectionRatePct = collectionRate,
+            debtByAging = debtByAgingItems,
+            recoveryFunnel = funnelStages.map { RecoveryFunnelStageItem(it.name, it.count, it.sharePct) },
             amountBins = amountBins,
             categoryBreakdown = categoryBreakdown,
         )
@@ -364,27 +313,14 @@ class LocalDashboardRepository @Inject constructor(
     override fun observeRevenueLast12Months(): Flow<List<com.example.domain.repository.RevenuePoint>> =
         db.paymentDao().observeAll().map { payments ->
             val now = LocalDate.now(ZoneOffset.UTC)
+            // Desktop parity: the canonical FR month labels ("Sep", not "Sept").
+            val monthLabelsFr = MONTH_LABELS_FR
             (11 downTo 0).map { monthsBack ->
                 val target = now.minusMonths(monthsBack.toLong())
                 val monthStart = OffsetDateTime.of(target.year, target.monthValue, 1, 0, 0, 0, 0, ZoneOffset.UTC).toInstant().toString()
                 val nextMonthStart = OffsetDateTime.of(target.year, target.monthValue, 1, 0, 0, 0, 0, ZoneOffset.UTC).plusMonths(1).toInstant().toString()
                 val sum = payments.filter { it.status == "paid" && it.collectedAt >= monthStart && it.collectedAt < nextMonthStart }.sumOf { it.amount }
-                val label = when (target.monthValue) {
-                    1 -> "Jan"
-                    2 -> "Fév"
-                    3 -> "Mar"
-                    4 -> "Avr"
-                    5 -> "Mai"
-                    6 -> "Juin"
-                    7 -> "Juil"
-                    8 -> "Août"
-                    9 -> "Sept"
-                    10 -> "Oct"
-                    11 -> "Nov"
-                    12 -> "Déc"
-                    else -> "${target.monthValue}"
-                }
-                com.example.domain.repository.RevenuePoint(label = label, amount = sum)
+                com.example.domain.repository.RevenuePoint(label = monthLabelsFr[target.monthValue - 1], amount = sum)
             }
         }
 
@@ -569,38 +505,29 @@ class LocalDashboardRepository @Inject constructor(
         db.installmentDao().observeAll(),
         db.studentDao().observeAll(),
     ) { parents, ledgerEntries, installments, students ->
-        val nowIso = Instant.now().toString()
-        val domainLedger = ledgerEntries.map { LocalMappers.run { it.toDomain() } }
-        val ledgerByParent = domainLedger.groupBy { it.parentId }
-        val installmentsByParent = installments.groupBy { it.parentId }
+        // PARITY-002 (T-284): the top-debtors list mirrors the desktop's
+        // Supabase seedSummary — per-parent outstanding = Σ INV-4 remaining
+        // over unpaid installments; daysOverdue = the deepest unpaid past-due
+        // installment (dueDate-based, NEVER the ledger `at` sync timestamp).
+        // The ledger replay is NO LONGER a first-choice fallback (the
+        // ledger-first/else-installment dance was one of the 5 duplicated
+        // PARITY-002 sites and produced different numbers from the desktop).
+        val nowEpochMs = System.currentTimeMillis()
+        val installmentsByParent = installments
+            .map { StatsInstallment(it.id, it.parentId, it.amountDue, it.amountPaid, it.amountPending, it.dueDate, it.status) }
+            .groupBy { it.parentId }
 
         parents.map { parent ->
-            val parentEntries = ledgerByParent[parent.id] ?: emptyList()
             val parentInsts = installmentsByParent[parent.id] ?: emptyList()
             val studentCount = students.count { it.parentId == parent.id }
 
-            val ledgerOutstanding = if (parentEntries.isNotEmpty()) {
-                val dueDateMap = LedgerEngine.buildOverdueDueDateMap(parentEntries)
-                LedgerEngine.computeParentSummary(parentEntries, parent.id, parent.fullName, dueDateMap)
-                    .totalOutstanding.coerceAtLeast(0L)
-            } else 0L
-
-            val instOutstanding = parentInsts
-                .filter { it.status != "paid" }
-                .sumOf { (it.amountDue - it.amountPaid - it.amountPending).coerceAtLeast(0L) }
-
-            val outstanding = if (ledgerOutstanding > 0L) ledgerOutstanding else instOutstanding
-
-            val unpaidOverdueInsts = parentInsts.filter {
-                it.status != "paid" && it.dueDate < nowIso && (it.amountDue - it.amountPaid) > 0L
-            }
-            val oldestDue = unpaidOverdueInsts.minOfOrNull { it.dueDate }
-
-            val maxDays = when {
-                oldestDue != null -> daysBetweenFloor(oldestDue)
-                parentEntries.isNotEmpty() -> LedgerEngine.maxDaysOverdueFromLedger(parentEntries)
-                else -> 0L
-            }
+            val outstanding = parentInsts.sumOf { installmentRemaining(it) }
+            val overdueAmount = parentInsts
+                .filter { daysBetweenFloor(it.dueDate, nowEpochMs) > 0 }
+                .sumOf { installmentRemaining(it) }
+            val maxDays = parentInsts
+                .filter { installmentRemaining(it) > 0L }
+                .maxOfOrNull { daysBetweenFloor(it.dueDate, nowEpochMs) } ?: 0L
 
             DebtSummary(
                 parentId = parent.id,
@@ -608,6 +535,7 @@ class LocalDashboardRepository @Inject constructor(
                 parentPhone = parent.phone,
                 studentCount = studentCount,
                 outstandingAmount = outstanding,
+                overdueAmount = overdueAmount,
                 daysOverdue = maxDays,
                 bucket = agingBucketFromDays(maxDays),
             )

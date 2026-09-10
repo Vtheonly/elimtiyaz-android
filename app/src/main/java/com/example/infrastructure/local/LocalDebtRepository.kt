@@ -8,6 +8,8 @@ import com.example.core.agingBucketFromDays
 import com.example.core.daysBetweenFloor
 import com.example.core.formatDzd
 import com.example.core.LedgerEngine
+import com.example.core.StatsInstallment
+import com.example.core.installmentRemaining
 import com.example.domain.model.AcademicClass
 import com.example.domain.model.AppNotification
 import com.example.domain.model.Assessment
@@ -127,38 +129,29 @@ class LocalDebtRepository @Inject constructor(
         db.installmentDao().observeAll(),
         db.studentDao().observeAll(),
     ) { parents, ledgerEntries, installments, students ->
-        val nowIso = Instant.now().toString()
-        val domainLedger = ledgerEntries.map { LocalMappers.run { it.toDomain() } }
-        val ledgerByParent = domainLedger.groupBy { it.parentId }
-        val installmentsByParent = installments.groupBy { it.parentId }
+        // PARITY-002 (T-284): the debt summary mirrors the desktop's Supabase
+        // seedSummary — per-parent outstanding = Σ INV-4 remaining over unpaid
+        // installments; daysOverdue = the deepest unpaid past-due installment
+        // (dueDate-based). ONE derivation shared with the dashboard's
+        // observeDebtByAging; the ledger-first/else-installment fallback is
+        // GONE (it produced different numbers from the desktop — the exact
+        // class of divergence the owner reported).
+        val nowEpochMs = System.currentTimeMillis()
+        val installmentsByParent = installments
+            .map { StatsInstallment(it.id, it.parentId, it.amountDue, it.amountPaid, it.amountPending, it.dueDate, it.status) }
+            .groupBy { it.parentId }
 
         parents.map { parent ->
-            val parentEntries = ledgerByParent[parent.id] ?: emptyList()
             val parentInsts = installmentsByParent[parent.id] ?: emptyList()
             val studentCount = students.count { it.parentId == parent.id }
 
-            val ledgerOutstanding = if (parentEntries.isNotEmpty()) {
-                val dueDateMap = LedgerEngine.buildOverdueDueDateMap(parentEntries)
-                LedgerEngine.computeParentSummary(parentEntries, parent.id, parent.fullName, dueDateMap)
-                    .totalOutstanding.coerceAtLeast(0L)
-            } else 0L
-
-            val instOutstanding = parentInsts
-                .filter { it.status != "paid" }
-                .sumOf { (it.amountDue - it.amountPaid - it.amountPending).coerceAtLeast(0L) }
-
-            val outstanding = if (ledgerOutstanding > 0L) ledgerOutstanding else instOutstanding
-
-            val unpaidOverdueInsts = parentInsts.filter {
-                it.status != "paid" && it.dueDate < nowIso && (it.amountDue - it.amountPaid) > 0L
-            }
-            val oldestDue = unpaidOverdueInsts.minOfOrNull { it.dueDate }
-
-            val maxDays = when {
-                oldestDue != null -> daysBetweenFloor(oldestDue)
-                parentEntries.isNotEmpty() -> LedgerEngine.maxDaysOverdueFromLedger(parentEntries)
-                else -> 0L
-            }
+            val outstanding = parentInsts.sumOf { installmentRemaining(it) }
+            val overdueAmount = parentInsts
+                .filter { daysBetweenFloor(it.dueDate, nowEpochMs) > 0 }
+                .sumOf { installmentRemaining(it) }
+            val maxDays = parentInsts
+                .filter { installmentRemaining(it) > 0L }
+                .maxOfOrNull { daysBetweenFloor(it.dueDate, nowEpochMs) } ?: 0L
 
             DebtSummary(
                 parentId = parent.id,
@@ -166,6 +159,7 @@ class LocalDebtRepository @Inject constructor(
                 parentPhone = parent.phone,
                 studentCount = studentCount,
                 outstandingAmount = outstanding,
+                overdueAmount = overdueAmount,
                 daysOverdue = maxDays,
                 bucket = agingBucketFromDays(maxDays),
             )

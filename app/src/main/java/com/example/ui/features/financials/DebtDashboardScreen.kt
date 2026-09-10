@@ -70,7 +70,9 @@ fun DebtDashboardScreen(
 ) {
     val debtors by viewModel.debtors.collectAsState()
     val totalOutstanding = debtors.sumOf { it.outstandingAmount }
-    val totalOverdue = debtors.filter { it.daysOverdue > 0 }.sumOf { it.outstandingAmount }
+    // PARITY-002 (T-286): the INV-4 overdue portion from the shared
+    // derivation (never the UI's whole-outstanding approximation).
+    val totalOverdue = debtors.sumOf { it.overdueAmount }
 
     var bucketFilter by remember { mutableStateOf<String?>(null) }
     val filtered = if (bucketFilter == null) debtors else debtors.filter { it.bucket == bucketFilter }
@@ -110,17 +112,21 @@ fun DebtDashboardScreen(
 
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // PARITY-002 (T-286): ALL five aging buckets are filterable
+                    // (the 91–180 j chip was missing — the bucket holding ~46%
+                    // of the real debt was unreachable).
                     listOf(
                         null to "Toutes (${debtors.size})",
                         "0_30" to "0–30 j",
                         "31_60" to "31–60 j",
                         "61_90" to "61–90 j",
+                        "91_180" to "91–180 j",
                         "180_plus" to "180+ j",
                     ).forEach { (b, label) ->
                         ElTag(
                             text = label,
                             selected = bucketFilter == b,
-                            color = if (b == "180_plus") DangerRed else PrimaryBlue,
+                            color = if (b == "180_plus" || b == "91_180") DangerRed else PrimaryBlue,
                             onClick = { bucketFilter = b },
                         )
                     }

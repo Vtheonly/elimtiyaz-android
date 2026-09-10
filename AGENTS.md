@@ -108,6 +108,30 @@ the generated `BuildConfig` fields come from the ROOT-level files only.
   `BuildConfig.java` = the plugin found NO root-level `.env` (or the committed
   root `.env.example`'s empty defaults won). It is NOT a `app/.env` problem.
 
+- **T-284/T-285 (44th session, PARITY-002) — the dashboard-statistics mirror discipline:**
+  every derived statistic (descriptive stats, bins, mixes, Pareto, aging census, funnel,
+  collection rate, attendance) lives in `core/StatisticsEngine.kt` — the verbatim Kotlin mirror
+  of the desktop `analytics-derivations.ts` (source commit b6fbbcd recorded in the file header,
+  ADR-002). Repositories and UI NEVER re-implement it inline, and NEVER render hard-coded
+  reference numbers as "fallbacks" (the previous agent shipped 0.49f / 26.9M-31.4M donut /
+  58_355_700_00L / 54% / "6 fam. = 80%" — fabrication, §15.16). Two engine-level parity traps
+  discovered by the T-285 suite, pinned forever: (1) money-valued roundings (mean, even median,
+  sample σ, MA3) round at **DZD granularity** (`dzRound` = round(x/100)*100) because the
+  DESKTOP rounds its integer-DZD numbers — centime-granularity rounding silently diverges
+  (MA3 of 46k+20k+40k DZD: desktop 35 333 DZD, centime-round 35 333.33); (2) the aging
+  FUNNEL consumes the per-installment census Σ of bucket family-counts (379 on the
+  44th-session corpus = 196 in 91–180 j + 183 in 180+ j, families counted once PER BUCKET),
+  NOT the distinct-parent count (196) and NOT a per-family worst-bucket assignment.
+  The debt surfaces (dashboard KPIs, debt summary, debt-by-aging, PDF aging report) all use
+  the ONE canonical derivation — per-parent outstanding = Σ INV-4 remaining over unpaid
+  installments; the ledger-first/else-installment fallback is GONE (it produced numbers that
+  differed from the desktop). The live proof: `LiveDatabaseEquivalenceTest` (env-gated:
+  SUPABASE_URL + SUPABASE_SERVICE_KEY + SUPABASE_ACCESS_TOKEN, forwarded to the forked test
+  JVM by the build script — `-D` flags do NOT cross the daemon boundary) asserts the engine
+  output equals the server-side SQL truth (hub `scripts/verify_t-285.sql`) on EVERY value;
+  the corpus proof: the `deriveAnalyticsStats` op in both runners + the triple comparator
+  (category `analytics_statistics`).
+
 - **T-231 (34th session) — the workflow_runs pull contract:** the DTO must mirror the LIVE
   columns (`trigger_type` / `actor_id` / `completed_at` / `node_results`, workflow name via the
   PostgREST embed — `select(Columns.raw("*, workflows(name)"))`; postgrest-kt 3.1.1 takes a

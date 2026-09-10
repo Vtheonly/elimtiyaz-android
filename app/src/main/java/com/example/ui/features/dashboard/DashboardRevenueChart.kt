@@ -32,7 +32,7 @@ import com.example.domain.repository.RevenuePoint
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.data.ElBarChart
 import com.example.ui.designsystem.components.data.ElBarChartItem
-import com.example.ui.designsystem.components.display.ElProgressBar
+import com.example.ui.designsystem.components.feedback.ElLinearProgress
 import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.designsystem.theme.ElTheme
 
@@ -67,7 +67,7 @@ internal fun DashboardRevenueChart(
             )
             AnalyticsMiniTile(
                 title = "MEILLEUR MOIS",
-                value = currentKpi.bestMonthName,
+                value = currentKpi.bestMonthName ?: "—",
                 subtext = "Pic annuel",
                 modifier = Modifier.weight(1f),
             )
@@ -121,11 +121,16 @@ internal fun DashboardRevenueChart(
                     style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     color = ElTheme.colors.textPrimary,
                 )
-                Text(
-                    text = "Tranche dominante : 50k+ (${currentKpi.amountBins.lastOrNull()?.percentage?.toInt() ?: 54}%)",
-                    style = ElTheme.typography.labelSmall,
-                    color = ElTheme.colors.primary,
-                )
+                // PARITY-002: the dominant tranche + its share are DERIVED from
+                // the real bins (never a hard-coded "50k+ (54%)").
+                val dominantBin = currentKpi.amountBins.maxByOrNull { it.count }
+                if (dominantBin != null && dominantBin.count > 0) {
+                    Text(
+                        text = "Tranche dominante : ${dominantBin.label} (${dominantBin.percentage}%)",
+                        style = ElTheme.typography.labelSmall,
+                        color = ElTheme.colors.primary,
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
 
                 if (currentKpi.amountBins.isNotEmpty()) {
@@ -168,13 +173,13 @@ internal fun DashboardRevenueChart(
                                 color = ElTheme.colors.textPrimary,
                             )
                             Text(
-                                text = "${(item.amount / 100).formatDzd()} DA • %.1f%%".format(item.percentage),
+                                text = "${(item.amount / 100).formatDzd()} DA • ${item.percentage}%",
                                 style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                 color = ElTheme.colors.primary,
                             )
                         }
                         Spacer(Modifier.height(4.dp))
-                        ElProgressBar(progress = (item.percentage / 100.0).toFloat())
+                        ElLinearProgress(progress = (item.percentage / 100.0).toFloat())
                     }
                 }
             }

@@ -1,5 +1,6 @@
 package com.example.ui.features.dashboard
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +27,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.core.derivePareto
+import com.example.core.ParetoDebtor
 import com.example.core.formatDzd
 import com.example.domain.model.DashboardKpi
 import com.example.domain.model.DebtSummary
@@ -41,6 +44,16 @@ import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.util.PhoneUtils
 
+/**
+ * PARITY-002 (T-284): this row renders ONLY repository-computed statistics.
+ * Every hard-coded desktop-reference fallback (0.49f, the 26.9M/31.4M donut,
+ * 58_355_700_00L, "0%"/"100%" funnel strings, "6 fam. = 80%") was DELETED —
+ * empty data renders honest empty states (§15.16), never fabricated numbers.
+ * The collection rate, aging donut, and funnel come from the KPI contract
+ * (computed by core/StatisticsEngine in LocalDashboardRepository); the
+ * Pareto uses the shared engine derivation over the real top-debtors list
+ * (mirroring the desktop's DebtorsParetoCard layering).
+ */
 @Composable
 internal fun DashboardCollectionAndDebtRow(
     currentKpi: DashboardKpi,
@@ -73,7 +86,7 @@ internal fun DashboardCollectionAndDebtRow(
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Suivi des relances : ${currentKpi.overdueFamiliesCount} familles en attente, dont ${currentKpi.recoveryFunnelOver90Days} dossiers prioritaires.",
+                    text = "Suivi des relances : ${currentKpi.overdueFamiliesCount} familles en attente, dont ${currentKpi.recoveryFunnel.lastOrNull()?.count ?: 0} dossiers prioritaires.",
                     style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                     color = ElTheme.colors.textPrimary,
                 )
@@ -92,14 +105,11 @@ internal fun DashboardCollectionAndDebtRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            // Left: Annual Recovery Rate (49%)
+            // Left: Annual Recovery Rate — computed by StatisticsEngine.collectionRatePct
             ElCard(modifier = Modifier.weight(1f)) {
-                val revenueToDisplay = if (currentKpi.totalRevenue > 0L) currentKpi.totalRevenue else currentKpi.monthlyRevenue
-                val debtToDisplay = if (currentKpi.overdueDebt > 0L) currentKpi.overdueDebt else currentKpi.outstandingDebt
-                val collected = (revenueToDisplay / 100).toFloat()
-                val pending = (debtToDisplay / 100).toFloat()
-                val total = collected + pending
-                val rate = if (total > 0f) (collected / total).coerceIn(0f, 1f) else 0.49f
+                val revenueToDisplay = currentKpi.totalRevenue
+                val debtToDisplay = currentKpi.outstandingDebt
+                val rate = currentKpi.collectionRatePct / 100f
 
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -112,12 +122,21 @@ internal fun DashboardCollectionAndDebtRow(
                     )
                     Spacer(Modifier.height(8.dp))
 
-                    ElProgressRing(
-                        progress = rate,
-                        size = 90.dp,
-                        color = ElTheme.colors.info,
-                        label = "%.0f%%".format(rate * 100),
-                    )
+                    if (revenueToDisplay > 0L || debtToDisplay > 0L) {
+                        ElProgressRing(
+                            progress = rate,
+                            size = 90.dp,
+                            color = ElTheme.colors.info,
+                            label = "${currentKpi.collectionRatePct}%",
+                        )
+                    } else {
+                        ElProgressRing(
+                            progress = 0f,
+                            size = 90.dp,
+                            color = ElTheme.colors.info,
+                            label = "—",
+                        )
+                    }
 
                     Spacer(Modifier.height(8.dp))
                     Column(
@@ -150,27 +169,22 @@ internal fun DashboardCollectionAndDebtRow(
                 }
             }
 
-            // Right: Debt Aging Breakdown
+            // Right: Debt Aging Breakdown — the engine census (per-installment
+            // INV-4, distinct families per bucket), never a fabricated donut.
             ElCard(modifier = Modifier.weight(1f)) {
-                val agingBuckets = listOf("91_180", "180_plus", "0_30", "31_60", "61_90")
-                val segments = agingBuckets.mapNotNull { bucket ->
-                    val amount = debtAging.filter { it.bucket == bucket }.sumOf { it.outstandingAmount }
-                    if (amount > 0L) {
+                val segments = currentKpi.debtByAging.mapNotNull { bucketItem ->
+                    if (bucketItem.amount > 0L) {
                         ElDonutSegment(
-                            label = bucketLabel(bucket),
-                            value = (amount / 100).toFloat(),
-                            color = bucketColor(bucket),
+                            label = bucketItem.label,
+                            value = (bucketItem.amount / 100).toFloat(),
+                            color = bucketColor(bucketItem.bucket),
                         )
                     } else null
-                }.ifEmpty {
-                    listOf(
-                        ElDonutSegment("91–180 j", 26_900_000f, ElTheme.colors.primaryAccent),
-                        ElDonutSegment("180+ j", 31_400_000f, ElTheme.colors.danger),
-                    )
                 }
-
-                val totalDebtAmount = if (currentKpi.overdueDebt > 0L) currentKpi.overdueDebt else 58_355_700_00L
-                val debtFormatted = "%.1f M DA".format(totalDebtAmount / 100_000_000.0)
+                val totalDebtAmount = currentKpi.outstandingDebt
+                val debtFormatted = if (totalDebtAmount > 0L) {
+                    "%.1f M DA".format(totalDebtAmount / 100_000_000.0)
+                } else "0"
 
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -183,78 +197,82 @@ internal fun DashboardCollectionAndDebtRow(
                     )
                     Spacer(Modifier.height(6.dp))
 
-                    ElDonutChart(
-                        segments = segments,
-                        size = 90.dp,
-                        centerLabel = "Encours",
-                        centerValue = debtFormatted,
-                    )
+                    if (segments.isNotEmpty()) {
+                        ElDonutChart(
+                            segments = segments,
+                            size = 90.dp,
+                            centerLabel = "Encours",
+                            centerValue = debtFormatted,
+                        )
+                    } else {
+                        Text(
+                            text = "Aucune créance ouverte.",
+                            style = ElTheme.typography.bodySmall,
+                            color = ElTheme.colors.textSecondary,
+                        )
+                    }
                 }
             }
         }
 
-        // ── Entonnoir de Recouvrement (Recovery Funnel) ──
-        ElCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+        // ── Entonnoir de Recouvrement (Recovery Funnel) — real census stages.
+        if (currentKpi.recoveryFunnel.isNotEmpty()) {
+            ElCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    val criticalPct = currentKpi.recoveryFunnel.last().sharePct
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "ENTONNOIR DE RECOUVREMENT",
+                            style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = ElTheme.colors.textPrimary,
+                        )
+                        ElTag(text = "Critique : $criticalPct%", tone = ElTagTone.WARNING)
+                    }
                     Text(
-                        text = "ENTONNOIR DE RECOUVREMENT",
-                        style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = ElTheme.colors.textPrimary,
+                        text = "Profondeur d'ancienneté des dossiers",
+                        style = ElTheme.typography.bodySmall,
+                        color = ElTheme.colors.textSecondary,
                     )
-                    ElTag(text = "Critique : ${currentKpi.recoveryFunnelCriticalPct}%", tone = ElTagTone.WARNING)
-                }
-                Text(
-                    text = "Profondeur d'ancienneté des dossiers",
-                    style = ElTheme.typography.bodySmall,
-                    color = ElTheme.colors.textSecondary,
-                )
 
-                Spacer(Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    FunnelBox(
-                        title = "En retard",
-                        value = "${currentKpi.recoveryFunnelOverdueTotal}",
-                        pct = "100%",
-                        color = ElTheme.colors.primaryAccent,
-                        modifier = Modifier.weight(1f),
-                    )
-                    FunnelBox(
-                        title = "≤ 60 j",
-                        value = "${currentKpi.recoveryFunnelUnder60Days}",
-                        pct = "0%",
-                        color = ElTheme.colors.info,
-                        modifier = Modifier.weight(1f),
-                    )
-                    FunnelBox(
-                        title = "61–90 j",
-                        value = "${currentKpi.recoveryFunnel61To90Days}",
-                        pct = "0%",
-                        color = ElTheme.colors.primary,
-                        modifier = Modifier.weight(1f),
-                    )
-                    FunnelBox(
-                        title = "> 90 j",
-                        value = "${currentKpi.recoveryFunnelOver90Days}",
-                        pct = "100%",
-                        color = ElTheme.colors.danger,
-                        modifier = Modifier.weight(1f),
-                    )
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        currentKpi.recoveryFunnel.forEach { stage ->
+                            FunnelBox(
+                                title = stage.name,
+                                value = "${stage.count}",
+                                pct = "${stage.sharePct}%",
+                                color = when (stage.name) {
+                                    "En retard" -> ElTheme.colors.primaryAccent
+                                    "≤ 60 j" -> ElTheme.colors.info
+                                    "61–90 j" -> ElTheme.colors.primary
+                                    else -> ElTheme.colors.danger
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        // ── Top Debtor Families / Pareto List ──
+        // ── Top Debtor Families / Pareto (top 8, cumulative % of the
+        // displayed total — the desktop derivation, shared engine).
         if (debtAging.isNotEmpty()) {
             ElCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.fillMaxWidth()) {
+                    val pareto = derivePareto(
+                        debtAging.map { ParetoDebtor(it.parentName, it.outstandingAmount) },
+                        topN = 8,
+                    )
+                    val paretoCut = pareto.indexOfFirst { it.cumPercent >= 80 } + 1
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -265,15 +283,18 @@ internal fun DashboardCollectionAndDebtRow(
                             style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = ElTheme.colors.textPrimary,
                         )
-                        Text(
-                            text = "6 fam. = 80% de l'encours",
-                            style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = ElTheme.colors.primaryAccent,
-                        )
+                        if (paretoCut > 0) {
+                            Text(
+                                text = "${paretoCut} fam. = 80% de l'encours",
+                                style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = ElTheme.colors.primaryAccent,
+                            )
+                        }
                     }
                     Spacer(Modifier.height(8.dp))
 
-                    debtAging.take(6).forEachIndexed { idx, debtor ->
+                    debtAging.take(8).forEachIndexed { idx, debtor ->
+                        val cum = pareto.getOrNull(idx)?.cumPercent
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -297,7 +318,11 @@ internal fun DashboardCollectionAndDebtRow(
                                         color = ElTheme.colors.textPrimary,
                                     )
                                     Text(
-                                        text = "${debtor.studentCount} enfant(s) • Retard : ${debtor.daysOverdue} j",
+                                        text = if (cum != null) {
+                                            "${debtor.studentCount} enfant(s) • Retard : ${debtor.daysOverdue} j • cum. ${cum}%"
+                                        } else {
+                                            "${debtor.studentCount} enfant(s) • Retard : ${debtor.daysOverdue} j"
+                                        },
                                         style = ElTheme.typography.labelSmall,
                                         color = ElTheme.colors.textSecondary,
                                     )
