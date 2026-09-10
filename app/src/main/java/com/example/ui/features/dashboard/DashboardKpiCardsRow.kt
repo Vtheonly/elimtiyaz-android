@@ -15,7 +15,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.MoneyOff
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
@@ -45,7 +45,7 @@ internal fun DashboardKpiCardsRow(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 2.dp),
     ) {
-        // ── Card 1: Élèves & Familles ──
+        // ── Card 1: Students & Families ──
         item {
             OperationalKpiCard(
                 title = "ÉLÈVES",
@@ -54,11 +54,11 @@ internal fun DashboardKpiCardsRow(
                 bottomLabel = "${currentKpi.totalStaff} membres du personnel",
                 icon = Icons.Default.People,
                 accentColor = ElTheme.colors.primary,
-                modifier = Modifier.width(210.dp),
+                modifier = Modifier.width(200.dp),
             )
         }
 
-        // ── Card 2: Revenu Global ──
+        // ── Card 2: Global Revenue ──
         item {
             val revenueFormatted = if (revenueToShow >= 1_000_000_00L) {
                 "%.1f M DZD".format(revenueToShow / 100_000_000.0)
@@ -72,11 +72,11 @@ internal fun DashboardKpiCardsRow(
                 bottomLabel = "${currentKpi.totalOperationsCount} opérations enregistrées",
                 icon = Icons.Default.AccountBalance,
                 accentColor = ElTheme.colors.success,
-                modifier = Modifier.width(220.dp),
+                modifier = Modifier.width(215.dp),
             )
         }
 
-        // ── Card 3: Créances en Retard ──
+        // ── Card 3: Encours & Créances (Calm Amber instead of Alarmist Red) ──
         item {
             val overdueFormatted = if (currentKpi.overdueDebt >= 1_000_000_00L) {
                 "%.1f M DZD".format(currentKpi.overdueDebt / 100_000_000.0)
@@ -84,27 +84,27 @@ internal fun DashboardKpiCardsRow(
                 "${(currentKpi.overdueDebt / 100).formatDzd()} DZD"
             }
             OperationalKpiCard(
-                title = "CRÉANCES EN RETARD",
+                title = "ENCOURS CRÉANCES",
                 mainValue = overdueFormatted,
-                subValue = "${currentKpi.overdueFamiliesCount} fam. en retard",
-                bottomLabel = "${(currentKpi.overdueDebt / 100).formatDzd()} DA d'encours",
-                icon = Icons.Default.MoneyOff,
-                accentColor = ElTheme.colors.danger,
-                modifier = Modifier.width(220.dp),
+                subValue = "${currentKpi.overdueFamiliesCount} fam. concernées",
+                bottomLabel = "Dettes de scolarité & transport",
+                icon = Icons.Default.AccountBalanceWallet,
+                accentColor = ElTheme.colors.primaryAccent,
+                modifier = Modifier.width(215.dp),
             )
         }
 
-        // ── Card 4: Assiduité (Aujourd'hui) ──
+        // ── Card 4: Attendance Today ──
         item {
             val rateFormatted = "%.0f%%".format(currentKpi.attendanceRateToday)
             OperationalKpiCard(
-                title = "ASSIDUITÉ DU JOUR",
+                title = "ASSIDUITÉ",
                 mainValue = rateFormatted,
-                subValue = "${currentKpi.classesCompletedRollCall}/${currentKpi.totalClassesCount} classes validées",
+                subValue = "${currentKpi.classesCompletedRollCall}/${currentKpi.totalClassesCount} classes à jour",
                 bottomLabel = "${currentKpi.todayPresentCount} présents aujourd'hui",
                 icon = Icons.Default.TrendingUp,
                 accentColor = ElTheme.colors.info,
-                modifier = Modifier.width(210.dp),
+                modifier = Modifier.width(200.dp),
             )
         }
     }

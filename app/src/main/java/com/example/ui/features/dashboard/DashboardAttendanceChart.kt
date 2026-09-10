@@ -1,6 +1,7 @@
 package com.example.ui.features.dashboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,11 +46,11 @@ internal fun DashboardAttendanceChart(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ElSectionHeader(
-            title = "Vie Scolaire & Présences",
-            subtitle = "Appel du jour et assiduité hebdomadaire",
+            title = "Vie Scolaire & Assiduité",
+            subtitle = "Pointage quotidien et tendance hebdomadaire",
             trailing = {
                 ElButton(
-                    text = "Pédagogie",
+                    text = "Module Pédagogie",
                     onClick = onNavigateToAcademics,
                     variant = ElButtonVariant.GHOST,
                     size = ElButtonSize.SMALL,
@@ -66,13 +66,13 @@ internal fun DashboardAttendanceChart(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Appel du jour par classe",
+                        text = "Statut de l'appel par classe",
                         style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                         color = ElTheme.colors.textPrimary,
                     )
                     ElTag(
                         text = "$classesCompleted / $totalClasses validées",
-                        tone = if (classesCompleted == totalClasses) ElTagTone.SUCCESS else ElTagTone.WARNING,
+                        tone = if (classesCompleted == totalClasses) ElTagTone.SUCCESS else ElTagTone.NEUTRAL,
                     )
                 }
 
@@ -89,18 +89,20 @@ internal fun DashboardAttendanceChart(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 5.dp),
+                                .clip(ElTheme.shapes.small)
+                                .clickable { onNavigateToRollCall(classStatus.classId) }
+                                .padding(vertical = 5.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
-                                        .size(10.dp)
+                                        .size(8.dp)
                                         .clip(CircleShape)
                                         .background(
                                             if (classStatus.isCompletedToday) ElTheme.colors.success
-                                            else ElTheme.colors.warning
+                                            else ElTheme.colors.outline
                                         ),
                                 )
                                 Spacer(Modifier.size(8.dp))
@@ -128,7 +130,7 @@ internal fun DashboardAttendanceChart(
                                         imageVector = Icons.Default.CheckCircle,
                                         contentDescription = null,
                                         tint = ElTheme.colors.success,
-                                        modifier = Modifier.size(18.dp),
+                                        modifier = Modifier.size(16.dp),
                                     )
                                     Spacer(Modifier.size(4.dp))
                                     Text(
@@ -138,12 +140,10 @@ internal fun DashboardAttendanceChart(
                                     )
                                 }
                             } else {
-                                ElButton(
-                                    text = "Faire l'appel",
-                                    onClick = { onNavigateToRollCall(classStatus.classId) },
-                                    variant = ElButtonVariant.OUTLINED,
-                                    size = ElButtonSize.SMALL,
-                                    icon = Icons.Default.EditNote,
+                                Text(
+                                    text = "En attente",
+                                    style = ElTheme.typography.labelSmall,
+                                    color = ElTheme.colors.textMuted,
                                 )
                             }
                         }
@@ -158,7 +158,7 @@ internal fun DashboardAttendanceChart(
                 Spacer(Modifier.height(10.dp))
 
                 Text(
-                    text = "Taux de présence sur 7 jours (%.1f%% aujourd'hui)".format(attendanceRateToday),
+                    text = "Taux de présence sur 7 jours (%.0f%% aujourd'hui)".format(attendanceRateToday),
                     style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     color = ElTheme.colors.textPrimary,
                 )
@@ -167,7 +167,7 @@ internal fun DashboardAttendanceChart(
                 if (attendanceTrend.isNotEmpty()) {
                     ElLineChart(
                         points = attendanceTrend,
-                        height = 140.dp,
+                        height = 130.dp,
                         lineColor = ElTheme.colors.info,
                         gradientFill = true,
                     )

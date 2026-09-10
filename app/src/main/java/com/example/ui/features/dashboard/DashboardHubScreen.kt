@@ -117,7 +117,7 @@ fun DashboardHubScreen(
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Header Bar
+            // Header: Date & Session status
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -142,7 +142,7 @@ fun DashboardHubScreen(
                 )
             }
 
-            // Desktop-style secondary navigation switcher
+            // Tab Switcher
             ModernSecondaryTabRow(
                 tabs = viewTabs,
                 selectedTabIndex = selectedViewTab,
@@ -157,20 +157,13 @@ fun DashboardHubScreen(
 
             if (selectedViewTab == 0) {
                 // ════════════════════════════════════════════════════════════
-                // VUE D'ENSEMBLE (Image 1)
+                // VUE D'ENSEMBLE — Professional, Clean Executive View
                 // ════════════════════════════════════════════════════════════
+
+                // 1. Core KPIs: Students, Revenue, Active Balances, Attendance
                 DashboardKpiCardsRow(currentKpi = currentKpi)
 
-                DashboardAlertsSection(
-                    error = error,
-                    alerts = operationalAlerts,
-                    onNavigateToParent = onNavigateToParent,
-                    onNavigateToRollCall = onNavigateToRollCall,
-                    onNavigateToExpenseDetail = onNavigateToExpenseDetail,
-                    onNavigateToFinancials = onNavigateToFinancials,
-                    onNavigateToDebtDashboard = onNavigateToDebtDashboard,
-                )
-
+                // 2. Standard Operational Quick Actions
                 DashboardQuickActionsRow(
                     onNavigateToCounterPayment = { onNavigateToCounterPayment(null, null) },
                     onNavigateToBatchRegistration = onNavigateToBatchRegistration,
@@ -180,13 +173,14 @@ fun DashboardHubScreen(
                     onNavigateToChat = onNavigateToChat,
                 )
 
-                DashboardCollectionAndDebtRow(
+                // 3. Financial Flux & Revenue Trends (Positive overview)
+                DashboardRevenueChart(
                     currentKpi = currentKpi,
-                    debtAging = debtAging,
-                    onNavigateToParent = onNavigateToParent,
-                    onNavigateToDebtDashboard = onNavigateToDebtDashboard,
+                    revenue = revenue,
+                    paymentMethods = paymentMethods,
                 )
 
+                // 4. Attendance & Life Overview (Status only, without pushy buttons)
                 DashboardAttendanceChart(
                     classStatuses = classRollCallStatuses,
                     attendanceTrend = attendanceTrend,
@@ -197,26 +191,33 @@ fun DashboardHubScreen(
                     onNavigateToAcademics = onNavigateToAcademics,
                 )
 
-                DashboardRevenueChart(
-                    currentKpi = currentKpi,
-                    revenue = revenue,
-                    paymentMethods = paymentMethods,
-                )
-
+                // 5. Pending Approvals & Checks
                 DashboardApprovalsRow(
                     currentKpi = currentKpi,
                     onNavigateToFinancials = onNavigateToFinancials,
                     onNavigateToDebtDashboard = onNavigateToDebtDashboard,
                 )
 
+                // 6. Activity & Notifications Feed
                 DashboardNotificationsSection(
                     notifications = notifications,
                     recentPayments = recentPayments,
                     onNavigateToFinancials = onNavigateToFinancials,
                 )
+
+                // 7. System alerts placed politely at bottom of overview
+                DashboardAlertsSection(
+                    error = error,
+                    alerts = operationalAlerts,
+                    onNavigateToParent = onNavigateToParent,
+                    onNavigateToRollCall = onNavigateToRollCall,
+                    onNavigateToExpenseDetail = onNavigateToExpenseDetail,
+                    onNavigateToFinancials = onNavigateToFinancials,
+                    onNavigateToDebtDashboard = onNavigateToDebtDashboard,
+                )
             } else {
                 // ════════════════════════════════════════════════════════════
-                // ANALYTIQUE (Images 2, 3, 5, 6, 7)
+                // ANALYTIQUE — Dedicated Recovery, Debt Funnel & Pareto
                 // ════════════════════════════════════════════════════════════
                 DashboardRevenueChart(
                     currentKpi = currentKpi,

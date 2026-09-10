@@ -10,11 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.HowToReg
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.ReceiptLong
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,9 +49,9 @@ internal fun DashboardAlertsSection(
 
     error?.let { msg ->
         ElAlertBanner(
-            title = "Alerte système",
+            title = "Notification système",
             message = msg,
-            severity = ElAlertSeverity.DANGER,
+            severity = ElAlertSeverity.INFO,
         )
     }
 
@@ -60,22 +59,20 @@ internal fun DashboardAlertsSection(
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ElSectionHeader(
-            title = "Centre d'actions & Tâches immédiates",
-            subtitle = "${alerts.size} action${if (alerts.size > 1) "s" else ""} requise${if (alerts.size > 1) "s" else ""}",
+            title = "Rappels & Notifications de gestion",
+            subtitle = "${alerts.size} notification${if (alerts.size > 1) "s" else ""}",
         )
 
-        alerts.take(4).forEach { alert ->
+        alerts.take(3).forEach { alert ->
             val (icon, tint, tone) = when (alert.type) {
-                "overdue_debt" -> Triple(Icons.Default.Warning, ElTheme.colors.danger, ElTagTone.DANGER)
-                "pending_expense" -> Triple(Icons.Default.ReceiptLong, ElTheme.colors.warning, ElTagTone.WARNING)
+                "overdue_debt" -> Triple(Icons.Default.Notifications, ElTheme.colors.primaryAccent, ElTagTone.WARNING)
+                "pending_expense" -> Triple(Icons.Default.ReceiptLong, ElTheme.colors.primary, ElTagTone.INFO)
                 "pending_check" -> Triple(Icons.Default.Payment, ElTheme.colors.info, ElTagTone.INFO)
-                "missing_roll_call" -> Triple(Icons.Default.HowToReg, ElTheme.colors.warning, ElTagTone.WARNING)
-                else -> Triple(Icons.Default.ErrorOutline, ElTheme.colors.primary, ElTagTone.NEUTRAL)
+                else -> Triple(Icons.Default.Info, ElTheme.colors.primary, ElTagTone.NEUTRAL)
             }
 
             ElCard(
                 modifier = Modifier.fillMaxWidth(),
-                background = if (alert.severity == "urgent") ElTheme.colors.dangerContainer.copy(alpha = 0.35f) else null,
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -91,18 +88,16 @@ internal fun DashboardAlertsSection(
                                 imageVector = icon,
                                 contentDescription = null,
                                 tint = tint,
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(18.dp),
                             )
                             Spacer(Modifier.size(8.dp))
                             Text(
                                 text = alert.title,
-                                style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                                 color = ElTheme.colors.textPrimary,
                             )
                         }
-                        if (alert.severity == "urgent") {
-                            ElTag(text = "URGENT", tone = ElTagTone.DANGER)
-                        }
+                        ElTag(text = "Rappel", tone = tone)
                     }
 
                     Spacer(Modifier.height(4.dp))
@@ -112,7 +107,7 @@ internal fun DashboardAlertsSection(
                         color = ElTheme.colors.textSecondary,
                     )
 
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
@@ -122,7 +117,7 @@ internal fun DashboardAlertsSection(
                             ElButton(
                                 text = "Appeler",
                                 onClick = { PhoneUtils.dial(context, alert.phone) },
-                                variant = ElButtonVariant.OUTLINED,
+                                variant = ElButtonVariant.GHOST,
                                 size = ElButtonSize.SMALL,
                                 icon = Icons.Default.Call,
                             )
@@ -130,7 +125,7 @@ internal fun DashboardAlertsSection(
                         }
 
                         ElButton(
-                            text = alert.actionLabel ?: "Traiter",
+                            text = alert.actionLabel ?: "Consulter",
                             onClick = {
                                 when (alert.type) {
                                     "overdue_debt" -> alert.entityId?.let { onNavigateToParent(it) } ?: onNavigateToDebtDashboard()
@@ -140,7 +135,7 @@ internal fun DashboardAlertsSection(
                                     else -> onNavigateToDebtDashboard()
                                 }
                             },
-                            variant = if (alert.severity == "urgent") ElButtonVariant.DANGER else ElButtonVariant.PRIMARY,
+                            variant = ElButtonVariant.OUTLINED,
                             size = ElButtonSize.SMALL,
                         )
                     }

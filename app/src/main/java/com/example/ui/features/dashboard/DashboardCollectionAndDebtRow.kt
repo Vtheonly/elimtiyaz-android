@@ -1,6 +1,5 @@
 package com.example.ui.features.dashboard
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -36,7 +36,6 @@ import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.data.ElDonutChart
 import com.example.ui.designsystem.components.data.ElDonutSegment
 import com.example.ui.designsystem.components.data.ElProgressRing
-import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.theme.ElTheme
@@ -52,10 +51,10 @@ internal fun DashboardCollectionAndDebtRow(
     val context = LocalContext.current
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        // ── Synthèse Décisionnelle IA (Image 1) ──
+        // ── Synthèse Décisionnelle IA ──
         ElCard(
             modifier = Modifier.fillMaxWidth(),
-            background = ElTheme.colors.infoContainer.copy(alpha = 0.25f),
+            background = ElTheme.colors.primaryContainer.copy(alpha = 0.25f),
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -74,13 +73,13 @@ internal fun DashboardCollectionAndDebtRow(
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Relances recommandées : ${currentKpi.overdueFamiliesCount} familles en retard dont ${currentKpi.recoveryFunnelOver90Days} au-delà de 60 jours.",
+                    text = "Suivi des relances : ${currentKpi.overdueFamiliesCount} familles en attente, dont ${currentKpi.recoveryFunnelOver90Days} dossiers prioritaires.",
                     style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                     color = ElTheme.colors.textPrimary,
                 )
                 Spacer(Modifier.height(10.dp))
                 ElButton(
-                    text = "Traiter les relances",
+                    text = "Accéder aux relances",
                     onClick = onNavigateToDebtDashboard,
                     variant = ElButtonVariant.PRIMARY,
                     size = ElButtonSize.SMALL,
@@ -107,7 +106,7 @@ internal fun DashboardCollectionAndDebtRow(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
-                        text = "TAUX DE RECOUVREMENT",
+                        text = "TAUX RECOUVREMENT",
                         style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = ElTheme.colors.textPrimary,
                     )
@@ -144,14 +143,14 @@ internal fun DashboardCollectionAndDebtRow(
                             Text(
                                 "${(debtToDisplay / 100).formatDzd()} DA",
                                 style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = ElTheme.colors.danger,
+                                color = ElTheme.colors.primaryAccent,
                             )
                         }
                     }
                 }
             }
 
-            // Right: Debt Aging Breakdown (91–180 j & 180+ j)
+            // Right: Debt Aging Breakdown
             ElCard(modifier = Modifier.weight(1f)) {
                 val agingBuckets = listOf("91_180", "180_plus", "0_30", "31_60", "61_90")
                 val segments = agingBuckets.mapNotNull { bucket ->
@@ -164,9 +163,8 @@ internal fun DashboardCollectionAndDebtRow(
                         )
                     } else null
                 }.ifEmpty {
-                    // Fallback to official desktop distribution if no individual breakdown
                     listOf(
-                        ElDonutSegment("91–180 j", 26_900_000f, ElTheme.colors.warning),
+                        ElDonutSegment("91–180 j", 26_900_000f, ElTheme.colors.primaryAccent),
                         ElDonutSegment("180+ j", 31_400_000f, ElTheme.colors.danger),
                     )
                 }
@@ -195,7 +193,7 @@ internal fun DashboardCollectionAndDebtRow(
             }
         }
 
-        // ── Entonnoir de Recouvrement (Recovery Funnel - Image 1) ──
+        // ── Entonnoir de Recouvrement (Recovery Funnel) ──
         ElCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(14.dp)) {
                 Row(
@@ -208,10 +206,10 @@ internal fun DashboardCollectionAndDebtRow(
                         style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = ElTheme.colors.textPrimary,
                     )
-                    ElTag(text = "Critique : ${currentKpi.recoveryFunnelCriticalPct}%", tone = ElTagTone.DANGER)
+                    ElTag(text = "Critique : ${currentKpi.recoveryFunnelCriticalPct}%", tone = ElTagTone.WARNING)
                 }
                 Text(
-                    text = "Profondeur de retard des familles débitrices",
+                    text = "Profondeur d'ancienneté des dossiers",
                     style = ElTheme.typography.bodySmall,
                     color = ElTheme.colors.textSecondary,
                 )
@@ -225,7 +223,7 @@ internal fun DashboardCollectionAndDebtRow(
                         title = "En retard",
                         value = "${currentKpi.recoveryFunnelOverdueTotal}",
                         pct = "100%",
-                        color = ElTheme.colors.warning,
+                        color = ElTheme.colors.primaryAccent,
                         modifier = Modifier.weight(1f),
                     )
                     FunnelBox(
@@ -253,7 +251,7 @@ internal fun DashboardCollectionAndDebtRow(
             }
         }
 
-        // ── Top 8 Debtor Families / Pareto List (Image 7) ──
+        // ── Top Debtor Families / Pareto List ──
         if (debtAging.isNotEmpty()) {
             ElCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -270,7 +268,7 @@ internal fun DashboardCollectionAndDebtRow(
                         Text(
                             text = "6 fam. = 80% de l'encours",
                             style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = ElTheme.colors.warning,
+                            color = ElTheme.colors.primaryAccent,
                         )
                     }
                     Spacer(Modifier.height(8.dp))
@@ -310,7 +308,7 @@ internal fun DashboardCollectionAndDebtRow(
                                 Text(
                                     text = "${(debtor.outstandingAmount / 100).formatDzd()} DA",
                                     style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = ElTheme.colors.danger,
+                                    color = ElTheme.colors.textPrimary,
                                     modifier = Modifier.padding(end = 4.dp),
                                 )
                                 if (debtor.parentPhone.isNotBlank()) {
