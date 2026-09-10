@@ -54,6 +54,26 @@ data class DashboardKpi(
     val amountBins: List<AmountBinItem> = emptyList(),
     // Category Breakdown (StatisticsEngine.deriveCategoryMix — ALL canonical categories)
     val categoryBreakdown: List<CategoryRevenueItem> = emptyList(),
+    // ── PARITY-003 (45th session) — the visual-parity contract ──────────────
+    // Descriptive-stat completeness (desktop PaymentStats min/max — stat strip)
+    val paymentStatsMin: Long = 0L,
+    val paymentStatsMax: Long = 0L,
+    // Payment-method mix (StatisticsEngine.deriveMethodMix — the donut card;
+    // replaces the repository's former fixed-3-method parallel derivation)
+    val methodMix: List<MethodMixItem> = emptyList(),
+    // Weekly operating rhythm (StatisticsEngine.deriveWeeklyRhythm — the
+    // counter-activity convention: only "refunded" excluded; Dim→Jeu)
+    val weeklyRhythm: List<WeeklyRhythmItem> = emptyList(),
+    // Collection heatmap (StatisticsEngine.deriveCollectionHeatmap — weekday × month matrix)
+    val collectionHeatmap: CollectionHeatmapSnapshot = CollectionHeatmapSnapshot(),
+    // Revenue trend explorer (StatisticsEngine.deriveRevenueTrend — cumulative + 3-month MA)
+    val revenueTrend: List<RevenueTrendPointItem> = emptyList(),
+    // Year-over-year comparison (StatisticsEngine.deriveYearOverYear — null deltas = "n/a")
+    val yoy: YoYSnapshot = YoYSnapshot(),
+    // Tranche wave progress (StatisticsEngine.deriveTrancheWaves — T1/T2/T3 collection health)
+    val trancheWaves: List<TrancheWaveItem> = emptyList(),
+    // Class demographics & capacity (StatisticsEngine.deriveDemographics)
+    val demographics: ClassDemographicsSnapshot = ClassDemographicsSnapshot(),
 )
 
 @Serializable

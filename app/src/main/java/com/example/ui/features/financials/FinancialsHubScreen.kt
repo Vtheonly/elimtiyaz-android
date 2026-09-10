@@ -136,6 +136,9 @@ fun FinancialsHubScreen(
                         onSelectParent = { installmentViewModel.selectParent(it) },
                         onMarkPaid = { installmentViewModel.markPaid(it) },
                         onNavigateToCounter = { pId, sId -> onNavigateToCounterPayment(pId, sId) },
+                        // PARITY-003 — the global wave meters from the KPI contract
+                        globalWaves = kpis?.trancheWaves ?: emptyList(),
+                        globalOverdueCount = kpis?.overdueFamiliesCount ?: 0,
                     )
                     2 -> CreancesTab(
                         outstandingDebt = kpis?.outstandingDebt ?: 0L,

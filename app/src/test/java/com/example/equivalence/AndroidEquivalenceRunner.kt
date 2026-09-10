@@ -128,6 +128,8 @@ object AndroidEquivalenceRunner {
         // Academic / CRM extension fields.
         val assessment: CanonicalAssessment? = null,
         val assessments: List<CanonicalAssessment> = emptyList(),
+        // PARITY-003/T-292: the classes rows for the demographics derivation.
+        val classes: List<CanonicalClass> = emptyList(),
     )
 
     @Serializable
@@ -139,6 +141,20 @@ object AndroidEquivalenceRunner {
         val parentId: String,
         val gradeLevel: String,
         val paymentPlan: String = "tranches",
+        // PARITY-003/T-292: the demographics projection fields.
+        val gender: String = "",
+        val birthDate: String? = null,
+        val classId: String? = null,
+    )
+
+    /** PARITY-003/T-292: the demographics classes row (grade_code is the
+     * scenario JSON key — kotlinx serialization maps it via JsonNames). */
+    @Serializable
+    data class CanonicalClass(
+        val id: String,
+        val name: String,
+        @kotlinx.serialization.SerialName("grade_code") val gradeCode: String? = null,
+        val capacity: Int? = null,
     )
 
     @Serializable
@@ -167,6 +183,20 @@ object AndroidEquivalenceRunner {
         val studentStatus: String? = null,
         // PARITY-002/T-285: the pinned reference instant for the analytics op.
         val now: String? = null,
+        // PARITY-003/T-292: the visual-parity op inputs (weekly rhythm +
+        // heatmap window; the YoY current/previous monthly series).
+        val range: CanonicalRange? = null,
+        val currentRevenue: List<CanonicalRevenuePoint> = emptyList(),
+        val previousRevenue: List<CanonicalRevenuePoint> = emptyList(),
+    )
+
+    @Serializable
+    data class CanonicalRange(val from: String, val to: String)
+
+    @Serializable
+    data class CanonicalRevenuePoint(
+        val label: String,
+        @kotlinx.serialization.SerialName("amountDzd") val amountDzd: Long,
     )
 
     @Serializable
@@ -744,6 +774,120 @@ object AndroidEquivalenceRunner {
                 }
             }
 
+            // ── PARITY-003 / T-292: the visual-parity derivation op — the
+            // ANDROID MIRROR of the desktop runner's deriveAnalyticsVisuals.
+            // Runs core/StatisticsEngine (the 13-chart derivations) over the
+            // same scenario rows; the comparator then proves desktop ≡
+            // android centime-exact on every value.
+            "deriveAnalyticsVisuals" -> {
+                val range = when_.range?.let { com.example.core.StatsDateRange(it.from, it.to) }
+
+                // (a) Weekly rhythm — the FULL payments stream (the
+                // counter-activity convention: only "refunded" excluded).
+                val allRows = given.payments.map {
+                    com.example.core.StatsPayment(it.id, it.amount, it.method, it.status, it.category, it.collectedAt)
+                }
+                val weeklyRhythm = com.example.core.deriveWeeklyRhythm(allRows, range)
+
+                // (b) Collection heatmap — the paid slice + the same range.
+                val paidRows = given.payments
+                    .filter { it.status == "paid" }
+                    .map { com.example.core.StatsPayment(it.id, it.amount, it.method, it.status, it.category, it.collectedAt) }
+                val heatmap = com.example.core.deriveCollectionHeatmap(paidRows, range)
+
+                // (c) YoY — the scenario's current/previous monthly series
+                // (DZD → centimes at the boundary).
+                val current = when_.currentRevenue.map { com.example.core.RevenuePointInput(it.label, it.amountDzd * 100) }
+                val previous = when_.previousRevenue.map { com.example.core.RevenuePointInput(it.label, it.amountDzd * 100) }
+                val yoy = com.example.core.deriveYearOverYear(current, previous)
+
+                // (d) Tranche waves — over the installments.
+                val trancheRows = given.installments.map {
+                    com.example.core.StatsTrancheRow(it.label, it.amountDue, it.amountPaid, it.amountPending)
+                }
+                val trancheWaves = com.example.core.deriveTrancheWaves(trancheRows)
+
+                // (e) Demographics — students + classes, pinned year.
+                val currentYear = java.time.Instant.parse(when_.now ?: "2026-09-10T00:00:00Z")
+                    .atZone(java.time.ZoneOffset.UTC).year
+                val demographics = com.example.core.deriveDemographics(
+                    students = given.students.map { com.example.core.StatsStudentRow(it.gender, it.birthDate, it.classId) },
+                    classes = given.classes.map { com.example.core.StatsClassRow(it.id, it.name, it.gradeCode, it.capacity) },
+                    currentYear = currentYear,
+                )
+
+                buildJsonObject {
+                    put("weeklyRhythm", kotlinx.serialization.json.buildJsonArray {
+                        weeklyRhythm.forEach { r ->
+                            add(buildJsonObject {
+                                put("day", r.day)
+                                put("cash", r.cash)
+                                put("check", r.check)
+                                put("transfer", r.transfer)
+                            })
+                        }
+                    })
+                    put("heatmap", buildJsonObject {
+                        put("monthLabels", kotlinx.serialization.json.buildJsonArray { heatmap.monthLabels.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
+                        put("monthKeys", kotlinx.serialization.json.buildJsonArray { heatmap.monthKeys.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
+                        put("rows", kotlinx.serialization.json.buildJsonArray {
+                            heatmap.rows.forEach { r ->
+                                add(buildJsonObject {
+                                    put("day", r.day)
+                                    put("rowTotal", r.rowTotal)
+                                    put("cells", kotlinx.serialization.json.buildJsonArray {
+                                        r.cells.forEach { c ->
+                                            add(buildJsonObject {
+                                                put("amount", c.amount)
+                                                put("count", c.count)
+                                                put("level", c.level)
+                                            })
+                                        }
+                                    })
+                                })
+                            }
+                        })
+                        put("max", heatmap.max)
+                        put("monthTotals", kotlinx.serialization.json.buildJsonArray { heatmap.monthTotals.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
+                    })
+                    put("yoy", buildJsonObject {
+                        put("points", kotlinx.serialization.json.buildJsonArray {
+                            yoy.points.forEach { p ->
+                                add(buildJsonObject {
+                                    put("label", p.label)
+                                    put("current", p.current)
+                                    put("previous", p.previous)
+                                    if (p.deltaPercent != null) put("deltaPercent", p.deltaPercent) else put("deltaPercent", kotlinx.serialization.json.JsonNull)
+                                })
+                            }
+                        })
+                        put("totalCurrent", yoy.totalCurrent)
+                        put("totalPrevious", yoy.totalPrevious)
+                        if (yoy.deltaPercent != null) put("deltaPercent", yoy.deltaPercent) else put("deltaPercent", kotlinx.serialization.json.JsonNull)
+                    })
+                    put("trancheWaves", kotlinx.serialization.json.buildJsonArray {
+                        trancheWaves.forEach { w ->
+                            add(buildJsonObject {
+                                put("index", w.index)
+                                put("label", w.label)
+                                put("hint", w.hint)
+                                put("due", w.due)
+                                put("paid", w.paid)
+                                put("pending", w.pending)
+                                put("pct", w.pct)
+                                put("isNextTarget", w.isNextTarget)
+                            })
+                        }
+                    })
+                    put("demographics", buildJsonObject {
+                        put("grade", demographicsJsonArray(demographics.grade))
+                        put("gender", demographicsJsonArray(demographics.gender))
+                        put("age", demographicsJsonArray(demographics.age))
+                        put("capacity", demographicsJsonArray(demographics.capacity))
+                    })
+                }
+            }
+
             else -> errorResult("Unknown operation type: ${when_.type}")
         }
     }
@@ -751,6 +895,18 @@ object AndroidEquivalenceRunner {
     // ───────────────────────────────────────────────────────────────────
     // Main — read scenarios, run each, write results.
     // ───────────────────────────────────────────────────────────────────
+
+    /**
+     * PARITY-003/T-292 — parse one scenario JSON and run its operation,
+     * returning the raw result object (for CrossPlatformEquivalenceTest's
+     * field-by-field desktop-vs-android assertion). Exposed for tests only.
+     */
+    fun runScenarioForTest(scenarioJsonText: String): JsonObject? = try {
+        val scenario = json.decodeFromString(CanonicalScenario.serializer(), scenarioJsonText)
+        runOperation(scenario)
+    } catch (e: Exception) {
+        buildJsonObject { put("error", e.message ?: e.toString()) }
+    }
 
     fun runAll(scenariosDir: File, outputDir: File) {
         if (!outputDir.exists()) outputDir.mkdirs()
@@ -951,6 +1107,19 @@ object AndroidEquivalenceRunner {
                 else -> null
             }
         }
+
+    /** PARITY-003/T-292 helper — DemographicSlice list → JSON array. */
+    private fun demographicsJsonArray(
+        slices: List<com.example.core.DemographicSlice>,
+    ): kotlinx.serialization.json.JsonArray = kotlinx.serialization.json.buildJsonArray {
+        slices.forEach { s ->
+            add(buildJsonObject {
+                put("label", s.label)
+                put("count", s.count)
+                put("percent", s.percent)
+            })
+        }
+    }
 
     // ─── CLI entry point ────────────────────────────────────────────────
 

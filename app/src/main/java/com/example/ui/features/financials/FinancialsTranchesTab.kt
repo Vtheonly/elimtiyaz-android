@@ -57,6 +57,7 @@ import com.example.domain.model.DebtSummary
 import com.example.domain.model.Expense
 import com.example.domain.model.Installment
 import com.example.domain.model.Parent
+import com.example.domain.model.TrancheWaveItem
 import com.example.domain.model.Payment
 import com.example.ui.components.ElAvatar
 import com.example.ui.components.ElButton
@@ -86,6 +87,10 @@ internal fun TranchesTab(
     onSelectParent: (String) -> Unit,
     onMarkPaid: (String) -> Unit,
     onNavigateToCounter: (parentId: String?, studentId: String?) -> Unit,
+    // PARITY-003 — the GLOBAL T1/T2/T3 wave meters (engine-derived from the
+    // repository KPI contract; the desktop installment-schedule-tab twin).
+    globalWaves: List<TrancheWaveItem> = emptyList(),
+    globalOverdueCount: Int = 0,
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val filteredParents = remember(searchQuery, parents) {
@@ -112,6 +117,14 @@ internal fun TranchesTab(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        // PARITY-003 — the global T1/T2/T3 collection-health meters (the
+        // desktop installment-schedule-tab twin; engine-derived values).
+        if (globalWaves.isNotEmpty()) {
+            item {
+                TrancheWaveCard(waves = globalWaves, overdueCount = globalOverdueCount)
+            }
+        }
+
         if (selectedParent == null) {
             item {
                 ElTextField(

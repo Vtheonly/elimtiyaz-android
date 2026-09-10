@@ -20,6 +20,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import com.example.ui.designsystem.components.data.ElGaugeArc
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -225,12 +226,41 @@ fun ClassDetailScreen(
                         cls.homeroomTeacherName?.let { Text("Prof principal: $it", style = MaterialTheme.typography.bodySmall) }
                         cls.room?.let { Text("Salle: $it", style = MaterialTheme.typography.bodySmall) }
                         Spacer(Modifier.height(8.dp))
-                        val enrolledPct = if (cls.capacity > 0) cls.enrolledCount.toFloat() / cls.capacity else 0f
-                        androidx.compose.material3.LinearProgressIndicator(
-                            progress = { enrolledPct },
+                        // PARITY-003 — the desktop see-details-modal capacity
+                        // GAUGE twin (semi-circle arc, tone: danger >=100 /
+                        // gold >=80 / success; percent = round(count/cap*100))
+                        // + the gender chips (desktop demographics gender rows).
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                        )
-                        Text("${cls.enrolledCount} / ${cls.capacity} élèves", style = MaterialTheme.typography.labelSmall)
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            ElGaugeArc(
+                                percent = if (cls.capacity > 0) {
+                                    (cls.enrolledCount.toFloat() / cls.capacity * 100).toInt()
+                                } else 0,
+                                caption = "${cls.enrolledCount} / ${cls.capacity} inscrits",
+                            )
+                            val boys = roster.count { it.gender == "male" }
+                            val girls = roster.count { it.gender == "female" }
+                            val total = roster.size.coerceAtLeast(1)
+                            Column(horizontalAlignment = Alignment.End) {
+                                val boysPct = Math.round(boys.toDouble() / total * 100).toInt()
+                                val girlsPct = Math.round(girls.toDouble() / total * 100).toInt()
+                                Text(
+                                    "Garçons : $boys ($boysPct%)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                                Text(
+                                    "Filles : $girls ($girlsPct%)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                                if (roster.size > boys + girls) {
+                                    val uns = roster.size - boys - girls
+                                    Text("Non spécifié : $uns", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
                     }
                 }
             }

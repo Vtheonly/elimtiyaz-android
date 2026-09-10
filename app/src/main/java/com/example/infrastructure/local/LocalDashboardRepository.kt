@@ -10,9 +10,15 @@ import com.example.core.formatDzd
 import com.example.core.LedgerEngine
 import com.example.core.StatsPayment
 import com.example.core.StatsInstallment
+import com.example.core.StatsDateRange
+import com.example.core.StatsStudentRow
+import com.example.core.StatsClassRow
+import com.example.core.StatsTrancheRow
+import com.example.core.RevenuePointInput
 import com.example.core.derivePaymentStats
 import com.example.core.deriveAmountHistogram
 import com.example.core.deriveCategoryMix
+import com.example.core.deriveMethodMix
 import com.example.core.deriveDebtAging
 import com.example.core.deriveRecoveryFunnel
 import com.example.core.deriveAgingComposition
@@ -21,6 +27,12 @@ import com.example.core.attendanceRatePct
 import com.example.core.mathRound
 import com.example.core.MONTH_LABELS_FR
 import com.example.core.installmentRemaining
+import com.example.core.deriveWeeklyRhythm
+import com.example.core.deriveCollectionHeatmap
+import com.example.core.deriveRevenueTrend
+import com.example.core.deriveYearOverYear
+import com.example.core.deriveTrancheWaves
+import com.example.core.deriveDemographics
 import com.example.domain.model.AcademicClass
 import com.example.domain.model.AmountBinItem
 import com.example.domain.model.AppNotification
@@ -29,15 +41,26 @@ import com.example.domain.model.AttendanceRecord
 import com.example.domain.model.AuditLog
 import com.example.domain.model.CategoryRevenueItem
 import com.example.domain.model.ClassRollCallStatus
+import com.example.domain.model.ClassDemographicsSnapshot
+import com.example.domain.model.CollectionHeatmapSnapshot
 import com.example.domain.model.DashboardKpi
 import com.example.domain.model.DashboardOperationalAlert
 import com.example.domain.model.DebtAgingBucketItem
 import com.example.domain.model.DebtSummary
+import com.example.domain.model.DemographicSliceItem
 import com.example.domain.model.Department
 import com.example.domain.model.Expense
 import com.example.domain.model.GradeLevelTuition
+import com.example.domain.model.HeatmapCellItem
+import com.example.domain.model.HeatmapRowItem
 import com.example.domain.model.Homework
 import com.example.domain.model.Installment
+import com.example.domain.model.MethodMixItem
+import com.example.domain.model.RevenueTrendPointItem
+import com.example.domain.model.TrancheWaveItem
+import com.example.domain.model.WeeklyRhythmItem
+import com.example.domain.model.YoYPointItem
+import com.example.domain.model.YoYSnapshot
 import com.example.domain.model.Parent
 import com.example.domain.model.Payment
 import com.example.domain.model.PaymentMethodSummary
@@ -198,12 +221,23 @@ class LocalDashboardRepository @Inject constructor(
         // ── PARITY-002 (T-284): every derived statistic comes from
         // core/StatisticsEngine (the desktop analytics-derivations mirror).
         // NO inline math, NO hard-coded fallbacks — honest empty states.
-        val paidSlice = g1.payments
-            .filter { it.status == "paid" }
-            .map { StatsPayment(it.id, it.amount, it.method, it.status, it.category, it.collectedAt) }
+        // PARITY-003 (T-290): the full payments stream feeds the weekly
+        // rhythm (counter-activity convention — only "refunded" excluded);
+        // the paid slice feeds every encaissé statistic.
+        val allPaymentRows = g1.payments.map {
+            StatsPayment(it.id, it.amount, it.method, it.status, it.category, it.collectedAt)
+        }
+        val paidSlice = allPaymentRows.filter { it.status == "paid" }
         val stats = derivePaymentStats(paidSlice)
         val totalRevenue = stats.total
         val totalOps = stats.count
+
+        // The repository's own 12-month window (the same window
+        // observeRevenueLast12Months buckets — ONE window for the trend,
+        // the heatmap, the weekly rhythm, and the YoY alignment).
+        val nowDate = LocalDate.now(ZoneOffset.UTC)
+        val windowFrom = nowDate.minusMonths(11).withDayOfMonth(1)
+        val analyticsWindow = StatsDateRange(windowFrom.toString(), nowDate.toString())
 
         // Amount bins + category mix — engine-derived (all 11 categories,
         // Math.round'd shares, desc-by-amount order).
@@ -265,6 +299,85 @@ class LocalDashboardRepository @Inject constructor(
         }
         val collectionRate = collectionRatePct(totalRevenue, totalOutstanding)
 
+        // ── PARITY-003 (T-290) — the visual-parity derivations (all engine):
+
+        // Method mix — the donut card (deriveMethodMix; the fixed-3-method
+        // parallel derivation is RETIRED — one engine path for every surface).
+        val methodMixItems = deriveMethodMix(paidSlice).map {
+            MethodMixItem(it.key, it.label, it.amount, it.count, it.percent)
+        }
+
+        // Weekly operating rhythm (counter-activity: only refunded excluded).
+        val weeklyRhythmItems = deriveWeeklyRhythm(allPaymentRows, analyticsWindow).map {
+            WeeklyRhythmItem(it.day, it.cash, it.check, it.transfer)
+        }
+
+        // Collection heatmap over the SAME paid slice + window.
+        val heatmap = deriveCollectionHeatmap(paidSlice, analyticsWindow)
+        val heatmapSnapshot = CollectionHeatmapSnapshot(
+            monthLabels = heatmap.monthLabels,
+            monthKeys = heatmap.monthKeys,
+            rows = heatmap.rows.map { r ->
+                HeatmapRowItem(
+                    day = r.day,
+                    cells = r.cells.map { c -> HeatmapCellItem(c.amount, c.count, c.level) },
+                    rowTotal = r.rowTotal,
+                )
+            },
+            max = heatmap.max,
+            monthTotals = heatmap.monthTotals,
+        )
+
+        // The 12-month series + the previous-year series (month buckets of
+        // the same paid stream — the previous year is derived from REAL rows
+        // only; when the local store holds no previous-year payments every
+        // delta is the honest null "n/a", never a fabricated −100%).
+        fun monthSeries(shiftMonths: Long): List<RevenuePointInput> =
+            (11 downTo 0).map { back ->
+                val target = nowDate.minusMonths(back.toLong() + shiftMonths)
+                val monthStart = OffsetDateTime.of(target.year, target.monthValue, 1, 0, 0, 0, 0, ZoneOffset.UTC).toInstant().toString()
+                val nextMonthStart = OffsetDateTime.of(target.year, target.monthValue, 1, 0, 0, 0, 0, ZoneOffset.UTC).plusMonths(1).toInstant().toString()
+                val sum = paidSlice.filter { it.collectedAt >= monthStart && it.collectedAt < nextMonthStart }.sumOf { it.amount }
+                RevenuePointInput(MONTH_LABELS_FR[target.monthValue - 1], sum)
+            }
+        val currentSeries = monthSeries(shiftMonths = 0L)
+        val previousSeries = monthSeries(shiftMonths = 12L)
+        val yoy = deriveYearOverYear(currentSeries, previousSeries)
+        val yoySnapshot = YoYSnapshot(
+            points = yoy.points.map { YoYPointItem(it.label, it.current, it.previous, it.deltaPercent) },
+            totalCurrent = yoy.totalCurrent,
+            totalPrevious = yoy.totalPrevious,
+            deltaPercent = yoy.deltaPercent,
+        )
+
+        // Revenue trend explorer (cumulative + 3-month MA over the same series).
+        val revenueTrendItems = deriveRevenueTrend(currentSeries).map {
+            RevenueTrendPointItem(it.label, it.amount, it.cumulative, it.movingAvg3)
+        }
+
+        // Tranche wave progress (T1/T2/T3 collection health — ALL installments).
+        val trancheRows = g2.installments.map {
+            StatsTrancheRow(it.label, it.amountDue, it.amountPaid, it.amountPending)
+        }
+        val trancheWaveItems = deriveTrancheWaves(trancheRows).map {
+            TrancheWaveItem(it.index, it.label, it.hint, it.due, it.paid, it.pending, it.pct, it.isNextTarget)
+        }
+
+        // Class demographics & capacity (desktop demographics() — ALL classes
+        // (no is_active filter on the desktop path), ordered by name).
+        val demographicsStats = deriveDemographics(
+            students = activeStudents.map { StatsStudentRow(it.gender, it.birthDate, it.classId) },
+            classes = g2.classes.sortedBy { it.name }.map {
+                StatsClassRow(it.id, it.name, it.gradeLevel.takeIf { c -> c.isNotBlank() }, it.capacity)
+            },
+        )
+        val demographicsSnapshot = ClassDemographicsSnapshot(
+            grade = demographicsStats.grade.map { DemographicSliceItem(it.label, it.count, it.percent) },
+            gender = demographicsStats.gender.map { DemographicSliceItem(it.label, it.count, it.percent) },
+            age = demographicsStats.age.map { DemographicSliceItem(it.label, it.count, it.percent) },
+            capacity = demographicsStats.capacity.map { DemographicSliceItem(it.label, it.count, it.percent) },
+        )
+
         val todayAttendance = g2.attendance.filter { it.date == todayIso }
         val todayPresent = todayAttendance.count { it.status == "present" || it.status == "late" }
         val todayAbsent = todayAttendance.count { it.status == "absent_unexcused" || it.status == "absent_excused" }
@@ -307,6 +420,16 @@ class LocalDashboardRepository @Inject constructor(
             recoveryFunnel = funnelStages.map { RecoveryFunnelStageItem(it.name, it.count, it.sharePct) },
             amountBins = amountBins,
             categoryBreakdown = categoryBreakdown,
+            // PARITY-003 (T-290)
+            paymentStatsMin = stats.min,
+            paymentStatsMax = stats.max,
+            methodMix = methodMixItems,
+            weeklyRhythm = weeklyRhythmItems,
+            collectionHeatmap = heatmapSnapshot,
+            revenueTrend = revenueTrendItems,
+            yoy = yoySnapshot,
+            trancheWaves = trancheWaveItems,
+            demographics = demographicsSnapshot,
         )
     }
 
@@ -326,24 +449,20 @@ class LocalDashboardRepository @Inject constructor(
 
     override fun observePaymentMethodsSummary(): Flow<List<PaymentMethodSummary>> =
         db.paymentDao().observeAll().map { payments ->
-            val paidPayments = payments.filter { it.status == "paid" }
-            val totalSum = paidPayments.sumOf { it.amount }.toDouble()
-            val methods = listOf(
-                "cash" to "Espèces",
-                "check" to "Chèques",
-                "transfer" to "Virements",
-            )
-            methods.map { (code, label) ->
-                val matching = paidPayments.filter { it.method.lowercase() == code }
-                val amount = matching.sumOf { it.amount }
-                val count = matching.size
-                val percentage = if (totalSum > 0.0) (amount.toDouble() / totalSum * 100.0) else 0.0
+            // PARITY-003 (T-290): the fixed-3-method custom derivation is
+            // RETIRED — deriveMethodMix (the desktop analytics-derivations
+            // mirror) is the ONE path. percent is the engine's Math.round'd
+            // Int (PARITY-001), surfaced as Double for the legacy contract.
+            val paidSlice = payments
+                .filter { it.status == "paid" }
+                .map { StatsPayment(it.id, it.amount, it.method, it.status, it.category, it.collectedAt) }
+            deriveMethodMix(paidSlice).map { mix ->
                 PaymentMethodSummary(
-                    method = code,
-                    label = label,
-                    count = count,
-                    totalAmount = amount,
-                    percentage = percentage,
+                    method = mix.key,
+                    label = mix.label,
+                    count = mix.count,
+                    totalAmount = mix.amount,
+                    percentage = mix.percent.toDouble(),
                 )
             }
         }

@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
+import com.example.domain.model.CategoryRevenueItem
 import com.example.domain.model.DashboardKpi
 import com.example.ui.components.ModernSecondaryTabRow
 import com.example.ui.designsystem.components.button.ElIconButton
@@ -39,6 +40,18 @@ import com.example.ui.designsystem.components.feedback.ElLoadingBlock
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.designsystem.theme.ElTheme
+import com.example.ui.features.dashboard.analytics.AnalyticsSlicersBar
+import com.example.ui.features.dashboard.analytics.AnalyticsStatStrip
+import com.example.ui.features.dashboard.analytics.AmountHistogramCard
+import com.example.ui.features.dashboard.analytics.AgingCompositionCard
+import com.example.ui.features.dashboard.analytics.CollectionHeatmapCard
+import com.example.ui.features.dashboard.analytics.CategoryMixCard
+import com.example.ui.features.dashboard.analytics.DebtorsParetoCard
+import com.example.ui.features.dashboard.analytics.DemographicsCard
+import com.example.ui.features.dashboard.analytics.MethodMixCard
+import com.example.ui.features.dashboard.analytics.RevenueTrendExplorerCard
+import com.example.ui.features.dashboard.analytics.WeeklyOperatingRhythmCard
+import com.example.ui.features.dashboard.analytics.YoYComparisonCard
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -72,6 +85,8 @@ fun DashboardHubScreen(
     val notifications by viewModel.notifications.collectAsState()
     val recentPayments by viewModel.recentPayments.collectAsState()
     val attendanceTrend by viewModel.attendanceTrend.collectAsState()
+    val analyticsFilters by viewModel.analyticsFilters.collectAsState()
+    val analyticsSlice by viewModel.analyticsSlice.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
@@ -178,6 +193,10 @@ fun DashboardHubScreen(
                     paymentMethods = paymentMethods,
                 )
 
+                // 3b. PARITY-003 — the Algerian school-week operating rhythm
+                // (desktop weekly-operating-rhythm.tsx twin; Overview parity).
+                WeeklyOperatingRhythmCard(weeklyRhythm = currentKpi.weeklyRhythm)
+
                 // 4. Attendance & Life Overview (Status only, without pushy buttons)
                 DashboardAttendanceChart(
                     classStatuses = classRollCallStatuses,
@@ -215,20 +234,65 @@ fun DashboardHubScreen(
                 )
             } else {
                 // ════════════════════════════════════════════════════════════
-                // ANALYTIQUE — Dedicated Recovery, Debt Funnel & Pareto
+                // ANALYTIQUE — PARITY-003: the desktop Analytics-tab twin
+                // (slicers → stat strip → trend explorer + mix cards →
+                // YoY + histogram → heatmap + aging composition → Pareto
+                // + funnel + demographics; every value from the engine).
                 // ════════════════════════════════════════════════════════════
-                DashboardRevenueChart(
-                    currentKpi = currentKpi,
-                    revenue = revenue,
-                    paymentMethods = paymentMethods,
+
+                // Row 0 — the cross-filtering slicer bar
+                AnalyticsSlicersBar(
+                    methodFilters = analyticsFilters.methods,
+                    categoryFilters = analyticsFilters.categories,
+                    presentCategories = analyticsSlice.presentCategories,
+                    sliceCount = analyticsSlice.sliceCount,
+                    sliceTotalDzd = analyticsSlice.sliceTotalCentimes / 100,
+                    onToggleMethod = viewModel::toggleAnalyticsMethod,
+                    onToggleCategory = viewModel::toggleAnalyticsCategory,
+                    onReset = viewModel::resetAnalyticsFilters,
                 )
 
+                // Row 1 — the 6-card statistics strip (over the filtered slice)
+                AnalyticsStatStrip(
+                    count = analyticsSlice.stats.count,
+                    totalCentimes = analyticsSlice.stats.total,
+                    meanCentimes = analyticsSlice.stats.mean,
+                    medianCentimes = analyticsSlice.stats.median,
+                    stdDevCentimes = analyticsSlice.stats.stdDev,
+                    bestMonthLabel = analyticsSlice.stats.bestMonth?.label,
+                    bestMonthAmount = analyticsSlice.stats.bestMonth?.amount ?: 0L,
+                )
+
+                // Row 2 — the revenue trend explorer (cumulative + MM3 + the
+                // dashed filtered overlay when slicers are active)
+                RevenueTrendExplorerCard(
+                    trend = currentKpi.revenueTrend,
+                    filteredMonthly = analyticsSlice.filteredMonthly,
+                )
+
+                // Row 2b — the method donut + the category ranked bars
+                MethodMixCard(methodMix = currentKpi.methodMix)
+                CategoryMixCard(categoryBreakdown = currentKpi.categoryBreakdown)
+
+                // Row 3 — YoY + the amount histogram
+                YoYComparisonCard(yoy = currentKpi.yoy)
+                AmountHistogramCard(bins = currentKpi.amountBins, totalOps = currentKpi.totalOperationsCount)
+
+                // Row 4 — the collection heatmap + the aging composition
+                CollectionHeatmapCard(heatmap = currentKpi.collectionHeatmap)
+                AgingCompositionCard(debtByAging = currentKpi.debtByAging)
+
+                // Row 5 — funnel + debt donut + Pareto (the PARITY-002
+                // surface — the same engine values, kept intact)
                 DashboardCollectionAndDebtRow(
                     currentKpi = currentKpi,
                     debtAging = debtAging,
                     onNavigateToParent = onNavigateToParent,
                     onNavigateToDebtDashboard = onNavigateToDebtDashboard,
                 )
+
+                // Row 6 — class demographics & capacity gauges
+                DemographicsCard(demographics = currentKpi.demographics)
             }
 
             Spacer(Modifier.height(16.dp))

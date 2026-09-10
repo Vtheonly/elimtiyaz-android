@@ -27,6 +27,11 @@ import java.time.ZoneOffset
  * single Android implementation; the dashboard, debt, and PDF surfaces all
  * consume it (§15.16 — nothing synthesized, honest empty states).
  *
+ * PARITY-003 (45th session, 2026-09-11): the visual-parity extension —
+ * deriveWeeklyRhythm, deriveCollectionHeatmap, deriveYearOverYear (+ range/
+ * slicer helpers), deriveTrancheWaves, deriveDemographics (the 5 families
+ * the 13-chart inventory required). Same mirror discipline.
+ *
  * UNITS: all monetary values are CENTIMES (Long) — the Android engine's
  * native representation. The desktop derivation layer works in integer DZD;
  * the equivalence corpus converts at the boundaries (×100 / ÷100). Every
@@ -521,3 +526,562 @@ fun attendanceRatePct(records: List<String>): Int? {
     val presentish = records.count { it == "present" || it == "late" }
     return mathRound(presentish.toDouble() / records.size * 100).toInt()
 }
+
+// ============================================================================
+// PARITY-003 (45th session, 2026-09-11) — the visual-parity derivations.
+//
+// MIRRORED FROM (ADR-002 — ported verbatim, divergent hand-copies forbidden):
+//   `elimtiyaz-desktop/src/features/dashboard/components/weekly-operating-rhythm.tsx`
+//   (deriveWeeklyRhythm)
+//   `elimtiyaz-desktop/src/features/dashboard/components/analytics/analytics-derivations.ts`
+//   (inRange, applyAnalyticsFilters, presentCategories, deriveFilteredMonthly,
+//    deriveCollectionHeatmap, deriveYearOverYear, shiftIsoYearBack,
+//    previousAcademicYear)
+//   `elimtiyaz-desktop/src/features/financials/installment-schedule-tab.tsx`
+//   (trancheNumberOf, deriveTrancheWaves) + `domain/calc/payment/sums.ts` +
+//   `domain/calc/payment/queries.ts` (totalOutstanding)
+//   `elimtiyaz-desktop/src/infrastructure/supabase/repositories/supabase-dashboard-repository.ts`
+//   (demographics — grade/gender/age/capacity)
+//   `elimtiyaz-desktop/src/domain/model/student.ts` (GRADE_LEVEL_LABELS_FR)
+//
+// Same units + rounding discipline as the rest of this file: centimes,
+// mathRound (dimensionless) / dzRound (money-valued), NEVER integer division.
+// ============================================================================
+
+/** An inclusive [from, to] ISO yyyy-mm-dd date range (desktop DateRange). */
+data class StatsDateRange(val from: String, val to: String)
+
+/**
+ * Is the payment inside [range.from 00:00, range.to 23:59:59] (UTC)?
+ * (desktop analytics-derivations.ts inRange — verbatim).
+ */
+fun inRange(p: StatsPayment, range: StatsDateRange?): Boolean {
+    if (range == null) return true
+    val from = parseIsoMs(range.from.take(10).let { if (it.length == 10) "${it}T00:00:00Z" else it }) ?: return false
+    val to = parseIsoMs("${range.to.take(10)}T23:59:59Z") ?: parseIsoMs(range.to) ?: return false
+    val t = parseIsoMs(p.collectedAt) ?: return false
+    if (t < from) return false
+    if (t > to) return false
+    return true
+}
+
+/**
+ * Shift an ISO yyyy-mm-dd back one calendar year (leap-day safe: Feb 29 →
+ * Feb 28). Desktop shiftIsoYearBack — verbatim.
+ */
+fun shiftIsoYearBack(iso: String): String {
+    val m = Regex("^(\\d{4})-(\\d{2})-(\\d{2})").find(iso) ?: return iso
+    val (year, month, day) = m.destructured
+    val safeDay = if (month == "02" && day == "29") "28" else day
+    return "${year.toInt() - 1}-$month-$safeDay"
+}
+
+/** "2025-2026" → "2024-2025" (null when the pattern doesn't match). */
+fun previousAcademicYear(code: String): String? {
+    val m = Regex("^(\\d{4})-(\\d{4})$").find(code) ?: return null
+    val (a, b) = m.destructured
+    return "${a.toInt() - 1}-${b.toInt() - 1}"
+}
+
+// ============================================================================
+// Slicer filtering (the cross-filtering engine — desktop Power BI semantics)
+// ============================================================================
+
+/**
+ * The canonical analytics slice: PAID payments, inside the range, matching
+ * the slicer selections. Empty sets = ALL methods/categories included.
+ * (desktop applyAnalyticsFilters — verbatim semantics.)
+ */
+fun applyAnalyticsFilters(
+    payments: List<StatsPayment>,
+    range: StatsDateRange?,
+    methods: Set<String>,
+    categories: Set<String>,
+): List<StatsPayment> = payments.filter { p ->
+    if (p.status != "paid") return@filter false
+    if (!inRange(p, range)) return@filter false
+    if (methods.isNotEmpty() && p.method !in methods) return@filter false
+    if (categories.isNotEmpty() && p.category !in categories) return@filter false
+    true
+}
+
+/**
+ * Categories actually present in the unfiltered paid slice (slicer chips),
+ * sorted by FR label (desktop localeCompare("fr") ≈ accent-folded,
+ * case-insensitive comparison — deterministic in Kotlin).
+ */
+fun presentCategories(payments: List<StatsPayment>, range: StatsDateRange?): List<String> {
+    val set = applyAnalyticsFilters(payments, range, emptySet(), emptySet())
+        .mapTo(mutableSetOf()) { it.category }
+    return set.sortedWith(compareBy { frenchLabelCollationKey(paymentCategoryLabelFr(it)) })
+}
+
+/** Accent-folded lowercase comparator key (the Kotlin stand-in for localeCompare("fr")). */
+internal fun frenchLabelCollationKey(label: String): String = label
+    .lowercase()
+    .replace("é", "e").replace("è", "e").replace("ê", "e").replace("ë", "e")
+    .replace("à", "a").replace("â", "a")
+    .replace("î", "i").replace("ï", "i")
+    .replace("ô", "o")
+    .replace("ù", "u").replace("û", "u")
+    .replace("ç", "c")
+
+// ============================================================================
+// T-243 — weekly operating rhythm (the Algerian school week, stacked by method)
+// ============================================================================
+
+/** The Algerian school week — Dimanche à Jeudi (desktop SCHOOL_WEEK — verbatim). */
+val SCHOOL_WEEK_ROWS: List<Pair<String, Int>> = listOf(
+    "Dim" to 0, "Lun" to 1, "Mar" to 2, "Mer" to 3, "Jeu" to 4,
+)
+
+/** The canonical stacked-method series (desktop METHODS order). */
+val WEEKLY_METHODS: List<String> = listOf("cash", "check", "transfer")
+
+/** Payment-method FR labels (desktop PAYMENT_METHOD_LABELS_FR — verbatim). */
+fun paymentMethodLabelFr(method: String): String = when (method) {
+    "cash" -> "Espèces"
+    "check" -> "Chèque"
+    "transfer" -> "Virement"
+    else -> method
+}
+
+data class WeeklyRhythmDatum(
+    val day: String,          // "Dim" | "Lun" | "Mar" | "Mer" | "Jeu"
+    val cash: Long,           // centimes
+    val check: Long,
+    val transfer: Long,
+) {
+    val total: Long get() = cash + check + transfer
+}
+
+/**
+ * Derive the weekday × method collection matrix from REAL payments.
+ * (desktop deriveWeeklyRhythm — verbatim, including its CONVENTION:)
+ * counter-activity view — a payment is counted when recorded at the
+ * counter; ONLY `status === "refunded"` is excluded (pending/partial ARE
+ * counted — deliberately different from the paid-only encaissé slice of
+ * the Analytics tab; the two views answer different questions).
+ * Friday/Saturday fall outside the Algerian school week and are dropped.
+ */
+fun deriveWeeklyRhythm(
+    payments: List<StatsPayment>,
+    range: StatsDateRange?,
+): List<WeeklyRhythmDatum> {
+    val fromTs = range?.let { parseIsoMs("${it.from.take(10)}T00:00:00Z") }
+    val toTs = range?.let { parseIsoMs("${it.to.take(10)}T23:59:59Z") }
+    val cells = Array(5) { LongArray(3) } // [dayIdx][methodIdx]
+    for (p in payments) {
+        if (p.status == "refunded") continue
+        val ts = parseIsoMs(p.collectedAt) ?: continue
+        if (fromTs != null && ts < fromTs) continue
+        if (toTs != null && ts > toTs) continue
+        // JS getUTCDay(): 0=Sunday…6=Saturday
+        val jsDay = Instant.ofEpochMilli(ts).atZone(ZoneOffset.UTC).dayOfWeek.let { it.value % 7 }
+        val dayIdx = SCHOOL_WEEK_ROWS.indexOfFirst { it.second == jsDay }
+        if (dayIdx == -1) continue // Fri/Sat — outside the school week
+        val methodIdx = WEEKLY_METHODS.indexOf(p.method)
+        if (methodIdx == -1) continue // non-canonical method — no stack slot (desktop adds only named keys)
+        cells[dayIdx][methodIdx] += p.amount
+    }
+    return SCHOOL_WEEK_ROWS.mapIndexed { i, (day, _) ->
+        WeeklyRhythmDatum(day = day, cash = cells[i][0], check = cells[i][1], transfer = cells[i][2])
+    }
+}
+
+// ============================================================================
+// T-256 — collection heatmap (weekday × calendar-month matrix)
+// ============================================================================
+
+data class HeatmapCellStat(
+    val amount: Long,   // centimes
+    val count: Int,
+    /** 0–4 intensity level (0 = empty). Quantized against the matrix max. */
+    val level: Int,
+)
+
+data class HeatmapRowStat(
+    val day: String,                    // "Dim"… "Jeu"
+    val cells: List<HeatmapCellStat>,   // parallel to monthLabels
+    val rowTotal: Long,
+)
+
+data class CollectionHeatmapStat(
+    /** Month columns in range order ("Sep", "Oct", …). */
+    val monthLabels: List<String>,
+    /** Parallel year-month keys ("2025-09") for honest tooltips. */
+    val monthKeys: List<String>,
+    val rows: List<HeatmapRowStat>,
+    val max: Long,
+    val monthTotals: List<Long>,
+)
+
+/**
+ * The Power BI matrix heatmap: encaissé per (school-weekday × calendar
+ * month) over the range. Rows follow the Algerian school week (Dim→Jeu);
+ * Friday/Saturday collections are excluded. Cell level quantizes the
+ * amount against the matrix max in 5 steps.
+ * (desktop deriveCollectionHeatmap — verbatim.)
+ */
+fun deriveCollectionHeatmap(
+    slice: List<StatsPayment>,
+    range: StatsDateRange?,
+): CollectionHeatmapStat {
+    // Month columns: cursor over the range (Sep 2025 → Jun 2026 …).
+    val monthLabels = mutableListOf<String>()
+    val monthKeys = mutableListOf<String>()
+    val monthIndexByKey = HashMap<String, Int>()
+    if (range != null) {
+        val from = parseIsoMs("${range.from.take(10)}T00:00:00Z")
+        val to = parseIsoMs("${range.to.take(10)}T23:59:59Z") ?: parseIsoMs(range.to)
+        if (from != null && to != null && to > from) {
+            var cursor = Instant.ofEpochMilli(from).atZone(ZoneOffset.UTC).toLocalDate().withDayOfMonth(1)
+            var guard = 0
+            while (guard < 24 && !cursor.atStartOfDay(ZoneOffset.UTC).toInstant()
+                .isAfter(Instant.ofEpochMilli(to))
+            ) {
+                val key = "${cursor.year}-${"%02d".format(cursor.monthValue)}"
+                monthIndexByKey[key] = monthLabels.size
+                monthLabels.add(MONTH_LABELS_FR[cursor.monthValue - 1])
+                monthKeys.add(key)
+                cursor = cursor.plusMonths(1)
+                guard++
+            }
+        }
+    }
+
+    val nCols = monthLabels.size
+    val cells = Array(5) { Array(nCols) { longArrayOf(0L, 0) } } // [amount, count]
+    val monthTotals = LongArray(nCols)
+    var max = 0L
+
+    for (p in slice) {
+        val t = parseIsoMs(p.collectedAt) ?: continue
+        val d = Instant.ofEpochMilli(t).atZone(ZoneOffset.UTC)
+        val jsDay = d.dayOfWeek.value % 7
+        val dayIdx = SCHOOL_WEEK_ROWS.indexOfFirst { it.second == jsDay }
+        if (dayIdx == -1) continue
+        val key = "${d.year}-${"%02d".format(d.monthValue)}"
+        val col = monthIndexByKey[key] ?: continue
+        cells[dayIdx][col][0] += p.amount
+        cells[dayIdx][col][1] += 1
+        monthTotals[col] += p.amount
+        if (cells[dayIdx][col][0] > max) max = cells[dayIdx][col][0]
+    }
+
+    val rows = SCHOOL_WEEK_ROWS.mapIndexed { i, (day, _) ->
+        HeatmapRowStat(
+            day = day,
+            cells = cells[i].map { c ->
+                HeatmapCellStat(
+                    amount = c[0],
+                    count = c[1].toInt(),
+                    level = if (max > 0 && c[0] > 0) maxOf(1, kotlin.math.ceil(c[0].toDouble() / max * 4).toInt()) else 0,
+                )
+            },
+            rowTotal = cells[i].sumOf { it[0] },
+        )
+    }
+    return CollectionHeatmapStat(monthLabels, monthKeys, rows, max, monthTotals.toList())
+}
+
+// ============================================================================
+// T-255 — filtered monthly overlay (the slicers' visible effect on the trend)
+// ============================================================================
+
+/**
+ * Monthly encaissé derived from the FILTERED payments slice, aligned to the
+ * repository series' month labels (by calendar-month index — academic-year
+ * ranges never repeat a calendar month). (desktop deriveFilteredMonthly.)
+ */
+fun deriveFilteredMonthly(
+    slice: List<StatsPayment>,
+    monthLabels: List<String>,
+): List<Long> {
+    val positionByMonthIndex = HashMap<Int, Int>()
+    monthLabels.forEachIndexed { i, label ->
+        val idx = MONTH_INDEX_BY_LABEL[label]
+        if (idx != null) positionByMonthIndex[idx] = i
+    }
+    val out = LongArray(monthLabels.size)
+    for (p in slice) {
+        val t = parseIsoMs(p.collectedAt) ?: continue
+        val monthIndex = Instant.ofEpochMilli(t).atZone(ZoneOffset.UTC).monthValue - 1
+        val pos = positionByMonthIndex[monthIndex] ?: continue
+        out[pos] += p.amount
+    }
+    return out.toList()
+}
+
+// ============================================================================
+// T-257 — year-over-year comparison (like-for-like months)
+// ============================================================================
+
+data class YoYPoint(
+    val label: String,
+    val current: Long,      // centimes
+    val previous: Long,
+    val deltaPercent: Int?, // null when previous == 0 (never a −100% trend)
+)
+
+data class YoYSummary(
+    val points: List<YoYPoint>,
+    val totalCurrent: Long,
+    val totalPrevious: Long,
+    val deltaPercent: Int?,
+)
+
+/**
+ * Align the current-year monthly series with the PREVIOUS year's series by
+ * month label. Delta is null where the previous amount is 0 (a divide-by-
+ * zero is not a −100% trend — §15.16 honesty). (desktop deriveYearOverYear.)
+ */
+fun deriveYearOverYear(
+    current: List<RevenuePointInput>,
+    previous: List<RevenuePointInput>,
+): YoYSummary {
+    val prevByLabel = previous.associate { it.label to it.amount }
+    val points = current.map { c ->
+        val prev = prevByLabel[c.label] ?: 0L
+        YoYPoint(
+            label = c.label,
+            current = c.amount,
+            previous = prev,
+            deltaPercent = if (prev > 0) mathRound((c.amount - prev).toDouble() / prev * 100).toInt() else null,
+        )
+    }
+    val totalCurrent = points.sumOf { it.current }
+    val totalPrevious = points.sumOf { it.previous }
+    return YoYSummary(
+        points = points,
+        totalCurrent = totalCurrent,
+        totalPrevious = totalPrevious,
+        deltaPercent = if (totalPrevious > 0) {
+            mathRound((totalCurrent - totalPrevious).toDouble() / totalPrevious * 100).toInt()
+        } else null,
+    )
+}
+
+// ============================================================================
+// T-248 — tranche wave progress (T1 / T2 / T3 collection health)
+// ============================================================================
+
+/**
+ * The minimal installment projection for the tranche waves (desktop
+ * Installment fields used by deriveTrancheWaves: label + the three sums).
+ */
+data class StatsTrancheRow(
+    val label: String,          // "Tranche 1", "Tranche 2 (Jan–Mar)", "Année complète", …
+    val amountDue: Long,        // centimes
+    val amountPaid: Long,       // Σ allocated (includes uncleared checks)
+    val amountPending: Long,    // uncleared non-cash funds on the tranche
+)
+
+/**
+ * T-248 — canonical tranche-number matcher (labels: "Tranche 1",
+ * "Tranche 2 (Jan–Mar)", … — never a bare substring match, which would
+ * also catch "Tranche 10" or "Année complète 1"). Returns 1/2/3 or null.
+ * (desktop trancheNumberOf — verbatim.)
+ */
+fun trancheNumberOf(label: String): Int? {
+    val m = Regex("^\\s*Tranche\\s*([1-3])\\b", RegexOption.IGNORE_CASE).find(label) ?: return null
+    return m.groupValues[1].toInt()
+}
+
+data class TrancheWave(
+    val index: Int,             // 1 | 2 | 3
+    val label: String,          // "Tranche 1 (Septembre)" …
+    val hint: String,           // due-window hint (display-only)
+    val due: Long,              // Σ amountDue (centimes)
+    val paid: Long,             // Σ amountPaid (includes uncleared checks)
+    val pending: Long,          // Σ amountPending
+    val pct: Int,               // min(100, Math.round(paid/due×100))
+    val isNextTarget: Boolean,  // first wave with remaining > 0
+)
+
+/** Canonical remaining per INV-4 over a wave's rows (desktop totalOutstanding). */
+private fun waveOutstanding(rows: List<StatsTrancheRow>): Long =
+    (rows.sumOf { it.amountDue } - rows.sumOf { it.amountPaid } - rows.sumOf { it.amountPending })
+        .coerceAtLeast(0L)
+
+/**
+ * T-248 — derive the T1/T2/T3 collection waves from REAL rows (desktop
+ * deriveTrancheWaves — verbatim): per wave due (Σ amountDue), paid (Σ
+ * amountPaid — INCLUDES uncleared checks, the display convention), pending
+ * (Σ amountPending), pct = min(100, Math.round(paid/due×100));
+ * isNextTarget marks the first wave with a canonical remaining balance.
+ */
+fun deriveTrancheWaves(rows: List<StatsTrancheRow>): List<TrancheWave> {
+    val groups = HashMap<Int, MutableList<StatsTrancheRow>>()
+    for (r in rows) {
+        val n = trancheNumberOf(r.label) ?: continue
+        groups.getOrPut(n) { mutableListOf() }.add(r)
+    }
+    val firstWithRemaining = groups.entries
+        .filter { waveOutstanding(it.value) > 0L }
+        .map { it.key }
+        .sorted()
+        .firstOrNull()
+    val meta = listOf(
+        Triple(1, "Tranche 1 (Septembre)", "échéance 15 sep — à l'inscription"),
+        Triple(2, "Tranche 2 (Décembre)", "échéance 15 déc"),
+        Triple(3, "Tranche 3 (Mars)", "échéance 15 mars"),
+    )
+    return meta.map { (index, label, hint) ->
+        val list = groups[index] ?: emptyList()
+        val due = list.sumOf { it.amountDue }
+        val paid = list.sumOf { it.amountPaid }
+        val pending = list.sumOf { it.amountPending }
+        val pct = if (due > 0) minOf(100, mathRound(paid.toDouble() / due * 100).toInt()) else 0
+        TrancheWave(
+            index = index, label = label, hint = hint,
+            due = due, paid = paid, pending = pending,
+            pct = pct, isNextTarget = index == firstWithRemaining,
+        )
+    }
+}
+
+// ============================================================================
+// Class demographics & capacity (desktop SupabaseDashboardRepository.demographics)
+// ============================================================================
+
+/** The canonical grade-level FR labels (desktop GRADE_LEVEL_LABELS_FR — verbatim). */
+val GRADE_LEVEL_LABELS_FR: Map<String, String> = mapOf(
+    "prescolaire_1" to "Préscolaire 01",
+    "prescolaire_2" to "Préscolaire 02",
+    "1ap" to "1AP",
+    "2ap" to "2AP",
+    "3ap" to "3AP",
+    "4ap" to "4AP",
+    "5ap" to "5AP",
+    "1am" to "1AM",
+    "2am" to "2AM",
+    "3am" to "3AM",
+    "4am" to "4AM",
+    "1ere_annee" to "1ère Année",
+    "2eme_annee" to "2ème Année",
+    "3eme_annee" to "3ème Année",
+)
+
+/** The minimal student projection demographics consume (desktop students row). */
+data class StatsStudentRow(
+    val gender: String,        // "male" | "female" | other → Non spécifié
+    val birthDate: String?,    // ISO date (nullable — skipped when null)
+    val classId: String?,      // null → "Non assigné" grade
+)
+
+/** The minimal class projection demographics consume (desktop classes row). */
+data class StatsClassRow(
+    val id: String,
+    val name: String,
+    val gradeCode: String?,    // canonical code when present, else name fallback
+    val capacity: Int?,        // null or ≤0 → default 30 (desktop convention)
+)
+
+data class DemographicSlice(
+    val label: String,
+    val count: Int,
+    val percent: Int,          // Math.round(count/total × 100)
+)
+
+data class DemographicsStats(
+    val grade: List<DemographicSlice>,
+    val gender: List<DemographicSlice>,
+    val age: List<DemographicSlice>,
+    val capacity: List<DemographicSlice>,
+)
+
+/**
+ * Desktop demographics() — verbatim: grade distribution derived from each
+ * student's CLASS (GRADE_LEVEL_LABELS_FR[code] → class name → "Non assigné"
+ * fallback chain); gender (Garçons / Filles / Non spécifié added only when
+ * > 0); age buckets (< 6 / 6–8 / 9–11 / 12–14 / 15–17 / 18+ ans, year-only
+ * arithmetic on birth YEAR); capacity per class (cap ≤ 0 or null → 30,
+ * percent = Math.round(count/cap × 100)). totalStudents = active students,
+ * or 1 when empty (desktop divides by `students.length || 1`).
+ */
+fun deriveDemographics(
+    students: List<StatsStudentRow>,
+    classes: List<StatsClassRow>,
+    currentYear: Int = java.time.Year.now(ZoneOffset.UTC).value,
+): DemographicsStats {
+    val totalStudents = students.size.let { if (it > 0) it else 1 }
+
+    val classMap = classes.associateBy(
+        keySelector = { it.id },
+        valueTransform = { c -> StatsClassRow(c.id, c.name.ifBlank { c.id }, c.gradeCode, c.capacity) },
+    )
+    val classStudentCounts = HashMap<String, Int>()
+    for (s in students) {
+        if (s.classId != null) {
+            classStudentCounts[s.classId] = (classStudentCounts[s.classId] ?: 0) + 1
+        }
+    }
+
+    // Grade distribution (derived from the student's class)
+    val gradeCounts = LinkedHashMap<String, Int>()
+    for (s in students) {
+        val cls = s.classId?.let { classMap[it] }
+        val gradeKey = when {
+            cls == null -> "Non assigné"
+            cls.gradeCode != null && GRADE_LEVEL_LABELS_FR.containsKey(cls.gradeCode) ->
+                GRADE_LEVEL_LABELS_FR.getValue(cls.gradeCode!!)
+            else -> cls.name
+        }
+        gradeCounts[gradeKey] = (gradeCounts[gradeKey] ?: 0) + 1
+    }
+    val grade = gradeCounts.map { (label, count) ->
+        DemographicSlice(label, count, mathRound(count.toDouble() / totalStudents * 100).toInt())
+    }
+
+    // Gender distribution
+    var maleCount = 0
+    var femaleCount = 0
+    var unspecifiedCount = 0
+    for (s in students) {
+        when (s.gender) {
+            "male" -> maleCount++
+            "female" -> femaleCount++
+            else -> unspecifiedCount++
+        }
+    }
+    val gender = mutableListOf(
+        DemographicSlice("Garçons", maleCount, mathRound(maleCount.toDouble() / totalStudents * 100).toInt()),
+        DemographicSlice("Filles", femaleCount, mathRound(femaleCount.toDouble() / totalStudents * 100).toInt()),
+    )
+    if (unspecifiedCount > 0) {
+        gender.add(DemographicSlice("Non spécifié", unspecifiedCount, mathRound(unspecifiedCount.toDouble() / totalStudents * 100).toInt()))
+    }
+
+    // Age distribution (year-only arithmetic — desktop convention)
+    val ageBuckets = listOf(
+        Triple("< 6 ans", 0, 5), Triple("6–8 ans", 6, 8), Triple("9–11 ans", 9, 11),
+        Triple("12–14 ans", 12, 14), Triple("15–17 ans", 15, 17), Triple("18+ ans", 18, 120),
+    ).map { it to 0 }.toMutableList() // (Triple<label,min,max>, count)
+
+    for (s in students) {
+        val dob = s.birthDate ?: continue
+        val birthYear = parseIsoMs(dob.take(10).let { if (it.length == 10) "${it}T00:00:00Z" else it })
+            ?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).year } ?: continue
+        val ageYears = currentYear - birthYear
+        val idx = ageBuckets.indexOfFirst { (bucket, _) -> ageYears >= bucket.second && ageYears <= bucket.third }
+        if (idx != -1) ageBuckets[idx] = ageBuckets[idx].first to (ageBuckets[idx].second + 1)
+    }
+    val age = ageBuckets.map { (bucket, count) ->
+        DemographicSlice(bucket.first, count, mathRound(count.toDouble() / totalStudents * 100).toInt())
+    }
+
+    // Capacity distribution (per class, ordered by name — desktop classes order)
+    val capacity = classes.map { c ->
+        val count = classStudentCounts[c.id] ?: 0
+        val cap = if (c.capacity != null && c.capacity > 0) c.capacity else 30
+        DemographicSlice(
+            label = c.name.ifBlank { c.id },
+            count = count,
+            percent = mathRound(count.toDouble() / cap * 100).toInt(),
+        )
+    }
+
+    return DemographicsStats(grade, gender, age, capacity)
+}
+
