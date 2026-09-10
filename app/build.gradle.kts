@@ -153,6 +153,19 @@ tasks.withType<Test>().matching { it.name == "testReleaseUnitTest" }.configureEa
   }
 }
 
+// T-285 (PARITY-002): live-database equivalence credential plumbing. The
+// forked test JVM does NOT inherit -D flags (they stop at the Gradle daemon),
+// so LiveDatabaseEquivalenceTest reads system properties; the build script
+// forwards them from the environment of the GRADLE LAUNCH shell (run the
+// daemon fresh with the env set, or restart it after the container reset).
+// The values NEVER live in any committed file (AGENTS.md §15.12): a missing
+// environment makes the test SKIP (an assumption, not a pass).
+tasks.withType<Test>().configureEach {
+  System.getenv("SUPABASE_URL")?.let { systemProperty("supabase.url", it) }
+  System.getenv("SUPABASE_SERVICE_KEY")?.let { systemProperty("supabase.service.key", it) }
+  System.getenv("SUPABASE_ACCESS_TOKEN")?.let { systemProperty("supabase.access.token", it) }
+}
+
 // T-046-gap: Room schema export location (companion to exportSchema=true on
 // ElImtiyazDatabase). Every schema bump lands as app/schemas/<db>/<N>.json
 // and MUST be committed — MigrationTestHelper upgrade tests depend on the

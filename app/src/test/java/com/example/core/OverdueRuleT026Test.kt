@@ -153,10 +153,17 @@ class OverdueRuleT026Test {
     fun `all production computeParentSummary call sites build and pass the due-date map`() {
         val src = readMainSourceDir("infrastructure/local")
         // Every call that passes totalOverdue semantics must carry the map.
+        // PARITY-002/T-284 (44th session): the floor moved 5 → 3 — the three
+        // ledger-first/else-installment fallback sites (dashboard KPIs, debt
+        // summary, dashboard debt-by-aging) were REPLACED by the canonical
+        // per-installment INV-4 derivation (core/StatisticsEngine +
+        // installmentRemaining), which no longer consults computeParentSummary
+        // at all. The INVARIANT this scan pins is unchanged: every REMAINING
+        // call site (debt alerts, parent profile, sendReminder) passes the map.
         val callsWithMap = Regex("computeParentSummary\\([^)]*dueDateMap").findAll(src).count()
         assertTrue(
-            "expected the debt-dashboard/profile/KPI call sites to pass dueDateMap (found $callsWithMap)",
-            callsWithMap >= 5,
+            "expected the alerts/profile/reminder call sites to pass dueDateMap (found $callsWithMap)",
+            callsWithMap >= 3,
         )
         // And no production call site may use the empty default anymore.
         val bareCalls = Regex("computeParentSummary\\((?:parentEntries|domainEntries),\\s*[^,]+,\\s*\"[^\"]*\"\\)").findAll(src).count()
