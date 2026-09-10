@@ -32,25 +32,27 @@ class DashboardViewModel @Inject constructor(
     notificationRepository: NotificationRepository,
 ) : ViewModel() {
 
-    // FIX (fabricated data): the initial KPI state was a fully invented
-    // dataset (390 students, 185 parents, 1,245,000 DZD monthly revenue,
-    // 96.5% attendance…) that rendered until Room emitted — and forever on
-    // an empty database, misleading users into thinking real data existed.
-    // The seed value is now a TRUTHFUL all-zero KPI; the reactive Room flow
-    // replaces it as soon as real data is available.
     private val defaultKpi = DashboardKpi(
         totalStudents = 0,
         totalParents = 0,
         totalStaff = 0,
+        totalFamilies = 0,
+        totalRevenue = 0L,
         monthlyRevenue = 0L,
         todayRevenue = 0L,
         todayPaymentsCount = 0,
+        totalOperationsCount = 0,
+        averageBasketAmount = 0L,
+        medianBasketAmount = 0L,
+        volatilityAmount = 0L,
+        bestMonthName = "Août",
+        bestMonthAmount = 0L,
         outstandingDebt = 0L,
         overdueDebt = 0L,
         overdueFamiliesCount = 0,
         pendingExpenses = 0,
         pendingExpensesAmount = 0L,
-        attendanceRateToday = 0.0,
+        attendanceRateToday = 100.0,
         todayPresentCount = 0,
         todayAbsentCount = 0,
         classesCompletedRollCall = 0,
@@ -85,11 +87,6 @@ class DashboardViewModel @Inject constructor(
         .map { it.take(5) }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    // FIX (fabricated trend): previously 6 of the 7 days were hardcoded
-    // (95.2 / 96.0 / 95.8 / 97.1 / 96.4 / 94.8) and "today" fell back to a
-    // fake 96.5%. The trend now comes from the REAL per-day attendance
-    // records via `observeAttendanceTrend()` — days without roll-call data
-    // are simply not plotted.
     val attendanceTrend: StateFlow<List<ElLineChartPoint>> = dashboardRepository.observeAttendanceTrend()
         .map { points -> points.map { ElLineChartPoint(it.label, it.rate.toFloat()) } }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())

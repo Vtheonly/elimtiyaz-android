@@ -16,7 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.MoneyOff
-import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -34,69 +34,77 @@ import com.example.domain.model.DashboardKpi
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.theme.ElTheme
 
-/**
- * Section (2) — Rich Operational KPI Cards.
- * Connects directly to real daily collections, overdue balances, live attendance, and pending operations.
- */
 @Composable
 internal fun DashboardKpiCardsRow(
     currentKpi: DashboardKpi,
 ) {
+    val revenueToShow = if (currentKpi.totalRevenue > 0L) currentKpi.totalRevenue else currentKpi.monthlyRevenue
+
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 2.dp),
     ) {
-        // ── Card 1: Daily & Monthly Collections ─────────────────────────────
+        // ── Card 1: Élèves & Familles ──
         item {
             OperationalKpiCard(
-                title = "Recettes du Jour",
-                mainValue = "${(currentKpi.todayRevenue / 100).formatDzd()} DZD",
-                subValue = "${currentKpi.todayPaymentsCount} encaissement(s) aujourd'hui",
-                bottomLabel = "Mois: ${(currentKpi.monthlyRevenue / 100).formatDzd()} DZD",
+                title = "ÉLÈVES",
+                mainValue = "${currentKpi.totalStudents}",
+                subValue = "${currentKpi.totalFamilies} familles",
+                bottomLabel = "${currentKpi.totalStaff} membres du personnel",
+                icon = Icons.Default.People,
+                accentColor = ElTheme.colors.primary,
+                modifier = Modifier.width(210.dp),
+            )
+        }
+
+        // ── Card 2: Revenu Global ──
+        item {
+            val revenueFormatted = if (revenueToShow >= 1_000_000_00L) {
+                "%.1f M DZD".format(revenueToShow / 100_000_000.0)
+            } else {
+                "${(revenueToShow / 100).formatDzd()} DZD"
+            }
+            OperationalKpiCard(
+                title = "REVENU GLOBAL",
+                mainValue = revenueFormatted,
+                subValue = "${(revenueToShow / 100).formatDzd()} DA",
+                bottomLabel = "${currentKpi.totalOperationsCount} opérations enregistrées",
                 icon = Icons.Default.AccountBalance,
                 accentColor = ElTheme.colors.success,
                 modifier = Modifier.width(220.dp),
             )
         }
 
-        // ── Card 2: Overdue Debt & Families in Default ──────────────────────
+        // ── Card 3: Créances en Retard ──
         item {
+            val overdueFormatted = if (currentKpi.overdueDebt >= 1_000_000_00L) {
+                "%.1f M DZD".format(currentKpi.overdueDebt / 100_000_000.0)
+            } else {
+                "${(currentKpi.overdueDebt / 100).formatDzd()} DZD"
+            }
             OperationalKpiCard(
-                title = "Créances en Retard",
-                mainValue = "${(currentKpi.overdueDebt / 100).formatDzd()} DZD",
-                subValue = "${currentKpi.overdueFamiliesCount} famille(s) en souffrance",
-                bottomLabel = "Global: ${(currentKpi.outstandingDebt / 100).formatDzd()} DZD",
+                title = "CRÉANCES EN RETARD",
+                mainValue = overdueFormatted,
+                subValue = "${currentKpi.overdueFamiliesCount} fam. en retard",
+                bottomLabel = "${(currentKpi.overdueDebt / 100).formatDzd()} DA d'encours",
                 icon = Icons.Default.MoneyOff,
                 accentColor = ElTheme.colors.danger,
                 modifier = Modifier.width(220.dp),
             )
         }
 
-        // ── Card 3: Today's Attendance & Active Student Roll Call ──────────
+        // ── Card 4: Assiduité (Aujourd'hui) ──
         item {
-            val rateFormatted = "%.1f %%".format(currentKpi.attendanceRateToday)
+            val rateFormatted = "%.0f%%".format(currentKpi.attendanceRateToday)
             OperationalKpiCard(
-                title = "Présence & Appel du Jour",
+                title = "ASSIDUITÉ DU JOUR",
                 mainValue = rateFormatted,
                 subValue = "${currentKpi.classesCompletedRollCall}/${currentKpi.totalClassesCount} classes validées",
-                bottomLabel = "${currentKpi.totalStudents} élèves • ${currentKpi.totalStaff} staff",
+                bottomLabel = "${currentKpi.todayPresentCount} présents aujourd'hui",
                 icon = Icons.Default.TrendingUp,
-                accentColor = ElTheme.colors.primary,
+                accentColor = ElTheme.colors.info,
                 modifier = Modifier.width(210.dp),
-            )
-        }
-
-        // ── Card 4: Pending Operations & Checks ─────────────────────────────
-        item {
-            OperationalKpiCard(
-                title = "Opérations en Attente",
-                mainValue = "${currentKpi.pendingExpenses + currentKpi.pendingChecksCount} à traiter",
-                subValue = "${currentKpi.pendingChecksCount} chèque(s) • ${currentKpi.pendingExpenses} dépense(s)",
-                bottomLabel = "${(currentKpi.pendingChecksAmount / 100).formatDzd()} DZD en chèques",
-                icon = Icons.Default.Receipt,
-                accentColor = ElTheme.colors.warning,
-                modifier = Modifier.width(220.dp),
             )
         }
     }
@@ -144,7 +152,7 @@ private fun OperationalKpiCard(
             Text(
                 text = mainValue,
                 style = ElTheme.textStyles.numeric.copy(
-                    fontSize = 20.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Black,
                 ),
                 color = accentColor,

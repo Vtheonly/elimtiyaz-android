@@ -109,21 +109,11 @@ import com.example.infrastructure.room.RoutingStopEntity
 import com.example.infrastructure.room.WorkflowRunDao
 import com.example.infrastructure.room.WorkflowRunEntity
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.put
 import java.time.Instant
-import java.time.DayOfWeek
-import java.time.LocalDate
-import java.time.OffsetDateTime
-import java.time.ZoneOffset
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
-
-// ─── Debt Repository ────────────────────────────────────────────────────────
 
 @Singleton
 class LocalDebtRepository @Inject constructor(
@@ -134,23 +124,48 @@ class LocalDebtRepository @Inject constructor(
     override fun observeSummary(): Flow<List<DebtSummary>> = combine(
         db.parentDao().observeAll(),
         db.ledgerEntryDao().observeAll(),
+        db.installmentDao().observeAll(),
         db.studentDao().observeAll(),
-    ) { parents, ledgerEntries, students ->
+    ) { parents, ledgerEntries, installments, students ->
+        val nowIso = Instant.now().toString()
+        val domainLedger = ledgerEntries.map { LocalMappers.run { it.toDomain() } }
+        val ledgerByParent = domainLedger.groupBy { it.parentId }
+        val installmentsByParent = installments.groupBy { it.parentId }
+
         parents.map { parent ->
-            val parentEntries = ledgerEntries.filter { it.parentId == parent.id }
+            val parentEntries = ledgerByParent[parent.id] ?: emptyList()
+            val parentInsts = installmentsByParent[parent.id] ?: emptyList()
             val studentCount = students.count { it.parentId == parent.id }
-            val domainEntries = parentEntries.map { LocalMappers.run { it.toDomain() } }
-            // T-026 (WEAK-007): build the due-date map — without it the debt
-            // dashboard's overdueAmount was permanently 0.
-            val dueDateMap = LedgerEngine.buildOverdueDueDateMap(domainEntries)
-            val summary = LedgerEngine.computeParentSummary(domainEntries, parent.id, parent.fullName, dueDateMap)
-            val maxDays = LedgerEngine.maxDaysOverdueFromLedger(domainEntries)
+
+            val ledgerOutstanding = if (parentEntries.isNotEmpty()) {
+                val dueDateMap = LedgerEngine.buildOverdueDueDateMap(parentEntries)
+                LedgerEngine.computeParentSummary(parentEntries, parent.id, parent.fullName, dueDateMap)
+                    .totalOutstanding.coerceAtLeast(0L)
+            } else 0L
+
+            val instOutstanding = parentInsts
+                .filter { it.status != "paid" }
+                .sumOf { (it.amountDue - it.amountPaid - it.amountPending).coerceAtLeast(0L) }
+
+            val outstanding = if (ledgerOutstanding > 0L) ledgerOutstanding else instOutstanding
+
+            val unpaidOverdueInsts = parentInsts.filter {
+                it.status != "paid" && it.dueDate < nowIso && (it.amountDue - it.amountPaid) > 0L
+            }
+            val oldestDue = unpaidOverdueInsts.minOfOrNull { it.dueDate }
+
+            val maxDays = when {
+                oldestDue != null -> daysBetweenFloor(oldestDue)
+                parentEntries.isNotEmpty() -> LedgerEngine.maxDaysOverdueFromLedger(parentEntries)
+                else -> 0L
+            }
+
             DebtSummary(
                 parentId = parent.id,
                 parentName = parent.fullName,
                 parentPhone = parent.phone,
                 studentCount = studentCount,
-                outstandingAmount = summary.totalOutstanding.coerceAtLeast(0L),
+                outstandingAmount = outstanding,
                 daysOverdue = maxDays,
                 bucket = agingBucketFromDays(maxDays),
             )
@@ -166,15 +181,8 @@ class LocalDebtRepository @Inject constructor(
         if (parent == null) null
         else {
             val domainEntries = ledgerEntries.map { LocalMappers.run { it.toDomain() } }
-            // T-026 (WEAK-007): build the due-date map — without it the parent
-            // profile's overdueAmount was permanently 0.
             val dueDateMap = LedgerEngine.buildOverdueDueDateMap(domainEntries)
             val summary = LedgerEngine.computeParentSummary(domainEntries, parentId, parent.fullName, dueDateMap)
-            // TIER 2 R17 — populate `adjustments` from the ledger's adjustment
-            // entries. Mirrors the desktop's `ParentFinancialProfile.adjustments`.
-            // Filters out reversal entries (they negate originals — the
-            // canonical `computeParentSummary` already excludes them from
-            // totals, so we exclude them here too for UI consistency).
             val adjustments = domainEntries
                 .filter { it.type == com.example.core.LedgerEntryType.ADJUSTMENT && it.reversesId == null }
                 .map { e ->
@@ -203,17 +211,11 @@ class LocalDebtRepository @Inject constructor(
         }
     }
 
-    // FIX (hollow action): sendReminder previously wrote ONLY an audit row —
-    // no reminder was ever delivered anywhere. Now a real in-app notification
-    // is inserted into the `notifications` table (visible in the Alerts inbox
-    // and the dashboard notification stream) in addition to the audit trail.
     override suspend fun sendReminder(parentId: String, actorId: String, actorName: String): Result<Unit> {
         val parent = db.parentDao().getById(parentId)
             ?: return Result.Err(Errors.notFound("Parent $parentId introuvable"))
 
         val entries = db.ledgerEntryDao().listByParent(parentId).map { LocalMappers.run { it.toDomain() } }
-        // T-026 (WEAK-007): pass the due-date map — no production call site may
-        // rely on computeParentSummary's empty-map default.
         val summary = LedgerEngine.computeParentSummary(
             entries, parentId, parent.fullName, LedgerEngine.buildOverdueDueDateMap(entries),
         )

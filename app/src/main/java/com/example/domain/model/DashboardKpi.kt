@@ -3,17 +3,24 @@ package com.example.domain.model
 import kotlinx.serialization.Serializable
 
 /**
- * Snapshot of dashboard KPIs — computed from real local Room database tables
- * and Supabase materialized views.
+ * Snapshot of dashboard KPIs — unified with the desktop canonical analytics model.
  */
 @Serializable
 data class DashboardKpi(
     val totalStudents: Int = 0,
     val totalParents: Int = 0,
     val totalStaff: Int = 0,
+    val totalFamilies: Int = 0,
+    val totalRevenue: Long = 0L,
     val monthlyRevenue: Long = 0L,
     val todayRevenue: Long = 0L,
     val todayPaymentsCount: Int = 0,
+    val totalOperationsCount: Int = 0,
+    val averageBasketAmount: Long = 0L,
+    val medianBasketAmount: Long = 0L,
+    val volatilityAmount: Long = 0L,
+    val bestMonthName: String = "Août",
+    val bestMonthAmount: Long = 0L,
     val outstandingDebt: Long = 0L,
     val overdueDebt: Long = 0L,
     val overdueFamiliesCount: Int = 0,
@@ -27,6 +34,32 @@ data class DashboardKpi(
     val pendingChecksCount: Int = 0,
     val pendingChecksAmount: Long = 0L,
     val overdueAlerts: Int = 0,
+    // Recovery Funnel (§15)
+    val recoveryFunnelCriticalPct: Int = 100,
+    val recoveryFunnelOverdueTotal: Int = 0,
+    val recoveryFunnelUnder60Days: Int = 0,
+    val recoveryFunnel61To90Days: Int = 0,
+    val recoveryFunnelOver90Days: Int = 0,
+    // Amount Distribution Bins (§15)
+    val amountBins: List<AmountBinItem> = emptyList(),
+    // Category Breakdown (§15)
+    val categoryBreakdown: List<CategoryRevenueItem> = emptyList(),
+)
+
+@Serializable
+data class AmountBinItem(
+    val label: String,
+    val count: Int,
+    val percentage: Double,
+)
+
+@Serializable
+data class CategoryRevenueItem(
+    val category: String,
+    val label: String,
+    val amount: Long,
+    val count: Int,
+    val percentage: Double,
 )
 
 /** Summary of revenue collected by payment method (cash, check, transfer). */

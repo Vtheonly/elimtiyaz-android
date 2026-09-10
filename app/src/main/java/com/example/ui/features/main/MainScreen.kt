@@ -1,5 +1,5 @@
 package com.example.ui.features.main
-
+import androidx.compose.runtime.saveable.listSaver
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -137,7 +137,14 @@ fun MainScreen(
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val safeSelected = selectedTab.coerceAtMost(visibleTabs.lastIndex)
-    val tabHistory = rememberSaveable { mutableStateListOf(0) }
+
+    
+    val tabHistory = rememberSaveable(
+    saver = listSaver(
+        save = { it.toList() },
+        restore = { mutableStateListOf<Int>().apply { addAll(it) } }
+    )
+) { mutableStateListOf(0) }
 
     val selectTab: (Int) -> Unit = { index ->
         val validIndex = index.coerceIn(0, visibleTabs.lastIndex)

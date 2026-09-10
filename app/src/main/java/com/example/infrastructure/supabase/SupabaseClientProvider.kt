@@ -244,4 +244,3 @@ class SupabaseClientProvider @Inject constructor(
                 key.equals("demo-key", ignoreCase = true)
     }
 }
-
