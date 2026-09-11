@@ -87,6 +87,40 @@ class AuditDiffSheetTest {
         composeTestRule.onNodeWithText("rôle non enregistré").assertExists()
     }
 
+    // ─── T-308 (48th session): the red/green TABLE presentation ──────
+
+    @Test
+    fun `the diff renders as a TABLE with the Champ Avant Après header`() {
+        setContent(
+            auditLog(
+                beforeJson = """{"id":"pay-001","status":"pending","amount":2500000}""",
+                afterJson = """{"id":"pay-001","status":"paid","amount":2500000}""",
+            )
+        )
+        // The table container + the 3 column headers (uppercased).
+        composeTestRule.onNodeWithTag("audit_diff_table").assertExists()
+        composeTestRule.onNodeWithText("CHAMP").assertExists()
+        composeTestRule.onNodeWithText("AVANT (ANCIEN)").assertExists()
+        composeTestRule.onNodeWithText("APRÈS (NOUVEAU)").assertExists()
+        // The field label renders in the Champ column.
+        composeTestRule.onNodeWithTag("audit_diff_field").assertExists()
+    }
+
+    @Test
+    fun `nested paths show the short field label AND the full path caption`() {
+        setContent(
+            auditLog(
+                beforeJson = """{"allocation":{"installments":[{"applied":0}]}}""",
+                afterJson = """{"allocation":{"installments":[{"applied":9}]}}""",
+            )
+        )
+        // Champ column: short label primary + dotted path caption.
+        composeTestRule.onNodeWithTag("audit_diff_field").assertExists()
+        composeTestRule.onNodeWithText("applied").assertExists()
+        composeTestRule.onNodeWithTag("audit_diff_row_path").assertExists()
+        composeTestRule.onNodeWithText("allocation.installments[0].applied").assertExists()
+    }
+
     @Test
     fun `changed field renders old value red and new value green`() {
         setContent(

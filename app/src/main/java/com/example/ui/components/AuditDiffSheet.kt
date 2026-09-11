@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -20,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -152,11 +152,11 @@ fun AuditDiffSheetContent(
         // ── Field-level diff summary badges ─────────────────────────
         DiffSummaryRow(counts.added, counts.removed, counts.changed)
 
-        // ── The red/green field rows (or the honest empty state) ────
+        // ── The red/green TABLE (T-308, 48th session — the owner's explicit
+        //    request: a table with the old values in red and the new values
+        //    in green, much clearer than the JSON view) ───────────────────
         if (rows.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                rows.forEach { row -> DiffFieldRow(row) }
-            }
+            DiffTable(rows)
         } else {
             HonestEmptyDiffState(
                 hasSnapshots = !log.beforeJson.isNullOrBlank() || !log.afterJson.isNullOrBlank(),
@@ -332,8 +332,69 @@ private fun DiffSummaryRow(added: Int, removed: Int, changed: Int) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  One red/green field row — the visual convention:                   */
-/*  RED = Before/old (struck), GREEN = After/new.                      */
+/*  The diff TABLE — T-308 (48th session): 3 columns                  */
+/*  Champ | Avant (RED, struck) | Après (GREEN, bold). The owner's     */
+/*  explicit presentation request, mirroring the desktop drawer's     */
+/*  audit-diff-table (same engine rows, same color convention).       */
+/* ------------------------------------------------------------------ */
+
+@Composable
+fun DiffTable(rows: List<DiffRow>, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+                shape = RoundedCornerShape(8.dp),
+            )
+            .testTag("audit_diff_table"),
+    ) {
+        // Header row — the 3 column labels.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TableHeaderText("Champ", Modifier.weight(0.30f), MaterialTheme.colorScheme.onSurfaceVariant)
+            TableHeaderText("Avant (ancien)", Modifier.weight(0.35f), DangerRed)
+            TableHeaderText("Après (nouveau)", Modifier.weight(0.35f), SuccessGreen)
+        }
+        rows.forEachIndexed { index, row ->
+            if (index > 0) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 0.dp),
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                )
+            }
+            DiffFieldRow(row)
+        }
+    }
+}
+
+@Composable
+private fun TableHeaderText(text: String, modifier: Modifier = Modifier, color: Color) {
+    Text(
+        text.uppercase(),
+        style = MaterialTheme.typography.labelSmall.copy(
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.4.sp,
+        ),
+        color = color,
+        modifier = modifier.padding(horizontal = 10.dp),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
+
+/* ------------------------------------------------------------------ */
+/*  One table row — the visual convention:                            */
+/*  Avant = RED struck-through value, Après = GREEN bold value.       */
 /* ------------------------------------------------------------------ */
 
 @Composable
@@ -347,88 +408,103 @@ fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxWidth()
             .testTag("audit_diff_row_${row.path}")
-            .clip(RoundedCornerShape(4.dp))
-            .background(accent.copy(alpha = 0.05f)),
+            .background(accent.copy(alpha = 0.04f))
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.Top,
     ) {
-        // Left accent strip (the desktop's border-l-2).
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .heightIn(min = 44.dp)
-                .background(accent.copy(alpha = 0.6f)),
-        )
+        // Column 1 — Champ (short label primary, full dotted path caption).
         Column(
             modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .weight(0.30f)
+                .padding(horizontal = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            Text(
+                row.field,
+                fontFamily = FontFamily.Monospace,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.testTag("audit_diff_field"),
+            )
+            if (row.path != row.field && row.path.contains(".")) {
                 Text(
                     row.path,
                     fontFamily = FontFamily.Monospace,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    kindLabel,
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontSize = 9.sp,
-                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    ),
+                    modifier = Modifier.testTag("audit_diff_row_path"),
+                )
+            }
+            Text(
+                kindLabel,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = accent,
+                ),
+            )
+        }
+        // Column 2 — Avant (OLD value, RED struck). Added rows show the em-dash.
+        Box(
+            modifier = Modifier
+                .weight(0.35f)
+                .padding(horizontal = 6.dp),
+            contentAlignment = Alignment.TopStart,
+        ) {
+            if (row.kind != FieldDiffKind.ADDED) {
+                ValueChip(
+                    text = row.oldDisplay,
+                    color = DangerRed,
+                    struck = true,
+                    modifier = Modifier.testTag("diff-old-value"),
+                )
+            } else {
+                Text(
+                    "—",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontStyle = FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     ),
                 )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (row.kind != FieldDiffKind.ADDED) {
-                    ValueChip(
-                        text = row.oldDisplay,
-                        color = DangerRed,
-                        struck = true,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("diff-old-value"),
-                    )
-                }
-                if (row.kind == FieldDiffKind.CHANGED) {
-                    Text(
-                        "→",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (row.kind != FieldDiffKind.REMOVED) {
-                    ValueChip(
-                        text = row.newDisplay,
-                        color = SuccessGreen,
-                        struck = false,
-                        modifier = Modifier
-                            .weight(if (row.kind == FieldDiffKind.CHANGED) 1f else 1.5f)
-                            .testTag("diff-new-value"),
-                    )
-                }
+        }
+        // Column 3 — Après (NEW value, GREEN bold). Removed rows show the em-dash.
+        Box(
+            modifier = Modifier
+                .weight(0.35f)
+                .padding(horizontal = 6.dp),
+            contentAlignment = Alignment.TopStart,
+        ) {
+            if (row.kind != FieldDiffKind.REMOVED) {
+                ValueChip(
+                    text = row.newDisplay,
+                    color = SuccessGreen,
+                    struck = false,
+                    bold = true,
+                    modifier = Modifier.testTag("diff-new-value"),
+                )
+            } else {
+                Text(
+                    "—",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontStyle = FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    ),
+                )
             }
         }
     }
 }
 
-/** A compact mono value chip — red/struck for old, green for new. */
+/** A compact mono value chip — red/struck for old, green/bold for new. */
 @Composable
 private fun ValueChip(
     text: String,
     color: Color,
     struck: Boolean,
+    bold: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -443,6 +519,7 @@ private fun ValueChip(
             style = MaterialTheme.typography.labelSmall.copy(
                 fontSize = 11.sp,
                 color = color,
+                fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
                 textDecoration = if (struck) TextDecoration.LineThrough else TextDecoration.None,
             ),
             maxLines = 3,

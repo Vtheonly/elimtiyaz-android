@@ -38,7 +38,26 @@ data class DiffRow(
     val kind: FieldDiffKind,
     val oldDisplay: String,
     val newDisplay: String,
-)
+) {
+    /**
+     * Short field label — the T-308 table's Champ column. Mirrors the
+     * desktop's `node.field || node.path`: object leaves take the last
+     * dot-segment; array elements take the "[N]" bracket suffix
+     * (`x.arr[1]` → `[1]`, `arr[1]` → `[1]`); the root renders "(racine)".
+     * Computed (not a constructor param) so the wire shape + every existing
+     * construction site stay untouched. Known edge: a TRUE root-array
+     * element's path is the bare index ("0") where the desktop's field is
+     * "[0]" — audit payloads are always row OBJECTS, so this edge is
+     * unreachable from the audit screens.
+     */
+    val field: String
+        get() {
+            if (path.isEmpty()) return "(racine)"
+            val seg = path.substringAfterLast('.').ifEmpty { path }
+            val bracket = seg.lastIndexOf('[')
+            return if (bracket >= 0) seg.substring(bracket) else seg
+        }
+}
 
 /** Absent sentinel — renders as "—" (distinct from JsonNull which renders "null"). */
 private const val ABSENT_DISPLAY = "—"
