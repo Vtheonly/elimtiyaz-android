@@ -69,6 +69,7 @@ class RealtimeSyncT069Test {
         val installments = AtomicInteger()
         val notifications = AtomicInteger()
         val homework = AtomicInteger()
+        val audits = AtomicInteger()
 
         override suspend fun pullPayments(sinceIso: String?): Result<Int> {
             payments.incrementAndGet(); return Result.Ok(1)
@@ -84,6 +85,10 @@ class RealtimeSyncT069Test {
 
         override suspend fun pullHomework(): Result<Int> {
             homework.incrementAndGet(); return Result.Ok(1)
+        }
+
+        override suspend fun pullAudits(): Result<Int> {
+            audits.incrementAndGet(); return Result.Ok(1)
         }
     }
 
@@ -162,10 +167,11 @@ class RealtimeSyncT069Test {
 
         assertEquals(
             "The manager subscribes to the website's table set + the chat tables " +
-                "(T-102-follow-up: chat_channels + chat_messages, online-only v1 — no Room pulls)",
+                "(T-102-follow-up: chat_channels + chat_messages, online-only v1 — no Room pulls) " +
+                "+ audit_logs (T-299 / OFFLINE-400 — the attributed activity stream)",
             setOf(
                 "payments", "installments", "notifications", "homework",
-                "chat_channels", "chat_messages",
+                "chat_channels", "chat_messages", "audit_logs",
             ),
             manager.activeTables,
         )
@@ -190,9 +196,10 @@ class RealtimeSyncT069Test {
         signIn()
         waitForSubscriptions()
 
-        // 6 since T-102-follow-up (chat_channels + chat_messages joined
-        // the website-parity set)
-        assertEquals(6, source.subscribed.size)
+        // 7 since T-299 (chat_channels + chat_messages joined the
+        // website-parity set; audit_logs joined for the attributed
+        // activity broadcast)
+        assertEquals(7, source.subscribed.size)
     }
 
     @Test
@@ -251,6 +258,21 @@ class RealtimeSyncT069Test {
         assertEquals(1, pulls.notifications.get())
         assertEquals(1, pulls.homework.get())
         assertEquals("no cross-table pull from these tables", 0, pulls.payments.get())
+    }
+
+    @Test
+    fun `an audit_logs event routes to pullAudits - the attributed feed refreshes live (T-299)`() {
+        manager.start()
+        signIn()
+        waitForSubscriptions()
+
+        runBlocking {
+            source.emit("audit_logs")
+        }
+        awaitUntil { pulls.audits.get() >= 1 }
+        assertEquals(1, pulls.audits.get())
+        assertEquals("audit events trigger ONLY the audit pull", 0, pulls.payments.get())
+        assertEquals(0, pulls.notifications.get())
     }
 
     // ── 3. Fail-closed online gate ───────────────────────────────────────────

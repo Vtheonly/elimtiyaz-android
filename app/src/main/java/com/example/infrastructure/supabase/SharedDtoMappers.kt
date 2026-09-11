@@ -438,3 +438,20 @@ fun AssessmentDto.toEntity(): com.example.infrastructure.room.AssessmentEntity {
         coefficientExamen = coefficientExamen ?: 2.0,
     )
 }
+
+/** T-299 (OFFLINE-400): audit_logs row → Room entity (the attributed feed's cache). */
+fun AuditLogDto.toEntity(): com.example.infrastructure.room.AuditLogEntity =
+    com.example.infrastructure.room.AuditLogEntity(
+        id = id,
+        tenantId = tenantId ?: "",
+        action = action,
+        entityType = entityType,
+        entityId = entityId ?: "",
+        actorId = actorId ?: "",
+        actorName = actorName ?: "",
+        actorRole = actorRole,
+        beforeJson = beforeJson,
+        afterJson = afterJson,
+        note = note,
+        createdAt = occurredAt ?: createdAt ?: "",
+    )

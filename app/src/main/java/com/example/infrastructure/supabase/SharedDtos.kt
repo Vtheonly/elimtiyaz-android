@@ -579,3 +579,28 @@ data class DiscountDto(
     @SerialName("is_active") val isActive: Boolean = true,
 )
 
+
+/**
+ * T-299 (OFFLINE-400): the audit_logs row (migration 0014) — the canonical
+ * "every change" stream. Pulled into Room so the attributed audit feed
+ * (AuditStreamScreen, T-297's red/green diff renderer) stays live, and
+ * refreshed by the RealtimeSyncManager audit_logs route. RLS gates which
+ * rows this device receives (admins/finance: the tenant stream; other
+ * staff: their own) — same policy the desktop's subscription respects.
+ */
+@Serializable
+data class AuditLogDto(
+    @SerialName("id") val id: String,
+    @SerialName("tenant_id") val tenantId: String? = null,
+    @SerialName("action") val action: String = "",
+    @SerialName("entity_type") val entityType: String = "",
+    @SerialName("entity_id") val entityId: String? = null,
+    @SerialName("actor_id") val actorId: String? = null,
+    @SerialName("actor_name") val actorName: String? = null,
+    @SerialName("actor_role") val actorRole: String? = null,
+    @SerialName("before_json") val beforeJson: String? = null,
+    @SerialName("after_json") val afterJson: String? = null,
+    @SerialName("note") val note: String? = null,
+    @SerialName("occurred_at") val occurredAt: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+)

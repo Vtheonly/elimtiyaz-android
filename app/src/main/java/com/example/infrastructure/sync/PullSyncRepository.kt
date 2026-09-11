@@ -5,6 +5,7 @@ import com.example.core.Result
 import com.example.infrastructure.room.ElImtiyazDatabase
 import com.example.infrastructure.supabase.AssessmentDto
 import com.example.infrastructure.supabase.AttendanceRecordDto
+import com.example.infrastructure.supabase.AuditLogDto
 import com.example.infrastructure.supabase.ClassDto
 import com.example.infrastructure.supabase.DepartmentDto
 import com.example.infrastructure.supabase.HomeworkDto
@@ -433,6 +434,28 @@ class PullSyncRepository @Inject constructor(
             // T-039: batch upsert.
             db.workflowRunDao().upsertAll(dtoList.map { it.toEntity() })
             Log.i("PullSync", "Pulled ${dtoList.size} workflow runs")
+            Result.Ok(dtoList.size)
+        } catch (e: Exception) {
+            Result.Err(com.example.core.Errors.fromException(e))
+        }
+    }
+
+    /**
+     * T-299 (OFFLINE-400): pull recent audit_logs rows (RLS-scoped — the
+     * staff JWT sees the tenant stream for admins/finance, own rows for
+     * other staff) into Room so the attributed audit feed (T-297's
+     * red/green diff renderer) stays live. Triggered by the
+     * RealtimeSyncManager audit_logs route (migration 0085 added the table
+     * to the realtime publication). Failures surface like every other
+     * pull — Result.Err, swallowed by the callers.
+     */
+    override suspend fun pullAudits(): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            val dtoList = provider.postgrest.from("audit_logs").select {
+                limit(200)
+            }.decodeList<AuditLogDto>()
+            db.auditLogDao().upsertAll(dtoList.map { it.toEntity() })
+            Log.i("PullSync", "Pulled ${dtoList.size} audit log rows")
             Result.Ok(dtoList.size)
         } catch (e: Exception) {
             Result.Err(com.example.core.Errors.fromException(e))

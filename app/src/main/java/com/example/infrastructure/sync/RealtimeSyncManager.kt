@@ -60,6 +60,8 @@ interface RealtimePullTarget {
     suspend fun pullInstallments(): Result<Int>
     suspend fun pullNotifications(): Result<Int>
     suspend fun pullHomework(): Result<Int>
+    /** T-299 (OFFLINE-400): the audit_logs route's pull. */
+    suspend fun pullAudits(): Result<Int>
 }
 
 /** Online gate — provided from [OnlineDetector] in production. */
@@ -97,6 +99,11 @@ fun interface OnlineGate {
  *                    waterfall, so both refresh)
  *   notifications  → pullNotifications
  *   homework       → pullHomework
+ *   audit_logs     → pullAudits (T-299 / OFFLINE-400 — the canonical
+ *                    "every change" stream: every mutation writes an
+ *                    audit entry, so ONE subscription covers the whole
+ *                    cross-platform attributed-broadcast mandate; the
+ *                    pulled rows feed the T-297 attributed renderer)
  *
  * Lifecycle: `start()` observes [SessionManager.state]; subscriptions
  * activate when a session appears and deactivate when it disappears — the
@@ -139,6 +146,10 @@ class RealtimeSyncManager @Inject constructor(
         ),
         "notifications" to listOf<suspend () -> Result<Int>> { pulls.pullNotifications() },
         "homework" to listOf<suspend () -> Result<Int>> { pulls.pullHomework() },
+        // T-299 (OFFLINE-400): the audit_logs INSERT stream (migration 0085
+        // added the table to the realtime publication) — RLS still gates
+        // which rows this device receives.
+        "audit_logs" to listOf<suspend () -> Result<Int>> { pulls.pullAudits() },
         "chat_channels" to emptyList(),
         "chat_messages" to emptyList(),
     )
