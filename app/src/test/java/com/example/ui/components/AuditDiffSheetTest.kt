@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -229,5 +230,51 @@ class AuditDiffSheetTest {
         // distinguishes it from the chip's plain "pending").
         composeTestRule.onNodeWithText("\"status\":\"pending\"", substring = true)
             .assertExists()
+    }
+
+    // ─── T-310 (49th session, AUDIT-502) — the owner's reports ─────────
+    // The payment.collect rows recovered by the mapper fallback land here
+    // as before=null + flat payment after — the sheet must render the
+    // TABLE with every payment detail as a green added row, never the
+    // empty state the owner saw. Plus the owner's union-key spec: shared
+    // property → same row; before-only → removed; after-only → added.
+
+    @Test
+    fun `T-310 payment details render as green table rows (before null, flat after)`() {
+        setContent(
+            auditLog(
+                beforeJson = null,
+                afterJson = """{"amount":152500,"method":"cash","status":"paid","receipt":"REC-2026-000001","allocations":[],"unallocatedCredit":152500}""",
+            )
+        )
+        // The TABLE renders (not the no-snapshot empty state).
+        composeTestRule.onNodeWithTag("audit_diff_table").assertExists()
+        // All 6 payment fields are green added rows — no red old chips.
+        composeTestRule.onAllNodes(hasTestTag("diff-new-value")).assertCountEquals(6)
+        composeTestRule.onAllNodes(hasTestTag("diff-old-value")).assertCountEquals(0)
+        composeTestRule.onNodeWithText("6 ajoutés").assertExists()
+        composeTestRule.onNodeWithText("REC-2026-000001").assertExists()
+        // amount AND unallocatedCredit both render 152500 (two nodes).
+        composeTestRule.onAllNodes(hasText("152500", substring = true)).assertCountEquals(2)
+    }
+
+    @Test
+    fun `T-310 union-key matching - shared on one row, before-only removed, after-only added`() {
+        setContent(
+            auditLog(
+                beforeJson = """{"first_name":"Karim","middle_name":"Ould","price":1000}""",
+                afterJson = """{"first_name":"Karim B.","price":1300,"transport":"Les Bananiers"}""",
+            )
+        )
+        // first_name AND price both changed; middle_name removed; transport added.
+        composeTestRule.onNodeWithText("2 modifiés").assertExists()
+        composeTestRule.onNodeWithText("1 supprimé").assertExists()
+        composeTestRule.onNodeWithText("1 ajouté").assertExists()
+        // Shared property compares directly on its row: old red + new green.
+        composeTestRule.onNodeWithText("Ould").assertExists()
+        composeTestRule.onNodeWithText("Les Bananiers").assertExists()
+        // The before-only property's value has NO green chip; the after-only
+        // value has no red chip (the summary counts above pin the pairing).
+        composeTestRule.onNodeWithText("Karim B.").assertExists()
     }
 }

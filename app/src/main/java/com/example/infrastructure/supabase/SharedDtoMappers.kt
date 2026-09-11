@@ -439,9 +439,20 @@ fun AssessmentDto.toEntity(): com.example.infrastructure.room.AssessmentEntity {
     )
 }
 
-/** T-299 (OFFLINE-400): audit_logs row → Room entity (the attributed feed's cache). */
-fun AuditLogDto.toEntity(): com.example.infrastructure.room.AuditLogEntity =
-    com.example.infrastructure.room.AuditLogEntity(
+/**
+ * T-299 (OFFLINE-400): audit_logs row → Room entity (the attributed feed's cache).
+ *
+ * T-310 (49th session, AUDIT-502): the jsonb snapshots arrive as [JsonElement]
+ * (PostgREST parses jsonb) — stringified for the Room String columns — and the
+ * effective before/after pair falls back to the legacy `diff` column when both
+ * canonical snapshots are NULL (the pre-0087 payment RPC rows): a wrapped
+ * `{before, after}` object unwraps; a FLAT object (payment.collect — the
+ * created-payment result) maps to the AFTER state (INSERT semantics). This
+ * MIRRORS the desktop's mapAuditRow fallback exactly (parity doctrine).
+ */
+fun AuditLogDto.toEntity(): com.example.infrastructure.room.AuditLogEntity {
+    val (before, after) = effectiveAuditSnapshots()
+    return com.example.infrastructure.room.AuditLogEntity(
         id = id,
         tenantId = tenantId ?: "",
         action = action,
@@ -450,8 +461,24 @@ fun AuditLogDto.toEntity(): com.example.infrastructure.room.AuditLogEntity =
         actorId = actorId ?: "",
         actorName = actorName ?: "",
         actorRole = actorRole,
-        beforeJson = beforeJson,
-        afterJson = afterJson,
+        beforeJson = before,
+        afterJson = after,
         note = note,
         createdAt = occurredAt ?: createdAt ?: "",
     )
+}
+
+/** The effective (before, after) JSON-text pair for the diff sheet. */
+private fun AuditLogDto.effectiveAuditSnapshots(): Pair<String?, String?> {
+    val before = beforeJson?.toString()
+    val after = afterJson?.toString()
+    if (before != null || after != null) return before to after
+    val raw = diff ?: return null to null
+    val obj = raw as? kotlinx.serialization.json.JsonObject
+    val wrapped = obj != null && ("before" in obj || "after" in obj)
+    return if (wrapped) {
+        (obj!!["before"]?.toString()) to (obj["after"]?.toString())
+    } else {
+        null to raw.toString()
+    }
+}

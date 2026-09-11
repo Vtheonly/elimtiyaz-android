@@ -3,6 +3,7 @@ package com.example.infrastructure.sync
 import com.example.infrastructure.room.AuditLogEntity
 import com.example.infrastructure.supabase.AuditLogDto
 import com.example.infrastructure.supabase.toEntity
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -28,8 +29,10 @@ class AuditPullT299Test {
         actorId = "11111111-1111-4111-8111-111111111111",
         actorName = "Yacine Benali",
         actorRole = "financial_officer",
-        beforeJson = """{"status":"pending","amount":2500000}""",
-        afterJson = """{"status":"paid","amount":2500000}""",
+        // T-310: the snapshots are JsonElement now (jsonb arrives parsed);
+        // the entity keeps the compact JSON TEXT (stringified by toEntity).
+        beforeJson = Json.parseToJsonElement("""{"status":"pending","amount":2500000}"""),
+        afterJson = Json.parseToJsonElement("""{"status":"paid","amount":2500000}"""),
         note = "Encaissement comptoir",
         occurredAt = "2026-09-11T12:00:00Z",
         createdAt = "2026-09-11T12:00:01Z",

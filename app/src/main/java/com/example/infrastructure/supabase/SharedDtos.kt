@@ -587,6 +587,19 @@ data class DiscountDto(
  * refreshed by the RealtimeSyncManager audit_logs route. RLS gates which
  * rows this device receives (admins/finance: the tenant stream; other
  * staff: their own) — same policy the desktop's subscription respects.
+ *
+ * T-310 (49th session, AUDIT-502) — TWO fixes baked into the types:
+ *   1. before_json / after_json / diff are JsonElement, NOT String?:
+ *      PostgREST returns jsonb columns as PARSED JSON objects. The old
+ *      String? declarations made decodeList<AuditLogDto> throw the moment
+ *      any pulled row carried a non-null snapshot (the 0086 trigger rows
+ *      write full before/after objects) — the whole pull failed silently
+ *      as a Result.Err. The entity keeps String (compact JSON text,
+ *      stringified here in the mapper).
+ *   2. `diff` is declared at all: the payment RPCs (0034, pre-0087) wrote
+ *      their payload ONLY into that column with both snapshots NULL —
+ *      declaring it lets the mapper recover the payment details (the
+ *      owner's "payment details missing from the audit" report).
  */
 @Serializable
 data class AuditLogDto(
@@ -598,8 +611,9 @@ data class AuditLogDto(
     @SerialName("actor_id") val actorId: String? = null,
     @SerialName("actor_name") val actorName: String? = null,
     @SerialName("actor_role") val actorRole: String? = null,
-    @SerialName("before_json") val beforeJson: String? = null,
-    @SerialName("after_json") val afterJson: String? = null,
+    @SerialName("before_json") val beforeJson: JsonElement? = null,
+    @SerialName("after_json") val afterJson: JsonElement? = null,
+    @SerialName("diff") val diff: JsonElement? = null,
     @SerialName("note") val note: String? = null,
     @SerialName("occurred_at") val occurredAt: String? = null,
     @SerialName("created_at") val createdAt: String? = null,

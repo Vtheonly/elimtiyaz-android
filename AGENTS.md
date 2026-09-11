@@ -163,6 +163,20 @@ the generated `BuildConfig` fields come from the ROOT-level files only.
   triggers — never silently "Manuel"). Pinned by
   `app/src/test/.../supabase/WorkflowRunContractT231Test.kt`.
 
+- **T-310 (49th session) — jsonb columns in PostgREST DTOs are `JsonElement?`, NEVER
+  `String?`:** PostgREST returns jsonb columns as PARSED JSON objects (verified live,
+  2026-09-12). A `String?` DTO field decodes fine while every pulled row has NULL in that
+  column — then throws `SerializationException` on the FIRST non-null snapshot, failing the
+  WHOLE `decodeList` as a silent `Result.Err` (the 0086 audit triggers write full
+  before/after objects, which silently broke the entire audit pull). The fix shape: type the
+  field `JsonElement?`, stringify (`toString()` → compact JSON text) in the `toEntity()`
+  mapper for the Room `String` columns, and re-parse on the read side. Related lesson from
+  the same session: an RPC that writes its audit payload into a NON-canonical column while
+  the canonical ones stay NULL orphaned every client mapper — when a server contract and
+  its clients disagree, fix the contract AND keep a client fallback for the historical
+  rows (`SharedDtoMappers.effectiveAuditSnapshots`). Pinned by
+  `app/src/test/.../supabase/AuditLogDiffRecoveryT310Test.kt`.
+
 - **Navigation stack + counter-payment member selection (35th session, 2026-09-08):**
   two UX defects closed in one pass. (1) Back-press previously reset the bottom-nav
   host to the Dashboard hub regardless of the user's tab trail; `MainScreen` now keeps a
