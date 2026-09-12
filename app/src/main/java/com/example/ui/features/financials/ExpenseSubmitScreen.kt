@@ -11,20 +11,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -35,10 +32,18 @@ import com.example.core.Result
 import com.example.domain.repository.ExpenseRepository
 import com.example.domain.repository.SubmitExpenseInput
 import com.example.session.SessionManager
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElButtonStyle
-import com.example.ui.components.ElDropdown
-import com.example.ui.components.ElTextField
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.display.ElAlertBanner
+import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.components.input.ElDropdown
+import com.example.ui.designsystem.components.input.ElDropdownOption
+import com.example.ui.designsystem.components.input.ElTextField
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.foundation.elMoneyParse
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,6 +59,10 @@ import kotlinx.coroutines.launch
  *  - Controlled category enum (no free-text).
  *  - Calls `expenseRepository.submit(input, actorId, actorName)`.
  *  - Audit logging happens inside the repository (server-side RPC `submit_expense`).
+ *
+ * T-322 fix: the amount is parsed with [elMoneyParse] (EXACT centimes) — the
+ * previous `toDouble() * 100` rounded 15.07 DZD to 1506¢ (a financial
+ * correctness bug). canSubmit uses the same parser.
  */
 @HiltViewModel
 class ExpenseSubmitViewModel @Inject constructor(
@@ -87,7 +96,7 @@ class ExpenseSubmitViewModel @Inject constructor(
 
     fun titleChanged(v: String) { _title.value = v }
     fun descriptionChanged(v: String) { _description.value = v }
-    fun amountChanged(v: String) { _amount.value = v.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' } }
+    fun amountChanged(v: String) { _amount.value = v.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' || ch == ' ' } }
     fun categoryChanged(v: String) { _category.value = v }
     fun payeeChanged(v: String) { _payee.value = v }
     fun urgencyChanged(v: String) { _urgency.value = v }
@@ -95,10 +104,10 @@ class ExpenseSubmitViewModel @Inject constructor(
     val canSubmit: Boolean
         get() = _title.value.isNotBlank() &&
                 _payee.value.isNotBlank() &&
-                _amount.value.replace(",", ".").toDoubleOrNull()?.let { it > 0 } == true &&
+                elMoneyParse(_amount.value) > 0L &&
                 !_isSubmitting.value
 
-    fun submit(onSuccess: () -> Unit) {
+    fun submit(onSuccess: (String) -> Unit) {
         if (!canSubmit) {
             _error.value = "Veuillez remplir tous les champs obligatoires."
             return
@@ -106,11 +115,10 @@ class ExpenseSubmitViewModel @Inject constructor(
         viewModelScope.launch {
             _isSubmitting.value = true
             _error.value = null
-            val amountDzd = _amount.value.replace(",", ".").toDouble()
             val input = SubmitExpenseInput(
                 title = _title.value.trim(),
                 description = _description.value.trim(),
-                amount = (amountDzd * 100).toLong(), // centimes
+                amount = elMoneyParse(_amount.value), // EXACT centimes (T-322)
                 category = _category.value,
                 payee = _payee.value.trim(),
                 urgency = _urgency.value,
@@ -120,7 +128,7 @@ class ExpenseSubmitViewModel @Inject constructor(
             when (val result = expenseRepository.submit(input, actorId, actorName)) {
                 is Result.Ok -> {
                     _isSubmitting.value = false
-                    onSuccess()
+                    onSuccess(result.value.requestCode)
                 }
                 is Result.Err -> {
                     _isSubmitting.value = false
@@ -166,7 +174,6 @@ object ExpenseCategoryOptions {
     fun codeFor(label: String): String = LabelToCode[label] ?: Other
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpenseSubmitScreen(
     onBack: () -> Unit,
@@ -181,13 +188,18 @@ fun ExpenseSubmitScreen(
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    Scaffold(
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+
+    ElScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Nouvelle dépense") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Retour") } },
+            ElTopBar(
+                title = "Nouvelle dépense",
+                subtitle = "Soumission au workflow d'approbation",
+                onBack = onBack,
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -198,97 +210,129 @@ fun ExpenseSubmitScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error)
+                ElAlertBanner(
+                    title = "Erreur de soumission",
+                    message = it,
+                    severity = ElAlertSeverity.DANGER,
+                    onDismiss = viewModel::clearError,
+                )
             }
 
-            Text("Détails de la dépense", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            ElCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ElSectionHeader(title = "Informations de la dépense")
 
-            ElTextField(
-                value = title,
-                onValueChange = viewModel::titleChanged,
-                label = "Titre *",
-                modifier = Modifier.fillMaxWidth(),
-            )
+                    ElTextField(
+                        value = title,
+                        onValueChange = viewModel::titleChanged,
+                        label = "Titre *",
+                        placeholder = "Ex : Achat de fournitures pédagogiques",
+                        modifier = Modifier.fillMaxWidth(),
+                    )
 
-            ElTextField(
-                value = description,
-                onValueChange = viewModel::descriptionChanged,
-                label = "Description",
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = false,
-            )
+                    ElTextField(
+                        value = description,
+                        onValueChange = viewModel::descriptionChanged,
+                        label = "Description",
+                        placeholder = "Précisez l'usage, la classe, le fournisseur…",
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = false,
+                    )
 
-            ElTextField(
-                value = amount,
-                onValueChange = viewModel::amountChanged,
-                label = "Montant (DZD) *",
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth(),
-            )
+                    ElTextField(
+                        value = amount,
+                        onValueChange = viewModel::amountChanged,
+                        label = "Montant (DZD) *",
+                        placeholder = "Ex : 12500,50",
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
 
-            ElDropdown(
-                label = "Catégorie *",
-                selectedValue = ExpenseCategoryOptions.labelFor(category),
-                options = ExpenseCategoryOptions.AllLabels,
-                onSelected = { label -> viewModel.categoryChanged(ExpenseCategoryOptions.codeFor(label)) },
-                modifier = Modifier.fillMaxWidth(),
-            )
+                    ElDropdown(
+                        options = ExpenseCategoryOptions.AllLabels.map {
+                            ElDropdownOption(value = ExpenseCategoryOptions.codeFor(it), label = it)
+                        },
+                        selectedValue = category,
+                        onSelected = { option -> viewModel.categoryChanged(option.value) },
+                        label = "Catégorie *",
+                        modifier = Modifier.fillMaxWidth(),
+                    )
 
-            ElTextField(
-                value = payee,
-                onValueChange = viewModel::payeeChanged,
-                label = "Bénéficiaire *",
-                modifier = Modifier.fillMaxWidth(),
-            )
+                    ElTextField(
+                        value = payee,
+                        onValueChange = viewModel::payeeChanged,
+                        label = "Bénéficiaire *",
+                        placeholder = "Ex : Librairie En-Nour",
+                        modifier = Modifier.fillMaxWidth(),
+                    )
 
-            ElDropdown(
-                label = "Urgence",
-                selectedValue = when (urgency) {
-                    "low" -> "Basse"
-                    "medium" -> "Moyenne"
-                    "high" -> "Haute"
-                    "critical" -> "Critique"
-                    else -> "Normale"
-                },
-                options = listOf("Normale", "Basse", "Moyenne", "Haute", "Critique"),
-                onSelected = { label ->
-                    val code = when (label) {
-                        "Basse" -> "low"
-                        "Moyenne" -> "medium"
-                        "Haute" -> "high"
-                        "Critique" -> "critical"
-                        else -> "normal"
-                    }
-                    viewModel.urgencyChanged(code)
-                },
-                modifier = Modifier.fillMaxWidth(),
-            )
+                    ElDropdown(
+                        options = listOf(
+                            "Normale" to "normal",
+                            "Basse" to "low",
+                            "Moyenne" to "medium",
+                            "Haute" to "high",
+                            "Critique" to "critical",
+                        ).map { ElDropdownOption(value = it.second, label = it.first) },
+                        selectedValue = urgency,
+                        onSelected = { option -> viewModel.urgencyChanged(option.value) },
+                        label = "Urgence",
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
 
-            Spacer(Modifier.height(8.dp))
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text("Workflow d'approbation", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            ElCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        "Workflow d'approbation",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Soumise → Approuvée → Décaissée → Justificatif téléversé.\n" +
-                                "L'auto-approbation est interdite (plan §08).\n" +
-                                "Le justificatif est obligatoire avant clôture.",
+                        "1. Soumise → 2. Approuvée → 3. Décaissée → 4. Justificatif téléversé.\n" +
+                            "Règle de séparation des tâches : l'auto-approbation est strictement interdite (plan §08).\n" +
+                            "Le justificatif est obligatoire avant clôture.",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
 
             ElButton(
                 text = if (isSubmitting) "Soumission…" else "Soumettre la dépense",
-                onClick = { viewModel.submit(onBack) },
-                style = ElButtonStyle.Primary,
-                enabled = viewModel.canSubmit,
-                icon = Icons.Default.Send,
+                onClick = {
+                    viewModel.submit { requestCode ->
+                        // A Toast survives the pop — a snackbar on THIS scaffold
+                        // would be destroyed by the navigation.
+                        android.widget.Toast.makeText(
+                            context,
+                            "Dépense $requestCode soumise pour approbation",
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                        onBack()
+                    }
+                },
+                variant = ElButtonVariant.PRIMARY,
+                enabled = !isSubmitting && viewModel.canSubmit,
+                loading = isSubmitting,
+                icon = Icons.AutoMirrored.Filled.Send,
                 fullWidth = true,
             )
+
+            Spacer(Modifier.height(24.dp))
         }
     }
 }

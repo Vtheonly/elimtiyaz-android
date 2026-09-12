@@ -1,6 +1,5 @@
 package com.example.ui.features.financials
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,24 +11,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -39,23 +31,44 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.core.Permission
 import com.example.core.Result
-import com.example.core.formatDzd
+import com.example.core.Role
 import com.example.domain.model.Expense
+import com.example.domain.model.Personnel
 import com.example.domain.repository.ExpenseRepository
+import com.example.domain.repository.PersonnelRepository
 import com.example.session.SessionManager
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.display.ElAlertBanner
+import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.display.ElInfoRow
+import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.feedback.ElLoadingBlock
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.foundation.elMoneyFormat
+import com.example.ui.designsystem.foundation.elMoneyParse
+import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -70,10 +83,17 @@ import kotlinx.coroutines.launch
  *  - Reject requires a mandatory reason (per desktop §08).
  *  - `settleProof` action exposed (calls `expenseRepository.settleProof`).
  *  - No-self-approval enforced client-side (defense in depth alongside the DB trigger).
+ *
+ * T-322 fixes: the detail collector is CANCELLED per loadDetail call (the old
+ * code leaked one collector per call); the submitter display name resolves via
+ * [PersonnelRepository.observeByUserId]; the action permission getters let the
+ * UI hide actions the session cannot exercise (the server stays the source of
+ * truth — this only avoids surfacing raw server errors to unauthorized roles).
  */
 @HiltViewModel
 class ExpenseApprovalViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
+    private val personnelRepository: PersonnelRepository,
     private val sessionManager: SessionManager,
 ) : ViewModel() {
 
@@ -89,14 +109,37 @@ class ExpenseApprovalViewModel @Inject constructor(
     private val _info = MutableStateFlow<String?>(null)
     val info: StateFlow<String?> = _info.asStateFlow()
 
+    /** T-322: submitter display name (from personnel via user id). */
+    private val _submitterName = MutableStateFlow<String?>(null)
+    val submitterName: StateFlow<String?> = _submitterName.asStateFlow()
+
+    private var detailJob: Job? = null
+
     /** Load a single expense by id (for detail mode). */
     fun loadDetail(expenseId: String) {
-        viewModelScope.launch {
-            expenseRepository.observeById(expenseId).collect { exp ->
+        // T-322 fix: replace the previous collector instead of stacking one per call.
+        detailJob?.cancel()
+        detailJob = viewModelScope.launch {
+            expenseRepository.observeById(expenseId).collectLatest { exp ->
                 _detailExpense.value = exp
+                _submitterName.value = exp?.let { resolveUserName(it.submittedBy) }
             }
         }
     }
+
+    private suspend fun resolveUserName(userId: String): String? =
+        personnelRepository.observeByUserId(userId).firstOrNull()?.fullName
+
+    // ── UI permission getters (server still enforces — defense in depth) ──
+    val canApprove: Boolean
+        get() = sessionManager.current()?.can(Permission.APPROVE_EXPENSE) == true ||
+            sessionManager.current()?.role == Role.SUPER_ADMIN
+    val canDisburse: Boolean
+        get() = sessionManager.current()?.can(Permission.DISBURSE_EXPENSE) == true ||
+            sessionManager.current()?.role == Role.SUPER_ADMIN
+    val canSettleProof: Boolean
+        get() = sessionManager.current()?.can(Permission.SETTLE_EXPENSE_PROOF) == true ||
+            sessionManager.current()?.role == Role.SUPER_ADMIN
 
     fun approve(expense: Expense, note: String) {
         // No-self-approval (defense in depth — the DB trigger is the source of truth)
@@ -157,7 +200,17 @@ class ExpenseApprovalViewModel @Inject constructor(
     fun clearInfo() { _info.value = null }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** French status label + tone with stage nuance (T-322). */
+internal fun expenseStatusLabel(status: String): Pair<String, ElTagTone> = when (status) {
+    "draft" -> "Brouillon" to ElTagTone.NEUTRAL
+    "submitted" -> "En attente de validation" to ElTagTone.WARNING
+    "approved" -> "Approuvée (en attente de décaissement)" to ElTagTone.INFO
+    "rejected" -> "Rejetée" to ElTagTone.DANGER
+    "disbursed" -> "Fonds décaissés" to ElTagTone.INFO
+    "settled" -> "Dépense clôturée avec justificatif" to ElTagTone.SUCCESS
+    else -> status to ElTagTone.NEUTRAL
+}
+
 @Composable
 fun ExpenseApprovalScreen(
     expenseId: String?,
@@ -167,6 +220,7 @@ fun ExpenseApprovalScreen(
 ) {
     val expenses by viewModel.expenses.collectAsState()
     val detailExpense by viewModel.detailExpense.collectAsState()
+    val submitterName by viewModel.submitterName.collectAsState()
     val error by viewModel.error.collectAsState()
     val info by viewModel.info.collectAsState()
 
@@ -177,32 +231,50 @@ fun ExpenseApprovalScreen(
         if (expenseId != null) viewModel.loadDetail(expenseId)
     }
 
-    Scaffold(
+    ElScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(if (expenseId != null) "Détail dépense" else "Dépenses") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Retour") } },
+            ElTopBar(
+                title = if (expenseId != null) "Détail dépense" else "Dépenses",
+                onBack = onBack,
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 8.dp))
+                ElAlertBanner(
+                    title = "Erreur",
+                    message = it,
+                    severity = ElAlertSeverity.DANGER,
+                    onDismiss = viewModel::clearError,
+                )
             }
             info?.let {
-                Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 8.dp))
+                ElAlertBanner(
+                    title = "Succès",
+                    message = it,
+                    severity = ElAlertSeverity.SUCCESS,
+                    onDismiss = viewModel::clearInfo,
+                )
             }
 
             if (expenseId != null) {
                 // ── Detail mode ─────────────────────────────────────────────
                 val exp = detailExpense
                 if (exp == null) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Chargement…", style = MaterialTheme.typography.bodyMedium)
-                    }
+                    ElLoadingBlock(modifier = Modifier.fillMaxWidth())
                 } else {
                     ExpenseDetailView(
                         expense = exp,
+                        submitterName = submitterName,
+                        canApprove = viewModel.canApprove,
+                        canDisburse = viewModel.canDisburse,
+                        canSettleProof = viewModel.canSettleProof,
                         onApprove = { viewModel.approve(exp, "Approuvé") },
                         onReject = { rejectTarget = exp },
                         onDisburse = { viewModel.disburse(exp) },
@@ -212,43 +284,54 @@ fun ExpenseApprovalScreen(
                 }
             } else {
                 // ── List mode (approval queue) ──────────────────────────────
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(expenses) { expense ->
-                        ExpenseCard(
-                            expense = expense,
-                            onApprove = { viewModel.approve(expense, "Approuvé") },
-                            onReject = { rejectTarget = expense },
-                            onDisburse = { viewModel.disburse(expense) },
-                        )
+                if (expenses.isEmpty()) {
+                    ElEmptyState(
+                        title = "Aucune dépense",
+                        subtitle = "Les demandes soumises apparaîtront ici.",
+                    )
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(expenses) { expense ->
+                            ExpenseCard(
+                                expense = expense,
+                                onApprove = { viewModel.approve(expense, "Approuvé") },
+                                onReject = { rejectTarget = expense },
+                                onDisburse = { viewModel.disburse(expense) },
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
-    // ── Reject dialog (mandatory reason) ─────────────────────────────────
+    // ── Reject dialog (mandatory reason, ≥3 chars — refund-dialog parity) ──
     rejectTarget?.let { exp ->
         var reason by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { rejectTarget = null },
-            title = { Text("Rejeter la dépense") },
+            title = { Text("Rejeter la dépense ${exp.requestCode}") },
             text = {
                 Column {
-                    Text("${exp.title} — ${exp.requestCode}", style = MaterialTheme.typography.bodySmall)
+                    Text("${exp.title} — ${elMoneyFormat(exp.amount)}", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(8.dp))
-                    androidx.compose.material3.OutlinedTextField(
+                    OutlinedTextField(
                         value = reason,
                         onValueChange = { reason = it },
                         label = { Text("Motif du rejet *") },
+                        supportingText = { Text("Minimum 3 caractères") },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    viewModel.reject(exp, reason)
-                    rejectTarget = null
-                }) { Text("Rejeter") }
+                TextButton(
+                    onClick = {
+                        viewModel.reject(exp, reason)
+                        rejectTarget = null
+                    },
+                    enabled = reason.trim().length >= 3,
+                ) { Text("Rejeter") }
             },
             dismissButton = {
                 TextButton(onClick = { rejectTarget = null }) { Text("Annuler") }
@@ -258,32 +341,41 @@ fun ExpenseApprovalScreen(
 
     // ── Settle-proof dialog (final amount + proof path) ─────────────────
     settleTarget?.let { exp ->
-        var finalAmount by remember { mutableStateOf("") }
+        // T-322: prefill with the declared amount (exact DZD), parse with
+        // elMoneyParse (EXACT centimes — never toDouble()*100).
+        var finalAmount by remember { mutableStateOf((exp.amount / 100).toString()) }
         var proofPath by remember { mutableStateOf("") }
+        var settleError by remember { mutableStateOf<String?>(null) }
         AlertDialog(
             onDismissRequest = { settleTarget = null },
             title = { Text("Téléverser le justificatif") },
             text = {
                 Column {
-                    Text("${exp.title} — ${exp.requestCode}", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "${exp.title} — ${exp.requestCode} • Décaissée : ${elMoneyFormat(exp.amount)}",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                     Spacer(Modifier.height(8.dp))
-                    androidx.compose.material3.OutlinedTextField(
+                    OutlinedTextField(
                         value = finalAmount,
-                        onValueChange = { finalAmount = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' } },
+                        onValueChange = { finalAmount = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' || ch == ' ' } },
                         label = { Text("Montant final dépensé (DZD) *") },
+                        isError = settleError != null,
+                        supportingText = { settleError?.let { Text(it) } },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(8.dp))
-                    androidx.compose.material3.OutlinedTextField(
+                    OutlinedTextField(
                         value = proofPath,
-                        onValueChange = { proofPath = it },
+                        onValueChange = { proofPath = it; settleError = null },
                         label = { Text("Chemin du justificatif *") },
+                        isError = settleError != null,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     if (onNavigateToProofScanner != null) {
                         Spacer(Modifier.height(4.dp))
                         TextButton(onClick = onNavigateToProofScanner) {
-                            Icon(Icons.Default.UploadFile, contentDescription = null)
+                            androidx.compose.material3.Icon(Icons.Default.UploadFile, contentDescription = null)
                             Spacer(Modifier.height(4.dp))
                             Text("Scanner un justificatif")
                         }
@@ -291,13 +383,19 @@ fun ExpenseApprovalScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    val amt = finalAmount.replace(",", ".").toDoubleOrNull() ?: 0.0
-                    if (amt > 0 && proofPath.isNotBlank()) {
-                        viewModel.settleProof(exp, proofPath, (amt * 100).toLong())
-                        settleTarget = null
-                    }
-                }) { Text("Clôturer") }
+                TextButton(
+                    onClick = {
+                        val cents = elMoneyParse(finalAmount)
+                        when {
+                            cents <= 0L -> settleError = "Le montant final doit être supérieur à 0"
+                            proofPath.isBlank() -> settleError = "Le justificatif est obligatoire avant clôture"
+                            else -> {
+                                viewModel.settleProof(exp, proofPath, cents)
+                                settleTarget = null
+                            }
+                        }
+                    },
+                ) { Text("Clôturer") }
             },
             dismissButton = {
                 TextButton(onClick = { settleTarget = null }) { Text("Annuler") }
@@ -313,32 +411,52 @@ fun ExpenseApprovalScreen(
 @Composable
 private fun ExpenseDetailView(
     expense: Expense,
+    submitterName: String?,
+    canApprove: Boolean,
+    canDisburse: Boolean,
+    canSettleProof: Boolean,
     onApprove: () -> Unit,
     onReject: () -> Unit,
     onDisburse: () -> Unit,
     onSettleProof: () -> Unit,
     onNavigateToProofScanner: (() -> Unit)?,
 ) {
+    val c = ElTheme.colors
     LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Card(
-                elevation = CardDefaults.cardElevation(2.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            ElCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(expense.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                        ExpenseStatusChip(status = expense.status)
+                        Text(
+                            expense.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        val (label, tone) = expenseStatusLabel(expense.status)
+                        ElTag(text = label, tone = tone)
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Text("${expense.requestCode} • ${expense.category}", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "${expense.requestCode} • ${expenseCategoryLabel(expense.category)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = c.textSecondary,
+                    )
                     if (expense.description.isNotBlank()) {
-                        Spacer(Modifier.height(4.dp))
                         Text(expense.description, style = MaterialTheme.typography.bodySmall)
                     }
-                    Spacer(Modifier.height(8.dp))
-                    Text("Montant: ${(expense.amount / 100).formatDzd()} DZD", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                    Text("Bénéficiaire: ${expense.payee}", style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(4.dp))
+                    ElInfoRow(label = "Montant", value = elMoneyFormat(expense.amount))
+                    ElInfoRow(
+                        label = "Demandeur",
+                        value = submitterName ?: expense.submittedBy,
+                        valueTint = c.textPrimary,
+                    )
+                    ElInfoRow(label = "Bénéficiaire", value = expense.payee, valueTint = c.textPrimary)
                 }
             }
         }
@@ -346,39 +464,77 @@ private fun ExpenseDetailView(
         // ── Anomaly banner ──────────────────────────────────────────────
         if (expense.anomalyScore != null && expense.anomalyScore > 0.5) {
             item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("⚠ Anomalie détectée (score: ${expense.anomalyScore})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
-                        expense.anomalyNote?.let {
-                            Spacer(Modifier.height(4.dp))
-                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text("L'IA est un signal d'aide à la décision, pas un verdict — l'humain décide toujours.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onErrorContainer)
-                    }
-                }
+                ElAlertBanner(
+                    title = "Anomalie détectée (score : ${expense.anomalyScore})",
+                    message = (expense.anomalyNote?.plus(" ") ?: "") +
+                        "L'IA est un signal d'aide à la décision, pas un verdict — l'humain décide toujours.",
+                    severity = ElAlertSeverity.DANGER,
+                )
             }
         }
 
         // ── 4-stage timeline (submitted → approved → disbursed → settled) ─
         item { ExpenseTimeline(expense) }
 
-        // ── Actions (gated by status) ───────────────────────────────────
+        // ── Actions (gated by status AND session permissions) ────────────
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (expense.status) {
                     "submitted" -> {
-                        TextButton(onClick = onApprove) { Icon(Icons.Default.Check, contentDescription = null); Spacer(Modifier.height(2.dp)); Text(" Approuver") }
-                        TextButton(onClick = onReject) { Icon(Icons.Default.Close, contentDescription = null); Spacer(Modifier.height(2.dp)); Text(" Rejeter") }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ElButton(
+                                text = "Approuver",
+                                onClick = onApprove,
+                                variant = ElButtonVariant.PRIMARY,
+                                icon = Icons.Default.Check,
+                                enabled = canApprove,
+                            )
+                            ElButton(
+                                text = "Rejeter",
+                                onClick = onReject,
+                                variant = ElButtonVariant.DANGER,
+                                icon = Icons.Default.Close,
+                                enabled = canApprove,
+                            )
+                        }
+                        if (!canApprove) {
+                            Text(
+                                "Action réservée aux rôles avec la permission d'approbation.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = c.textSecondary,
+                            )
+                        }
                     }
                     "approved" -> {
-                        TextButton(onClick = onDisburse) { Text("Décaisser les fonds") }
+                        ElButton(
+                            text = "Décaisser les fonds",
+                            onClick = onDisburse,
+                            variant = ElButtonVariant.PRIMARY,
+                            enabled = canDisburse,
+                        )
+                        if (!canDisburse) {
+                            Text(
+                                "Action réservée aux rôles avec la permission de décaissement.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = c.textSecondary,
+                            )
+                        }
                     }
                     "disbursed" -> {
-                        TextButton(onClick = onSettleProof) { Icon(Icons.Default.UploadFile, contentDescription = null); Spacer(Modifier.height(2.dp)); Text(" Téléverser justificatif") }
+                        ElButton(
+                            text = "Téléverser justificatif",
+                            onClick = onSettleProof,
+                            variant = ElButtonVariant.SECONDARY,
+                            icon = Icons.Default.UploadFile,
+                            enabled = canSettleProof,
+                        )
+                        if (!canSettleProof) {
+                            Text(
+                                "Action réservée aux rôles avec la permission de clôture.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = c.textSecondary,
+                            )
+                        }
                     }
                 }
             }
@@ -386,37 +542,49 @@ private fun ExpenseDetailView(
     }
 }
 
+/** The detail view's action gating is parameter-driven (canApprove/canDisburse/canSettleProof). */
+
 @Composable
 private fun ExpenseTimeline(expense: Expense) {
     val stages = listOf(
-        Triple("Soumise", expense.submittedAt, expense.submittedBy),
+        Triple("Soumise", expense.submittedAt as String?, expense.submittedBy as String?),
         Triple("Approuvée", expense.approvedAt, expense.approvedBy),
         Triple("Décaissée", expense.disbursedAt, expense.disbursedBy),
         Triple("Justificatif téléversé", expense.proofUploadedAt, expense.proofUploadedBy),
     )
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Cycle de vie", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
+    ElCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            ElSectionHeader(title = "Cycle de vie")
             stages.forEachIndexed { idx, (label, at, by) ->
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 2.dp),
+                ) {
                     val active = at != null
-                    Box(
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .height(12.dp)
-                            .padding(0.dp),
-                    ) {
-                        Icon(
-                            imageVector = if (active) Icons.Default.Check else Icons.Default.Schedule,
-                            contentDescription = null,
-                            tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.padding(0.dp),
-                        )
-                    }
+                    androidx.compose.material3.Icon(
+                        imageVector = if (active) Icons.Default.Check else Icons.Default.Schedule,
+                        contentDescription = null,
+                        tint = if (active) ElTheme.colors.success else ElTheme.colors.textSecondary,
+                        modifier = Modifier.padding(end = 8.dp),
+                    )
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(label, style = MaterialTheme.typography.bodySmall, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
-                        if (at != null) Text("Le $at${if (by != null) " par $by" else ""}", style = MaterialTheme.typography.labelSmall)
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                        )
+                        if (at != null) {
+                            Text(
+                                "Le $at${if (by != null) " par $by" else ""}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = ElTheme.colors.textSecondary,
+                            )
+                        }
                     }
                 }
                 if (idx < stages.lastIndex) {
@@ -425,7 +593,12 @@ private fun ExpenseTimeline(expense: Expense) {
             }
             if (expense.status == "rejected") {
                 Spacer(Modifier.height(8.dp))
-                Text("Rejetée${expense.approvalNote?.let { " : $it" } ?: ""}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                Text(
+                    "Rejetée${expense.approvalNote?.let { " : $it" } ?: ""}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ElTheme.colors.danger,
+                    fontWeight = FontWeight.Bold,
+                )
             }
         }
     }
@@ -438,29 +611,44 @@ private fun ExpenseCard(
     onReject: () -> Unit,
     onDisburse: () -> Unit,
 ) {
-    Card(
-        elevation = CardDefaults.cardElevation(2.dp),
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+    val c = ElTheme.colors
+    ElCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(expense.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                ExpenseStatusChip(status = expense.status)
+                Text(
+                    expense.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                val (label, tone) = expenseStatusLabel(expense.status)
+                ElTag(text = label, tone = tone)
             }
-            Spacer(Modifier.height(4.dp))
-            Text("${expense.requestCode} • ${expense.category}", style = MaterialTheme.typography.bodySmall)
+            Text(
+                "${expense.requestCode} • ${expenseCategoryLabel(expense.category)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = c.textSecondary,
+            )
             if (expense.description.isNotBlank()) {
                 Text(expense.description, style = MaterialTheme.typography.bodySmall, maxLines = 2)
             }
-            Text("Montant: ${(expense.amount / 100).formatDzd()} DZD", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-            Text("Bénéficiaire: ${expense.payee}", style = MaterialTheme.typography.bodySmall)
+            Text(
+                "Montant : ${elMoneyFormat(expense.amount)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = c.primary,
+                fontWeight = FontWeight.Bold,
+            )
+            Text("Bénéficiaire : ${expense.payee}", style = MaterialTheme.typography.bodySmall)
 
             if (expense.anomalyScore != null && expense.anomalyScore > 0.5) {
                 Text(
-                    "⚠ Anomalie détectée (score: ${expense.anomalyScore})",
+                    "⚠ Anomalie détectée (score : ${expense.anomalyScore})",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    color = c.danger,
                 )
             }
 
@@ -480,21 +668,15 @@ private fun ExpenseCard(
     }
 }
 
-@Composable
-private fun ExpenseStatusChip(status: String) {
-    val color = when (status) {
-        "approved" -> MaterialTheme.colorScheme.primary
-        "rejected" -> MaterialTheme.colorScheme.error
-        "settled" -> MaterialTheme.colorScheme.tertiary
-        "disbursed" -> MaterialTheme.colorScheme.secondary
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Text(
-        text = status.replaceFirstChar { it.uppercase() },
-        style = MaterialTheme.typography.labelSmall,
-        color = Color.White,
-        modifier = Modifier
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .background(color, shape = RoundedCornerShape(8.dp)),
-    )
+internal fun expenseCategoryLabel(code: String): String = when (code) {
+    "utilities" -> "Utilities"
+    "supplies" -> "Fournitures"
+    "maintenance" -> "Maintenance"
+    "transport" -> "Transport"
+    "event" -> "Événement"
+    "salary" -> "Salaires"
+    "tax" -> "Taxes"
+    "rent" -> "Loyer"
+    "other" -> "Autre"
+    else -> code
 }
