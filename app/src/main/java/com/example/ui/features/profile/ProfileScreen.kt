@@ -53,6 +53,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import com.example.ui.features.settings.roleLabel
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
@@ -148,7 +149,7 @@ fun ProfileScreen(
                                 Text(s?.displayName ?: "Utilisateur", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text(s?.email ?: "", style = MaterialTheme.typography.bodySmall)
                                 s?.role?.let { r ->
-                                    Text("Rôle: ${r.name}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                    Text("Rôle : ${roleLabel(r)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }

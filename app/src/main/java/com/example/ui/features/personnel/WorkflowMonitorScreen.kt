@@ -48,6 +48,13 @@ import com.example.domain.model.WorkflowRunStatus
 import com.example.domain.model.WorkflowTrigger
 import com.example.domain.repository.WorkflowRepository
 import com.example.session.SessionManager
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -123,23 +130,25 @@ fun WorkflowMonitorScreen(
     val detailRun by viewModel.detailRun.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    Scaffold(
+    ElScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Exécutions de workflow") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Retour") } },
+            ElTopBar(
+                title = "Moniteur de workflows",
+                subtitle = "Surveillance des automatisations serveur",
+                onBack = onBack,
             )
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
             error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 8.dp))
+                Text(it, color = ElTheme.colors.danger, modifier = Modifier.padding(bottom = 8.dp))
             }
 
             if (runs.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Aucune exécution. Les workflows sont déclenchés côté serveur.", style = MaterialTheme.typography.bodySmall)
-                }
+                ElEmptyState(
+                    title = "Aucune exécution",
+                    subtitle = "Les workflows sont déclenchés côté serveur. Les exécutions apparaîtront ici.",
+                )
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(runs) { run ->
@@ -171,12 +180,42 @@ fun WorkflowMonitorScreen(
                     run.actorName?.let { Text("Acteur: $it", style = MaterialTheme.typography.bodySmall) }
                     run.errorMessage?.let {
                         Spacer(Modifier.height(8.dp))
-                        Text("Erreur: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        Text("Erreur : $it", style = MaterialTheme.typography.bodySmall, color = ElTheme.colors.danger)
                     }
-                    run.outputLog?.let {
-                        Spacer(Modifier.height(8.dp))
-                        Text("Journal:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                        Text(it, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace))
+                    // T-324 (UI-314): the T-231 decode populates nodeResults —
+                    // surface the executed steps instead of leaving the data dead.
+                    // The old "Journal" section was dead UI (the mapper never
+                    // populated outputLog) and is removed.
+                    if (run.nodeResults.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            "Étapes exécutées (${run.nodeResults.size})",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        run.nodeResults.forEach { node ->
+                            val (label, tone) = workflowNodeStatusLabel(node.status)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(vertical = 2.dp),
+                            ) {
+                                Text(
+                                    node.nodeName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                ElTag(text = label, tone = tone)
+                            }
+                            node.error?.let { nodeError ->
+                                Text(
+                                    nodeError,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = ElTheme.colors.danger,
+                                    maxLines = 2,
+                                )
+                            }
+                        }
                     }
                 }
             },
@@ -240,3 +279,13 @@ private fun WorkflowStatusChip(status: WorkflowRunStatus) {
             .background(color, shape = RoundedCornerShape(8.dp)),
     )
 }
+
+/** Humanized node-status label + tone (T-324: raw enum names no longer leak). */
+internal fun workflowNodeStatusLabel(status: com.example.domain.model.WorkflowNodeStatus): Pair<String, ElTagTone> =
+    when (status) {
+        com.example.domain.model.WorkflowNodeStatus.Succeeded -> "Réussie" to ElTagTone.SUCCESS
+        com.example.domain.model.WorkflowNodeStatus.Running -> "En cours" to ElTagTone.INFO
+        com.example.domain.model.WorkflowNodeStatus.Failed -> "Échec" to ElTagTone.DANGER
+        com.example.domain.model.WorkflowNodeStatus.Timeout -> "Délai dépassé" to ElTagTone.WARNING
+        com.example.domain.model.WorkflowNodeStatus.Skipped -> "Ignorée" to ElTagTone.NEUTRAL
+    }

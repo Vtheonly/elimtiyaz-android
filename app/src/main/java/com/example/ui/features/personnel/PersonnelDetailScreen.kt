@@ -235,7 +235,7 @@ fun PersonnelDetailScreen(
                 title = { Text(personnel?.fullName ?: "Personnel") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Retour") } },
                 actions = {
-                    if (viewModel.canManage) {
+                    if (viewModel.canManage && personnel != null) {
                         IconButton(onClick = { showEditDialog = true }) {
                             Icon(Icons.Default.Edit, contentDescription = "Modifier l'employé")
                         }
@@ -243,9 +243,13 @@ fun PersonnelDetailScreen(
                             Icon(Icons.Default.Delete, contentDescription = "Retirer l'employé")
                         }
                     }
-                    IconButton(onClick = {
-                        personnel?.phone?.let { PhoneUtils.dial(context, it) }
-                    }) { Icon(Icons.Default.Call, contentDescription = "Appeler") }
+                    // T-324: the call affordance is only tappable with a real
+                    // number (it used to toast a confusing error on blank).
+                    if (!personnel?.phone.isNullOrBlank()) {
+                        IconButton(onClick = {
+                            personnel?.phone?.let { PhoneUtils.dial(context, it) }
+                        }) { Icon(Icons.Default.Call, contentDescription = "Appeler") }
+                    }
                     personnel?.email?.let { email ->
                         IconButton(onClick = {
                             val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$email"))
@@ -291,7 +295,12 @@ fun PersonnelDetailScreen(
                                 Text(p.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text(p.position, style = MaterialTheme.typography.bodySmall)
                                 Text("Catégorie : ${p.staffCategory}", style = MaterialTheme.typography.labelSmall)
-                                Text("Statut : ${p.status}", style = MaterialTheme.typography.labelSmall)
+                                // T-324: humanized status label (was the raw code).
+                                Text(
+                                    "Statut : ${personnelStatusLabel(p.status)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (p.status == "active") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                )
                             }
                         }
                         Spacer(Modifier.height(12.dp))
@@ -364,6 +373,18 @@ fun PersonnelDetailScreen(
                             Text("%.1f h".format(min / 60.0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                         }
                     }
+                }
+            }
+
+            if (recentEntries.isEmpty()) {
+                // T-324: empty state for the relevé list (was a silent blank).
+                item {
+                    Text(
+                        "Aucun relevé cette semaine. Utilisez « Saisir » pour enregistrer les heures travaillées.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                    )
                 }
             }
         }
@@ -479,4 +500,11 @@ private fun DayBarChart(perDay: Map<DayOfWeek, Double>) {
             }
         }
     }
+}
+/** T-324: humanized personnel status (raw codes no longer leak to the card). */
+internal fun personnelStatusLabel(status: String): String = when (status) {
+    "active" -> "En poste"
+    "terminated" -> "Terminé"
+    "suspended" -> "Suspendu"
+    else -> status
 }

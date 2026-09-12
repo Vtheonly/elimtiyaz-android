@@ -173,9 +173,11 @@ fun RoutingScreen(
             Spacer(Modifier.height(16.dp))
 
             if (vehicles.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Aucun véhicule configuré.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                }
+                // T-324: real empty state (was a bare centered Text).
+                com.example.ui.designsystem.components.feedback.ElEmptyState(
+                    title = "Aucun véhicule configuré",
+                    subtitle = "Les véhicules et leurs tournées apparaîtront ici.",
+                )
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(vehicles) { vehicle ->
@@ -228,7 +230,7 @@ private fun VehicleCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(vehicle.plate, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Text("Capacité: ${vehicle.capacity} • ${if (vehicle.hasWheelchairAccess) "PMR" else "Standard"}", style = MaterialTheme.typography.labelSmall)
-                    vehicle.driverName?.let { Text("Chauffeur: $it", style = MaterialTheme.typography.labelSmall) }
+                    Text("Chauffeur : ${vehicle.driverName ?: "Sans chauffeur"}", style = MaterialTheme.typography.labelSmall)
                 }
             }
             Spacer(Modifier.height(8.dp))
