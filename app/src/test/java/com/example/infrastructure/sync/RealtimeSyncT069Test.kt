@@ -152,9 +152,16 @@ class RealtimeSyncT069Test {
      * `onSubscription` side effects (they run asynchronously on
      * Dispatchers.Default); any scheduling shift surfaced it. The threshold
      * now matches the asserted table set, so the helper is deterministic.
+     *
+     * T-325 (57th session): the same race recurred a THIRD time after
+     * T-299 added audit_logs (assertions now expect 7 tables) while this
+     * helper still polled >=6 — the 7th `onSubscription` could arrive
+     * after the exact-7 assertion. The threshold follows the asserted
+     * set again (>=7). Root pattern: update the ASSERTIONS when a table
+     * joins the set, forget the HELPER. Now pinned together.
      */
     private fun waitForSubscriptions() {
-        awaitUntil { source.subscribed.size >= 6 }
+        awaitUntil { source.subscribed.size >= 7 }
     }
 
     // ── 1. Reactive lifecycle ────────────────────────────────────────────────
