@@ -352,9 +352,13 @@ class CrossPlatformScenarioRunner {
     }
 
     @Test
-    fun `scenario discount_engine_all_5_rules - INV §5`() {
+    fun `scenario discount_engine_all_5_rules - CALC-001 corrected expectation`() {
+        // CALC-001 (2026-09-12): verified against `Suivis clients  2026_2027.xlsx`,
+        // only sibling_fixed and full_annual (5% of SCOLARITÉ) are real. The
+        // scenario name is kept for the shared fixture path; the expected
+        // behaviour is the corrected one (mirrors the desktop ScenarioRunner).
         val params = EvaluateAllDiscountsParams(
-            grossTuition = 33_000_000L,    // 330,000 DZD
+            grossScolarite = 33_000_000L,    // 330,000 DZD scolarité
             previousGradeLevel = "5ap",
             currentGradeLevel = "1am",
             childIndex = 3,                // 2 additional siblings
@@ -362,29 +366,22 @@ class CrossPlatformScenarioRunner {
             paymentDate = "2026-06-15T00:00:00Z",   // before June 30
             academicYearStartYear = 2026,
             academicYearStart = "2026-09-15T00:00:00Z",
-            enrollmentDate = "2020-09-01T00:00:00Z",   // 6 years seniority
-            previousRank = 1,
+            enrollmentDate = "2020-09-01T00:00:00Z",   // 6 years seniority (rule removed)
+            previousRank = 1,                                  // rank 1 (rule removed)
         )
         val evaluations = evaluateAllSystemDiscounts(params)
         val total = sumDiscounts(evaluations)
-        // Expected:
-        //   passage_palier: -10,000 DZD = -1,000,000 centimes
+        // Expected (CALC-001):
         //   sibling_fixed:  -10,000 DZD (2 × 5,000) = -1,000,000 centimes
-        //   full_annual:    -10% of 330,000 = -33,000 DZD = -3,300,000 centimes
-        //   highest_average: -10% of 330,000 = -33,000 DZD = -3,300,000 centimes
-        //   seniority_5y:   -5% of 330,000 = -16,500 DZD = -1,650,000 centimes
-        //   total = -102,500 DZD = -10,250,000 centimes
-        //   net = 330,000 - 102,500 = 227,500 DZD = 22,750,000 centimes
-        assertEquals(5, evaluations.size)
-        assertEquals(-1_000_000L, evaluations.first { it.code == "passage_palier" }.amount)
+        //   full_annual:    -5% of 330,000 = -16,500 DZD = -1,650,000 centimes
+        //   total = -26,500 DZD = -2,650,000 centimes
+        //   net = 330,000 - 26,500 = 303,500 DZD = 30,350,000 centimes
+        assertEquals(2, evaluations.size)
         assertEquals(-1_000_000L, evaluations.first { it.code == "sibling_fixed" }.amount)
-        assertEquals(-3_300_000L, evaluations.first { it.code == "full_annual" }.amount)
-        assertEquals(-3_300_000L, evaluations.first { it.code == "highest_average" }.amount)
-        assertEquals(-1_650_000L, evaluations.first { it.code == "seniority_5y" }.amount)
-        assertEquals(-10_250_000L, total)
-        // Net tuition after discounts.
+        assertEquals(-1_650_000L, evaluations.first { it.code == "full_annual" }.amount)
+        assertEquals(-2_650_000L, total)
         val net = (33_000_000L + total).coerceAtLeast(0L)
-        assertEquals(22_750_000L, net)
+        assertEquals(30_350_000L, net)
     }
 
     @Test

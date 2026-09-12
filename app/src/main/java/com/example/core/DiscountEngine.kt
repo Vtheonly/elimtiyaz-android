@@ -1,7 +1,5 @@
 package com.example.core
 
-import java.time.Instant
-import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
@@ -9,9 +7,21 @@ import java.time.ZoneOffset
  * Discount Engine — Kotlin port of the desktop
  * `src/domain/calc/pricing/discount-engine.ts` + `discount-rules.ts`.
  *
- * CANONICAL-FINANCIAL-LOGIC.md §5 — implements the 5 canonical discount
- * rules in a SINGLE PASS on the gross annual tuition. Percentage rules
- * apply to the gross amount, NOT to the running total (no compounding).
+ * CALC-001 (2026-09-12): verified against `Suivis clients  2026_2027.xlsx`,
+ * only TWO discount rules are REAL at the school:
+ *
+ *   1. `sibling_fixed` — −5 000 DZD per additional child (the default
+ *      component visible inside the workbook's J-column remise
+ *      decompositions, e.g. `=13000+22000+5000`).
+ *   2. `full_annual` — early annual payment before June 30: −5% of the
+ *      FRAIS DE SCOLARISATION ONLY (the Devis sheet formula
+ *      `=+SUM(F15:F26)*0.05` — never of FI or transport).
+ *
+ * The previously-mirrored rules NEVER EXISTED at the school and are removed:
+ *   ❌ passage_palier (−10 000 DZD on 5AP→1AM / 4AM→1ère) — the workbook's
+ *      10 000 DZD remises decompose as two 5 000 sibling components.
+ *   ❌ highest_average (rank 1 → −10%).
+ *   ❌ seniority_5y (−5%).
  *
  * Every money value is in **centimes (Long)** to avoid floating-point
  * rounding. The desktop's DZD value is multiplied by 100 here.
@@ -34,43 +44,18 @@ internal fun groupAmountFr(n: Long): String {
     return parts.joinToString(" ")
 }
 
-const val PASSAGE_DE_PALIER_AMOUNT: Long = -1_000_000L         // −10,000 DZD
 const val SIBLING_PER_CHILD_AMOUNT: Long = 500_000L            // 5,000 DZD per additional child
-const val EARLY_ANNUAL_RATE: Double = 0.10                      // −10%
-const val HIGHEST_AVERAGE_RATE: Double = 0.10                  // −10%
-const val SENIORITY_RATE: Double = 0.05                         // −5%
-const val SENIORITY_YEARS: Int = 5
+const val EARLY_ANNUAL_RATE: Double = 0.05                     // −5% of the SCOLARITÉ (workbook SUM(F)*0.05)
 
-private const val MS_PER_DAY: Long = 86_400_000L
-private const val DAYS_PER_YEAR_AVG: Double = 365.25
-
-/**
- * Grade-level transitions that qualify a student for the `passage_palier`
- * discount. Mirrors the desktop's `CYCLE_TRANSITIONS` array.
- */
-private val CYCLE_TRANSITIONS: List<Pair<String, String>> = listOf(
-    "5ap" to "1am",
-    "4am" to "1ere_annee",
-)
+// ── REMOVED (CALC-001) ───────────────────────────────────────────────────
+// PASSAGE_DE_PALIER_AMOUNT / HIGHEST_AVERAGE_RATE / SENIORITY_RATE /
+// SENIORITY_YEARS / CYCLE_TRANSITIONS / evaluatePassageDePalier /
+// evaluateAcademicExcellenceDiscount / evaluateSeniorityDiscount /
+// isCycleTransition — the rules never existed at the school (see the
+// workbook evidence in the desktop discount-rules.ts header).
 
 /**
- * Evaluate the `passage_palier` discount (−10,000 DZD when student
- * transitions between academic cycles).
- *
- * @param previousGradeLevel The student's grade level in the previous
- *        academic year (null if first enrollment).
- * @param currentGradeLevel  The student's grade level for the upcoming year.
- * @return The discount amount in centimes (negative Long). 0 if no
- *         transition matches.
- */
-fun evaluatePassageDePalier(previous: String?, current: String): Long {
-    if (previous == null) return 0L
-    val crossed = CYCLE_TRANSITIONS.any { (from, to) -> previous == from && current == to }
-    return if (crossed) PASSAGE_DE_PALIER_AMOUNT else 0L
-}
-
-/**
- * Evaluate the `sibling_fixed` discount (−5,000 DZD per additional child).
+ * Evaluate the `sibling_fixed` discount (−5 000 DZD per additional child).
  *
  * @param childIndex 1-based index of this child within the family
  *                   (1 = first child = no discount; 2 = second child =
@@ -85,23 +70,28 @@ fun evaluateSiblingDiscount(childIndex: Int, perChild: Long = SIBLING_PER_CHILD_
 }
 
 /**
- * Evaluate the `full_annual` early-payment discount (−10% of gross tuition).
+ * Evaluate the `full_annual` early-payment discount (−5% of the SCOLARITÉ).
  *
  * Applies only when:
  *   - `paymentPlan == FULL_ANNUAL`, AND
  *   - `paymentDate` is on or before June 30 (end of day, UTC) of the
  *     `academicYearStartYear`.
  *
+ * CALC-002: the base is the scolarité ONLY — the workbook's
+ * `=+SUM(F…)*0.05` sums the Frais Scolarisation column, never the F I
+ * (registration) or Services (transport) columns.
+ *
  * @param paymentDate     ISO-8601 string or epoch-millis when the payment
  *                        is collected.
- * @param grossTuition    Gross annual tuition in centimes (before any discount).
+ * @param grossScolarite  Gross annual SCOLARITÉ in centimes (FI and
+ *                        transport excluded).
  * @param paymentPlan      The student's payment plan (full_annual / tranches).
  * @param academicYearStartYear  The calendar year in which the academic year starts.
  * @return The discount amount in centimes (negative Long). 0 if conditions not met.
  */
 fun evaluateEarlyAnnualDiscount(
     paymentDate: String,
-    grossTuition: Long,
+    grossScolarite: Long,
     paymentPlan: PaymentPlan,
     academicYearStartYear: Int,
 ): Long {
@@ -109,51 +99,8 @@ fun evaluateEarlyAnnualDiscount(
     val cutoff = OffsetDateTime.of(academicYearStartYear, 6, 30, 23, 59, 59, 0, ZoneOffset.UTC).toInstant()
     val whenInstant = parseIsoInstantSafe(paymentDate)
     if (whenInstant.isAfter(cutoff)) return 0L
-    val gross = grossTuition.toDouble()
+    val gross = grossScolarite.toDouble()
     return -Math.round(gross * EARLY_ANNUAL_RATE)
-}
-
-/**
- * Evaluate the `highest_average` academic-excellence discount (−10% of
- * gross tuition) when the student was rank 1 in their previous palier.
- *
- * @param previousRank  The student's class rank last year (1 = top).
- *                      null if unknown / not ranked.
- * @param grossTuition  Gross annual tuition in centimes.
- * @return The discount amount in centimes (negative Long). 0 if not rank 1.
- */
-fun evaluateAcademicExcellenceDiscount(previousRank: Int?, grossTuition: Long): Long {
-    if (previousRank == null || previousRank != 1) return 0L
-    val gross = grossTuition.toDouble()
-    return -Math.round(gross * HIGHEST_AVERAGE_RATE)
-}
-
-/**
- * Evaluate the `seniority_5y` discount (−5% of gross tuition) when the
- * student has been enrolled for ≥ 5 years before the academic year start.
- *
- * @param enrollmentDate      ISO-8601 string of the student's enrollment date.
- * @param academicYearStart   ISO-8601 string of the academic year start.
- * @param grossTuition        Gross annual tuition in centimes.
- * @return The discount amount in centimes (negative Long). 0 if seniority < 5 years.
- */
-fun evaluateSeniorityDiscount(
-    enrollmentDate: String,
-    academicYearStart: String,
-    grossTuition: Long,
-): Long {
-    val enrolled = parseIsoInstantSafe(enrollmentDate)
-    val yearStart = parseIsoInstantSafe(academicYearStart)
-    val thresholdMs = (SENIORITY_YEARS.toLong() * DAYS_PER_YEAR_AVG * MS_PER_DAY).toLong()
-    if (yearStart.toEpochMilli() - enrolled.toEpochMilli() <= thresholdMs) return 0L
-    val gross = grossTuition.toDouble()
-    return -Math.round(gross * SENIORITY_RATE)
-}
-
-/** Convenience: is the [previous] → [current] transition a cycle boundary? */
-fun isCycleTransition(previous: String?, current: String): Boolean {
-    if (previous == null) return false
-    return CYCLE_TRANSITIONS.any { (from, to) -> previous == from && current == to }
 }
 
 // ── Single-pass orchestrator ──────────────────────────────────────────────
@@ -162,7 +109,7 @@ fun isCycleTransition(previous: String?, current: String): Boolean {
  * Discount evaluation result — one entry per rule that fired.
  */
 data class DiscountEvaluation(
-    val code: String,        // "passage_palier" / "sibling_fixed" / "full_annual" / "highest_average" / "seniority_5y"
+    val code: String,        // "sibling_fixed" / "full_annual"
     val label: String,
     val amount: Long,        // centimes — negative for reductions
     val applied: Boolean,
@@ -176,43 +123,46 @@ data class DiscountEvaluation(
  * Android financial engine.
  */
 data class EvaluateAllDiscountsParams(
-    val grossTuition: Long,
-    val previousGradeLevel: String?,
-    val currentGradeLevel: String,
+    /**
+     * CALC-001: the base for percentage rules = the gross SCOLARITÉ
+     * (FI and transport excluded — mirrors the workbook's `SUM(F)*0.05`).
+     */
+    val grossScolarite: Long? = null,
+    /**
+     * DEPRECATED alias for [grossScolarite] (CALC-001 rename). Kept so the
+     * shared cross-platform scenario fixtures and older call sites keep
+     * compiling; new code must pass `grossScolarite`.
+     */
+    val grossTuition: Long = 0L,
+    /**
+     * CALC-001: previous-grade / previous-rank inputs are DEPRECATED and
+     * ignored (the rules they fed never existed). Kept for call-site
+     * compatibility.
+     */
+    val previousGradeLevel: String? = null,
+    val currentGradeLevel: String = "1ap",
     val childIndex: Int,
     val paymentPlan: PaymentPlan,
     val paymentDate: String,
     val academicYearStartYear: Int,
-    val academicYearStart: String,
-    val enrollmentDate: String,
-    val previousRank: Int?,
+    val academicYearStart: String = "2026-09-01T00:00:00Z",
+    val enrollmentDate: String = "2026-09-01T00:00:00Z",
+    val previousRank: Int? = null,
     val siblingPerChildAmount: Long = SIBLING_PER_CHILD_AMOUNT,
 )
 
 /**
- * Run all 5 canonical discount rules in a single pass on the gross annual
- * tuition. Returns one entry per rule that fired (amount ≠ 0).
+ * Run the 2 REAL discount rules in a single pass on the gross scolarité.
+ * Returns one entry per rule that fired (amount ≠ 0).
  *
- * CANONICAL-FINANCIAL-LOGIC.md §5 — discounts are applied ONCE on gross,
- * then the net is split into tranches. Calling this per-tranche triples
- * the discount.
+ * CALC-001: the fictional rules (passage_palier, highest_average,
+ * seniority_5y) never existed at the school and are intentionally absent.
  */
 fun evaluateAllSystemDiscounts(params: EvaluateAllDiscountsParams): List<DiscountEvaluation> {
     val out = mutableListOf<DiscountEvaluation>()
+    val grossScolarite = params.grossScolarite ?: params.grossTuition
 
-    // Rule 1: passage_palier (cycle transition)
-    val passage = evaluatePassageDePalier(params.previousGradeLevel, params.currentGradeLevel)
-    if (passage != 0L) {
-        out.add(DiscountEvaluation(
-            code = "passage_palier",
-            label = "Passage de palier (−10 000 DA)",
-            amount = passage,
-            applied = true,
-            reason = "Transition ${params.previousGradeLevel ?: "—"} → ${params.currentGradeLevel}",
-        ))
-    }
-
-    // Rule 2: sibling_fixed (per additional child)
+    // Rule 1: sibling_fixed (per additional child)
     val sibling = evaluateSiblingDiscount(params.childIndex, params.siblingPerChildAmount)
     if (sibling != 0L) {
         out.add(DiscountEvaluation(
@@ -226,43 +176,17 @@ fun evaluateAllSystemDiscounts(params: EvaluateAllDiscountsParams): List<Discoun
         ))
     }
 
-    // Rule 3: full_annual (early annual payment before June 30)
+    // Rule 2: full_annual (early annual payment before June 30 — 5% scolarité)
     val early = evaluateEarlyAnnualDiscount(
-        params.paymentDate, params.grossTuition, params.paymentPlan, params.academicYearStartYear,
+        params.paymentDate, grossScolarite, params.paymentPlan, params.academicYearStartYear,
     )
     if (early != 0L) {
         out.add(DiscountEvaluation(
             code = "full_annual",
-            label = "Paiement annuel avant le 30 juin (−10%)",
+            label = "Paiement annuel avant le 30 juin (−5% scolarité)",
             amount = early,
             applied = true,
             reason = "Paiement intégral avant le 30 juin",
-        ))
-    }
-
-    // Rule 4: highest_average (rank 1 last year)
-    val excellence = evaluateAcademicExcellenceDiscount(params.previousRank, params.grossTuition)
-    if (excellence != 0L) {
-        out.add(DiscountEvaluation(
-            code = "highest_average",
-            label = "Meilleure moyenne du palier (−10%)",
-            amount = excellence,
-            applied = true,
-            reason = "Rang 1 au palier l'année précédente",
-        ))
-    }
-
-    // Rule 5: seniority_5y (5+ years enrolled)
-    val seniority = evaluateSeniorityDiscount(
-        params.enrollmentDate, params.academicYearStart, params.grossTuition,
-    )
-    if (seniority != 0L) {
-        out.add(DiscountEvaluation(
-            code = "seniority_5y",
-            label = "Ancienneté > 5 ans (−5%)",
-            amount = seniority,
-            applied = true,
-            reason = "Plus de 5 ans d'ancienneté",
         ))
     }
 
