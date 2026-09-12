@@ -6,6 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.core.PaymentCategory
 import com.example.core.PaymentMethod
 import com.example.core.Result
+import com.example.core.AllocationResult
+import com.example.core.WaterfallInstallment
+import com.example.core.allocatePaymentToInstallments
+import com.example.core.PaymentStatus
 import com.example.domain.model.Installment
 import com.example.domain.model.Parent
 import com.example.domain.model.Student
@@ -68,6 +72,47 @@ class CounterPaymentViewModel @Inject constructor(
     private val _receiptNumber = MutableStateFlow<String?>(null)
     val receiptNumber: StateFlow<String?> = _receiptNumber.asStateFlow()
 
+    /** T-321 (UI-311): dismissible error banner support. */
+    fun clearError() {
+        _error.value = null
+    }
+
+    /**
+     * T-321 (UI-311) — engine-derived allocation preview for the payment
+     * form. Uses the SAME canonical client engine (`allocatePaymentToInstallments`)
+     * with the SAME inputs the repository's `collect` will use: ALL family
+     * installments, the selected category filter, and PAID for CASH vs
+     * PENDING for CHECK/TRANSFER. Never re-derived in the UI.
+     */
+    fun computeAllocationPreview(
+        amountCents: Long,
+        category: PaymentCategory,
+        method: PaymentMethod,
+    ): AllocationResult? {
+        val parent = _selectedParent.value ?: return null
+        if (amountCents <= 0L) return null
+        val familyInstallments = _installments.value.map {
+            // The engine compares lowercase status codes ("paid"/"overdue"/…)
+            // — map the domain enum to its canonical code, matching what the
+            // repository feeds the engine from the entity column.
+            WaterfallInstallment(
+                id = it.id,
+                category = it.category,
+                amountDue = it.amountDue,
+                amountPaid = it.amountPaid,
+                amountPending = it.amountPending,
+                dueDate = it.dueDate,
+                status = it.status.code,
+            )
+        }
+        return allocatePaymentToInstallments(
+            installments = familyInstallments,
+            paymentAmount = amountCents,
+            categoryFilter = category,
+            paymentStatus = if (method == PaymentMethod.CASH) PaymentStatus.PAID else PaymentStatus.PENDING,
+        )
+    }
+
     private var studentJob: Job? = null
     private var installmentJob: Job? = null
     private var ledgerJob: Job? = null
@@ -116,18 +161,36 @@ class CounterPaymentViewModel @Inject constructor(
             return
         }
 
+        startFamilyJobs(parent.id)
+    }
+
+    /**
+     * T-321 fix: `collect`'s success path used to call `selectParent(current)`
+     * to refresh the outstanding/installments — but selectParent RESETS
+     * `_receiptNumber`, so the success state was erased in the same frame and
+     * the receipt never displayed. The refresh now runs WITHOUT touching the
+     * result state (receipt/error/student selection).
+     */
+    private fun refreshFamilyData(parentId: String) {
+        studentJob?.cancel()
+        installmentJob?.cancel()
+        ledgerJob?.cancel()
+        startFamilyJobs(parentId)
+    }
+
+    private fun startFamilyJobs(parentId: String) {
         studentJob = viewModelScope.launch {
-            studentRepository.observeByParent(parent.id).collect {
+            studentRepository.observeByParent(parentId).collect {
                 _students.value = it
             }
         }
         installmentJob = viewModelScope.launch {
-            installmentRepository.observeByParent(parent.id).collect {
+            installmentRepository.observeByParent(parentId).collect {
                 _installments.value = it
             }
         }
         ledgerJob = viewModelScope.launch {
-            when (val res = ledgerRepository.summary(parent.id)) {
+            when (val res = ledgerRepository.summary(parentId)) {
                 is Result.Ok -> _parentOutstanding.value = res.value.totalOutstanding.coerceAtLeast(0L)
                 is Result.Err -> _parentOutstanding.value = 0L
             }
@@ -148,7 +211,7 @@ class CounterPaymentViewModel @Inject constructor(
                 is Result.Ok -> {
                     _isLoading.value = false
                     _receiptNumber.value = result.value.receiptNumber
-                    _selectedParent.value?.let { selectParent(it) }
+                    _selectedParent.value?.let { refreshFamilyData(it.id) }
                     onResult(result.value.receiptNumber)
                 }
                 is Result.Err -> {
