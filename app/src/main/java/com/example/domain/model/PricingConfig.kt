@@ -49,3 +49,26 @@ data class PricingDiscount(
     val amount: Long,
     val discountType: String = "fixed_amount", // "fixed_amount" | "percentage"
 )
+
+/**
+ * Transport pricing row — one per destination zone, with the zone's own
+ * (non-40/30/30) tranche split. Mirrors the Room `transport_pricing` table.
+ *
+ * T-320 (55th session): exposed to the domain layer so the registration
+ * wizard's billing simulation reads the REAL per-zone fees instead of
+ * hard-coding one. CALC-001 note: the canonical destinations are the
+ * zones seeded into `transport_pricing` (ville_boumerdes,
+ * tidjelabine_sahel_figuier_corso, boudouaou_thenia_zemmouri, autres);
+ * no client-side town list exists — never fabricate one.
+ */
+@Serializable
+data class TransportPricing(
+    val id: String,
+    val pricingConfigId: String,
+    val destination: String,
+    /** Annual transport amount in centimes. */
+    val annualAmount: Long,
+    val tranche1: Long,
+    val tranche2: Long,
+    val tranche3: Long,
+)

@@ -28,6 +28,7 @@ import com.example.domain.model.PaymentMethodSummary
 import com.example.domain.model.Personnel
 import com.example.domain.model.PricingConfig
 import com.example.domain.model.ReleveEntry
+import com.example.domain.model.TransportPricing
 import com.example.domain.model.Student
 import com.example.domain.model.Subject
 import com.example.domain.repository.AuditFilter
@@ -139,6 +140,20 @@ class LocalPricingRepository @Inject constructor(
 
     override fun observeGradeLevelTuition(): Flow<List<GradeLevelTuition>> = pricingDao.observeActive().map {
         pricingDao.listGradeLevelTuition().map { g -> LocalMappers.run { g.toDomain() } }
+    }
+
+    override fun observeTransportPricing(): Flow<List<TransportPricing>> = pricingDao.observeActive().map {
+        pricingDao.listTransportPricing().map { t ->
+            TransportPricing(
+                id = t.id,
+                pricingConfigId = t.pricingConfigId,
+                destination = t.destination,
+                annualAmount = t.annualAmount,
+                tranche1 = t.tranche1,
+                tranche2 = t.tranche2,
+                tranche3 = t.tranche3,
+            )
+        }
     }
 
     override suspend fun updateRegistrationFee(amount: Long, actorId: String, actorName: String): Result<Unit> {

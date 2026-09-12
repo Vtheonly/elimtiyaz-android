@@ -33,8 +33,12 @@ object PhoneUtils {
 
     /**
      * Formats phone number into international format and opens WhatsApp chat directly.
+     *
+     * T-320: an optional [message] prefills the chat's composition box via the
+     * `wa.me/{num}?text=` deep link (URL-encoded). Backward compatible — all
+     * existing call sites keep working with the default null.
      */
-    fun openWhatsApp(context: Context, rawPhone: String?) {
+    fun openWhatsApp(context: Context, rawPhone: String?, message: String? = null) {
         if (rawPhone.isNullOrBlank()) {
             Toast.makeText(context, "Numéro WhatsApp non renseigné", Toast.LENGTH_SHORT).show()
             return
@@ -42,7 +46,12 @@ object PhoneUtils {
         val clean = rawPhone.filter { it.isDigit() }
         val formatted = if (clean.startsWith("0")) "213${clean.substring(1)}" else clean
         try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$formatted")).apply {
+            val uri = if (message.isNullOrBlank()) {
+                Uri.parse("https://wa.me/$formatted")
+            } else {
+                Uri.parse("https://wa.me/$formatted?text=${Uri.encode(message)}")
+            }
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
             context.startActivity(intent)

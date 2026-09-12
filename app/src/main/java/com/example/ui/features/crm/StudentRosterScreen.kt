@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,11 +46,15 @@ import com.example.domain.model.Student
 import com.example.domain.repository.StudentRepository
 import com.example.infrastructure.supabase.SupabaseClientProvider
 import com.example.infrastructure.sync.PullSyncRepository
-import com.example.ui.components.ElAvatar
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElEmptyState
-import com.example.ui.components.ElTag
-import com.example.ui.components.ElTextField
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.display.ElAvatarSize
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.input.ElSearchBar
+import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,6 +65,13 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/**
+ * T-320 (55th session, UI-310) — CRM student roster, migrated to the
+ * canonical design system with a School icon in the metric strip, a real
+ * search bar, and the STATUS-AWARE tag kept (active → level tint, other
+ * statuses → danger tint — the proposal's always-grade tag would hide
+ * archived/inactive state). The ViewModel contract is unchanged.
+ */
 @HiltViewModel
 class StudentRosterViewModel @Inject constructor(
     private val studentRepository: StudentRepository,
@@ -159,9 +171,17 @@ fun StudentRosterScreen(
                             ),
                     )
                     Spacer(Modifier.width(8.dp))
+                    Icon(
+                        Icons.Default.School,
+                        contentDescription = null,
+                        tint = ElTheme.colors.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
                     Text(
                         text = "${students.size} élève${if (students.size > 1) "s" else ""}",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
                     )
                 }
 
@@ -188,21 +208,20 @@ fun StudentRosterScreen(
             }
         }
 
-        ElTextField(
-            value = query,
-            onValueChange = viewModel::setQuery,
-            label = "Rechercher un élève",
-            placeholder = "Nom, prénom, matricule...",
-            leadingIcon = Icons.Default.Person,
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+        ElSearchBar(
+            query = query,
+            onQueryChange = viewModel::setQuery,
+            placeholder = "Nom, prénom, matricule…",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 10.dp),
         )
 
         if (students.isEmpty()) {
             ElEmptyState(
                 icon = Icons.Default.Person,
                 title = "Aucun élève trouvé",
-                message = if (query.isBlank()) "Aucun élève inscrit." else "Aucun élève ne correspond à « $query ».",
+                subtitle = if (query.isBlank()) "Aucun élève inscrit." else "Aucun élève ne correspond à « $query ».",
                 modifier = Modifier.padding(top = 32.dp),
             )
         } else {
@@ -214,23 +233,34 @@ fun StudentRosterScreen(
                 items(students, key = { it.id }) { student ->
                     ElCard(
                         modifier = Modifier.fillMaxWidth(),
+                        size = ElCardSize.COMPACT,
                         onClick = { onStudentClick(student.id) },
-                        compact = true,
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            ElAvatar(initials = student.fullName, size = 44)
+                            ElAvatar(initials = student.fullName, size = ElAvatarSize.M)
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(student.fullName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
-                                Text("Matricule : ${student.code} • ${student.gradeLevel.uppercase()}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    student.fullName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    "Matricule : ${student.code} • ${student.gradeLevel.uppercase()}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = ElTheme.colors.textSecondary,
+                                )
                             }
-                            ElTag(
-                                text = if (student.status == "active") student.level else student.status,
-                                color = if (student.status == "active") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                            )
+                            // Status-aware tag: active shows the cycle, other
+                            // statuses surface the raw status in danger tone.
+                            if (student.status == "active") {
+                                ElTag(text = student.level, tone = ElTagTone.INFO)
+                            } else {
+                                ElTag(text = student.status, tone = ElTagTone.DANGER)
+                            }
                         }
                     }
                 }
