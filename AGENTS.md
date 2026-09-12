@@ -194,6 +194,42 @@ the generated `BuildConfig` fields come from the ROOT-level files only.
   without the `androidx.compose.foundation.layout.width` import — added during apply;
   if a future session re-bases this change, watch for the same omission.
 
+- **The UI/UX-overhaul session (57th session, 2026-09-13, T-320..T-325) — four pinned
+  lessons for any future screen rewrite:**
+
+  1. **The two component layers have DIFFERENT APIs — the DS one is stricter.**
+     The designsystem `ElDropdown` takes `List<ElDropdownOption>` +
+     `onSelected: (ElDropdownOption) -> Unit` (match `selectedValue` against
+     `option.value`); the legacy string-based overload exists ONLY in
+     `ui.components`. The DS `ElListItem` has NO composable `leading`/`trailing`
+     slots (use `leadingIcon: ImageVector?`/`trailingBadge`/`trailingText`, or
+     build an `ElCard` row when you need a tag + button trailing). The DS `ElTag`
+     has NO `onClick`/`selected`/raw-`color` — interactive pills are `ElChip`;
+     static labels take `ElTagTone`. `ElAlertSeverity` in the DS layer is
+     UPPERCASE (INFO/WARNING/DANGER); the legacy enum is TitleCase (Info/Danger)
+     — mixing them is a compile error.
+  2. **Result-state reset ≠ data refresh.** `CounterPaymentViewModel.collect`'s
+     success path used to call `selectParent(current)` to refresh the ledger
+     data — but `selectParent` RESETS `_receiptNumber`, so the success state
+     was erased in the same frame and the receipt NEVER displayed. The pattern
+     now: `refreshFamilyData(parentId)` cancels + restarts the family jobs
+     WITHOUT touching result state. Rule: any ViewModel refresh triggered from
+     a success path must NOT route through a state-resetting entry point. The
+     same invisible-success class existed in BatchRegistration (the VM called
+     `onSuccess()` — a tab switch — immediately after setting the code).
+  3. **The RealtimeSyncT069Test helper/assertion race is now at its THIRD
+     occurrence** — assertions updated when a table joins the canonical
+     subscription set (4 → 6 → 7 tables), helper threshold forgotten each
+     time. `waitForSubscriptions()` must poll the SAME count the assertions
+     expect. When you add a table to the set, update BOTH in one commit.
+  4. **The gradle daemon in this 4GB container OOM-kills at the old memory
+     settings** under a full test+assemble gate: `gradle.properties` now runs
+     `-Xmx1400m -XX:MaxMetaspaceSize=640m` (was 2048m/1024m). If you see
+     "Gradle build daemon disappeared unexpectedly", check memory FIRST, and
+     do not raise the heap back past ~1.5G. The toolchain re-provision script
+     is `/home/z/my-project/scripts/android-env.sh` (JDK 21.0.5 + SDK 35 +
+     the ROOT `.env` with non-empty keys — §8.1).
+
 - **God-file modularization + ebb833b cleanup (36th session, 2026-09-08):** the 5
   files >800 lines were split into 37 focused same-package files (behaviour-neutral
   moves; zero logic changes except one, see below): `LocalRepositories.kt` (1859) and
