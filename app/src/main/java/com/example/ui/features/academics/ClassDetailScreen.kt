@@ -1,5 +1,6 @@
 package com.example.ui.features.academics
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,34 +10,27 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Assignment
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import com.example.ui.designsystem.components.data.ElGaugeArc
-import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddTask
+import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.FactCheck
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
@@ -54,6 +48,20 @@ import com.example.domain.repository.GradeRepository
 import com.example.domain.repository.StudentRepository
 import com.example.domain.repository.SubjectRepository
 import com.example.session.SessionManager
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.display.ElAvatarSize
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.feedback.ElLoadingBlock
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.components.tabs.ElTabRow
+import com.example.ui.designsystem.components.data.ElGaugeArc
+import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -166,7 +174,15 @@ class ClassDetailViewModel @Inject constructor(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * T-323 (55th session, UI-313) — class detail on the canonical design system:
+ * saveable selected tab, live tab counts, per-tab empty states, roster
+ * avatars + matricule, subject weights, weighted counter pills (the old
+ * unweighted Row could overflow on 320dp), humanized attendance statuses,
+ * and grade accents. All inline action buttons stay RBAC-gated
+ * (ROLL_CALL / ENTER_GRADES) — the reference proposal rendered them
+ * unconditionally, which would leak dead affordances to unauthorized roles.
+ */
 @Composable
 fun ClassDetailScreen(
     onBack: () -> Unit,
@@ -176,6 +192,7 @@ fun ClassDetailScreen(
     onNavigateToHomeworkPush: (String) -> Unit,
     viewModel: ClassDetailViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
     val classInfo by viewModel.classInfo.collectAsState()
     val roster by viewModel.roster.collectAsState()
     val subjects by viewModel.subjects.collectAsState()
@@ -185,28 +202,43 @@ fun ClassDetailScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Élèves", "Matières", "Présences", "Notes")
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    val tabs = listOf(
+        "Élèves (${roster.size})",
+        "Matières (${subjects.size})",
+        "Présences",
+        "Notes",
+    )
 
-    Scaffold(
+    ElScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(classInfo?.name ?: "Classe") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Retour") } },
+            ElTopBar(
+                title = classInfo?.name ?: "Classe",
+                subtitle = classInfo?.academicYear?.let { "Année scolaire $it" },
+                onBack = onBack,
                 actions = {
                     if (viewModel.canRollCall) {
-                        IconButton(onClick = { onNavigateToRollCall(viewModel.classId) }) {
-                            Icon(Icons.Default.Assignment, contentDescription = "Appel")
+                        androidx.compose.material3.IconButton(onClick = { onNavigateToRollCall(viewModel.classId) }) {
+                            androidx.compose.material3.Icon(
+                                Icons.Default.FactCheck,
+                                contentDescription = "Faire l'appel",
+                            )
                         }
                     }
                     if (viewModel.canEnterGrades) {
-                        IconButton(onClick = { onNavigateToGradeEntry(viewModel.classId) }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Notes")
+                        androidx.compose.material3.IconButton(onClick = { onNavigateToGradeEntry(viewModel.classId) }) {
+                            androidx.compose.material3.Icon(
+                                Icons.Default.EditNote,
+                                contentDescription = "Saisir les notes",
+                            )
                         }
                     }
                     if (viewModel.canAssignHomework) {
-                        IconButton(onClick = { onNavigateToHomeworkPush(viewModel.classId) }) {
-                            Icon(Icons.Default.People, contentDescription = "Devoir")
+                        androidx.compose.material3.IconButton(onClick = { onNavigateToHomeworkPush(viewModel.classId) }) {
+                            androidx.compose.material3.Icon(
+                                Icons.Default.AddTask,
+                                contentDescription = "Diffuser un devoir",
+                            )
                         }
                     }
                 },
@@ -214,17 +246,41 @@ fun ClassDetailScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // Header card
+            // Header card — capacity gauge + gender demographics
             classInfo?.let { cls ->
-                Card(
-                    elevation = CardDefaults.cardElevation(2.dp),
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                ElCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        Text(cls.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Niveau: ${cls.level}", style = MaterialTheme.typography.bodySmall)
-                        cls.homeroomTeacherName?.let { Text("Prof principal: $it", style = MaterialTheme.typography.bodySmall) }
-                        cls.room?.let { Text("Salle: $it", style = MaterialTheme.typography.bodySmall) }
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            cls.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            "Niveau : ${cls.level.uppercase()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = c.textSecondary,
+                        )
+                        cls.homeroomTeacherName?.let {
+                            Text(
+                                "Prof principal : $it",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = c.textSecondary,
+                            )
+                        }
+                        cls.room?.let {
+                            Text(
+                                "Salle : $it",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = c.textSecondary,
+                            )
+                        }
                         Spacer(Modifier.height(8.dp))
                         // PARITY-003 — the desktop see-details-modal capacity
                         // GAUGE twin (semi-circle arc, tone: danger >=100 /
@@ -241,8 +297,8 @@ fun ClassDetailScreen(
                                 } else 0,
                                 caption = "${cls.enrolledCount} / ${cls.capacity} inscrits",
                             )
-                            val boys = roster.count { it.gender == "male" }
-                            val girls = roster.count { it.gender == "female" }
+                            val boys = roster.count { it.gender == "male" || it.gender == "M" }
+                            val girls = roster.count { it.gender == "female" || it.gender == "F" }
                             val total = roster.size.coerceAtLeast(1)
                             Column(horizontalAlignment = Alignment.End) {
                                 val boysPct = Math.round(boys.toDouble() / total * 100).toInt()
@@ -250,6 +306,7 @@ fun ClassDetailScreen(
                                 Text(
                                     "Garçons : $boys ($boysPct%)",
                                     style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.weight(1f, fill = false),
                                 )
                                 Text(
                                     "Filles : $girls ($girlsPct%)",
@@ -265,118 +322,297 @@ fun ClassDetailScreen(
                 }
             }
 
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
-
-            TabRow(selectedTabIndex = selectedTab) {
-                tabs.forEachIndexed { idx, label ->
-                    androidx.compose.material3.Tab(
-                        selected = selectedTab == idx,
-                        onClick = { selectedTab = idx },
-                        text = { Text(label) },
-                    )
-                }
+            error?.let {
+                Text(
+                    it,
+                    color = c.danger,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
             }
 
+            ElTabRow(
+                tabs = tabs,
+                selectedIndex = selectedTab,
+                onSelected = { selectedTab = it },
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+
             when (selectedTab) {
-                0 -> LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(roster) { student ->
-                        Card(modifier = Modifier.fillMaxWidth(), onClick = { onNavigateToStudent(student.id) }) {
-                            Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                                Text(student.fullName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                                Text(student.code, style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                    }
-                }
-                1 -> LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(subjects) { subj ->
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                                Text(subj.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                                Text("Code: ${subj.code} • Coef: ${subj.coefficient}", style = MaterialTheme.typography.labelSmall)
-                                if (subj.isExtracurricular) {
-                                    Text("Hors programme (non comptée dans la moyenne)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                                }
-                            }
-                        }
-                    }
-                }
-                2 -> Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                    Text("Cette semaine", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StatusCountChip("Présents", weekStatusCounts["present"] ?: 0, MaterialTheme.colorScheme.primary)
-                        StatusCountChip("Retards", weekStatusCounts["late"] ?: 0, MaterialTheme.colorScheme.secondary)
-                        StatusCountChip("Excusés", weekStatusCounts["absent_excused"] ?: 0, MaterialTheme.colorScheme.tertiary)
-                        StatusCountChip("Non excusés", weekStatusCounts["absent_unexcused"] ?: 0, MaterialTheme.colorScheme.error)
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        items(weekAttendance) { rec ->
-                            Card(modifier = Modifier.fillMaxWidth()) {
-                                Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(rec.date, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-                                    Text(rec.status, style = MaterialTheme.typography.labelSmall)
-                                }
-                            }
-                        }
-                    }
-                }
-                3 -> Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                    Text("Dernières notes", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
-                    // FIX (raw ids): rows showed raw subjectIds ("sub-math") —
-                    // resolve real subject names + coefficients.
-                    val subjectById = subjects.associateBy { it.id }
-                    // Class-level canonical summary: average of every computed
-                    // subject average + share of passing marks.
-                    val computedAverages = recentGrades.mapNotNull { it.subjectAverage }
-                    val passingCount = computedAverages.count { it >= 10.0 }
-                    val failing = computedAverages.count { it < 10.0 }
-                    val missing = recentGrades.count { it.subjectAverage == null }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StatusCountChip("Évaluations", recentGrades.size, MaterialTheme.colorScheme.primary)
-                        StatusCountChip("≥ 10", passingCount, MaterialTheme.colorScheme.tertiary)
-                        StatusCountChip("< 10", failing, MaterialTheme.colorScheme.error)
-                        StatusCountChip("Manquantes", missing, MaterialTheme.colorScheme.outline)
-                    }
-                    if (computedAverages.isNotEmpty()) {
-                        Spacer(Modifier.height(8.dp))
-                        val classAvg = computedAverages.average()
-                        Text(
-                            "Moyenne générale de la classe : %.2f / 20 • Réussite : %.0f%%".format(
-                                classAvg,
-                                passingCount * 100.0 / computedAverages.size,
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (classAvg >= 10.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                        )
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        items(recentGrades) { g ->
-                            val subject = subjectById[g.subjectId]
-                            Card(modifier = Modifier.fillMaxWidth()) {
-                                Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                    ) {
+                0 -> if (isLoading) {
+                    ElLoadingBlock(modifier = Modifier.fillMaxWidth().padding(16.dp))
+                } else if (roster.isEmpty()) {
+                    ElEmptyState(
+                        title = "Aucun élève",
+                        subtitle = "Aucun élève n'est inscrit dans cette classe.",
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(roster) { student ->
+                            ElCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                size = com.example.ui.designsystem.components.card.ElCardSize.COMPACT,
+                                onClick = { onNavigateToStudent(student.id) },
+                            ) {
+                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    ElAvatar(initials = student.fullName, size = ElAvatarSize.S)
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            "${subject?.name ?: g.subjectId} • ${g.term}",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.SemiBold,
+                                            student.fullName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
                                         )
                                         Text(
-                                            "Coef ${g.coefficient}",
+                                            "Matricule : ${student.code}",
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.outline,
+                                            color = c.textSecondary,
                                         )
                                     }
-                                    Text("D1=${g.devoir1 ?: "-"}  D2=${g.devoir2 ?: "-"}  Ex=${g.examen ?: "-"}", style = MaterialTheme.typography.bodySmall)
-                                    g.subjectAverage?.let { avg ->
-                                        Text("Moy: %.2f".format(avg), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = if (avg >= 10.0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                                    when (student.gender) {
+                                        "male", "M" -> ElTag(text = "M", tone = ElTagTone.INFO)
+                                        "female", "F" -> ElTag(text = "F", tone = ElTagTone.INFO)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                1 -> if (subjects.isEmpty()) {
+                    ElEmptyState(
+                        title = "Aucune matière",
+                        subtitle = "Aucune matière n'est rattachée à cette classe.",
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(subjects) { subj ->
+                            ElCard(modifier = Modifier.fillMaxWidth()) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            subj.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        ElTag(text = "Coef ${subj.coefficient}", tone = ElTagTone.INFO)
+                                    }
+                                    Text(
+                                        "Code : ${subj.code} • Seuil : ${subj.passingGrade}/20",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = c.textSecondary,
+                                    )
+                                    Text(
+                                        "Pondération : D1 ×${subj.coefficientDevoir1} · D2 ×${subj.coefficientDevoir2} · Examen ×${subj.coefficientExamen}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = c.textSecondary,
+                                    )
+                                    if (subj.isExtracurricular) {
+                                        Text(
+                                            "Hors programme (non comptée dans la moyenne)",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = c.warning,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                2 -> if (weekAttendance.isEmpty()) {
+                    ElEmptyState(
+                        title = "Aucune présence enregistrée",
+                        subtitle = "Les relevés d'appel de la semaine apparaîtront ici.",
+                        actionLabel = if (viewModel.canRollCall) "Faire l'appel" else null,
+                        onAction = if (viewModel.canRollCall) {
+                            { onNavigateToRollCall(viewModel.classId) }
+                        } else null,
+                    )
+                } else {
+                    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "Bilan hebdomadaire",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            if (viewModel.canRollCall) {
+                                ElButton(
+                                    text = "Faire l'appel",
+                                    onClick = { onNavigateToRollCall(viewModel.classId) },
+                                    variant = ElButtonVariant.SECONDARY,
+                                    size = com.example.ui.designsystem.components.button.ElButtonSize.SMALL,
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        // Weighted pills — the old unweighted Row overflowed on
+                        // narrow screens (4 chips × intrinsic width).
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            StatusCountChip(
+                                "Présents", weekStatusCounts["present"] ?: 0, c.primary,
+                                modifier = Modifier.weight(1f),
+                            )
+                            StatusCountChip(
+                                "Retards", weekStatusCounts["late"] ?: 0, c.warning,
+                                modifier = Modifier.weight(1f),
+                            )
+                            StatusCountChip(
+                                "Excusés", weekStatusCounts["absent_excused"] ?: 0, c.info,
+                                modifier = Modifier.weight(1f),
+                            )
+                            StatusCountChip(
+                                "Non excusés", weekStatusCounts["absent_unexcused"] ?: 0, c.danger,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            // 7-day window × roster — cap at 40 records for scroll health.
+                            items(weekAttendance.take(40)) { rec ->
+                                ElCard(modifier = Modifier.fillMaxWidth(), size = com.example.ui.designsystem.components.card.ElCardSize.COMPACT) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            rec.date,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        val (label, tone) = attendanceStatusLabel(rec.status)
+                                        ElTag(text = label, tone = tone)
+                                    }
+                                    rec.note?.let { note ->
+                                        Text(
+                                            note,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = c.textSecondary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                3 -> if (recentGrades.isEmpty()) {
+                    ElEmptyState(
+                        title = "Aucune note",
+                        subtitle = "Les évaluations de la classe apparaîtront ici.",
+                        actionLabel = if (viewModel.canEnterGrades) "Saisir des notes" else null,
+                        onAction = if (viewModel.canEnterGrades) {
+                            { onNavigateToGradeEntry(viewModel.classId) }
+                        } else null,
+                    )
+                } else {
+                    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "Dernières notes",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            if (viewModel.canEnterGrades) {
+                                ElButton(
+                                    text = "Saisir des notes",
+                                    onClick = { onNavigateToGradeEntry(viewModel.classId) },
+                                    variant = ElButtonVariant.SECONDARY,
+                                    size = com.example.ui.designsystem.components.button.ElButtonSize.SMALL,
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        // FIX (raw ids): rows showed raw subjectIds ("sub-math") —
+                        // resolve real subject names + coefficients.
+                        val subjectById = subjects.associateBy { it.id }
+                        // Class-level canonical summary: average of every computed
+                        // subject average + share of passing marks.
+                        val computedAverages = recentGrades.mapNotNull { it.subjectAverage }
+                        val passingCount = computedAverages.count { it >= 10.0 }
+                        val failing = computedAverages.count { it < 10.0 }
+                        val missing = recentGrades.count { it.subjectAverage == null }
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            StatusCountChip("Évaluations", recentGrades.size, c.primary, modifier = Modifier.weight(1f))
+                            StatusCountChip("≥ 10", passingCount, c.success, modifier = Modifier.weight(1f))
+                            StatusCountChip("< 10", failing, c.danger, modifier = Modifier.weight(1f))
+                            StatusCountChip("Manquantes", missing, c.textSecondary, modifier = Modifier.weight(1f))
+                        }
+                        if (computedAverages.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            val classAvg = computedAverages.average()
+                            Text(
+                                "Moyenne générale de la classe : %.2f / 20 • Réussite : %.0f%%".format(
+                                    classAvg,
+                                    passingCount * 100.0 / computedAverages.size,
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (classAvg >= 10.0) c.primary else c.danger,
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            items(recentGrades.take(30)) { g ->
+                                val subject = subjectById[g.subjectId]
+                                ElCard(modifier = Modifier.fillMaxWidth(), size = com.example.ui.designsystem.components.card.ElCardSize.COMPACT) {
+                                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                        ) {
+                                            Text(
+                                                "${subject?.name ?: g.subjectId} • ${g.term}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.SemiBold,
+                                            )
+                                            Text(
+                                                "Coef ${g.coefficient}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = c.textSecondary,
+                                            )
+                                        }
+                                        Text(
+                                            "D1 : ${g.devoir1 ?: "—"} · D2 : ${g.devoir2 ?: "—"} · Examen : ${g.examen ?: "—"}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = c.textSecondary,
+                                        )
+                                        g.subjectAverage?.let { avg ->
+                                            Text(
+                                                "Moyenne : %.1f / 20".format(avg),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = when {
+                                                    avg >= 10.0 -> c.success
+                                                    else -> c.danger
+                                                },
+                                            )
+                                        } ?: Text(
+                                            "Moyenne manquante",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = c.warning,
+                                        )
                                     }
                                 }
                             }
@@ -388,12 +624,43 @@ fun ClassDetailScreen(
     }
 }
 
+/** Humanized attendance status + tone (T-323: raw codes no longer leak). */
+internal fun attendanceStatusLabel(status: String): Pair<String, ElTagTone> = when (status) {
+    "present" -> "Présent" to ElTagTone.SUCCESS
+    "late" -> "Retard" to ElTagTone.WARNING
+    "absent_excused" -> "Absence excusée" to ElTagTone.INFO
+    "absent_unexcused" -> "Absence non excusée" to ElTagTone.DANGER
+    else -> status to ElTagTone.NEUTRAL
+}
+
 @Composable
-private fun StatusCountChip(label: String, count: Int, color: androidx.compose.ui.graphics.Color) {
-    Card(colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))) {
-        Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(count.toString(), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = color)
-            Text(label, style = MaterialTheme.typography.labelSmall)
+private fun StatusCountChip(
+    label: String,
+    count: Int,
+    color: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .background(color.copy(alpha = 0.1f), MaterialTheme.shapes.small)
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                count.toString(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = color,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

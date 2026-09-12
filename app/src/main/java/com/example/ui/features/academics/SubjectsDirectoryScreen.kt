@@ -47,6 +47,10 @@ import com.example.domain.repository.CreateSubjectInput
 import com.example.domain.repository.SubjectRepository
 import com.example.domain.repository.UpdateSubjectInput
 import com.example.session.SessionManager
+import com.example.ui.designsystem.components.display.ElAlertBanner
+import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -245,8 +249,22 @@ fun SubjectsDirectoryScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 8.dp)) }
-            message?.let { Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 8.dp)) }
+            error?.let {
+                ElAlertBanner(
+                    title = "Erreur",
+                    message = it,
+                    severity = ElAlertSeverity.DANGER,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+            message?.let {
+                ElAlertBanner(
+                    title = "Succès",
+                    message = it,
+                    severity = ElAlertSeverity.SUCCESS,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
 
             // Vault §05.01 — domain split filter (Scolarite vs Clubs/Therapy).
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
@@ -263,6 +281,17 @@ fun SubjectsDirectoryScreen(
             }
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (filtered.isEmpty()) {
+                    item {
+                        // T-323: the filtered-empty state — the old screen showed
+                        // a BLANK list when the level/domain chips excluded
+                        // everything.
+                        ElEmptyState(
+                            title = "Aucune matière trouvée",
+                            subtitle = "Aucune matière ne correspond aux critères sélectionnés.",
+                        )
+                    }
+                }
                 items(filtered) { subj ->
                     Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(1.dp)) {
                         Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
@@ -317,7 +346,10 @@ fun SubjectsDirectoryScreen(
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value = code, onValueChange = { code = it }, label = { Text("Code *") }, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = level, onValueChange = { level = it }, label = { Text("Niveau (all/primaire/cem/lycee)") }, modifier = Modifier.fillMaxWidth())
+                    // T-323: structured level selection — the free-text
+                    // "all/primaire/cem/lycee" field was error-prone (a typo
+                    // silently broke the level filter for that subject).
+                    LevelDropdown(level = level, onLevelChange = { level = it })
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(value = coef, onValueChange = { coef = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("Coefficient (scolarité)") }, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(8.dp))
@@ -451,12 +483,40 @@ fun SubjectsDirectoryScreen(
             title = { Text("Archiver la matière") },
             text = { Text("Archiver « ${subj.name} » ?") },
             confirmButton = {
-                TextButton(onClick = {
-                    viewModel.archiveSubject(subj.id)
-                    archiveTarget = null
-                }) { Text("Archiver") }
+                TextButton(
+                    onClick = {
+                        viewModel.archiveSubject(subj.id)
+                        archiveTarget = null
+                    },
+                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                        contentColor = ElTheme.colors.danger,
+                    ),
+                ) { Text("Archiver") }
             },
             dismissButton = { TextButton(onClick = { archiveTarget = null }) { Text("Annuler") } },
         )
     }
+}
+
+/**
+ * T-323: structured level picker for the create dialog. The codes are the
+ * canonical level filters used by the directory chips (Vault §05.01);
+ * "all" keeps the historical cross-level semantics. Replaces the old
+ * free-text field (a typo silently broke the level filter for the subject).
+ */
+@Composable
+private fun LevelDropdown(level: String, onLevelChange: (String) -> Unit) {
+    val options = listOf(
+        "Toutes les sections (all)" to "all",
+        "Primaire" to "primaire",
+        "CEM" to "cem",
+        "Lycée" to "lycee",
+    )
+    com.example.ui.designsystem.components.input.ElDropdown(
+        options = options.map { com.example.ui.designsystem.components.input.ElDropdownOption(value = it.second, label = it.first) },
+        selectedValue = level,
+        onSelected = { option -> onLevelChange(option.value) },
+        label = "Niveau",
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
