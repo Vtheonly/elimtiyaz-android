@@ -111,6 +111,11 @@ object DatabaseModule {
                 // the transport-yield statistics normalize it). Defaults
                 // preserve existing rows exactly.
                 ElImtiyazDatabase.MIGRATION_14_15,
+                // T-348 (62nd session, MATIERE-500/ADR-018): assessments.cc
+                // (the contrôle-continu mark المراقبة المستمرة) +
+                // assessments.coefficientCc (its weight snapshot). Defaults
+                // preserve existing rows exactly (cc null / weight 0).
+                ElImtiyazDatabase.MIGRATION_15_16,
             )
             // T-046 / ARCH-004: NO destructive fallback. A missing migration
             // now fails LOUDLY (IllegalStateException) instead of wiping the

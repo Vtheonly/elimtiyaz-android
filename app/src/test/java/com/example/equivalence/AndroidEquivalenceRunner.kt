@@ -136,6 +136,11 @@ object AndroidEquivalenceRunner {
         val assessments: List<CanonicalAssessment> = emptyList(),
         // PARITY-003/T-292: the classes rows for the demographics derivation.
         val classes: List<CanonicalClass> = emptyList(),
+        // T-345 (MATIERE-500/ADR-018): the subject_configuration category.
+        val recipe: CanonicalRecipe? = null,
+        val subject: CanonicalSubject? = null,
+        val configurations: List<CanonicalSubjectConfiguration> = emptyList(),
+        val context: CanonicalResolveContext? = null,
     )
 
     @Serializable
@@ -192,6 +197,12 @@ object AndroidEquivalenceRunner {
         // ── Academic / CRM extensions ──
         val assessment: CanonicalAssessment? = null,
         val assessments: List<CanonicalAssessment> = emptyList(),
+        // T-345 (MATIERE-500/ADR-018): the subject_configuration category —
+        // the scenario-local overrides for the resolver + recipe ops.
+        val recipe: CanonicalRecipe? = null,
+        val subject: CanonicalSubject? = null,
+        val configurations: List<CanonicalSubjectConfiguration> = emptyList(),
+        val context: CanonicalResolveContext? = null,
         val gradeLevel: String? = null,
         val identity: CanonicalIdentity? = null,
         val year: Int? = null,
@@ -234,9 +245,59 @@ object AndroidEquivalenceRunner {
         val devoir1: Double? = null,
         val devoir2: Double? = null,
         val examen: Double? = null,
+        // T-345 (MATIERE-500/ADR-018): the contrôle-continu mark.
+        val cc: Double? = null,
         val subjectAverage: Double? = null,
         val coefficient: Double = 1.0,
         val isExtracurricular: Boolean = false,
+    )
+
+    @Serializable
+    data class CanonicalRecipe(
+        val devoir1: Double = 1.0,
+        val devoir2: Double = 1.0,
+        val examen: Double = 2.0,
+        val cc: Double = 0.0,
+    )
+
+    @Serializable
+    data class CanonicalSubject(
+        val id: String = "",
+        val code: String? = null,
+        val coefficient: Double? = null,
+        val passingGrade: Double? = null,
+        val isExtracurricular: Boolean? = null,
+    )
+
+    @Serializable
+    data class CanonicalSubjectConfiguration(
+        val subjectId: String,
+        val academicYearId: String,
+        val academicLevelId: String,
+        val direction: String = "general",
+        val coefficient: Double,
+        val subjectCode: String? = null,
+        val passingGrade: Double? = null,
+        val isExtracurricular: Boolean? = null,
+        val gradingRecipe: CanonicalRecipe? = null,
+        val isActive: Boolean = true,
+    )
+
+    @Serializable
+    data class CanonicalResolveContext(
+        val academicLevelId: String? = null,
+        val academicYearId: String? = null,
+        val direction: String? = null,
+        val snapshot: CanonicalSnapshot? = null,
+    )
+
+    @Serializable
+    data class CanonicalSnapshot(
+        val coefficient: Double? = null,
+        val coefficientDevoir1: Double? = null,
+        val coefficientDevoir2: Double? = null,
+        val coefficientExamen: Double? = null,
+        val coefficientCc: Double? = null,
     )
 
     @Serializable
@@ -611,6 +672,80 @@ object AndroidEquivalenceRunner {
                 buildJsonObject {
                     put("subjectAverage", avg)
                     put("averageIsNotNull", avg != null)
+                }
+            }
+
+            // T-345 (MATIERE-500/ADR-018): the subject_configuration category —
+            // the recipe engine + the ONE resolution rule, mirrored from the
+            // desktop canonical module (the corpus pins the equivalence).
+            "computeSubjectAverageFromRecipe" -> {
+                val a = when_.assessment ?: given.assessment ?: return errorResult("Missing assessment")
+                val r = when_.recipe ?: given.recipe
+                val avg = com.example.core.computeSubjectAverageFromRecipe(
+                    a.devoir1, a.devoir2, a.examen, a.cc,
+                    com.example.core.GradingRecipe(
+                        devoir1 = r?.devoir1 ?: 1.0,
+                        devoir2 = r?.devoir2 ?: 1.0,
+                        examen = r?.examen ?: 2.0,
+                        cc = r?.cc ?: 0.0,
+                    ),
+                )
+                buildJsonObject {
+                    put("subjectAverage", avg)
+                    put("averageIsNotNull", avg != null)
+                }
+            }
+
+            "resolveSubjectConfiguration" -> {
+                val subject = (when_.subject ?: given.subject) ?: return errorResult("Missing subject")
+                val configurations = when_.configurations.ifEmpty { given.configurations }
+                val ctx = when_.context ?: given.context
+                val resolved = com.example.core.resolveSubjectConfiguration(
+                    subject = com.example.core.LegacySubjectLayer(
+                        id = subject.id.ifEmpty { null },
+                        code = subject.code,
+                        coefficient = subject.coefficient,
+                        passingGrade = subject.passingGrade,
+                        isExtracurricular = subject.isExtracurricular,
+                    ),
+                    configurations = configurations.map { c ->
+                        com.example.core.SubjectConfiguration(
+                            subjectId = c.subjectId,
+                            academicYearId = c.academicYearId,
+                            academicLevelId = c.academicLevelId,
+                            direction = c.direction,
+                            coefficient = c.coefficient,
+                            subjectCode = c.subjectCode,
+                            passingGrade = c.passingGrade,
+                            isExtracurricular = c.isExtracurricular,
+                            gradingRecipe = c.gradingRecipe?.let { r ->
+                                com.example.core.GradingRecipe(r.devoir1, r.devoir2, r.examen, r.cc)
+                            },
+                            isActive = c.isActive,
+                        )
+                    },
+                    academicLevelId = ctx?.academicLevelId,
+                    academicYearId = ctx?.academicYearId,
+                    direction = ctx?.direction ?: "general",
+                    snapshot = ctx?.snapshot?.let { snap ->
+                        com.example.core.SubjectContextSnapshot(
+                            snap.coefficient, snap.coefficientDevoir1, snap.coefficientDevoir2,
+                            snap.coefficientExamen, snap.coefficientCc,
+                        )
+                    },
+                )
+                buildJsonObject {
+                    put("coefficient", resolved.coefficient)
+                    put("subjectCode", resolved.subjectCode)
+                    put("passingGrade", resolved.passingGrade)
+                    put("isExtracurricular", resolved.isExtracurricular)
+                    put("source", resolved.source)
+                    put("recipe", buildJsonObject {
+                        put("devoir1", resolved.gradingRecipe.devoir1)
+                        put("devoir2", resolved.gradingRecipe.devoir2)
+                        put("examen", resolved.gradingRecipe.examen)
+                        put("cc", resolved.gradingRecipe.cc)
+                    })
                 }
             }
 

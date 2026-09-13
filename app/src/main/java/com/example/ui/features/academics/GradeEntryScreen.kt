@@ -355,16 +355,22 @@ fun GradeEntryScreen(
         var d1Text by remember(student.id) { mutableStateOf(currentAssessment?.devoir1?.toString() ?: "") }
         var d2Text by remember(student.id) { mutableStateOf(currentAssessment?.devoir2?.toString() ?: "") }
         var exText by remember(student.id) { mutableStateOf(currentAssessment?.examen?.toString() ?: "") }
+        // T-348 (ADR-018): the contrôle-continu mark (rendered when the
+        // subject's recipe enables it).
+        var ccText by remember(student.id) { mutableStateOf(currentAssessment?.cc?.toString() ?: "") }
+        val ccEnabled = (selectedSubject?.coefficientCc ?: 0.0) > 0.0
 
         val d1Val = d1Text.toDoubleOrNull()
         val d2Val = d2Text.toDoubleOrNull()
         val exVal = exText.toDoubleOrNull()
+        val ccVal = ccText.toDoubleOrNull()
 
         val previewAvg = computeSubjectAverage(
             d1Val, d2Val, exVal,
             selectedSubject?.coefficientDevoir1 ?: 1.0,
             selectedSubject?.coefficientDevoir2 ?: 1.0,
             selectedSubject?.coefficientExamen ?: 2.0,
+            ccVal, selectedSubject?.coefficientCc ?: 0.0,
         )
 
         AlertDialog(
@@ -403,11 +409,21 @@ fun GradeEntryScreen(
                     OutlinedTextField(
                         value = exText,
                         onValueChange = { if (it.isEmpty() || it.toDoubleOrNull()?.let { v -> v in 0.0..20.0 } == true) exText = it },
-                        label = { Text("Examen (/20) • Coef 2") },
+                        label = { Text("Examen (/20) • Coef ${selectedSubject?.coefficientExamen ?: 2}") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    if (ccEnabled) {
+                        OutlinedTextField(
+                            value = ccText,
+                            onValueChange = { if (it.isEmpty() || it.toDoubleOrNull()?.let { v -> v in 0.0..20.0 } == true) ccText = it },
+                            label = { Text("Contrôle continu (/20) • Coef ${selectedSubject?.coefficientCc ?: 0}") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
 
                     // Calculated Average Preview Card
                     Box(
@@ -454,6 +470,7 @@ fun GradeEntryScreen(
                             devoir2 = d2Val,
                             examen = exVal,
                             coefficient = selectedSubject?.coefficient ?: 1.0,
+                            cc = ccVal,
                             actorId = session.userId,
                             actorName = session.displayName,
                             onSuccess = {
@@ -466,7 +483,7 @@ fun GradeEntryScreen(
                             },
                         )
                     },
-                    enabled = !busy && (d1Val != null || d2Val != null || exVal != null),
+                    enabled = !busy && (d1Val != null || d2Val != null || exVal != null || ccVal != null),
                 ) {
                     Text("Enregistrer")
                 }

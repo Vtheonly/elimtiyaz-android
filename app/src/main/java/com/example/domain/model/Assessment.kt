@@ -36,6 +36,12 @@ data class Assessment(
     val devoir1: Double? = null,
     val devoir2: Double? = null,
     val examen: Double? = null,
+    /**
+     * T-348 (MATIERE-500 / ADR-018): the contrôle-continu mark
+     * (المراقبة المستمرة) — participates in the subject average only when
+     * the resolved recipe gives it a positive weight. null = not entered.
+     */
+    val cc: Double? = null,
     val subjectAverage: Double? = null,
     val coefficient: Double,
     /** Canonical rule (desktop academic.ts + SQL fn_calculate_student_term_gpa):
@@ -51,4 +57,7 @@ data class Assessment(
     val coefficientDevoir1: Double = 1.0,
     val coefficientDevoir2: Double = 1.0,
     val coefficientExamen: Double = 2.0,
+    /** T-348 (ADR-018): the cc weight snapshot; 0.0 = excluded (the legacy
+     *  default — bit-identical to the previous build). */
+    val coefficientCc: Double = 0.0,
 )

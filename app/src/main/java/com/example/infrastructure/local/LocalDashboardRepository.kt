@@ -504,6 +504,9 @@ class LocalDashboardRepository @Inject constructor(
                     studentId = it.studentId,
                     subjectAverage = it.subjectAverage,
                     devoir1 = it.devoir1, devoir2 = it.devoir2, examen = it.examen,
+                    // T-348 (ADR-018): the cc mark + its weight snapshot —
+                    // the risk radar's recomputed GPA stays canonical.
+                    cc = it.cc, coefficientCc = it.coefficientCc,
                     coefficient = it.coefficient, isExtracurricular = it.isExtracurricular,
                 )
             },

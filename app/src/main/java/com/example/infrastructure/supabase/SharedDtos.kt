@@ -165,6 +165,8 @@ data class SubjectDto(
     @SerialName("coefficient_devoir_1") val coefficientDevoir1: Double? = null,
     @SerialName("coefficient_devoir_2") val coefficientDevoir2: Double? = null,
     @SerialName("coefficient_examen") val coefficientExamen: Double? = null,
+    // T-348 (ADR-018): the cc weight snapshot (0 = excluded).
+    @SerialName("coefficient_cc") val coefficientCc: Double? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
 )
@@ -190,10 +192,14 @@ data class AssessmentDto(
     @SerialName("devoir1") val devoir1: Double? = null,
     @SerialName("devoir2") val devoir2: Double? = null,
     @SerialName("examen") val examen: Double? = null,
+    // T-348 (MATIERE-500/ADR-018): the contrôle-continu mark + its weight.
+    @SerialName("cc") val cc: Double? = null,
     @SerialName("subject_average") val subjectAverage: Double? = null,
     @SerialName("coefficient_devoir1") val coefficientDevoir1: Double? = null,
     @SerialName("coefficient_devoir2") val coefficientDevoir2: Double? = null,
     @SerialName("coefficient_examen") val coefficientExamen: Double? = null,
+    // T-348 (ADR-018): the cc weight snapshot (0 = excluded).
+    @SerialName("coefficient_cc") val coefficientCc: Double? = null,
     @SerialName("entered_by") val enteredBy: String? = null,
     @SerialName("entered_at") val enteredAt: String? = null,
     @SerialName("created_at") val createdAt: String? = null,

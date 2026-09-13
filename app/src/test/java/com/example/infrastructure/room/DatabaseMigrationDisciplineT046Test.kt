@@ -60,7 +60,7 @@ class DatabaseMigrationDisciplineT046Test {
      * registered in [buildDb] + DatabaseModule fails loud tests, never
      * silently).
      */
-    private val compiledVersion = 15
+    private val compiledVersion = 16
 
     @Before
     fun setUp() {
@@ -90,6 +90,7 @@ class DatabaseMigrationDisciplineT046Test {
             ElImtiyazDatabase.MIGRATION_12_13,
             ElImtiyazDatabase.MIGRATION_13_14,
             ElImtiyazDatabase.MIGRATION_14_15,
+            ElImtiyazDatabase.MIGRATION_15_16,
         )
         .allowMainThreadQueries()
         .build()

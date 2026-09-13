@@ -264,12 +264,17 @@ class LocalSubjectRepository @Inject constructor(
                     val newAvg = com.example.core.computeSubjectAverage(
                         row.devoir1, row.devoir2, row.examen,
                         updated.coefficientDevoir1, updated.coefficientDevoir2, updated.coefficientExamen,
+                        // T-348 (ADR-018): the existing cc mark keeps its
+                        // weight — the current-year re-weight refreshes the
+                        // recipe snapshots together (vault §05.06).
+                        row.cc, updated.coefficientCc,
                     )
                     row.copy(
                         coefficient = updated.coefficient,
                         coefficientDevoir1 = updated.coefficientDevoir1,
                         coefficientDevoir2 = updated.coefficientDevoir2,
                         coefficientExamen = updated.coefficientExamen,
+                        coefficientCc = updated.coefficientCc,
                         subjectAverage = newAvg,
                     )
                 }

@@ -947,8 +947,13 @@ data class ExecAssessment(
     val devoir1: Double? = null,
     val devoir2: Double? = null,
     val examen: Double? = null,
+    // T-348 (MATIERE-500 / ADR-018): the contrôle-continu mark + its weight
+    // snapshot — defaults (null / 0.0) keep the projection bit-identical for
+    // every existing call site that doesn't carry them.
+    val cc: Double? = null,
     val coefficient: Double = 1.0,
     val isExtracurricular: Boolean = false,
+    val coefficientCc: Double = 0.0,
 )
 
 /**
@@ -990,7 +995,12 @@ fun evaluateExecRiskProfiles(
             for (a in rows) {
                 if (a.isExtracurricular) continue
                 val avg = a.subjectAverage
-                    ?: computeSubjectAverage(a.devoir1, a.devoir2, a.examen)
+                    ?: computeSubjectAverage(
+                        a.devoir1, a.devoir2, a.examen,
+                        // T-348 (ADR-018): the cc mark + its weight — the
+                        // other components keep the projection's defaults.
+                        cc = a.cc, coefCc = a.coefficientCc,
+                    )
                     ?: continue
                 weightedSumCents += Math.round(avg * 100.0) * Math.round(a.coefficient * 100.0)
                 coefSumCents += Math.round(a.coefficient * 100.0)

@@ -88,7 +88,8 @@ fun computeOverallGpa(assessments: List<Assessment>): Double? {
         // coefficients configured on the subject at entry time.
         val avg = a.subjectAverage
             ?: computeSubjectAverage(a.devoir1, a.devoir2, a.examen,
-                                      a.coefficientDevoir1, a.coefficientDevoir2, a.coefficientExamen)
+                                      a.coefficientDevoir1, a.coefficientDevoir2, a.coefficientExamen,
+                                      a.cc, a.coefficientCc)
             ?: continue
         weightedSumCents += Math.round(avg * 100.0).toLong() * Math.round(a.coefficient * 100.0).toLong()
         coefSumCents += Math.round(a.coefficient * 100.0).toLong()
@@ -140,37 +141,24 @@ fun computeSubjectAverage(
     coefDevoir1: Double = 1.0,
     coefDevoir2: Double = 1.0,
     coefExamen: Double = 2.0,
+    // T-348 (MATIERE-500 / ADR-018): the contrôle-continu mark + its weight.
+    // Defaults (null / 0.0) keep this overload bit-identical to the previous
+    // build; the canonical path is computeSubjectAverageFromRecipe.
+    cc: Double? = null,
+    coefCc: Double = 0.0,
 ): Double? {
-    // CANONICAL (cross-platform equivalence fix): the subject average is only
-    // computable when ALL THREE marks exist. This matches the SQL trigger
-    // compute_grade_subject_average() (the persistence-layer authority),
-    // which leaves subject_average NULL while any mark is missing. The
-    // previous coerce-nulls-to-0 rule deflated partial assessments and
-    // diverged from the backend.
-    if (devoir1 == null || devoir2 == null || examen == null) return null
-    // Integer-scaled rounding — matches desktop + SQL ROUND(numeric, 2) at
-    // .xx5 boundaries. The numerator is Σ(score_cents × coef_cents) and the
-    // denominator is Σ(coef_cents); both are exact in integer arithmetic,
-    // so the final Math.round matches the SQL ROUND(numeric, 2) bit-for-bit.
-    val d1c = Math.round(devoir1 * 100.0)
-    val d2c = Math.round(devoir2 * 100.0)
-    val exc = Math.round(examen * 100.0)
-    val c1c = Math.round(coefDevoir1 * 100.0).toLong()
-    val c2c = Math.round(coefDevoir2 * 100.0).toLong()
-    val c3c = Math.round(coefExamen * 100.0).toLong()
-    // Skip components whose coefficient is 0 — both numerator and
-    // denominator exclude them, so an admin can disable a component without
-    // losing the others. (A 0-coef component contributes 0 to the numerator
-    // anyway, but excluding it from the denominator keeps the math correct
-    // when the others carry non-zero weights.)
-    var numeratorCents = 0L
-    var denominatorCents = 0L
-    if (c1c != 0L) { numeratorCents += d1c * c1c; denominatorCents += c1c }
-    if (c2c != 0L) { numeratorCents += d2c * c2c; denominatorCents += c2c }
-    if (c3c != 0L) { numeratorCents += exc * c3c; denominatorCents += c3c }
-    if (denominatorCents == 0L) return null  // all three coefs degenerate
-    val avgCents = Math.round(numeratorCents.toDouble() / denominatorCents.toDouble())
-    return avgCents / 100.0
+    // CANONICAL (T-348 / ADR-018): the recipe-aware rule — a POSITIVE-weight
+    // component is REQUIRED (missing → null, the T-336 honesty rule); a
+    // 0-weight component is excluded. Delegates to the mirrored engine.
+    return computeSubjectAverageFromRecipe(
+        devoir1, devoir2, examen, cc,
+        GradingRecipe(
+            devoir1 = coefDevoir1,
+            devoir2 = coefDevoir2,
+            examen = coefExamen,
+            cc = coefCc,
+        ),
+    )
 }
 
 /**

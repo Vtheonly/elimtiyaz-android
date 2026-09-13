@@ -46,4 +46,7 @@ data class Subject(
     val coefficientDevoir1: Double = 1.0,
     val coefficientDevoir2: Double = 1.0,
     val coefficientExamen: Double = 2.0,
+    /** T-348 (ADR-018): the contrôle-continu weight; 0 = excluded (the
+     *  legacy default — bit-identical to the previous build). */
+    val coefficientCc: Double = 0.0,
 )

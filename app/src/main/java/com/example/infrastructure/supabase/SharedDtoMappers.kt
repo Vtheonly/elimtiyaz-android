@@ -191,6 +191,9 @@ fun SubjectDto.toEntity(): com.example.infrastructure.room.SubjectEntity = com.e
     coefficientDevoir1 = coefficientDevoir1 ?: 1.0,
     coefficientDevoir2 = coefficientDevoir2 ?: 1.0,
     coefficientExamen = coefficientExamen ?: 2.0,
+    // T-348 (ADR-018): the cc weight on the subject (0 = excluded — the
+    // legacy default, bit-identical to the previous build).
+    coefficientCc = coefficientCc ?: 0.0,
 )
 
 /** Convert an [InstallmentDto] to an [InstallmentEntity] for Room upsert. */
@@ -432,6 +435,8 @@ fun AssessmentDto.toEntity(): com.example.infrastructure.room.AssessmentEntity {
         devoir1 = devoir1,
         devoir2 = devoir2,
         examen = examen,
+        // T-348 (ADR-018): the contrôle-continu mark + its weight snapshot.
+        cc = cc,
         coefficient = coefficient,
         isExtracurricular = false,
         subjectAverage = subjectAverage,
@@ -440,6 +445,7 @@ fun AssessmentDto.toEntity(): com.example.infrastructure.room.AssessmentEntity {
         coefficientDevoir1 = coefficientDevoir1 ?: 1.0,
         coefficientDevoir2 = coefficientDevoir2 ?: 1.0,
         coefficientExamen = coefficientExamen ?: 2.0,
+        coefficientCc = coefficientCc ?: 0.0,
     )
 }
 

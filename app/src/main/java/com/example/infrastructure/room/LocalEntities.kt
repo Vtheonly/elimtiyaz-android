@@ -1,5 +1,6 @@
 package com.example.infrastructure.room
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -175,6 +176,12 @@ data class SubjectEntity(
     val coefficientDevoir1: Double = 1.0,
     val coefficientDevoir2: Double = 1.0,
     val coefficientExamen: Double = 2.0,
+    // T-348 (ADR-018): the cc weight (0 = excluded — the legacy default).
+    // @ColumnInfo(defaultValue) pins the SQL DEFAULT that MIGRATION_15_16
+    // adds — WITHOUT it Room's runMigrationsAndValidate rejects the upgrade
+    // (expected schema has no DEFAULT, the migrated column does).
+    @ColumnInfo(defaultValue = "0.0")
+    val coefficientCc: Double = 0.0,
 )
 
 @Entity(tableName = "attendance", indices = [Index("studentId"), Index("classId"), Index("date")])
@@ -205,6 +212,9 @@ data class AssessmentEntity(
     val devoir1: Double?,
     val devoir2: Double?,
     val examen: Double?,
+    // T-348 (MATIERE-500 / ADR-018): the contrôle-continu mark.
+    // MIGRATION_15_16.
+    val cc: Double? = null,
     // TIER 4 FIX — Double coefficient (NUMERIC(4,2) parity) + isExtracurricular
     // so computeOverallGpa can apply the canonical exclusion rule.
     val coefficient: Double,
@@ -221,6 +231,11 @@ data class AssessmentEntity(
     val coefficientDevoir1: Double = 1.0,
     val coefficientDevoir2: Double = 1.0,
     val coefficientExamen: Double = 2.0,
+    // T-348 (ADR-018): the cc weight snapshot. MIGRATION_15_16. Default 0 =
+    // excluded — bit-identical to the previous build. @ColumnInfo pins the
+    // SQL DEFAULT the migration adds (schema-validation parity).
+    @ColumnInfo(defaultValue = "0.0")
+    val coefficientCc: Double = 0.0,
 )
 
 @Entity(tableName = "homework", indices = [Index("classId"), Index("subjectId"), Index("dueDate")])

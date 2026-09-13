@@ -138,8 +138,8 @@ class PricingCalculationTest {
 
     @Test fun `overall GPA is weighted average of subject averages`() {
         val assessments = listOf(
-            Assessment("a1", "t", "s1", "sub1", "c1", "T1", "2026", 14.0, 10.0, 18.0, null, 4.0, false, "t", "now"),
-            Assessment("a2", "t", "s1", "sub2", "c1", "T1", "2026", 12.0, 12.0, 12.0, null, 2.0, false, "t", "now"),
+            Assessment("a1", "t", "s1", "sub1", "c1", "T1", "2026", 14.0, 10.0, 18.0, null, null, 4.0, false, "t", "now"),
+            Assessment("a2", "t", "s1", "sub2", "c1", "T1", "2026", 12.0, 12.0, 12.0, null, null, 2.0, false, "t", "now"),
         )
         // Subject averages: 15.0 (coef 4), 12.0 (coef 2)
         // GPA = (15×4 + 12×2) / (4+2) = (60+24)/6 = 14.0
@@ -148,8 +148,8 @@ class PricingCalculationTest {
 
     @Test fun `overall GPA skips null subject averages`() {
         val assessments = listOf(
-            Assessment("a1", "t", "s1", "sub1", "c1", "T1", "2026", 14.0, 10.0, 18.0, null, 4.0, false, "t", "now"),
-            Assessment("a2", "t", "s1", "sub2", "c1", "T1", "2026", null, null, null, null, 2.0, false, "t", "now"),
+            Assessment("a1", "t", "s1", "sub1", "c1", "T1", "2026", 14.0, 10.0, 18.0, null, null, 4.0, false, "t", "now"),
+            Assessment("a2", "t", "s1", "sub2", "c1", "T1", "2026", null, null, null, null, null, 2.0, false, "t", "now"),
         )
         // Only sub1 has a valid average (15.0, coef 4)
         assertEquals(15.0, computeOverallGpa(assessments)!!, 0.001)
@@ -157,7 +157,7 @@ class PricingCalculationTest {
 
     @Test fun `overall GPA returns null when no valid assessments`() {
         val assessments = listOf(
-            Assessment("a1", "t", "s1", "sub1", "c1", "T1", "2026", null, null, null, null, 4.0, false, "t", "now"),
+            Assessment("a1", "t", "s1", "sub1", "c1", "T1", "2026", null, null, null, null, null, 4.0, false, "t", "now"),
         )
         assertNull(computeOverallGpa(assessments))
     }

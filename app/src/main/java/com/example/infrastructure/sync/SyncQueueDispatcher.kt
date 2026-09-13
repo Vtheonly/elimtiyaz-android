@@ -386,10 +386,14 @@ class SyncQueueDispatcher @Inject constructor(
             put("p_devoir1", p.str("devoir1")?.toDoubleOrNull()?.let(::JsonPrimitive) ?: JsonNull)
             put("p_devoir2", p.str("devoir2")?.toDoubleOrNull()?.let(::JsonPrimitive) ?: JsonNull)
             put("p_examen", p.str("examen")?.toDoubleOrNull()?.let(::JsonPrimitive) ?: JsonNull)
+            // T-348 (ADR-018): the contrôle-continu mark + its weight
+            // snapshot travel with the row (0094 RPC parameters).
+            put("p_cc", p.str("cc")?.toDoubleOrNull()?.let(::JsonPrimitive) ?: JsonNull)
             put("p_coefficient", p.str("coefficient")?.toDoubleOrNull() ?: 1.0)
             put("p_coefficient_devoir1", p.str("coefficientDevoir1")?.toDoubleOrNull() ?: 1.0)
             put("p_coefficient_devoir2", p.str("coefficientDevoir2")?.toDoubleOrNull() ?: 1.0)
             put("p_coefficient_examen", p.str("coefficientExamen")?.toDoubleOrNull() ?: 2.0)
+            put("p_coefficient_cc", p.str("coefficientCc")?.toDoubleOrNull() ?: 0.0)
             put("p_entered_by", p.str("enteredBy"))
             put("p_entered_at", p.str("enteredAt"))
         }

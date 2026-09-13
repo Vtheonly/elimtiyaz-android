@@ -168,10 +168,14 @@ class LocalGradeRepository @Inject constructor(
         val coefD1 = subject?.coefficientDevoir1 ?: 1.0
         val coefD2 = subject?.coefficientDevoir2 ?: 1.0
         val coefEx = subject?.coefficientExamen ?: 2.0
-        // CANONICAL — the subject average is only computable when all three
-        // marks are present (matches the SQL trigger).
+        // T-348 (ADR-018): the contrôle-continu weight from the subject's
+        // recipe (0 = excluded — the legacy default).
+        val coefCc = subject?.coefficientCc ?: 0.0
+        // CANONICAL (T-348): the recipe-aware rule — a positive-weight
+        // component is required (matches the migration-0094 SQL trigger).
         val subjectAvg = com.example.core.computeSubjectAverage(
             input.devoir1, input.devoir2, input.examen, coefD1, coefD2, coefEx,
+            input.cc, coefCc,
         )
         val existing = assessmentDao.getByStudentSubjectTerm(input.studentId, input.subjectId, input.term, input.academicYear)
         val entity = (existing ?: AssessmentEntity(
@@ -184,14 +188,18 @@ class LocalGradeRepository @Inject constructor(
             // Vault §06.02 — snapshot the SUBJECT's per-component coefs onto
             // the new assessment row (defaults preserved for legacy paths).
             coefficientDevoir1 = coefD1, coefficientDevoir2 = coefD2, coefficientExamen = coefEx,
+            coefficientCc = coefCc,
         )).copy(
             devoir1 = input.devoir1, devoir2 = input.devoir2, examen = input.examen,
+            // T-348 (ADR-018): the contrôle-continu mark + its weight snapshot.
+            cc = input.cc,
             coefficient = input.coefficient, subjectAverage = subjectAvg,
             isExtracurricular = subjectIsExtracurricular,
             enteredBy = actorId, enteredAt = now,
             // Vault §06.02 — refresh the per-component coef snapshot on
             // every grade edit so it always reflects the live subject config.
             coefficientDevoir1 = coefD1, coefficientDevoir2 = coefD2, coefficientExamen = coefEx,
+            coefficientCc = coefCc,
         )
         assessmentDao.upsert(entity)
         // VAULT §06.02 — enqueue the canonical row for the Supabase push
@@ -222,6 +230,8 @@ private fun buildGradeSyncPayload(e: com.example.infrastructure.room.AssessmentE
         e.devoir1?.let { put("devoir1", it) }
         e.devoir2?.let { put("devoir2", it) }
         e.examen?.let { put("examen", it) }
+        // T-348 (ADR-018): the contrôle-continu mark + its weight snapshot.
+        e.cc?.let { put("cc", it) }
         put("coefficient", e.coefficient)
         put("isExtracurricular", e.isExtracurricular)
         e.subjectAverage?.let { put("subjectAverage", it) }
@@ -230,4 +240,5 @@ private fun buildGradeSyncPayload(e: com.example.infrastructure.room.AssessmentE
         put("coefficientDevoir1", e.coefficientDevoir1)
         put("coefficientDevoir2", e.coefficientDevoir2)
         put("coefficientExamen", e.coefficientExamen)
+        put("coefficientCc", e.coefficientCc)
     }.toString()

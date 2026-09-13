@@ -38,5 +38,7 @@ data class EnterGradeInput(
     val studentId: String, val subjectId: String, val classId: String,
     val term: String, val academicYear: String,
     val devoir1: Double?, val devoir2: Double?, val examen: Double?,
+    /** T-348 (ADR-018): the contrôle-continu mark (null = not entered). */
+    val cc: Double? = null,
     val coefficient: Double,
 )

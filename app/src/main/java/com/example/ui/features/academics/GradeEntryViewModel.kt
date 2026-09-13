@@ -118,6 +118,8 @@ class GradeEntryViewModel @Inject constructor(
         devoir2: Double?,
         examen: Double?,
         coefficient: Double,
+        // T-348 (ADR-018): the contrôle-continu mark.
+        cc: Double? = null,
         actorId: String,
         actorName: String,
         onSuccess: () -> Unit = {},
@@ -128,6 +130,7 @@ class GradeEntryViewModel @Inject constructor(
                 studentId = studentId, subjectId = subjectId, classId = classId,
                 term = term, academicYear = academicYear,
                 devoir1 = devoir1, devoir2 = devoir2, examen = examen,
+                cc = cc,
                 coefficient = coefficient,
             )
             val result = gradeRepository.enterGrade(input, actorId, actorName)

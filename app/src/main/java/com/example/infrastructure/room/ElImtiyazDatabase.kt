@@ -51,7 +51,7 @@ import androidx.room.RoomDatabase
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
     ],
-    version = 15,
+    version = 16,
     // T-046-gap (session 18): schemas are exported from now on (ksp arg
     // room.schemaLocation → app/schemas/) so MigrationTestHelper upgrade
     // tests can pin every future schema bump. 12.json was backfilled from
@@ -486,6 +486,27 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
                 )
                 database.execSQL(
                     "ALTER TABLE students ADD COLUMN transportTier TEXT"
+                )
+            }
+        }
+
+        /**
+         * T-348 (MATIERE-500 / ADR-018): the contrôle-continu mark + its
+         * weight snapshot on assessments (the migration-0094 server columns)
+         * + the cc weight on subjects (the local recipe surface — the server
+         * keeps it in subject_configurations.grading_recipe, Android's
+         * offline-first Subject carries it directly per vault §06.02).
+         * Defaults preserve every pre-existing row's meaning exactly
+         * (cc not entered / weight 0 = excluded) — no data rewrite.
+         */
+        val MIGRATION_15_16 = object : androidx.room.migration.Migration(15, 16) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE assessments ADD COLUMN cc REAL")
+                database.execSQL(
+                    "ALTER TABLE assessments ADD COLUMN coefficientCc REAL NOT NULL DEFAULT 0.0"
+                )
+                database.execSQL(
+                    "ALTER TABLE subjects ADD COLUMN coefficientCc REAL NOT NULL DEFAULT 0.0"
                 )
             }
         }

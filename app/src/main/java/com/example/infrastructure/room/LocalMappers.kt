@@ -96,6 +96,8 @@ object LocalMappers {
         id = id, tenantId = tenantId, studentId = studentId, subjectId = subjectId,
         classId = classId, term = term, academicYear = academicYear,
         devoir1 = devoir1, devoir2 = devoir2, examen = examen,
+        // T-348 (ADR-018): the contrôle-continu mark + its weight snapshot.
+        cc = cc,
         coefficient = coefficient, subjectAverage = subjectAverage,
         isExtracurricular = isExtracurricular,
         enteredBy = enteredBy, enteredAt = enteredAt,
@@ -106,6 +108,7 @@ object LocalMappers {
         coefficientDevoir1 = coefficientDevoir1,
         coefficientDevoir2 = coefficientDevoir2,
         coefficientExamen = coefficientExamen,
+        coefficientCc = coefficientCc,
     )
 
     fun HomeworkEntity.toDomain(): Homework {
