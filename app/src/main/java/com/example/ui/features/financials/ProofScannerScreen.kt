@@ -181,8 +181,16 @@ fun ProofScannerScreen(
                 ElCard(modifier = Modifier.fillMaxWidth(), accent = SuccessGreen) {
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                         Text("Preuve capturée et enregistrée !", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = SuccessGreen)
-                        Text("Chemin local : $path", style = MaterialTheme.typography.bodySmall)
-                        Text("Prêt pour la synchronisation Supabase Storage.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (path.startsWith("file://")) {
+                            // T-362/UPLOAD-103: an honest offline state — the
+                            // proof is ONLY on the device until connectivity
+                            // returns (never a fake "synced" message).
+                            Text("Mode hors-ligne : preuve conservée sur l'appareil.", style = MaterialTheme.typography.bodySmall)
+                            Text("Elle n'est PAS encore sur le serveur — reprenez l'envoi une fois connecté.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            Text("Envoyée au coffre Supabase Storage : $path", style = MaterialTheme.typography.bodySmall)
+                            Text("Chemin d'accès canonique (établissement/entité/fichier).", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }

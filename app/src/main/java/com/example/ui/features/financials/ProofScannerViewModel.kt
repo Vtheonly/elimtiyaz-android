@@ -40,7 +40,9 @@ class ProofScannerViewModel @Inject constructor(
      *   - Min resolution 640×480 (enforced by `enforce_payment_proof` trigger
      *     for check/transfer methods).
      *   - WebP compression at quality 85.
-     *   - Path convention: `{tenantId}/{entityId}/{fileName}` (RLS-enforced).
+     *   - Path convention: `{tenantId}/{entityId}/{fileName}` (RLS-enforced —
+     *     T-362/UPLOAD-103: the tenant comes from the session's working
+     *     tenant; a null tenant fails closed inside the repository).
      */
     suspend fun uploadProof(bitmap: Bitmap, entityId: String, bucket: String = StorageBuckets.PAYMENT_PROOFS) {
         _isLoading.value = true
@@ -60,7 +62,8 @@ class ProofScannerViewModel @Inject constructor(
             val bytes = outputStream.toByteArray()
 
             val fileName = "proof-${UUID.randomUUID()}.webp"
-            when (val result = storageRepository.uploadProof(bucket, entityId, fileName, bytes, "image/webp")) {
+            val tenantId = sessionManager.currentTenantId()
+            when (val result = storageRepository.uploadProof(bucket, tenantId, entityId, fileName, bytes, "image/webp")) {
                 is Result.Ok -> {
                     _uploadedPath.value = result.value
                     _isLoading.value = false
