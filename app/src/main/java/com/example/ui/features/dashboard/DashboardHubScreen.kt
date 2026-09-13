@@ -42,14 +42,11 @@ import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.features.dashboard.analytics.AnalyticsSlicersBar
 import com.example.ui.features.dashboard.analytics.AnalyticsStatStrip
-import com.example.ui.features.dashboard.analytics.AmountHistogramCard
+import com.example.ui.features.dashboard.analytics.ExecutiveDashboard
 import com.example.ui.features.dashboard.analytics.AgingCompositionCard
-import com.example.ui.features.dashboard.analytics.CollectionHeatmapCard
 import com.example.ui.features.dashboard.analytics.CategoryMixCard
-import com.example.ui.features.dashboard.analytics.DebtorsParetoCard
 import com.example.ui.features.dashboard.analytics.DemographicsCard
 import com.example.ui.features.dashboard.analytics.MethodMixCard
-import com.example.ui.features.dashboard.analytics.RevenueTrendExplorerCard
 import com.example.ui.features.dashboard.analytics.WeeklyOperatingRhythmCard
 import com.example.ui.features.dashboard.analytics.YoYComparisonCard
 import java.time.LocalDate
@@ -77,9 +74,7 @@ fun DashboardHubScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val kpis by viewModel.kpis.collectAsState()
-    val revenue by viewModel.revenue.collectAsState()
     val debtAging by viewModel.debtAging.collectAsState()
-    val paymentMethods by viewModel.paymentMethods.collectAsState()
     val classRollCallStatuses by viewModel.classRollCallStatuses.collectAsState()
     val operationalAlerts by viewModel.operationalAlerts.collectAsState()
     val notifications by viewModel.notifications.collectAsState()
@@ -186,11 +181,11 @@ fun DashboardHubScreen(
                     onNavigateToChat = onNavigateToChat,
                 )
 
-                // 3. Financial Flux & Revenue Trends (Positive overview)
+                // 3. Financial Flux — the wave staircase hero (T-340: the
+                // smooth spline REMOVED per the owner's kill list)
                 DashboardRevenueChart(
                     currentKpi = currentKpi,
-                    revenue = revenue,
-                    paymentMethods = paymentMethods,
+                    executive = currentKpi.executive,
                 )
 
                 // 3b. PARITY-003 — the Algerian school-week operating rhythm
@@ -234,13 +229,21 @@ fun DashboardHubScreen(
                 )
             } else {
                 // ════════════════════════════════════════════════════════════
-                // ANALYTIQUE — PARITY-003: the desktop Analytics-tab twin
-                // (slicers → stat strip → trend explorer + mix cards →
-                // YoY + histogram → heatmap + aging composition → Pareto
-                // + funnel + demographics; every value from the engine).
+                // ANALYTIQUE — T-340 (STATS-400): the "Pilotage Exécutif"
+                // restructure (the desktop T-339 parity). The Executive
+                // Command Center LEADS — the triple-risk radar front-and-center,
+                // then the wave staircase, triage, erosion, concentration,
+                // dynamics, transport, services. The vanity charts are GONE
+                // (histogram / heatmap / revenue spline — owner kill list);
+                // the REAL-data analytics follow (slicers, stat strip, mixes,
+                // YoY, aging composition, Pareto, demographics).
                 // ════════════════════════════════════════════════════════════
 
-                // Row 0 — the cross-filtering slicer bar
+                // Row 0 — the Executive Command Center (one snapshot, all
+                // derivations computed ONCE at the repository level).
+                ExecutiveDashboard(snapshot = currentKpi.executive)
+
+                // Row 1 — the cross-filtering slicer bar
                 AnalyticsSlicersBar(
                     methodFilters = analyticsFilters.methods,
                     categoryFilters = analyticsFilters.categories,
@@ -252,7 +255,7 @@ fun DashboardHubScreen(
                     onReset = viewModel::resetAnalyticsFilters,
                 )
 
-                // Row 1 — the 6-card statistics strip (over the filtered slice)
+                // Row 2 — the 6-card statistics strip (over the filtered slice)
                 AnalyticsStatStrip(
                     count = analyticsSlice.stats.count,
                     totalCentimes = analyticsSlice.stats.total,
@@ -263,23 +266,12 @@ fun DashboardHubScreen(
                     bestMonthAmount = analyticsSlice.stats.bestMonth?.amount ?: 0L,
                 )
 
-                // Row 2 — the revenue trend explorer (cumulative + MM3 + the
-                // dashed filtered overlay when slicers are active)
-                RevenueTrendExplorerCard(
-                    trend = currentKpi.revenueTrend,
-                    filteredMonthly = analyticsSlice.filteredMonthly,
-                )
-
-                // Row 2b — the method donut + the category ranked bars
+                // Row 3 — the method donut + the category ranked bars
                 MethodMixCard(methodMix = currentKpi.methodMix)
                 CategoryMixCard(categoryBreakdown = currentKpi.categoryBreakdown)
 
-                // Row 3 — YoY + the amount histogram
+                // Row 4 — YoY comparison + aging composition (REAL data, kept)
                 YoYComparisonCard(yoy = currentKpi.yoy)
-                AmountHistogramCard(bins = currentKpi.amountBins, totalOps = currentKpi.totalOperationsCount)
-
-                // Row 4 — the collection heatmap + the aging composition
-                CollectionHeatmapCard(heatmap = currentKpi.collectionHeatmap)
                 AgingCompositionCard(debtByAging = currentKpi.debtByAging)
 
                 // Row 5 — funnel + debt donut + Pareto (the PARITY-002
@@ -291,7 +283,8 @@ fun DashboardHubScreen(
                     onNavigateToDebtDashboard = onNavigateToDebtDashboard,
                 )
 
-                // Row 6 — class demographics & capacity gauges
+                // Row 6 — class demographics (capacity gauges REMOVED T-340 —
+                // the section-imbalance view lives in the executive cards)
                 DemographicsCard(demographics = currentKpi.demographics)
             }
 

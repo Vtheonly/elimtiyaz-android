@@ -236,6 +236,13 @@ interface AssessmentDao {
     @Query("SELECT * FROM assessments WHERE studentId = :studentId ORDER BY academicYear ASC, term ASC, subjectId ASC")
     fun observeByStudent(studentId: String): Flow<List<AssessmentEntity>>
 
+    /**
+     * T-340 (STATS-400): the full assessments stream feeds the triple-risk
+     * radar's GPA derivation (the desktop operational-query-engine parity).
+     */
+    @Query("SELECT * FROM assessments ORDER BY academicYear ASC, term ASC, studentId ASC, subjectId ASC")
+    fun observeAll(): Flow<List<AssessmentEntity>>
+
     @Query("UPDATE assessments SET coefficient = :coefficient WHERE subjectId = :subjectId AND academicYear = :academicYear")
     suspend fun updateCoefficientForSubjectYear(subjectId: String, coefficient: Double, academicYear: String)
 

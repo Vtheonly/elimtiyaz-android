@@ -40,6 +40,12 @@ data class Student(
     val status: String = "active",       // active | graduated | transferred | suspended | withdrawn
     /** TIER 2 R12 — billing plan. Mirrors desktop `Student.paymentPlan`. */
     val paymentPlan: PaymentPlan = PaymentPlan.TRANCHES,
+    /**
+     * T-340 (STATS-400): the transport town/tier (DB `transport_tier` — the
+     * Excel DISTINATION value). Mirrors desktop `Student.transportTier`.
+     * Null = no transport. Feeds the transport-yield derivation.
+     */
+    val transportTier: String? = null,
     val createdAt: String,
     val updatedAt: String,
 ) {

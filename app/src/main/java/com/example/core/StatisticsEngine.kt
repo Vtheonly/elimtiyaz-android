@@ -657,36 +657,12 @@ fun deriveWeeklyRhythm(
 }
 
 // ============================================================================
-// T-256 — collection heatmap (weekday × calendar-month matrix)
+// T-340 (STATS-400) — REMOVED per the owner's kill list: the T-256 collection
+// heatmap (weekday × calendar-month matrix) and the T-255 filtered monthly
+// overlay (the dashed spline companion) shared the fate of the revenue
+// spline they decorated. The desktop's analytics-derivations.ts removed the
+// same functions (T-339); this mirror follows verbatim.
 // ============================================================================
-
-// ============================================================================
-// T-255 — filtered monthly overlay (the slicers' visible effect on the trend)
-// ============================================================================
-
-/**
- * Monthly encaissé derived from the FILTERED payments slice, aligned to the
- * repository series' month labels (by calendar-month index — academic-year
- * ranges never repeat a calendar month). (desktop deriveFilteredMonthly.)
- */
-fun deriveFilteredMonthly(
-    slice: List<StatsPayment>,
-    monthLabels: List<String>,
-): List<Long> {
-    val positionByMonthIndex = HashMap<Int, Int>()
-    monthLabels.forEachIndexed { i, label ->
-        val idx = MONTH_INDEX_BY_LABEL[label]
-        if (idx != null) positionByMonthIndex[idx] = i
-    }
-    val out = LongArray(monthLabels.size)
-    for (p in slice) {
-        val t = parseIsoMs(p.collectedAt) ?: continue
-        val monthIndex = Instant.ofEpochMilli(t).atZone(ZoneOffset.UTC).monthValue - 1
-        val pos = positionByMonthIndex[monthIndex] ?: continue
-        out[pos] += p.amount
-    }
-    return out.toList()
-}
 
 // ============================================================================
 // T-257 — year-over-year comparison (like-for-like months)

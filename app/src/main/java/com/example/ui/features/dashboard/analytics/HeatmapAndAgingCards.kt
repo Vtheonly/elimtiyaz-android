@@ -16,82 +16,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.core.formatDzd
-import com.example.domain.model.CollectionHeatmapSnapshot
 import com.example.domain.model.DebtAgingBucketItem
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.data.ElChartPalette
-import com.example.ui.designsystem.components.data.ElHeatmapCell
-import com.example.ui.designsystem.components.data.ElHeatmapGrid
-import com.example.ui.designsystem.components.data.ElHeatmapRow
 import com.example.ui.designsystem.components.data.ElRatioSegment
 import com.example.ui.designsystem.components.data.ElStackedRatioBar
 import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.designsystem.theme.ElTheme
 
-/**
- * CollectionHeatmapCard — inventory #7 (PARITY-003).
- *
- * The native twin of the desktop's `collection-heatmap-card.tsx` (T-256):
- * the weekday × calendar-month intensity matrix (school week Dim→Jeu, the
- * desktop's 5-step alpha quantization over brand blue), with the month
- * totals row. Values from the engine's deriveCollectionHeatmap.
- */
-@Composable
-internal fun CollectionHeatmapCard(
-    heatmap: CollectionHeatmapSnapshot,
-    modifier: Modifier = Modifier,
-) {
-    val c = ElTheme.colors
-    if (heatmap.rows.isEmpty() || heatmap.monthLabels.isEmpty() || heatmap.max <= 0L) {
-        AnalyticsEmptyCard(title = "Cadran des Encaissements", subtitle = "Aucun encaissement sur la période sélectionnée.")
-        return
-    }
-
-    ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ElSectionHeader(
-                title = "Cadran des Encaissements",
-                subtitle = "Volume par jour d'école × mois (Dim–Jeu)",
-            )
-            ElHeatmapGrid(
-                rows = heatmap.rows.map { r ->
-                    ElHeatmapRow(
-                        rowLabel = r.day,
-                        cells = r.cells.map { cell -> ElHeatmapCell(cell.level, (cell.amount / 100).toFloat()) },
-                    )
-                },
-                columnLabels = heatmap.monthLabels,
-                cellHeight = 24.dp,
-            )
-            // Row totals (the desktop's row-sum column)
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                heatmap.rows.forEach { r ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = r.day,
-                            color = c.textSecondary,
-                            style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        )
-                        Text(
-                            text = "${compactDzd(r.rowTotal / 100)} DA",
-                            color = c.textPrimary,
-                            style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Medium),
-                        )
-                    }
-                }
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "Pic de cellule : ${(heatmap.max / 100).formatDzd()} DA",
-                    color = c.textMuted,
-                    style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                )
-            }
-        }
-    }
-}
+// ============================================================================
+// T-340 (STATS-400) — CollectionHeatmapCard REMOVED per the owner's kill
+// list (the weekday×month collection heatmap: passive e-commerce vanity).
+// The desktop's collection-heatmap-card.tsx was deleted the same way
+// (T-339). The collection CADENCE survives as the weekly operating rhythm
+// (WeeklyOperatingRhythmCard — real data, not on the kill list); the
+// collection URGENCY lives in DebtTriageCard (ExecutiveCards.kt).
+// ============================================================================
 
 /**
  * AgingCompositionCard — inventory #9 (PARITY-003).

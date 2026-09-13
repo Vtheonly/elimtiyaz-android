@@ -110,18 +110,10 @@ class StatisticsEngineTest {
         assertNull(s.bestMonth)
     }
 
-    // ── deriveAmountHistogram ─────────────────────────────────────────────
-
-    @Test
-    fun `bins amounts with correct edges — half-open lo hi`() {
-        // Desktop: 4 999 → 0–5k; 5 000 → 5k–10k (edge); 19 999 → 10k–20k;
-        // 50 000 → 50k+ (edge of the open bin); counts [1,1,1,0,1].
-        val slice = listOf(pay("a", 4_999), pay("b", 5_000), pay("c", 19_999), pay("d", 50_000))
-        val bins = deriveAmountHistogram(slice)
-        assertEquals(listOf(1, 1, 1, 0, 1), bins.map { it.count })
-        assertEquals(500_000L, bins[1].amount)
-        assertEquals("50k+", bins[4].label)
-    }
+    // ── deriveAmountHistogram — REMOVED T-340 (STATS-400): the vanity ───
+    // histogram tests went with the chart (owner kill list; the desktop
+    // T-339 removed the same tests). The ExecutiveStatisticsTest suite
+    // now covers the replacement derivations.
 
     // ── deriveMethodMix / deriveCategoryMix ───────────────────────────────
 
@@ -265,27 +257,10 @@ class StatisticsEngineTest {
         assertEquals(0, collectionRatePct(0L, 0L))
     }
 
-    // ── deriveRevenueTrend ────────────────────────────────────────────────
-
-    @Test
-    fun `running total and 3-month moving average`() {
-        val revenue = listOf(
-            RevenuePointInput("Sep", 3_000_000L),
-            RevenuePointInput("Oct", 4_600_000L),
-            RevenuePointInput("Nov", 2_000_000L),
-            RevenuePointInput("Déc", 4_000_000L),
-        )
-        val trend = deriveRevenueTrend(revenue)
-        assertEquals(listOf(3_000_000L, 7_600_000L, 9_600_000L, 13_600_000L), trend.map { it.cumulative })
-        assertNull(trend[0].movingAvg3)
-        assertNull(trend[1].movingAvg3)
-        assertEquals(3_200_000L, trend[2].movingAvg3) // round(9.6M/3)
-        // The DZD-granularity rounding pin: the desktop computes
-        // Math.round(10 600 000 / 3 DZD) = 35 333 DZD → 3 533 300 centimes
-        // (centime-granularity rounding would yield 3 533 333 — the silent
-        // parity break this suite was built to catch).
-        assertEquals(3_533_300L, trend[3].movingAvg3)
-    }
+    // ── deriveRevenueTrend — REMOVED T-340 (STATS-400): the smooth spline ─
+    // tests went with the chart (owner kill list; the desktop T-339 removed
+    // the same tests). The wave staircase is covered by
+    // ExecutiveStatisticsTest (deriveExecTrancheWaves).
 
     // ── attendanceRatePct (desktop: present + late / total) ───────────────
 
@@ -427,35 +402,10 @@ class StatisticsEngineTest {
         assertEquals(1_000_000L, rhythm.sumOf { it.total })
     }
 
-    // ── deriveCollectionHeatmap ───────────────────────────────────────────
-
-    @Test
-    fun `heatmap — levels quantized in 5 steps, Fri Sat excluded, month columns walked`() {
-        // Range 2025-09-01 → 2026-06-30 → 10 month columns (Sep..Juin).
-        val paid = listOf(
-            pay("h1", 30_000, collectedAt = "2025-09-15T09:00:00Z"),   // Mon Sep
-            pay("h2", 90_000, collectedAt = "2025-10-05T08:30:00Z"),   // Sun Oct — the max cell
-            pay("h3", 40_000, collectedAt = "2025-09-19T10:00:00Z"),   // Fri Sep — DROPPED
-            pay("h4", 22_500, collectedAt = "2025-10-08T10:00:00Z"),   // Wed Oct = 25% of max
-            pay("h5", 45_000, "cash", "pending", "uniform", "2025-11-06T14:00:00Z"), // pending — NOT in the paid slice
-        )
-        val hm = deriveCollectionHeatmap(paid, StatsDateRange("2025-09-01", "2026-06-30"))
-        assertEquals(10, hm.monthLabels.size)
-        assertEquals("Sep", hm.monthLabels[0])
-        assertEquals(9_000_000L, hm.max)
-        // The 90k Sunday cell → level 4 (== max)
-        val dimRow = hm.rows.first { it.day == "Dim" }
-        assertEquals(4, dimRow.cells[1].level)
-        // The 22.5k Wednesday cell → ceil(0.25*4) = 1
-        val merRow = hm.rows.first { it.day == "Mer" }
-        assertEquals(1, merRow.cells[1].level)
-        // Friday row: all zero (dropped)
-        assertTrue(hm.rows.none { it.day == "Ven" })
-        // Sep column: only the 30k Monday cell (the Friday 40k dropped)
-        assertEquals(3_000_000L, hm.monthTotals[0])
-        // Empty cells → level 0
-        assertEquals(0, dimRow.cells[0].level)
-    }
+    // ── deriveCollectionHeatmap — REMOVED T-340 (STATS-400): the weekday× ──
+    // month heatmap tests went with the chart (owner kill list; the desktop
+    // T-339 removed the same tests). The weekly rhythm (kept) and the debt
+    // triage (ExecutiveStatisticsTest) cover the surviving cadence/urgency.
 
     // ── deriveYearOverYear ────────────────────────────────────────────────
 
@@ -646,15 +596,7 @@ class StatisticsEngineTest {
         assertEquals(listOf("a"), applyAnalyticsFilters(payments, StatsDateRange("2025-10-01", "2025-10-01"), emptySet(), emptySet()).map { it.id })
     }
 
-    @Test
-    fun `deriveFilteredMonthly aligns by month index`() {
-        val slice = listOf(
-            pay("a", 10_000, collectedAt = "2025-09-15T10:00:00Z"),
-            pay("b", 20_000, collectedAt = "2025-11-20T10:00:00Z"),
-            pay("c", 5_000, collectedAt = "2025-11-25T10:00:00Z"),
-            pay("d", 7_000, collectedAt = "2026-03-10T10:00:00Z"), // month not in labels → skipped
-        )
-        val out = deriveFilteredMonthly(slice, listOf("Sep", "Oct", "Nov"))
-        assertEquals(listOf(1_000_000L, 0L, 2_500_000L), out)
-    }
+    // deriveFilteredMonthly — REMOVED T-340 (STATS-400): the dashed spline
+    // overlay went with the revenue trend chart (owner kill list; the desktop
+    // T-339 removed the same derivation from analytics-derivations.ts).
 }

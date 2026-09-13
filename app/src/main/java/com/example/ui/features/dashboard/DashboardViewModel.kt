@@ -5,10 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.core.Result
 import com.example.core.StatsPayment
 import com.example.core.derivePaymentStats
-import com.example.core.deriveAmountHistogram
 import com.example.core.deriveMethodMix
 import com.example.core.deriveCategoryMix
-import com.example.core.deriveFilteredMonthly
 import com.example.core.applyAnalyticsFilters
 import com.example.core.presentCategories
 import com.example.domain.model.AppNotification
@@ -55,10 +53,8 @@ data class AnalyticsSliceState(
     // The donut + ranked bars (deriveMethodMix / deriveCategoryMix over the slice)
     val methodMix: List<com.example.core.MixSlice> = emptyList(),
     val categoryMix: List<com.example.core.MixSlice> = emptyList(),
-    // The histogram (deriveAmountHistogram over the slice)
-    val histogram: List<com.example.core.HistogramBin> = emptyList(),
-    // The dashed filtered overlay (deriveFilteredMonthly over the slice)
-    val filteredMonthly: List<Long>? = null,
+    // T-340 (STATS-400): the amount histogram + the filtered-monthly spline
+    // overlay REMOVED per the owner's kill list (the desktop T-339 parity).
 )
 
 @HiltViewModel
@@ -144,7 +140,6 @@ class DashboardViewModel @Inject constructor(
         // the desktop passes its selected range; both derive from the same
         // engine semantics).
         val slice = applyAnalyticsFilters(rows, null, filters.methods, filters.categories)
-        val monthLabels = kpis.value?.revenueTrend?.map { it.label } ?: emptyList()
         AnalyticsSliceState(
             sliceCount = slice.size,
             sliceTotalCentimes = slice.sumOf { it.amount },
@@ -152,8 +147,6 @@ class DashboardViewModel @Inject constructor(
             stats = derivePaymentStats(slice),
             methodMix = deriveMethodMix(slice),
             categoryMix = deriveCategoryMix(slice, topN = 6),
-            histogram = deriveAmountHistogram(slice),
-            filteredMonthly = if (filters.hasActiveFilters) deriveFilteredMonthly(slice, monthLabels) else null,
         )
     }.stateIn(viewModelScope, SharingStarted.Lazily, AnalyticsSliceState())
 

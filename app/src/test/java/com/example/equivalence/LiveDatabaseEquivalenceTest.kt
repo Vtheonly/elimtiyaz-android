@@ -4,7 +4,6 @@ import com.example.core.StatsInstallment
 import com.example.core.StatsPayment
 import com.example.core.collectionRatePct
 import com.example.core.daysBetweenFloor
-import com.example.core.deriveAmountHistogram
 import com.example.core.deriveCategoryMix
 import com.example.core.deriveDebtAging
 import com.example.core.derivePaymentStats
@@ -198,15 +197,9 @@ class LiveDatabaseEquivalenceTest {
           SELECT to_char(collected_at, 'Mon') AS label, sum(amt) AS amount
           FROM paid GROUP BY 1 ORDER BY 2 DESC LIMIT 1
         ),
-        bins AS (
-          SELECT
-            count(*) FILTER (WHERE amt >= 0 AND amt < 5000)::int AS b0_5,
-            count(*) FILTER (WHERE amt >= 5000 AND amt < 10000)::int AS b5_10,
-            count(*) FILTER (WHERE amt >= 10000 AND amt < 20000)::int AS b10_20,
-            count(*) FILTER (WHERE amt >= 20000 AND amt < 50000)::int AS b20_50,
-            count(*) FILTER (WHERE amt >= 50000)::int AS b50p
-          FROM paid
-        ),
+        -- T-340 (STATS-400): the amount-bins histogram CTE REMOVED with the
+        -- vanity statistic (owner kill list — the desktop runner did the
+        -- same in T-341a).
         categories AS (
           SELECT category, sum(amt) AS amount, count(*)::int AS cnt
           FROM paid GROUP BY 1
@@ -252,9 +245,6 @@ class LiveDatabaseEquivalenceTest {
           (SELECT max_dzd * 100::bigint FROM stats) AS max_centimes,
           (SELECT label FROM best_month) AS best_month_label,
           (SELECT round(amount * 100)::bigint FROM best_month) AS best_month_centimes,
-          (SELECT b0_5 FROM bins) AS b0_5, (SELECT b5_10 FROM bins) AS b5_10,
-          (SELECT b10_20 FROM bins) AS b10_20, (SELECT b20_50 FROM bins) AS b20_50,
-          (SELECT b50p FROM bins) AS b50p,
           (SELECT json_agg(json_build_object('category', category, 'amount', round(amount*100)::bigint, 'count', cnt, 'percent', round(amount / (SELECT sum(amt) FROM paid) * 100)::int) ORDER BY amount DESC) FROM categories) AS category_mix,
           (SELECT json_object_agg(bucket, json_build_object('amount', round(amount*100)::bigint, 'debtors', debtors)) FROM census_agg) AS census,
           (SELECT round(outstanding * 100)::bigint FROM totals) AS outstanding_centimes,
@@ -302,13 +292,9 @@ class LiveDatabaseEquivalenceTest {
         val expectedFr = frByEn[truth.string("best_month_label")]
         assertEquals("meilleur mois — libellé FR", expectedFr, stats.bestMonth?.label)
 
-        // Amount distribution bins — half-open [lo, hi), 50k+ dominant on the real corpus.
-        val bins = deriveAmountHistogram(slice)
-        assertEquals("bin 0–5k count", truth.long("b0_5"), bins[0].count.toLong())
-        assertEquals("bin 5k–10k count", truth.long("b5_10"), bins[1].count.toLong())
-        assertEquals("bin 10k–20k count", truth.long("b10_20"), bins[2].count.toLong())
-        assertEquals("bin 20k–50k count", truth.long("b20_50"), bins[3].count.toLong())
-        assertEquals("bin 50k+ count", truth.long("b50p"), bins[4].count.toLong())
+        // T-340 (STATS-400): the amount-bins histogram assertions REMOVED
+        // with the vanity statistic (owner kill list — the desktop runner
+        // dropped the same op in T-341a).
 
         // Category mix — every canonical category, percents and amounts.
         val mix = deriveCategoryMix(slice)

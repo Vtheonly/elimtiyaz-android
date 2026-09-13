@@ -49,6 +49,7 @@ import com.example.core.deriveExecServiceYield
 import com.example.core.deriveExecEnrollmentDynamics
 import com.example.core.deriveExecTripleRiskSummary
 import com.example.core.evaluateExecRiskProfiles
+import com.example.core.transportDestinationLabelFr
 import com.example.core.paymentCategoryLabelFr
 import com.example.domain.model.AcademicClass
 import com.example.domain.model.AppNotification
@@ -207,6 +208,20 @@ private data class DashboardGroup2(
     val assessments: List<AssessmentEntity>,
 )
 
+/** The 4-flow half of [DashboardGroup2] (kotlinx combine is typed to 5). */
+private data class DashboardGroup2a(
+    val installments: List<InstallmentEntity>,
+    val ledger: List<LedgerEntryEntity>,
+    val expenses: List<ExpenseEntity>,
+    val attendance: List<AttendanceEntity>,
+)
+
+/** The 2-flow half of [DashboardGroup2] (kotlinx combine is typed to 5). */
+private data class DashboardGroup2b(
+    val classes: List<AcademicClassEntity>,
+    val assessments: List<AssessmentEntity>,
+)
+
 private data class AlertOperationalGroup1(
     val parents: List<ParentEntity>,
     val installments: List<InstallmentEntity>,
@@ -229,14 +244,22 @@ class LocalDashboardRepository @Inject constructor(
             DashboardGroup1(students, parents, staff, payments)
         },
         combine(
-            db.installmentDao().observeAll(),
-            db.ledgerEntryDao().observeAll(),
-            db.expenseDao().observeAll(),
-            db.attendanceDao().observeAll(),
-            db.academicClassDao().observeAll(),
-            db.assessmentDao().observeAll(),
-        ) { installments, ledger, expenses, attendance, classes, assessments ->
-            DashboardGroup2(installments, ledger, expenses, attendance, classes, assessments)
+            combine(
+                db.installmentDao().observeAll(),
+                db.ledgerEntryDao().observeAll(),
+                db.expenseDao().observeAll(),
+                db.attendanceDao().observeAll(),
+            ) { installments, ledger, expenses, attendance ->
+                DashboardGroup2a(installments, ledger, expenses, attendance)
+            },
+            combine(
+                db.academicClassDao().observeAll(),
+                db.assessmentDao().observeAll(),
+            ) { classes, assessments ->
+                DashboardGroup2b(classes, assessments)
+            },
+        ) { g2a, g2b ->
+            DashboardGroup2(g2a.installments, g2a.ledger, g2a.expenses, g2a.attendance, g2b.classes, g2b.assessments)
         },
     ) { g1, g2 ->
         val todayIso = LocalDate.now(ZoneOffset.UTC).toString()
@@ -426,10 +449,19 @@ class LocalDashboardRepository @Inject constructor(
                 transportTier = it.transportTier,
             )
         }
+        // T-340 (STATS-400): enrolledCount is DERIVED from the students table
+        // (the classes table has no enrolled_count column) — the desktop's
+        // supabase-academic-repository parity: ALL students with a non-null
+        // classId, grouped + counted. No status filter (the desktop histogram
+        // query counts every class_id row).
+        val enrolledByClassId = g1.students
+            .filter { it.classId != null }
+            .groupingBy { it.classId!! }
+            .eachCount()
         val execClasses = g2.classes.map {
             ExecClass(
                 id = it.id, name = it.name, gradeCode = it.gradeLevel,
-                isActive = it.isActive, enrolledCount = it.enrolledCount,
+                isActive = it.isActive, enrolledCount = enrolledByClassId[it.id] ?: 0,
             )
         }
         val execPayments = g1.payments.map {

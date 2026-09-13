@@ -71,8 +71,11 @@ class ServerDismissedEvictionT181Test {
     // ── 1. The Room schema bump ─────────────────────────────────────────────
 
     @Test
-    fun `room version is 14 with an explicit 13-to-14 migration adding dismissedAt`() {
-        assertTrue("the database version must be bumped to 14", dbSrc().contains("version = 14,"))
+    fun `room version is 15 with an explicit 13-to-14 migration adding dismissedAt`() {
+        // T-340 (STATS-400): version 15 now (installments.tranche_number +
+        // students.transport_tier — MIGRATION_14_15); the T-181 dismissedAt
+        // migration (13→14) stays registered below it in the chain.
+        assertTrue("the database version must be bumped to 15", dbSrc().contains("version = 15,"))
         val migration = Regex("MIGRATION_13_14[\\s\\S]*?\\n        \\}")
             .find(dbSrc())?.value ?: error("MIGRATION_13_14 not found")
         assertTrue(

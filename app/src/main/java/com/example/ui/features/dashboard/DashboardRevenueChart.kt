@@ -27,20 +27,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.core.formatDzd
 import com.example.domain.model.DashboardKpi
-import com.example.domain.model.PaymentMethodSummary
-import com.example.domain.repository.RevenuePoint
+import com.example.domain.model.ExecutiveStatsSnapshot
 import com.example.ui.designsystem.components.card.ElCard
-import com.example.ui.designsystem.components.data.ElBarChart
-import com.example.ui.designsystem.components.data.ElBarChartItem
 import com.example.ui.designsystem.components.feedback.ElLinearProgress
 import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.designsystem.theme.ElTheme
+import com.example.ui.features.dashboard.analytics.WaveVelocityCard
 
+/**
+ * T-340 (STATS-400): the overview hero. The smooth 12-month revenue trend
+ * (the misleading curve — school revenue is a 3-spike staircase) was
+ * REMOVED per the owner's kill list, replaced by the WaveVelocityCard
+ * hero: the three tranche waves vs their invoiced targets (the desktop
+ * T-339 overview parity — same restructure, same data).
+ */
 @Composable
 internal fun DashboardRevenueChart(
     currentKpi: DashboardKpi,
-    revenue: List<RevenuePoint>,
-    paymentMethods: List<PaymentMethodSummary>,
+    executive: ExecutiveStatsSnapshot,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // ── 1. Descriptive Financial Stats Row (Images 2 & 3) ──
@@ -79,81 +83,13 @@ internal fun DashboardRevenueChart(
             )
         }
 
-        // ── 2. Monthly Trend Chart ──
+        // ── 2. The wave staircase hero (replaces the smooth monthly trend —
+        // T-340 / STATS-400, the owner's kill list; desktop T-339 parity) ──
+        WaveVelocityCard(waves = executive.waves)
+
+        // ── 3. Répartition par Catégorie (REAL data, kept) ──
         ElCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "Tendance mensuelle des encaissements",
-                    style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    color = ElTheme.colors.textPrimary,
-                )
-                Spacer(Modifier.height(8.dp))
-
-                if (revenue.isNotEmpty()) {
-                    ElBarChart(
-                        data = revenue.map {
-                            ElBarChartItem(
-                                label = it.label,
-                                value = (it.amount / 100).toFloat(),
-                                color = ElTheme.colors.primary,
-                            )
-                        },
-                        height = 150.dp,
-                    )
-                } else {
-                    Text(
-                        text = "Aucun encaissement sur la période.",
-                        style = ElTheme.typography.bodySmall,
-                        color = ElTheme.colors.textSecondary,
-                    )
-                }
-
-                Spacer(Modifier.height(14.dp))
-                androidx.compose.material3.HorizontalDivider(
-                    color = ElTheme.colors.outlineVariant,
-                    thickness = 1.dp,
-                )
-                Spacer(Modifier.height(12.dp))
-
-                // ── 3. Distribution des montants (Amount Bins Histogram) ──
-                Text(
-                    text = "Distribution des montants",
-                    style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    color = ElTheme.colors.textPrimary,
-                )
-                // PARITY-002: the dominant tranche + its share are DERIVED from
-                // the real bins (never a hard-coded "50k+ (54%)").
-                val dominantBin = currentKpi.amountBins.maxByOrNull { it.count }
-                if (dominantBin != null && dominantBin.count > 0) {
-                    Text(
-                        text = "Tranche dominante : ${dominantBin.label} (${dominantBin.percentage}%)",
-                        style = ElTheme.typography.labelSmall,
-                        color = ElTheme.colors.primary,
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-
-                if (currentKpi.amountBins.isNotEmpty()) {
-                    ElBarChart(
-                        data = currentKpi.amountBins.map {
-                            ElBarChartItem(
-                                label = it.label,
-                                value = it.count.toFloat(),
-                                color = if (it.label == "50k+") ElTheme.colors.primary else ElTheme.colors.info,
-                            )
-                        },
-                        height = 120.dp,
-                    )
-                }
-
-                Spacer(Modifier.height(14.dp))
-                androidx.compose.material3.HorizontalDivider(
-                    color = ElTheme.colors.outlineVariant,
-                    thickness = 1.dp,
-                )
-                Spacer(Modifier.height(12.dp))
-
-                // ── 4. Répartition par Catégorie & Moyen ──
+            Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
                 Text(
                     text = "Répartition par poste d'encaissement",
                     style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),

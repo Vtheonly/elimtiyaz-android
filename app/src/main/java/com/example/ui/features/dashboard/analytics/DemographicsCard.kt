@@ -23,7 +23,6 @@ import com.example.ui.designsystem.components.data.ElBarChartItem
 import com.example.ui.designsystem.components.data.ElChartPalette
 import com.example.ui.designsystem.components.data.ElDonutChart
 import com.example.ui.designsystem.components.data.ElDonutSegment
-import com.example.ui.designsystem.components.data.ElGaugeArc
 import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.designsystem.theme.ElTheme
 
@@ -33,9 +32,13 @@ import com.example.ui.designsystem.theme.ElTheme
  * The native twin of the desktop's `see-details-modal.tsx` demographics
  * block: the LEVEL bar chart (grade distribution), the GENDER donut
  * (Garçons/Filles/Non spécifié; primary/gold/slate cell cycle; center =
- * total élèves), the AGE histogram (cyan bars), and the CAPACITY gauges
- * (semi-circle arcs; tone: danger ≥100 / gold ≥80 / success). Values from
- * the engine's deriveDemographics (repository contract).
+ * total élèves), and the AGE histogram (cyan bars). Values from the
+ * engine's deriveDemographics (repository contract).
+ *
+ * T-340 (STATS-400): the CAPACITY gauges REMOVED per the owner's kill
+ * list — no fake 30-seat ceilings (the desktop T-339 parity). Real
+ * section-balance intelligence lives in EnrollmentDynamicsCard
+ * (ExecutiveCards.kt) — spread-based imbalance warnings, no ceilings.
  */
 @Composable
 internal fun DemographicsCard(
@@ -44,15 +47,15 @@ internal fun DemographicsCard(
 ) {
     val c = ElTheme.colors
     val totalStudents = demographics.gender.sumOf { it.count }
-    if (totalStudents == 0 && demographics.capacity.isEmpty()) {
-        AnalyticsEmptyCard(title = "Démographie & Capacité", subtitle = "Aucun élève actif.")
+    if (totalStudents == 0) {
+        AnalyticsEmptyCard(title = "Démographie", subtitle = "Aucun élève actif.")
         return
     }
 
     ElCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ElSectionHeader(
-                title = "Démographie & Capacité",
+                title = "Démographie",
                 subtitle = "$totalStudents élèves actifs",
             )
 
@@ -118,30 +121,9 @@ internal fun DemographicsCard(
                 }
             }
 
-            // ── Capacity gauges (top classes; scroll handled by the caller) ──
-            if (demographics.capacity.isNotEmpty()) {
-                Column {
-                    Text(
-                        text = "Taux de Remplissage",
-                        color = c.textSecondary,
-                        style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        demographics.capacity.take(4).forEach { cap ->
-                            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                                ElGaugeArc(
-                                    percent = cap.percent,
-                                    caption = "${cap.label} (${cap.count})",
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            // T-340 (STATS-400): the capacity-fill gauges were REMOVED per the
+            // owner's kill list (fake 30-seat ceilings). The real section
+            // balance view is EnrollmentDynamicsCard (ExecutiveCards.kt).
         }
     }
 }

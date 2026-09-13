@@ -59,19 +59,19 @@ object AndroidEquivalenceRunner {
         val id: String,
         val parentId: String,
         val studentId: String? = null,
-        val category: String,
+        val category: String = "tuition",
         val amount: Long,
         val type: String,
-        val sourceType: String,
-        val sourceId: String,
+        val sourceType: String = "bulk_import",
+        val sourceId: String = "run-1",
         val method: String? = null,
         val receiptNumber: String? = null,
         val paymentStatus: String? = null,
         val reversesId: String? = null,
-        val description: String,
-        val actorId: String,
-        val actorName: String,
-        val at: String,
+        val description: String = "",
+        val actorId: String = "system",
+        val actorName: String = "System",
+        val at: String = "",
         val metadata: JsonObject? = null,
     )
 
@@ -80,8 +80,11 @@ object AndroidEquivalenceRunner {
         val id: String,
         val parentId: String,
         val studentId: String? = null,
-        val category: String,
-        val label: String,
+        val category: String = "tuition",
+        val label: String = "",
+        // T-341 (STATS-400): the canonical wave number — the executive
+        // statistics group by it (never by label parsing).
+        val trancheNumber: Int = 1,
         val amountDue: Long,
         val amountPaid: Long = 0,
         val amountPending: Long = 0,
@@ -120,6 +123,9 @@ object AndroidEquivalenceRunner {
     data class Given(
         val tenantId: String,
         val parent: Parent? = null,
+        // T-341 (STATS-400): the executive corpus carries the FULL family
+        // roster (the concentration derivation needs every parent's name).
+        val parents: List<Parent> = emptyList(),
         val students: List<Student> = emptyList(),
         val ledgerEntries: List<CanonicalLedgerEntry> = emptyList(),
         val installments: List<CanonicalInstallment> = emptyList(),
@@ -145,6 +151,10 @@ object AndroidEquivalenceRunner {
         val gender: String = "",
         val birthDate: String? = null,
         val classId: String? = null,
+        // T-341 (STATS-400): the transport town + the enrollment status —
+        // the transport-yield + dynamics/radar derivations consume them.
+        val transportTier: String? = null,
+        val status: String = "active",
     )
 
     /** PARITY-003/T-292: the demographics classes row (grade_code is the
@@ -155,6 +165,12 @@ object AndroidEquivalenceRunner {
         val name: String,
         @kotlinx.serialization.SerialName("grade_code") val gradeCode: String? = null,
         val capacity: Int? = null,
+        // T-341 (STATS-400): the section-imbalance inputs (enrolled counts
+        // ARE the data — the capacity ceiling is DEAD per the kill list).
+        val level: String = "primaire",
+        val section: String = "A",
+        val isActive: Boolean = true,
+        val enrolledCount: Int = 0,
     )
 
     @Serializable
@@ -188,6 +204,20 @@ object AndroidEquivalenceRunner {
         val range: CanonicalRange? = null,
         val currentRevenue: List<CanonicalRevenuePoint> = emptyList(),
         val previousRevenue: List<CanonicalRevenuePoint> = emptyList(),
+        // T-341 (STATS-400): the executive-statistics op inputs — the
+        // concentration top-N + the raw triple-risk vectors.
+        val topN: Int = 10,
+        val riskProfiles: List<CanonicalRiskProfile> = emptyList(),
+    )
+
+    /** T-341 (STATS-400): the corpus triple-risk vector (debtAmount in DZD —
+     * the desktop op compares it against 25 000 directly). */
+    @Serializable
+    data class CanonicalRiskProfile(
+        val gpa: Double? = null,
+        val unexcusedAbsences: Int = 0,
+        val attendanceRate: Double = 1.0,
+        val debtAmount: Long = 0L,
     )
 
     @Serializable
@@ -651,7 +681,9 @@ object AndroidEquivalenceRunner {
                     .map { com.example.core.StatsPayment(it.id, it.amount, it.method, it.status, it.category, it.collectedAt) }
 
                 val stats = com.example.core.derivePaymentStats(slice)
-                val histogram = com.example.core.deriveAmountHistogram(slice)
+                // T-341 (STATS-400): the amount HISTOGRAM computation REMOVED
+                // with the vanity statistic (owner kill list — the desktop
+                // runner did the same; the corpus then-blocks were regenerated).
                 val categoryMix = com.example.core.deriveCategoryMix(slice)
                 val methodMix = com.example.core.deriveMethodMix(slice)
 
@@ -702,15 +734,8 @@ object AndroidEquivalenceRunner {
                             put("bestMonth", kotlinx.serialization.json.JsonNull)
                         }
                     })
-                    put("histogram", kotlinx.serialization.json.buildJsonArray {
-                        histogram.forEach { b ->
-                            add(buildJsonObject {
-                                put("label", b.label)
-                                put("count", b.count)
-                                put("amount", b.amount)
-                            })
-                        }
-                    })
+                    // T-341 (STATS-400): the "histogram" output REMOVED with the
+                    // vanity statistic (owner kill list — desktop runner parity).
                     put("categoryMix", kotlinx.serialization.json.buildJsonArray {
                         categoryMix.forEach { m ->
                             add(buildJsonObject {
@@ -789,11 +814,10 @@ object AndroidEquivalenceRunner {
                 }
                 val weeklyRhythm = com.example.core.deriveWeeklyRhythm(allRows, range)
 
-                // (b) Collection heatmap — the paid slice + the same range.
-                val paidRows = given.payments
-                    .filter { it.status == "paid" }
-                    .map { com.example.core.StatsPayment(it.id, it.amount, it.method, it.status, it.category, it.collectedAt) }
-                val heatmap = com.example.core.deriveCollectionHeatmap(paidRows, range)
+                // T-341 (STATS-400): (b) the collection HEATMAP computation
+                // REMOVED with the vanity statistic (owner kill list — the
+                // desktop runner did the same; the corpus then-blocks were
+                // regenerated without it).
 
                 // (c) YoY — the scenario's current/previous monthly series
                 // (DZD → centimes at the boundary).
@@ -827,29 +851,8 @@ object AndroidEquivalenceRunner {
                             })
                         }
                     })
-                    put("heatmap", buildJsonObject {
-                        put("monthLabels", kotlinx.serialization.json.buildJsonArray { heatmap.monthLabels.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
-                        put("monthKeys", kotlinx.serialization.json.buildJsonArray { heatmap.monthKeys.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
-                        put("rows", kotlinx.serialization.json.buildJsonArray {
-                            heatmap.rows.forEach { r ->
-                                add(buildJsonObject {
-                                    put("day", r.day)
-                                    put("rowTotal", r.rowTotal)
-                                    put("cells", kotlinx.serialization.json.buildJsonArray {
-                                        r.cells.forEach { c ->
-                                            add(buildJsonObject {
-                                                put("amount", c.amount)
-                                                put("count", c.count)
-                                                put("level", c.level)
-                                            })
-                                        }
-                                    })
-                                })
-                            }
-                        })
-                        put("max", heatmap.max)
-                        put("monthTotals", kotlinx.serialization.json.buildJsonArray { heatmap.monthTotals.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
-                    })
+                    // T-341 (STATS-400): the "heatmap" output REMOVED with the
+                    // vanity statistic (owner kill list — desktop runner parity).
                     put("yoy", buildJsonObject {
                         put("points", kotlinx.serialization.json.buildJsonArray {
                             yoy.points.forEach { p ->
@@ -883,7 +886,241 @@ object AndroidEquivalenceRunner {
                         put("grade", demographicsJsonArray(demographics.grade))
                         put("gender", demographicsJsonArray(demographics.gender))
                         put("age", demographicsJsonArray(demographics.age))
-                        put("capacity", demographicsJsonArray(demographics.capacity))
+                        // T-341 (STATS-400): the "capacity" slice REMOVED with
+                        // the fake-ceiling gauges (owner kill list — desktop
+                        // runner parity; the regenerated corpus has no key).
+                    })
+                }
+            }
+
+            // T-341 (STATS-400) — ANDROID MIRROR of the desktop runner's
+            // deriveExecutiveStats: runs core/ExecutiveStatistics.kt (the
+            // ADR-002 verbatim mirror of the desktop T-338 canonical engine)
+            // over the same scenario rows with the same PINNED now; the
+            // comparator then proves desktop ≡ android centime-exact on
+            // every value — the owner's ONE-calculation-source mandate.
+            "deriveExecutiveStats" -> {
+                val nowMs = parseNowMs(when_.now ?: "2026-09-10T00:00:00Z")
+                val topN = when_.topN
+
+                val execInstallments = given.installments.map {
+                    com.example.core.ExecInstallment(
+                        id = it.id, parentId = it.parentId, category = it.category,
+                        trancheNumber = it.trancheNumber,
+                        amountDue = it.amountDue, amountPaid = it.amountPaid,
+                        amountPending = it.amountPending, dueDate = it.dueDate,
+                        status = it.status,
+                    )
+                }
+                val execLedger = given.ledgerEntries.map { e ->
+                    com.example.core.ExecLedgerEntry(
+                        id = e.id, parentId = e.parentId, category = e.category,
+                        amount = e.amount, type = e.type, description = e.description,
+                        metadata = e.metadata?.toDomainMap() ?: emptyMap(),
+                    )
+                }
+                val execStudents = given.students.map {
+                    com.example.core.ExecStudent(
+                        id = it.id, parentId = it.parentId, status = it.status,
+                        transportTier = it.transportTier,
+                    )
+                }
+                val parentNames = (if (given.parents.isNotEmpty()) given.parents else given.parent?.let { listOf(it) } ?: emptyList())
+                    .map { it.id to it.name }
+                val execClasses = given.classes.map {
+                    com.example.core.ExecClass(
+                        id = it.id, name = it.name,
+                        gradeCode = it.gradeCode ?: "1ap",
+                        isActive = it.isActive, enrolledCount = it.enrolledCount,
+                    )
+                }
+                val execPayments = given.payments.map {
+                    com.example.core.ExecPayment(
+                        id = it.id, amount = it.amount, status = it.status,
+                        category = it.category, studentId = it.studentId,
+                    )
+                }
+
+                // (1) Tranche waves + (2) erosion + (3) triage.
+                val waves = com.example.core.deriveExecTrancheWaves(execInstallments, nowMs)
+                val erosion = com.example.core.deriveExecDiscountErosion(execLedger)
+                val triage = com.example.core.deriveExecDebtTriage(execInstallments, nowMs)
+                // (4) Family concentration + (5) transport + (6) services + (7) dynamics.
+                val concentration = com.example.core.deriveExecFamilyConcentration(
+                    execInstallments, parentNames, execStudents, topN = topN, nowEpochMs = nowMs,
+                )
+                val transport = com.example.core.deriveExecTransportYield(execStudents, execInstallments)
+                val services = com.example.core.deriveExecServiceYield(execPayments)
+                val dynamics = com.example.core.deriveExecEnrollmentDynamics(execStudents, execClasses)
+                // (8) Triple-risk summary — the corpus carries the raw risk
+                // vectors; the op reduces them with the SAME canonical
+                // categorization thresholds the engine uses (the desktop op
+                // inlines the identical rule; debtAmount is DZD → centimes).
+                val riskCategories = when_.riskProfiles.map { r ->
+                    com.example.core.execRiskCategoryOf(
+                        gpa = r.gpa,
+                        unexcusedAbsences = r.unexcusedAbsences,
+                        attendanceRate = r.attendanceRate,
+                        debtAmountCentimes = r.debtAmount * 100,
+                    )
+                }
+                val riskSummary = com.example.core.deriveExecTripleRiskSummary(riskCategories)
+
+                buildJsonObject {
+                    put("waves", kotlinx.serialization.json.buildJsonArray {
+                        waves.forEach { w ->
+                            add(buildJsonObject {
+                                put("key", w.key)
+                                put("category", w.category)
+                                put("wave", w.wave)
+                                put("installmentCount", w.installmentCount)
+                                put("paidCount", w.paidCount)
+                                put("familyCount", w.familyCount)
+                                put("debtorFamilyCount", w.debtorFamilyCount)
+                                put("dueTotal", w.dueTotal)
+                                put("paidTotal", w.paidTotal)
+                                put("remainingTotal", w.remainingTotal)
+                                put("collectedPct", w.collectedPct)
+                                put("clearedPct", w.clearedPct)
+                                if (w.dueDate != null) put("dueDate", w.dueDate) else put("dueDate", kotlinx.serialization.json.JsonNull)
+                                put("phase", w.phase.name.lowercase())
+                            })
+                        }
+                    })
+                    put("erosion", buildJsonObject {
+                        put("remiseCount", erosion.remiseCount)
+                        put("remiseTotal", erosion.remiseTotal)
+                        put("cancelCount", erosion.cancelCount)
+                        put("cancelTotal", erosion.cancelTotal)
+                        put("netRemiseTotal", erosion.netRemiseTotal)
+                        put("grossCharges", erosion.grossCharges)
+                        put("stickerTotal", erosion.stickerTotal)
+                        put("erosionPct", erosion.erosionPct)
+                        put("averageRemise", erosion.averageRemise)
+                        put("maxRemise", erosion.maxRemise)
+                        put("minRemise", erosion.minRemise)
+                        put("remiseFamilyCount", erosion.remiseFamilyCount)
+                    })
+                    put("triage", buildJsonObject {
+                        put("buckets", kotlinx.serialization.json.buildJsonArray {
+                            triage.buckets.forEach { b ->
+                                add(buildJsonObject {
+                                    put("bucket", b.bucket.name.lowercase())
+                                    put("amount", b.amount)
+                                    put("installmentCount", b.installmentCount)
+                                    put("familyCount", b.familyCount)
+                                    put("share", b.share)
+                                })
+                            }
+                        })
+                        put("totalOutstanding", triage.totalOutstanding)
+                        put("callList", kotlinx.serialization.json.buildJsonArray {
+                            triage.callList.forEach { c ->
+                                add(buildJsonObject {
+                                    put("parentId", c.parentId)
+                                    put("outstanding", c.outstanding)
+                                    put("worstDaysOverdue", c.worstDaysOverdue)
+                                })
+                            }
+                        })
+                    })
+                    put("concentration", buildJsonObject {
+                        put("totalOutstanding", concentration.totalOutstanding)
+                        put("debtorFamilyCount", concentration.debtorFamilyCount)
+                        put("topFamilies", kotlinx.serialization.json.buildJsonArray {
+                            concentration.topFamilies.forEach { f ->
+                                add(buildJsonObject {
+                                    put("parentId", f.parentId)
+                                    put("parentName", f.parentName)
+                                    put("outstanding", f.outstanding)
+                                    put("childCount", f.childCount)
+                                    put("shareOfTotalDebt", f.shareOfTotalDebt)
+                                    put("worstDaysOverdue", f.worstDaysOverdue)
+                                })
+                            }
+                        })
+                        put("topTotal", concentration.topTotal)
+                        put("topConcentrationPct", concentration.topConcentrationPct)
+                    })
+                    put("transport", buildJsonObject {
+                        put("riders", transport.riders)
+                        put("nonRiders", transport.nonRiders)
+                        put("unresolvedRawValues", kotlinx.serialization.json.buildJsonArray {
+                            transport.unresolvedRawValues.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) }
+                        })
+                        put("routes", kotlinx.serialization.json.buildJsonArray {
+                            transport.routes.forEach { r ->
+                                add(buildJsonObject {
+                                    put("destination", r.destination)
+                                    put("riders", r.riders)
+                                    put("dueTotal", r.dueTotal)
+                                    put("paidTotal", r.paidTotal)
+                                    put("remainingTotal", r.remainingTotal)
+                                    put("collectedPct", r.collectedPct)
+                                })
+                            }
+                        })
+                        put("dueTotal", transport.dueTotal)
+                        put("paidTotal", transport.paidTotal)
+                        put("remainingTotal", transport.remainingTotal)
+                        put("collectedPct", transport.collectedPct)
+                    })
+                    put("services", kotlinx.serialization.json.buildJsonArray {
+                        services.forEach { s ->
+                            add(buildJsonObject {
+                                put("category", s.category)
+                                put("label", s.label)
+                                put("paymentCount", s.paymentCount)
+                                put("revenue", s.revenue)
+                                put("studentCount", s.studentCount)
+                            })
+                        }
+                    })
+                    put("dynamics", buildJsonObject {
+                        put("totalStudents", dynamics.totalStudents)
+                        put("totalFamilies", dynamics.totalFamilies)
+                        if (dynamics.siblingIndex != null) put("siblingIndex", dynamics.siblingIndex) else put("siblingIndex", kotlinx.serialization.json.JsonNull)
+                        put("multiChildFamilyCount", dynamics.multiChildFamilyCount)
+                        put("multiChildFamilyPct", dynamics.multiChildFamilyPct)
+                        put("familySizes", kotlinx.serialization.json.buildJsonArray {
+                            dynamics.familySizes.forEach { f ->
+                                add(buildJsonObject {
+                                    put("label", f.label)
+                                    put("familyCount", f.familyCount)
+                                    put("studentCount", f.studentCount)
+                                })
+                            }
+                        })
+                        put("imbalances", kotlinx.serialization.json.buildJsonArray {
+                            dynamics.imbalances.forEach { i ->
+                                add(buildJsonObject {
+                                    put("gradeLabel", i.gradeLabel)
+                                    put("sectionCount", i.sectionCount)
+                                    put("sections", kotlinx.serialization.json.buildJsonArray {
+                                        i.sections.forEach { s ->
+                                            add(buildJsonObject {
+                                                put("classId", s.classId)
+                                                put("className", s.className)
+                                                put("enrolled", s.enrolled)
+                                            })
+                                        }
+                                    })
+                                    put("minEnrolled", i.minEnrolled)
+                                    put("maxEnrolled", i.maxEnrolled)
+                                    put("averageEnrolled", i.averageEnrolled)
+                                    put("spread", i.spread)
+                                    put("imbalanced", i.imbalanced)
+                                })
+                            }
+                        })
+                    })
+                    put("riskSummary", buildJsonObject {
+                        put("tripleCriticalCount", riskSummary.tripleCriticalCount)
+                        put("academicAlertCount", riskSummary.academicAlertCount)
+                        put("attendanceAlertCount", riskSummary.attendanceAlertCount)
+                        put("financialTensionCount", riskSummary.financialTensionCount)
+                        put("healthyCount", riskSummary.healthyCount)
+                        put("tripleCriticalPct", riskSummary.tripleCriticalPct)
                     })
                 }
             }

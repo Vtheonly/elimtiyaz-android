@@ -111,6 +111,18 @@ internal fun execTsOf(iso: String): Long? = try {
 }
 
 /**
+ * The desktop's `new Date(ms).toISOString()` mirror — ALWAYS 3-digit
+ * milliseconds ("2025-09-15T00:00:00.000Z"). Kotlin's Instant.toString()
+ * drops trailing zero millis, which broke the corpus string comparison —
+ * this formatter pins the desktop convention.
+ */
+private val ISO_MILLIS_FORMATTER = java.time.format.DateTimeFormatter
+    .ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSS'Z'")
+    .withZone(ZoneOffset.UTC)
+
+internal fun formatIsoMillis(epochMs: Long): String = ISO_MILLIS_FORMATTER.format(Instant.ofEpochMilli(epochMs))
+
+/**
  * Whole days between an ISO date and an epoch-ms "now", floored toward zero
  * (a tranche due TODAY is 0 days overdue, never 1 — the T-284/T-285
  * daysBetweenFloor convention).
@@ -236,7 +248,7 @@ fun deriveExecTrancheWaves(
             remainingTotal = acc.remainingTotal,
             collectedPct = execSharePct(acc.paidTotal, acc.dueTotal),
             clearedPct = execSharePct(acc.paidCount.toLong(), acc.installmentCount.toLong()),
-            dueDate = acc.dueDateMin?.let { Instant.ofEpochMilli(it).toString() },
+            dueDate = acc.dueDateMin?.let { formatIsoMillis(it) },
             phase = phase,
         )
     }
@@ -377,7 +389,7 @@ fun deriveExecDebtTriage(
         ExecTriageBucket.REMINDER,
         ExecTriageBucket.CHRONIC,
     )
-    data class Acc {
+    class Acc {
         var amount = 0L
         var installmentCount = 0
         val families = mutableSetOf<String>()
@@ -625,7 +637,7 @@ fun deriveExecTransportYield(
         riderParentsByDestination.getOrPut(dest) { mutableSetOf() }.add(s.parentId)
     }
 
-    data class RouteAcc {
+    class RouteAcc {
         var due = 0L
         var paid = 0L
         var remaining = 0L
@@ -702,7 +714,7 @@ data class ExecServiceStat(
 
 /** Service yield from the PAID payment stream (mirrors deriveServiceYield). */
 fun deriveExecServiceYield(payments: List<ExecPayment>): List<ExecServiceStat> {
-    data class Acc {
+    class Acc {
         var revenue = 0L
         var paymentCount = 0
         val students = mutableSetOf<String>()
@@ -951,7 +963,7 @@ data class ExecAssessment(
  *     rate < 0.85) + debt ≥ 25 000 DZD).
  */
 fun evaluateExecRiskProfiles(
-    students: List<ExecStudent>,
+    students: List<ExecRadarStudent>,
     parentNames: Map<String, String>,          // parentId → display name
     classNames: Map<String, String>,           // classId → name
     assessments: List<ExecAssessment>,

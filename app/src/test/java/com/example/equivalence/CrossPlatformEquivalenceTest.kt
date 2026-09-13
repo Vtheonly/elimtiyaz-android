@@ -74,13 +74,53 @@ class CrossPlatformEquivalenceTest {
             )
 
             assertDeepEquals("$id weeklyRhythm", thenBlock!!["weeklyRhythm"]!!, result!!["weeklyRhythm"]!!)
-            assertDeepEquals("$id heatmap", thenBlock["heatmap"]!!, result["heatmap"]!!)
+            // T-341 (STATS-400): the heatmap assertion REMOVED with the vanity
+            // statistic (owner kill list — the regenerated corpus has no
+            // heatmap key; the runner no longer computes it).
             assertDeepEquals("$id yoy", thenBlock["yoy"]!!, result["yoy"]!!)
             assertDeepEquals("$id trancheWaves", thenBlock["trancheWaves"]!!, result["trancheWaves"]!!)
             assertDeepEquals("$id demographics", thenBlock["demographics"]!!, result["demographics"]!!)
             checked++
         }
-        println("CrossPlatformEquivalenceTest: $checked scenario(s) × 5 derivation families — all identical to the desktop TS engine output.")
+        println("CrossPlatformEquivalenceTest: $checked scenario(s) × 4 derivation families — all identical to the desktop TS engine output.")
+    }
+
+    /**
+     * T-341 (STATS-400, 61st session) — the EXECUTIVE-STATISTICS corpus:
+     * every executive_statistics scenario's desktop-generated `then` block
+     * must equal the Android core/ExecutiveStatistics.kt output on EVERY
+     * value — waves, erosion, triage (+ call list), concentration,
+     * transport, services, dynamics (+ section imbalance), riskSummary.
+     * This is the owner's ONE-calculation-source mandate made executable.
+     */
+    @Test
+    fun `every executive_statistics scenario matches the desktop-generated expectations`() {
+        val scenariosDir = resolveScenariosDir()
+        val files = scenariosDir.listFiles { f -> f.name.startsWith("executive_statistics") && f.name.endsWith(".json") }
+        assertTrue(
+            "No executive_statistics scenarios found in ${scenariosDir.absolutePath} — the hub repo must be checked out as a sibling (see AndroidEquivalenceTest path resolution).",
+            files != null && files.isNotEmpty(),
+        )
+
+        var checked = 0
+        files!!.sortedBy { it.name }.forEach { file ->
+            val scenario = json.parseToJsonElement(file.readText()).jsonObject
+            val id = scenario["id"]!!.jsonPrimitive.content
+            val thenBlock = scenario["then"] as? JsonObject
+            assertTrue("Scenario $id has no then block — run scripts/generate_executive_statistics_corpus.ts in the hub", thenBlock != null && thenBlock.isNotEmpty())
+
+            val result = AndroidEquivalenceRunner.runScenarioForTest(file.readText())
+            assertTrue(
+                "Scenario $id errored: ${result?.get("error")}",
+                result != null && result["error"] == null,
+            )
+
+            for (key in thenBlock!!.keys) {
+                assertDeepEquals("$id $key", thenBlock[key]!!, result!![key]!!)
+            }
+            checked++
+        }
+        println("CrossPlatformEquivalenceTest: $checked executive_statistics scenario(s) × 8 derivation families — all identical to the desktop TS engine output.")
     }
 
     // ── Deep structural equality with precise failure messages ─────────────

@@ -5,9 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -15,11 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.domain.model.AmountBinItem
 import com.example.domain.model.YoYSnapshot
 import com.example.ui.designsystem.components.card.ElCard
-import com.example.ui.designsystem.components.data.ElBarChart
-import com.example.ui.designsystem.components.data.ElBarChartItem
 import com.example.ui.designsystem.components.data.ElChartPalette
 import com.example.ui.designsystem.components.data.ElGroupedBarChart
 import com.example.ui.designsystem.components.data.ElGroupedBarPair
@@ -105,63 +101,9 @@ private fun YoYTotal(label: String, value: String, color: androidx.compose.ui.gr
     }
 }
 
-/**
- * AmountHistogramCard — inventory #4 (PARITY-003).
- *
- * The native twin of the desktop's `amount-histogram-card.tsx` (T-256):
- * the fixed 5-bin distribution (0–5k / 5k–10k / 10k–20k / 20k–50k / 50k+),
- * the DOMINANT bin in primary blue, the others primaryDeep at 60% — with
- * the count + Σ amount per bin. Values from the engine's
- * deriveAmountHistogram (repository contract).
- */
-@Composable
-internal fun AmountHistogramCard(
-    bins: List<AmountBinItem>,
-    totalOps: Int,
-    modifier: Modifier = Modifier,
-) {
-    val c = ElTheme.colors
-    if (bins.isEmpty() || totalOps == 0) {
-        AnalyticsEmptyCard(title = "Distribution des Montants")
-        return
-    }
-    val dominantIdx = bins.indices.maxByOrNull { bins[it].count } ?: -1
-
-    ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ElSectionHeader(
-                title = "Distribution des Montants",
-                subtitle = "$totalOps paiements • ${bins[dominantIdx].label} dominant",
-            )
-            ElBarChart(
-                data = bins.mapIndexed { i, b ->
-                    ElBarChartItem(
-                        label = b.label,
-                        value = b.count.toFloat(),
-                        color = if (i == dominantIdx) ElChartPalette.primary else ElChartPalette.primaryDeep.copy(alpha = 0.6f),
-                    )
-                },
-                height = 130.dp,
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                bins.forEach { b ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = b.label,
-                            color = c.textSecondary,
-                            style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                        )
-                        Text(
-                            text = "${b.count} op. (${b.percentage}%)",
-                            color = c.textPrimary,
-                            style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Medium),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
+// ============================================================================
+// T-340 (STATS-400) — AmountHistogramCard REMOVED per the owner's kill list
+// (the payment-amount histogram: passive e-commerce vanity). The desktop's
+// amount-histogram-card.tsx was deleted the same way (T-339). Its slot in
+// the Analytique tab is now held by the executive cards (ExecutiveCards.kt).
+// ============================================================================
