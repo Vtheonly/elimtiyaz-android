@@ -130,27 +130,57 @@ import javax.inject.Singleton
  * `uploadProof` returned a fabricated `local://…` URL and silently DISCARDED
  * the bytes, so scanned payment/expense proofs were never actually stored).
  *
- * Proof files are written under `{filesDir}/proofs/{bucket}/{entityId}/` and
+ * Proof files are written under `{filesDir}/proofs/{bucket}/{objectPath}` and
  * the returned `file://` URI resolves to a real on-device file that can be
  * re-opened, shared and re-uploaded later. When a Supabase Storage bucket is
  * configured, the bytes are ALSO pushed to the remote bucket and the remote
  * path is preferred (the local copy is kept as an offline cache).
+ *
+ * T-362 / UPLOAD-103 — the honest-failure contract:
+ *  - The remote upload uses the CANONICAL tenant-scoped path
+ *    `{tenantId}/{entityId}/{fileName}` (every storage.objects policy in the
+ *    hub chain requires folder[1] = current_tenant_id(); the previous
+ *    tenant-less path was RLS-rejected on EVERY upload — live RED proof
+ *    t-359-upload-e2e.py check A).
+ *  - A null [tenantId] fails closed BEFORE any remote call (the caller's
+ *    session has no working tenant — the desktop's T-053 semantics); the
+ *    local file is still written so the bytes are never lost, but the
+ *    result is an explicit error the UI can surface.
+ *  - TRANSPORT failures (offline, DNS, timeout, 5xx) keep the sanctioned
+ *    offline-first behaviour: local file returned, remote push deferred —
+ *    classified by the SAME canonical classifier the sync pipeline uses
+ *    ([com.example.infrastructure.sync.SyncErrorClassifier] — reuse, not a
+ *    parallel implementation).
+ *  - PERMANENT server rejections (4xx: RLS denial, validation, 401) surface
+ *    as `Result.Err` — NEVER a fake success with a local path. The previous
+ *    implementation converted the RestException into `null` inside the
+ *    read-oriented guard and reported success while the proof never reached
+ *    the server (the CROSS-200 anti-pattern reborn in the storage path).
+ *  - Uploads get a DEDICATED 60 s timeout ([UPLOAD_TIMEOUT_MS]) — the 4 s
+ *    read-oriented default aborts real 10 MB proof uploads mid-flight on
+ *    ordinary mobile networks, which the old code misclassified as offline.
  */
 @Singleton
 class LocalStorageRepository @Inject constructor(
     private val auditContext: AuditContext,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val provider: com.example.infrastructure.supabase.SupabaseClientProvider,
+    private val onlineDetector: com.example.infrastructure.sync.OnlineDetector,
 ) : StorageRepository {
 
     override suspend fun uploadProof(
         bucket: String,
+        tenantId: String?,
         entityId: String,
         fileName: String,
         bytes: ByteArray,
         mimeType: String,
     ): Result<String> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         // ── Local file persistence (always — offline cache) ──
+        // The local tree mirrors the REMOTE object path so a cached file
+        // resolves through the same path the server would (and legacy
+        // pre-T-362 files under proofs/{bucket}/{entityId}/{fileName} remain
+        // readable — createSignedUrl's local fallback tries the exact path).
         val localFile = try {
             val dir = java.io.File(java.io.File(context.filesDir, "proofs"), "$bucket/$entityId")
             dir.mkdirs()
@@ -161,19 +191,59 @@ class LocalStorageRepository @Inject constructor(
             null
         }
 
-        // ── Remote (Supabase Storage) when configured ──
-        val remotePath: String? = com.example.infrastructure.supabase.NetworkTimeouts.guard(
-            "storage.uploadProof",
-        ) {
-            provider.storage.from(bucket).upload("$entityId/$fileName", bytes) {
-                upsert = true
-                contentType = io.ktor.http.ContentType.parse(mimeType)
-            }
-            "$entityId/$fileName"
+        // ── Fail closed when the session has no working tenant (T-053
+        //    semantics — never upload to a tenant-less path: RLS rejects it
+        //    on every attempt). The local copy is kept; the error tells the
+        //    caller the proof did NOT reach the server. ──
+        if (tenantId == null) {
+            return@withContext Result.Err(
+                com.example.core.Errors.unknown(
+                    "uploadProof refused: no working tenant in the session — the storage policies require a tenant-scoped path",
+                    userMessage = "Aucun établissement actif — reconnectez-vous avant d'envoyer le justificatif.",
+                ),
+            )
         }
-        if (remotePath != null) return@withContext Result.Ok(remotePath)
 
-        // ── Offline / unconfigured: the real local file ──
+        val remotePath = com.example.domain.repository.StorageBuckets.objectPath(tenantId, entityId, fileName)
+
+        // ── Remote (Supabase Storage) when configured — honest failure
+        //    classification instead of the read-oriented guard's catch-all. ──
+        if (com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) {
+            try {
+                kotlinx.coroutines.withTimeout(UPLOAD_TIMEOUT_MS) {
+                    provider.storage.from(bucket).upload(remotePath, bytes) {
+                        upsert = true
+                        contentType = io.ktor.http.ContentType.parse(mimeType)
+                    }
+                }
+                return@withContext Result.Ok(remotePath)
+            } catch (e: Throwable) {
+                // The canonical transient/permanent classifier (the SAME one
+                // the sync pipeline uses — SyncErrorClassifier, reuse per §6).
+                if (com.example.infrastructure.sync.SyncErrorClassifier.isTransient(e, onlineDetector.isOnline())) {
+                    // TRANSPORT failure (offline / DNS / timeout / 5xx) — the
+                    // sanctioned offline-first fallback: the local copy is
+                    // the proof of record until connectivity returns.
+                    android.util.Log.w("LocalStorageRepository", "[storage.uploadProof] transient — serving local cache: ${e.message}")
+                    if (localFile != null) {
+                        return@withContext Result.Ok("file://${localFile.absolutePath}")
+                    }
+                } else {
+                    // PERMANENT rejection (4xx: RLS denial, validation, 401) —
+                    // surface it; NEVER report success for a proof the server
+                    // refused (UPLOAD-103's silent-data-loss defect).
+                    android.util.Log.e("LocalStorageRepository", "[storage.uploadProof] rejected by the server: ${e.message}")
+                    return@withContext Result.Err(
+                        com.example.core.Errors.unknown(
+                            "uploadProof rejected by Supabase Storage: ${e.message}",
+                            userMessage = "Le serveur a refusé l'envoi du justificatif (${e.message}).",
+                        ),
+                    )
+                }
+            }
+        }
+
+        // ── Unconfigured, or transient failure with no writable local file ──
         if (localFile != null) {
             Result.Ok("file://${localFile.absolutePath}")
         } else {
@@ -203,6 +273,15 @@ class LocalStorageRepository @Inject constructor(
         } else {
             Result.Err(com.example.core.Errors.notFound("Aucun justificatif stocké pour $bucket/$path"))
         }
+    }
+
+    companion object {
+        /**
+         * T-362: uploads are NOT reads — a 10 MB proof on a slow mobile
+         * network needs minutes of headroom, not the 4 s read default.
+         * 60 s matches the bucket's file-size ceiling at a modest throughput.
+         */
+        const val UPLOAD_TIMEOUT_MS: Long = 60_000L
     }
 }
 
