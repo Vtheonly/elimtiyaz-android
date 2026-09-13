@@ -15,6 +15,13 @@ data class Installment(
     val studentId: String? = null,
     val category: PaymentCategory,
     val label: String,
+    /**
+     * T-340 (61st session, STATS-400): the canonical wave number from the
+     * DB `installments.tranche_number` column (1 | 2 | 3). The executive
+     * statistics group by THIS field — never by label parsing. Defaults to
+     * 1 (legacy rows / the first-wave convention).
+     */
+    val trancheNumber: Int = 1,
     val amountDue: Long,
     val amountPaid: Long,
     // TIER 4 FIX (v2 audit D14 / R12) — pending-clearance bucket (uncleared

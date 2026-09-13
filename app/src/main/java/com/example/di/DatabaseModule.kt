@@ -105,6 +105,12 @@ object DatabaseModule {
                 // rows resolved server-side since the last pull (pre-T-181
                 // they lingered in Room forever). Nullable, no default.
                 ElImtiyazDatabase.MIGRATION_13_14,
+                // T-340 (61st session, STATS-400): installments.trancheNumber
+                // (the canonical wave number — the tranche-wave velocity
+                // groups by it) + students.transportTier (the transport town —
+                // the transport-yield statistics normalize it). Defaults
+                // preserve existing rows exactly.
+                ElImtiyazDatabase.MIGRATION_14_15,
             )
             // T-046 / ARCH-004: NO destructive fallback. A missing migration
             // now fails LOUDLY (IllegalStateException) instead of wiping the

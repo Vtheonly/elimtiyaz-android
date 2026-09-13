@@ -16,7 +16,6 @@ import com.example.core.StatsClassRow
 import com.example.core.StatsTrancheRow
 import com.example.core.RevenuePointInput
 import com.example.core.derivePaymentStats
-import com.example.core.deriveAmountHistogram
 import com.example.core.deriveCategoryMix
 import com.example.core.deriveMethodMix
 import com.example.core.deriveDebtAging
@@ -28,13 +27,30 @@ import com.example.core.mathRound
 import com.example.core.MONTH_LABELS_FR
 import com.example.core.installmentRemaining
 import com.example.core.deriveWeeklyRhythm
-import com.example.core.deriveCollectionHeatmap
-import com.example.core.deriveRevenueTrend
 import com.example.core.deriveYearOverYear
 import com.example.core.deriveTrancheWaves
 import com.example.core.deriveDemographics
+// T-340 (STATS-400) — the executive-statistics derivations (the desktop T-338 mirror).
+import com.example.core.ExecInstallment
+import com.example.core.ExecLedgerEntry
+import com.example.core.ExecStudent
+import com.example.core.ExecClass
+import com.example.core.ExecPayment
+import com.example.core.ExecAssessment
+import com.example.core.ExecAttendanceRecord
+import com.example.core.ExecRadarStudent
+import com.example.core.withRadarFields
+import com.example.core.deriveExecTrancheWaves
+import com.example.core.deriveExecDiscountErosion
+import com.example.core.deriveExecDebtTriage
+import com.example.core.deriveExecFamilyConcentration
+import com.example.core.deriveExecTransportYield
+import com.example.core.deriveExecServiceYield
+import com.example.core.deriveExecEnrollmentDynamics
+import com.example.core.deriveExecTripleRiskSummary
+import com.example.core.evaluateExecRiskProfiles
+import com.example.core.paymentCategoryLabelFr
 import com.example.domain.model.AcademicClass
-import com.example.domain.model.AmountBinItem
 import com.example.domain.model.AppNotification
 import com.example.domain.model.Assessment
 import com.example.domain.model.AttendanceRecord
@@ -42,7 +58,6 @@ import com.example.domain.model.AuditLog
 import com.example.domain.model.CategoryRevenueItem
 import com.example.domain.model.ClassRollCallStatus
 import com.example.domain.model.ClassDemographicsSnapshot
-import com.example.domain.model.CollectionHeatmapSnapshot
 import com.example.domain.model.DashboardKpi
 import com.example.domain.model.DashboardOperationalAlert
 import com.example.domain.model.DebtAgingBucketItem
@@ -51,16 +66,29 @@ import com.example.domain.model.DemographicSliceItem
 import com.example.domain.model.Department
 import com.example.domain.model.Expense
 import com.example.domain.model.GradeLevelTuition
-import com.example.domain.model.HeatmapCellItem
-import com.example.domain.model.HeatmapRowItem
 import com.example.domain.model.Homework
 import com.example.domain.model.Installment
 import com.example.domain.model.MethodMixItem
-import com.example.domain.model.RevenueTrendPointItem
 import com.example.domain.model.TrancheWaveItem
 import com.example.domain.model.WeeklyRhythmItem
 import com.example.domain.model.YoYPointItem
 import com.example.domain.model.YoYSnapshot
+import com.example.domain.model.ExecutiveStatsSnapshot
+import com.example.domain.model.ExecWaveItem
+import com.example.domain.model.ExecErosionItem
+import com.example.domain.model.ExecTriageBucketItem
+import com.example.domain.model.ExecCallListEntryItem
+import com.example.domain.model.ExecTriageSnapshot
+import com.example.domain.model.ExecTopFamilyItem
+import com.example.domain.model.ExecConcentrationSnapshot
+import com.example.domain.model.ExecTransportRouteItem
+import com.example.domain.model.ExecTransportSnapshot
+import com.example.domain.model.ExecServiceItem
+import com.example.domain.model.ExecFamilySizeItem
+import com.example.domain.model.ExecSectionImbalanceItem
+import com.example.domain.model.ExecDynamicsSnapshot
+import com.example.domain.model.ExecRiskSummaryItem
+import com.example.domain.model.ExecRiskProfileItem
 import com.example.domain.model.Parent
 import com.example.domain.model.Payment
 import com.example.domain.model.PaymentMethodSummary
@@ -173,6 +201,10 @@ private data class DashboardGroup2(
     val expenses: List<ExpenseEntity>,
     val attendance: List<AttendanceEntity>,
     val classes: List<AcademicClassEntity>,
+    // T-340 (STATS-400): the assessments feed the triple-risk radar's GPA
+    // (the desktop operational-query-engine parity — entity rows carry the
+    // coefficient + isExtracurricular snapshots, so no subject join needed).
+    val assessments: List<AssessmentEntity>,
 )
 
 private data class AlertOperationalGroup1(
@@ -202,8 +234,9 @@ class LocalDashboardRepository @Inject constructor(
             db.expenseDao().observeAll(),
             db.attendanceDao().observeAll(),
             db.academicClassDao().observeAll(),
-        ) { installments, ledger, expenses, attendance, classes ->
-            DashboardGroup2(installments, ledger, expenses, attendance, classes)
+            db.assessmentDao().observeAll(),
+        ) { installments, ledger, expenses, attendance, classes, assessments ->
+            DashboardGroup2(installments, ledger, expenses, attendance, classes, assessments)
         },
     ) { g1, g2 ->
         val todayIso = LocalDate.now(ZoneOffset.UTC).toString()
@@ -239,18 +272,9 @@ class LocalDashboardRepository @Inject constructor(
         val windowFrom = nowDate.minusMonths(11).withDayOfMonth(1)
         val analyticsWindow = StatsDateRange(windowFrom.toString(), nowDate.toString())
 
-        // Amount bins + category mix — engine-derived (all 11 categories,
-        // Math.round'd shares, desc-by-amount order).
-        val histogram = deriveAmountHistogram(paidSlice)
-        val binTotal = histogram.sumOf { it.count }.coerceAtLeast(1)
-        val amountBins = histogram.map { b ->
-            AmountBinItem(
-                label = b.label,
-                count = b.count,
-                amount = b.amount,
-                percentage = if (stats.count > 0) mathRound(b.count.toDouble() / binTotal * 100).toInt() else 0,
-            )
-        }
+        // Category mix — engine-derived (all 11 categories, Math.round'd
+        // shares, desc-by-amount order). T-340 (STATS-400): the amount-bins
+        // histogram was REMOVED with the vanity statistics (owner kill list).
         val categoryBreakdown = deriveCategoryMix(paidSlice, topN = 6).map {
             CategoryRevenueItem(it.key, it.label, it.amount, it.count, it.percent)
         }
@@ -312,21 +336,9 @@ class LocalDashboardRepository @Inject constructor(
             WeeklyRhythmItem(it.day, it.cash, it.check, it.transfer)
         }
 
-        // Collection heatmap over the SAME paid slice + window.
-        val heatmap = deriveCollectionHeatmap(paidSlice, analyticsWindow)
-        val heatmapSnapshot = CollectionHeatmapSnapshot(
-            monthLabels = heatmap.monthLabels,
-            monthKeys = heatmap.monthKeys,
-            rows = heatmap.rows.map { r ->
-                HeatmapRowItem(
-                    day = r.day,
-                    cells = r.cells.map { c -> HeatmapCellItem(c.amount, c.count, c.level) },
-                    rowTotal = r.rowTotal,
-                )
-            },
-            max = heatmap.max,
-            monthTotals = heatmap.monthTotals,
-        )
+        // T-340 (STATS-400): the weekday×month collection heatmap was REMOVED
+        // with the vanity statistics (owner kill list) — parents pay when the
+        // tranche is DUE, not on a lucky weekday.
 
         // The 12-month series + the previous-year series (month buckets of
         // the same paid stream — the previous year is derived from REAL rows
@@ -350,10 +362,9 @@ class LocalDashboardRepository @Inject constructor(
             deltaPercent = yoy.deltaPercent,
         )
 
-        // Revenue trend explorer (cumulative + 3-month MA over the same series).
-        val revenueTrendItems = deriveRevenueTrend(currentSeries).map {
-            RevenueTrendPointItem(it.label, it.amount, it.cumulative, it.movingAvg3)
-        }
+        // T-340 (STATS-400): the smooth 12-month revenue trend was REMOVED
+        // with the vanity statistics — the executive snapshot's wave meters
+        // render the three-wave STAIRCASE instead.
 
         // Tranche wave progress (T1/T2/T3 collection health — ALL installments).
         val trancheRows = g2.installments.map {
@@ -375,7 +386,7 @@ class LocalDashboardRepository @Inject constructor(
             grade = demographicsStats.grade.map { DemographicSliceItem(it.label, it.count, it.percent) },
             gender = demographicsStats.gender.map { DemographicSliceItem(it.label, it.count, it.percent) },
             age = demographicsStats.age.map { DemographicSliceItem(it.label, it.count, it.percent) },
-            capacity = demographicsStats.capacity.map { DemographicSliceItem(it.label, it.count, it.percent) },
+            // T-340 (STATS-400): capacity slice REMOVED — no fake ceilings.
         )
 
         val todayAttendance = g2.attendance.filter { it.date == todayIso }
@@ -386,6 +397,199 @@ class LocalDashboardRepository @Inject constructor(
         val attendanceRate = attendanceRatePct(todayAttendance.map { it.status })
         val attendanceRateToday = (attendanceRate ?: 0).toDouble()
         val classesWithRollCall = todayAttendance.map { it.classId }.distinct().size
+
+
+        // ── T-340 (61st session, STATS-400) — the EXECUTIVE STATISTICS ──────
+        // The verbatim core/ExecutiveStatistics.kt mirror of the desktop T-338
+        // derivations (the owner's unified-calculation mandate: BOTH platforms
+        // consume the SAME definitions — the corpus category
+        // `executive_statistics` pins desktop ≡ android on every value).
+        val execInstallments = g2.installments.map {
+            ExecInstallment(
+                id = it.id, parentId = it.parentId,
+                category = it.category, trancheNumber = it.trancheNumber,
+                amountDue = it.amountDue, amountPaid = it.amountPaid,
+                amountPending = it.amountPending, dueDate = it.dueDate,
+                status = it.status,
+            )
+        }
+        val execLedger = g2.ledger.map {
+            ExecLedgerEntry(
+                id = it.id, parentId = it.parentId, category = it.category,
+                amount = it.amount, type = it.type, description = it.description,
+                metadata = com.example.infrastructure.room.LocalMappers.parseMetadataJson(it.metadataJson),
+            )
+        }
+        val execStudents = g1.students.map {
+            ExecStudent(
+                id = it.id, parentId = it.parentId, status = it.status,
+                transportTier = it.transportTier,
+            )
+        }
+        val execClasses = g2.classes.map {
+            ExecClass(
+                id = it.id, name = it.name, gradeCode = it.gradeLevel,
+                isActive = it.isActive, enrolledCount = it.enrolledCount,
+            )
+        }
+        val execPayments = g1.payments.map {
+            ExecPayment(
+                id = it.id, amount = it.amount, status = it.status,
+                category = it.category, studentId = it.studentId,
+            )
+        }
+        val execWaves = deriveExecTrancheWaves(execInstallments, nowEpochMs)
+        val execErosion = deriveExecDiscountErosion(execLedger)
+        val execTriage = deriveExecDebtTriage(execInstallments, nowEpochMs)
+        val parentNamePairs = g1.parents.map { it.id to (it.displayName ?: it.lastName ?: it.id) }
+        val execConcentration = deriveExecFamilyConcentration(
+            execInstallments, parentNamePairs, execStudents, topN = 10, nowEpochMs = nowEpochMs,
+        )
+        val execTransport = deriveExecTransportYield(execStudents, execInstallments)
+        val execServices = deriveExecServiceYield(execPayments)
+        val execDynamics = deriveExecEnrollmentDynamics(execStudents, execClasses)
+
+        // The triple-risk radar — per-family debt (INV-4) + assessments +
+        // attendance through the desktop evaluateStudentRiskProfiles mirror.
+        val debtByParent = HashMap<String, Long>()
+        for (inst in g2.installments) {
+            if (inst.status == "paid") continue
+            val rem = (inst.amountDue - inst.amountPaid - inst.amountPending).coerceAtLeast(0L)
+            if (rem <= 0L) continue
+            debtByParent[inst.parentId] = (debtByParent[inst.parentId] ?: 0L) + rem
+        }
+        val radarStudents = g1.students.map { s ->
+            val name = s.displayName ?: listOf(s.firstName, s.lastName).filter { it.isNotBlank() }.joinToString(" ")
+            ExecStudent(s.id, s.parentId, s.status, s.transportTier).withRadarFields(name, s.classId)
+        }
+        val classNameById = g2.classes.associate { it.id to it.name }
+        val execRiskProfiles = evaluateExecRiskProfiles(
+            students = radarStudents,
+            parentNames = parentNamePairs.toMap(),
+            classNames = classNameById,
+            assessments = g2.assessments.map {
+                ExecAssessment(
+                    studentId = it.studentId,
+                    subjectAverage = it.subjectAverage,
+                    devoir1 = it.devoir1, devoir2 = it.devoir2, examen = it.examen,
+                    coefficient = it.coefficient, isExtracurricular = it.isExtracurricular,
+                )
+            },
+            attendance = g2.attendance.map { ExecAttendanceRecord(it.studentId, it.status) },
+            installmentDebtByParent = debtByParent,
+        )
+        val execRiskSummary = deriveExecTripleRiskSummary(execRiskProfiles.map { it.riskCategory })
+
+        // Domain snapshot (the repository → UI contract).
+        val executiveSnapshot = ExecutiveStatsSnapshot(
+            waves = execWaves.map {
+                ExecWaveItem(
+                    key = it.key, category = it.category,
+                    categoryLabel = paymentCategoryLabelFr(it.category),
+                    wave = it.wave,
+                    installmentCount = it.installmentCount, paidCount = it.paidCount,
+                    familyCount = it.familyCount, debtorFamilyCount = it.debtorFamilyCount,
+                    dueTotal = it.dueTotal, paidTotal = it.paidTotal, remainingTotal = it.remainingTotal,
+                    collectedPct = it.collectedPct, clearedPct = it.clearedPct,
+                    dueDate = it.dueDate, phase = it.phase.name.lowercase(),
+                )
+            },
+            erosion = ExecErosionItem(
+                remiseCount = execErosion.remiseCount, remiseTotal = execErosion.remiseTotal,
+                cancelCount = execErosion.cancelCount, cancelTotal = execErosion.cancelTotal,
+                netRemiseTotal = execErosion.netRemiseTotal, grossCharges = execErosion.grossCharges,
+                stickerTotal = execErosion.stickerTotal, erosionPct = execErosion.erosionPct,
+                averageRemise = execErosion.averageRemise, maxRemise = execErosion.maxRemise,
+                minRemise = execErosion.minRemise, remiseFamilyCount = execErosion.remiseFamilyCount,
+            ),
+            triage = ExecTriageSnapshot(
+                buckets = execTriage.buckets.map {
+                    ExecTriageBucketItem(
+                        bucket = it.bucket.name.lowercase(), label = it.label,
+                        amount = it.amount, installmentCount = it.installmentCount,
+                        familyCount = it.familyCount, share = it.share,
+                    )
+                },
+                totalOutstanding = execTriage.totalOutstanding,
+                callList = execTriage.callList.map {
+                    ExecCallListEntryItem(
+                        parentId = it.parentId,
+                        parentName = parentNamePairs.toMap()[it.parentId] ?: "Famille inconnue",
+                        outstanding = it.outstanding, worstDaysOverdue = it.worstDaysOverdue,
+                    )
+                },
+            ),
+            concentration = ExecConcentrationSnapshot(
+                totalOutstanding = execConcentration.totalOutstanding,
+                debtorFamilyCount = execConcentration.debtorFamilyCount,
+                topFamilies = execConcentration.topFamilies.map {
+                    ExecTopFamilyItem(
+                        parentId = it.parentId, parentName = it.parentName,
+                        outstanding = it.outstanding, childCount = it.childCount,
+                        shareOfTotalDebt = it.shareOfTotalDebt, worstDaysOverdue = it.worstDaysOverdue,
+                    )
+                },
+                topTotal = execConcentration.topTotal,
+                topConcentrationPct = execConcentration.topConcentrationPct,
+            ),
+            transport = ExecTransportSnapshot(
+                riders = execTransport.riders, nonRiders = execTransport.nonRiders,
+                unresolvedRawValues = execTransport.unresolvedRawValues,
+                routes = execTransport.routes.map {
+                    ExecTransportRouteItem(
+                        destination = it.destination,
+                        destinationLabel = transportDestinationLabelFr(it.destination),
+                        riders = it.riders, dueTotal = it.dueTotal, paidTotal = it.paidTotal,
+                        remainingTotal = it.remainingTotal, collectedPct = it.collectedPct,
+                    )
+                },
+                dueTotal = execTransport.dueTotal, paidTotal = execTransport.paidTotal,
+                remainingTotal = execTransport.remainingTotal, collectedPct = execTransport.collectedPct,
+            ),
+            services = execServices.map {
+                ExecServiceItem(
+                    category = it.category, label = it.label,
+                    paymentCount = it.paymentCount, revenue = it.revenue, studentCount = it.studentCount,
+                )
+            },
+            dynamics = ExecDynamicsSnapshot(
+                totalStudents = execDynamics.totalStudents, totalFamilies = execDynamics.totalFamilies,
+                siblingIndex = execDynamics.siblingIndex,
+                multiChildFamilyCount = execDynamics.multiChildFamilyCount,
+                multiChildFamilyPct = execDynamics.multiChildFamilyPct,
+                familySizes = execDynamics.familySizes.map {
+                    ExecFamilySizeItem(it.label, it.familyCount, it.studentCount)
+                },
+                imbalances = execDynamics.imbalances.map {
+                    ExecSectionImbalanceItem(
+                        gradeLabel = it.gradeLabel, sectionCount = it.sectionCount,
+                        sectionsLabel = it.sections.joinToString(" / ") { s -> s.enrolled.toString() },
+                        minEnrolled = it.minEnrolled, maxEnrolled = it.maxEnrolled,
+                        averageEnrolled = it.averageEnrolled, spread = it.spread,
+                        imbalanced = it.imbalanced,
+                    )
+                },
+            ),
+            riskSummary = ExecRiskSummaryItem(
+                tripleCriticalCount = execRiskSummary.tripleCriticalCount,
+                academicAlertCount = execRiskSummary.academicAlertCount,
+                attendanceAlertCount = execRiskSummary.attendanceAlertCount,
+                financialTensionCount = execRiskSummary.financialTensionCount,
+                healthyCount = execRiskSummary.healthyCount,
+                tripleCriticalPct = execRiskSummary.tripleCriticalPct,
+            ),
+            riskRadar = execRiskProfiles
+                .sortedWith(compareByDescending<com.example.core.ExecRiskProfile> { it.riskCategory.ordinal }.thenBy { it.studentName })
+                .map {
+                    ExecRiskProfileItem(
+                        studentId = it.studentId, studentName = it.studentName,
+                        className = it.className, parentId = it.parentId, parentName = it.parentName,
+                        gpa = it.gpa, attendanceRate = it.attendanceRate,
+                        unexcusedAbsences = it.unexcusedAbsences, debtAmount = it.debtAmount,
+                        riskCategory = it.riskCategory.name.lowercase(),
+                    )
+                },
+        )
 
         DashboardKpi(
             totalStudents = activeStudents.size,
@@ -418,15 +622,15 @@ class LocalDashboardRepository @Inject constructor(
             collectionRatePct = collectionRate,
             debtByAging = debtByAgingItems,
             recoveryFunnel = funnelStages.map { RecoveryFunnelStageItem(it.name, it.count, it.sharePct) },
-            amountBins = amountBins,
             categoryBreakdown = categoryBreakdown,
             // PARITY-003 (T-290)
             paymentStatsMin = stats.min,
             paymentStatsMax = stats.max,
             methodMix = methodMixItems,
             weeklyRhythm = weeklyRhythmItems,
-            collectionHeatmap = heatmapSnapshot,
-            revenueTrend = revenueTrendItems,
+            // T-340 (STATS-400): amountBins / collectionHeatmap / revenueTrend
+            // REMOVED (the vanity purge) — the executive snapshot replaces them.
+            executive = executiveSnapshot,
             yoy = yoySnapshot,
             trancheWaves = trancheWaveItems,
             demographics = demographicsSnapshot,

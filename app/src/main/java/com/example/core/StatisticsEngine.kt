@@ -32,6 +32,16 @@ import java.time.ZoneOffset
  * slicer helpers), deriveTrancheWaves, deriveDemographics (the 5 families
  * the 13-chart inventory required). Same mirror discipline.
  *
+ * T-340 (61st session, 2026-09-14 — STATS-400, the vanity purge): the
+ * desktop REMOVED deriveAmountHistogram / deriveCollectionHeatmap /
+ * deriveRevenueTrend (+ AMOUNT_BINS) with the owner's kill list — this
+ * mirror removes the same three families. The executive-statistics
+ * replacements (tranche-wave velocity, discount erosion, debt triage,
+ * family concentration, transport yield, service yield, enrollment
+ * dynamics + section imbalance, triple-risk radar) live in
+ * core/ExecutiveStatistics.kt (the verbatim mirror of the desktop T-338
+ * executive-statistics.ts).
+ *
  * UNITS: all monetary values are CENTIMES (Long) — the Android engine's
  * native representation. The desktop derivation layer works in integer DZD;
  * the equivalence corpus converts at the boundaries (×100 / ÷100). Every
@@ -84,19 +94,11 @@ fun paymentCategoryLabelFr(category: String): String = when (category) {
 }
 
 // ============================================================================
-// Fixed histogram bins (centimes; the desktop's AMOUNT_BINS in DZD ×100)
+// T-340 (61st session, STATS-400): the fixed histogram bins (AMOUNT_BINS)
+// were REMOVED with the payment-amount histogram (the owner's kill list —
+// fixed-price tranches make the distribution a single meaningless spike).
+// The replacements live in ExecutiveStatistics.kt.
 // ============================================================================
-
-data class AmountBin(val label: String, val lo: Long, val hi: Long)
-
-/** Half-open [lo, hi) bins; the last bin is unbounded (Long.MAX_VALUE). */
-val AMOUNT_BINS: List<AmountBin> = listOf(
-    AmountBin("0–5k", 0L, 500_000L),
-    AmountBin("5k–10k", 500_000L, 1_000_000L),
-    AmountBin("10k–20k", 1_000_000L, 2_000_000L),
-    AmountBin("20k–50k", 2_000_000L, 5_000_000L),
-    AmountBin("50k+", 5_000_000L, Long.MAX_VALUE),
-)
 
 // ============================================================================
 // Input contract — the paid-slice payment row (centimes)
@@ -224,22 +226,6 @@ fun derivePaymentStats(slice: List<StatsPayment>): PaymentStats {
 // ============================================================================
 // T-256 — amount histogram (half-open [lo, hi) bins, count + amount)
 // ============================================================================
-
-data class HistogramBin(val label: String, val count: Int, val amount: Long)
-
-/** Distribution of payment amounts into the fixed centime bins. */
-fun deriveAmountHistogram(slice: List<StatsPayment>): List<HistogramBin> {
-    val counts = IntArray(AMOUNT_BINS.size)
-    val amounts = LongArray(AMOUNT_BINS.size)
-    for (p in slice) {
-        val idx = AMOUNT_BINS.indexOfFirst { p.amount >= it.lo && p.amount < it.hi }
-        if (idx != -1) {
-            counts[idx] += 1
-            amounts[idx] += p.amount
-        }
-    }
-    return AMOUNT_BINS.mapIndexed { i, b -> HistogramBin(b.label, counts[i], amounts[i]) }
-}
 
 // ============================================================================
 // T-256 — method / category mix (percent = Math.round share, desc amount sort)
@@ -488,25 +474,6 @@ fun collectionRatePct(annualRevenueCentimes: Long, outstandingDebtCentimes: Long
 // T-255 — revenue trend (cumulative + 3-month moving average)
 // ============================================================================
 
-data class RevenueTrendPoint(
-    val label: String,
-    val amount: Long,
-    val cumulative: Long,
-    val movingAvg3: Long?,   // null until the 3rd point — never fabricated
-)
-
-/** The hero trend derivation: monthly series + running total + 3-month MA. */
-fun deriveRevenueTrend(revenue: List<RevenuePointInput>): List<RevenueTrendPoint> {
-    var cumulative = 0L
-    return revenue.mapIndexed { i, r ->
-        cumulative += r.amount
-        val movingAvg3 = if (i >= 2) {
-            dzRound((revenue[i - 2].amount + revenue[i - 1].amount + r.amount).toDouble() / 3)
-        } else null
-        RevenueTrendPoint(label = r.label, amount = r.amount, cumulative = cumulative, movingAvg3 = movingAvg3)
-    }
-}
-
 data class RevenuePointInput(val label: String, val amount: Long)
 
 // ============================================================================
@@ -692,98 +659,6 @@ fun deriveWeeklyRhythm(
 // ============================================================================
 // T-256 — collection heatmap (weekday × calendar-month matrix)
 // ============================================================================
-
-data class HeatmapCellStat(
-    val amount: Long,   // centimes
-    val count: Int,
-    /** 0–4 intensity level (0 = empty). Quantized against the matrix max. */
-    val level: Int,
-)
-
-data class HeatmapRowStat(
-    val day: String,                    // "Dim"… "Jeu"
-    val cells: List<HeatmapCellStat>,   // parallel to monthLabels
-    val rowTotal: Long,
-)
-
-data class CollectionHeatmapStat(
-    /** Month columns in range order ("Sep", "Oct", …). */
-    val monthLabels: List<String>,
-    /** Parallel year-month keys ("2025-09") for honest tooltips. */
-    val monthKeys: List<String>,
-    val rows: List<HeatmapRowStat>,
-    val max: Long,
-    val monthTotals: List<Long>,
-)
-
-/**
- * The Power BI matrix heatmap: encaissé per (school-weekday × calendar
- * month) over the range. Rows follow the Algerian school week (Dim→Jeu);
- * Friday/Saturday collections are excluded. Cell level quantizes the
- * amount against the matrix max in 5 steps.
- * (desktop deriveCollectionHeatmap — verbatim.)
- */
-fun deriveCollectionHeatmap(
-    slice: List<StatsPayment>,
-    range: StatsDateRange?,
-): CollectionHeatmapStat {
-    // Month columns: cursor over the range (Sep 2025 → Jun 2026 …).
-    val monthLabels = mutableListOf<String>()
-    val monthKeys = mutableListOf<String>()
-    val monthIndexByKey = HashMap<String, Int>()
-    if (range != null) {
-        val from = parseIsoMs("${range.from.take(10)}T00:00:00Z")
-        val to = parseIsoMs("${range.to.take(10)}T23:59:59Z") ?: parseIsoMs(range.to)
-        if (from != null && to != null && to > from) {
-            var cursor = Instant.ofEpochMilli(from).atZone(ZoneOffset.UTC).toLocalDate().withDayOfMonth(1)
-            var guard = 0
-            while (guard < 24 && !cursor.atStartOfDay(ZoneOffset.UTC).toInstant()
-                .isAfter(Instant.ofEpochMilli(to))
-            ) {
-                val key = "${cursor.year}-${"%02d".format(cursor.monthValue)}"
-                monthIndexByKey[key] = monthLabels.size
-                monthLabels.add(MONTH_LABELS_FR[cursor.monthValue - 1])
-                monthKeys.add(key)
-                cursor = cursor.plusMonths(1)
-                guard++
-            }
-        }
-    }
-
-    val nCols = monthLabels.size
-    val cells = Array(5) { Array(nCols) { longArrayOf(0L, 0) } } // [amount, count]
-    val monthTotals = LongArray(nCols)
-    var max = 0L
-
-    for (p in slice) {
-        val t = parseIsoMs(p.collectedAt) ?: continue
-        val d = Instant.ofEpochMilli(t).atZone(ZoneOffset.UTC)
-        val jsDay = d.dayOfWeek.value % 7
-        val dayIdx = SCHOOL_WEEK_ROWS.indexOfFirst { it.second == jsDay }
-        if (dayIdx == -1) continue
-        val key = "${d.year}-${"%02d".format(d.monthValue)}"
-        val col = monthIndexByKey[key] ?: continue
-        cells[dayIdx][col][0] += p.amount
-        cells[dayIdx][col][1] += 1
-        monthTotals[col] += p.amount
-        if (cells[dayIdx][col][0] > max) max = cells[dayIdx][col][0]
-    }
-
-    val rows = SCHOOL_WEEK_ROWS.mapIndexed { i, (day, _) ->
-        HeatmapRowStat(
-            day = day,
-            cells = cells[i].map { c ->
-                HeatmapCellStat(
-                    amount = c[0],
-                    count = c[1].toInt(),
-                    level = if (max > 0 && c[0] > 0) maxOf(1, kotlin.math.ceil(c[0].toDouble() / max * 4).toInt()) else 0,
-                )
-            },
-            rowTotal = cells[i].sumOf { it[0] },
-        )
-    }
-    return CollectionHeatmapStat(monthLabels, monthKeys, rows, max, monthTotals.toList())
-}
 
 // ============================================================================
 // T-255 — filtered monthly overlay (the slicers' visible effect on the trend)

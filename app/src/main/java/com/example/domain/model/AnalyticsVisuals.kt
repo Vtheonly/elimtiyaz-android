@@ -41,44 +41,11 @@ data class WeeklyRhythmItem(
 }
 
 // ============================================================================
-// Collection heatmap (desktop deriveCollectionHeatmap — the matrix card)
+// T-340 (61st session, STATS-400): the collection-heatmap and the revenue
+// trend-explorer item types were REMOVED with the vanity statistics (the
+// owner's kill list). The replacements live in ExecutiveStats.kt
+// (ExecutiveStatsSnapshot — the wave staircase, the erosion, the triage…).
 // ============================================================================
-
-@Serializable
-data class HeatmapCellItem(
-    val amount: Long,         // centimes
-    val count: Int,
-    /** 0–4 intensity level (0 = empty). Quantized against the matrix max. */
-    val level: Int,
-)
-
-@Serializable
-data class HeatmapRowItem(
-    val day: String,                      // "Dim"… "Jeu"
-    val cells: List<HeatmapCellItem>,     // parallel to monthLabels
-    val rowTotal: Long,
-)
-
-@Serializable
-data class CollectionHeatmapSnapshot(
-    val monthLabels: List<String> = emptyList(),
-    val monthKeys: List<String> = emptyList(),
-    val rows: List<HeatmapRowItem> = emptyList(),
-    val max: Long = 0L,
-    val monthTotals: List<Long> = emptyList(),
-)
-
-// ============================================================================
-// Revenue trend explorer (desktop deriveRevenueTrend — bars + cumulative + MA3)
-// ============================================================================
-
-@Serializable
-data class RevenueTrendPointItem(
-    val label: String,        // month label
-    val amount: Long,         // centimes
-    val cumulative: Long,     // running total
-    val movingAvg3: Long? = null, // null until the 3rd point — never fabricated
-)
 
 // ============================================================================
 // Year-over-year comparison (desktop deriveYearOverYear — grouped bars)
@@ -117,7 +84,7 @@ data class TrancheWaveItem(
 )
 
 // ============================================================================
-// Class demographics & capacity (desktop demographics — gauges + charts)
+// Class demographics (desktop demographics — charts; capacity REMOVED T-340)
 // ============================================================================
 
 @Serializable
@@ -132,5 +99,6 @@ data class ClassDemographicsSnapshot(
     val grade: List<DemographicSliceItem> = emptyList(),
     val gender: List<DemographicSliceItem> = emptyList(),
     val age: List<DemographicSliceItem> = emptyList(),
-    val capacity: List<DemographicSliceItem> = emptyList(),
+    // T-340 (STATS-400): the capacity fill-rate slice REMOVED — no fake
+    // ceilings (the section-imbalance derivation replaced the gauges).
 )

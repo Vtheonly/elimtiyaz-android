@@ -51,7 +51,7 @@ import androidx.room.RoomDatabase
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
     ],
-    version = 14,
+    version = 15,
     // T-046-gap (session 18): schemas are exported from now on (ksp arg
     // room.schemaLocation → app/schemas/) so MigrationTestHelper upgrade
     // tests can pin every future schema bump. 12.json was backfilled from
@@ -453,6 +453,39 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
             override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE notifications ADD COLUMN dismissedAt TEXT"
+                )
+            }
+        }
+
+        /**
+         * Room migration v14 → v15 (T-340 / 61st session / STATS-400).
+         *
+         * Adds the two columns the EXECUTIVE STATISTICS consume (the
+         * owner's unified-statistics mandate — the Kotlin mirror of the
+         * desktop T-338 derivations reads them from Room):
+         *
+         *   - `installments.trancheNumber` INTEGER NOT NULL DEFAULT 1 —
+         *     the canonical wave number (DB `tranche_number`, 1|2|3). The
+         *     tranche-wave collection velocity groups by THIS column,
+         *     never by label parsing ("INSCRIPTION (FI)" / "2EME TRANCHE
+         *     (V2)" / "Tranche 2 — Transport" are free text).
+         *   - `students.transportTier` TEXT NULL — the transport town
+         *     (DB `transport_tier`, the Excel DISTINATION value; the
+         *     Supabase StudentDto already carried it — it was dropped at
+         *     the Room mapping boundary). The transport-yield statistics
+         *     normalize it through core/ExecutiveStatistics.kt
+         *     TOWN_ALIASES; NULL = no transport (not a rider).
+         *
+         * Defaults preserve every pre-existing row's meaning exactly
+         * (wave 1 / no transport) — no data rewrite, no destructive path.
+         */
+        val MIGRATION_14_15 = object : androidx.room.migration.Migration(14, 15) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE installments ADD COLUMN trancheNumber INTEGER NOT NULL DEFAULT 1"
+                )
+                database.execSQL(
+                    "ALTER TABLE students ADD COLUMN transportTier TEXT"
                 )
             }
         }

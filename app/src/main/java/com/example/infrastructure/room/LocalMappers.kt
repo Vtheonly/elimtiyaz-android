@@ -58,6 +58,8 @@ object LocalMappers {
         birthDate = birthDate, enrollmentDate = enrollmentDate,
         level = level, gradeLevel = gradeLevel, classId = classId,
         photoUrl = photoUrl, medicalNotes = medicalNotes, status = status,
+        // T-340 (STATS-400): transport town/tier passthrough.
+        transportTier = transportTier,
         // TIER 2 R12 — pass through paymentPlan from Room entity to domain.
         // The column was added in MIGRATION_4_5; the desktop's Student model
         // has the same field.
@@ -134,6 +136,8 @@ object LocalMappers {
     fun InstallmentEntity.toDomain() = Installment(
         id = id, tenantId = tenantId, parentId = parentId, studentId = studentId,
         category = PaymentCategory.fromCode(category), label = label,
+        // T-340 (STATS-400): the canonical wave number passthrough.
+        trancheNumber = trancheNumber,
         amountDue = amountDue, amountPaid = amountPaid,
         // TIER 4 FIX (D14/R12) — pending-clearance bucket no longer dropped.
         amountPending = amountPending,

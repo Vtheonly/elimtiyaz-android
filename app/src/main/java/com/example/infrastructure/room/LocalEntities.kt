@@ -105,6 +105,9 @@ data class StudentEntity(
      * the `full_annual` plan who pay before June 30 qualify.
      */
     val paymentPlan: String = "tranches",
+    // T-340 (STATS-400): the transport town/tier (DB transport_tier — the
+    // Excel DISTINATION value). Null = no transport. MIGRATION_14_15.
+    val transportTier: String? = null,
     val createdAt: String,
     val updatedAt: String,
 ) {
@@ -283,6 +286,9 @@ data class InstallmentEntity(
     val studentId: String?,
     val category: String,
     val label: String,
+    // T-340 (STATS-400): the canonical wave number (DB tranche_number, 1|2|3).
+    // Default 1 = the first-wave convention for legacy rows. MIGRATION_14_15.
+    val trancheNumber: Int = 1,
     val amountDue: Long,
     val amountPaid: Long,
     val amountPending: Long,

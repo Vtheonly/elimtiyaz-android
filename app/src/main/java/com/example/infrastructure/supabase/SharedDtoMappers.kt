@@ -146,6 +146,8 @@ fun StudentDto.toEntity(): StudentEntity = StudentEntity(
     // layer's `StudentEntity.toDomain()` can pass it through. The column
     // was added by `MIGRATION_4_5`.
     paymentPlan = paymentPlan ?: "tranches",
+    // T-340 (STATS-400): persist the transport town/tier (DB transport_tier).
+    transportTier = transportTier,
     createdAt = createdAt ?: "",
     updatedAt = updatedAt ?: "",
 )
@@ -199,6 +201,8 @@ fun InstallmentDto.toEntity(): com.example.infrastructure.room.InstallmentEntity
     studentId = studentId,
     category = category,
     label = label ?: "Tranche $trancheNumber",
+    // T-340 (STATS-400): persist the canonical wave number (DB tranche_number).
+    trancheNumber = trancheNumber,
     amountDue = (amountDue * 100).toLong(),
     amountPaid = (amountPaid * 100).toLong(),
     amountPending = (amountPending * 100).toLong(),

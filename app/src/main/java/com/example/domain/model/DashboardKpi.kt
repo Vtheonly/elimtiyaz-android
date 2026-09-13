@@ -50,8 +50,6 @@ data class DashboardKpi(
     // Recovery funnel (StatisticsEngine.deriveRecoveryFunnel — computed from the
     // aging census; empty list = honest "no overdue families", NEVER 100% critical).
     val recoveryFunnel: List<RecoveryFunnelStageItem> = emptyList(),
-    // Amount Distribution Bins (StatisticsEngine.deriveAmountHistogram)
-    val amountBins: List<AmountBinItem> = emptyList(),
     // Category Breakdown (StatisticsEngine.deriveCategoryMix — ALL canonical categories)
     val categoryBreakdown: List<CategoryRevenueItem> = emptyList(),
     // ── PARITY-003 (45th session) — the visual-parity contract ──────────────
@@ -64,15 +62,18 @@ data class DashboardKpi(
     // Weekly operating rhythm (StatisticsEngine.deriveWeeklyRhythm — the
     // counter-activity convention: only "refunded" excluded; Dim→Jeu)
     val weeklyRhythm: List<WeeklyRhythmItem> = emptyList(),
-    // Collection heatmap (StatisticsEngine.deriveCollectionHeatmap — weekday × month matrix)
-    val collectionHeatmap: CollectionHeatmapSnapshot = CollectionHeatmapSnapshot(),
-    // Revenue trend explorer (StatisticsEngine.deriveRevenueTrend — cumulative + 3-month MA)
-    val revenueTrend: List<RevenueTrendPointItem> = emptyList(),
+    // ── T-340 (61st session, STATS-400) — the vanity purge + the executive contract ──
+    // REMOVED per the owner's kill list: amountBins (the payment-amount
+    // histogram), collectionHeatmap (the weekday×month heatmap), revenueTrend
+    // (the smooth 12-month spline). REPLACED by the ExecutiveStatsSnapshot —
+    // every operational decision trigger computed by
+    // core/ExecutiveStatistics.kt (the desktop T-338 mirror).
+    val executive: ExecutiveStatsSnapshot = ExecutiveStatsSnapshot(),
     // Year-over-year comparison (StatisticsEngine.deriveYearOverYear — null deltas = "n/a")
     val yoy: YoYSnapshot = YoYSnapshot(),
     // Tranche wave progress (StatisticsEngine.deriveTrancheWaves — T1/T2/T3 collection health)
     val trancheWaves: List<TrancheWaveItem> = emptyList(),
-    // Class demographics & capacity (StatisticsEngine.deriveDemographics)
+    // Class demographics (StatisticsEngine.deriveDemographics — capacity REMOVED T-340)
     val demographics: ClassDemographicsSnapshot = ClassDemographicsSnapshot(),
 )
 
@@ -93,14 +94,6 @@ data class RecoveryFunnelStageItem(
 )
 
 @Serializable
-data class AmountBinItem(
-    val label: String,
-    val count: Int,
-    val amount: Long = 0L,
-    val percentage: Int = 0,
-)
-
-@Serializable
 data class CategoryRevenueItem(
     val category: String,
     val label: String,
@@ -109,7 +102,9 @@ data class CategoryRevenueItem(
     val percentage: Int,
 )
 
-/** Summary of revenue collected by payment method (cash, check, transfer). */
+/**
+ * Summary of revenue collected by payment method (cash, check, transfer).
+ */
 @Serializable
 data class PaymentMethodSummary(
     val method: String,
