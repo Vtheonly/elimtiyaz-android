@@ -212,6 +212,13 @@ dependencies {
   implementation(libs.supabase.functions)
   implementation(libs.ktor.client.android)
   implementation(libs.ktor.client.core)
+  // Realtime websocket fix: the Ktor Android engine is built on
+  // HttpURLConnection and does NOT implement WebSocketCapability —
+  // every realtime socket attempt fails with
+  // "Engine doesn't support WebSocketCapability" and retries every 7s
+  // (logcat `E Supabase-Realtime`). OkHttp is a full Ktor engine with
+  // websocket support and is the engine Supabase-kt targets on Android.
+  implementation(libs.ktor.client.okhttp)
 
   // ── multiplatform-settings (Supabase Auth session persistence) ───────
   // Required by SettingsSessionManager — backs the JWT refresh-token

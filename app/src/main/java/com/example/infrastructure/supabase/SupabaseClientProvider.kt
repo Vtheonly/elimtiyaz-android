@@ -17,7 +17,7 @@ import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.realtime.realtime
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
-import io.ktor.client.engine.android.Android
+import io.ktor.client.engine.okhttp.OkHttp
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,8 +27,10 @@ import javax.inject.Singleton
  * Reads URL + anon key from SharedPreferences (if set by user) or from BuildConfig
  * (injected by the secrets plugin from `.env`).
  *
- * The client uses the Android Ktor engine. JWT persistence is handled
- * by the Auth plugin via a [SettingsSessionManager].
+ * The client uses the OkHttp Ktor engine (NOT the Android engine: Android is
+ * HttpURLConnection-based and lacks WebSocketCapability, which breaks the
+ * Realtime plugin with "Engine doesn't support WebSocketCapability"). JWT
+ * persistence is handled by the Auth plugin via a [SettingsSessionManager].
  */
 @Singleton
 class SupabaseClientProvider @Inject constructor(
@@ -197,7 +199,7 @@ class SupabaseClientProvider @Inject constructor(
                 install(Realtime)
                 install(Storage)
                 install(Functions)
-                httpEngine = Android.create()
+                httpEngine = OkHttp.create()
             }
         } catch (e: Exception) {
             // SEC-005 (T-064): the exception path ALSO builds the inert
@@ -210,7 +212,7 @@ class SupabaseClientProvider @Inject constructor(
                     sessionManager = EncryptedSettingsStorage.createSessionManager(context)
                 }
                 install(Postgrest)
-                httpEngine = Android.create()
+                httpEngine = OkHttp.create()
             }
         }
     }
