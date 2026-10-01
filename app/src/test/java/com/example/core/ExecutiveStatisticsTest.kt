@@ -360,14 +360,82 @@ class ExecutiveStatisticsTest {
     }
 
     @Test
-    fun `triage - a family whose worst overdue is exactly 45 days is reminder, NOT chronic (over 45 strict)`() {
-        val t = deriveExecDebtTriage(
-            listOf(ins("b-1", "p-9", amountDue = 10_000, amountPaid = 0, status = "unpaid", dueDate = "2026-07-31")), // exactly 45 days
+    fun `triage - the call list = families with ANY installment over the RED threshold (60 days default), full exposure, ranked`() {
+        val t = deriveExecDebtTriage(triageFixtures, now)
+        assertEquals(1, t.callList.size)
+        assertEquals("p-1", t.callList[0].parentId)
+        assertEquals(60_000L, t.callList[0].outstanding) // full exposure incl. the 44d tranche
+        assertEquals(61L, t.callList[0].worstDaysOverdue) // 2026-07-15 → 2026-09-14
+    }
+
+    @Test
+    fun `triage - T-450 boundary pins - exactly 60 days is reminder, 61 is chronic (over redDays strict)`() {
+        // T-450 (PARITY-006): the canonical edges are the CONFIGURABLE thresholds
+        // (yellow 15 / red 60 — migration 0125's seed, the live system_settings
+        // values), replacing the hardcoded 45. The boundary test intent carries
+        // over from the pre-T-443 45-day pin.
+        val at60 = deriveExecDebtTriage(
+            listOf(ins("b-60", "p-9", amountDue = 10_000, amountPaid = 0, status = "unpaid", dueDate = "2026-07-16")), // exactly 60 days
             now,
         )
-        assertEquals(10_000L, t.buckets.first { it.bucket == ExecTriageBucket.REMINDER }.amount)
-        assertEquals(0L, t.buckets.first { it.bucket == ExecTriageBucket.CHRONIC }.amount)
-        assertEquals(0, t.callList.size)
+        assertEquals(10_000L, at60.buckets.first { it.bucket == ExecTriageBucket.REMINDER }.amount)
+        assertEquals(0L, at60.buckets.first { it.bucket == ExecTriageBucket.CHRONIC }.amount)
+        assertEquals(0, at60.callList.size)
+
+        val at61 = deriveExecDebtTriage(
+            listOf(ins("b-61", "p-9", amountDue = 10_000, amountPaid = 0, status = "unpaid", dueDate = "2026-07-15")), // exactly 61 days
+            now,
+        )
+        assertEquals(10_000L, at61.buckets.first { it.bucket == ExecTriageBucket.CHRONIC }.amount)
+        assertEquals(1, at61.callList.size)
+        assertEquals(61L, at61.callList[0].worstDaysOverdue)
+    }
+
+    @Test
+    fun `triage - T-450 boundary pins - exactly 15 days is current, 16 is reminder (over yellowDays strict)`() {
+        val at15 = deriveExecDebtTriage(
+            listOf(ins("b-15", "p-9", amountDue = 10_000, amountPaid = 0, status = "unpaid", dueDate = "2026-08-30")), // exactly 15 days
+            now,
+        )
+        assertEquals(10_000L, at15.buckets.first { it.bucket == ExecTriageBucket.CURRENT }.amount)
+        assertEquals(0L, at15.buckets.first { it.bucket == ExecTriageBucket.REMINDER }.amount)
+
+        val at16 = deriveExecDebtTriage(
+            listOf(ins("b-16", "p-9", amountDue = 10_000, amountPaid = 0, status = "unpaid", dueDate = "2026-08-29")), // exactly 16 days
+            now,
+        )
+        assertEquals(10_000L, at16.buckets.first { it.bucket == ExecTriageBucket.REMINDER }.amount)
+        assertEquals(0L, at16.buckets.first { it.bucket == ExecTriageBucket.CURRENT }.amount)
+    }
+
+    @Test
+    fun `triage - T-450 configurable thresholds - a custom red edge re-buckets and re-labels`() {
+        // The desktop's live tenant configuration drives the edges (the
+        // system_settings category debt rows); the derivation must follow
+        // the values it is handed — never a hardcoded edge.
+        val custom = ExecDebtAgingThresholds(
+            gracePeriodDays = 5, yellowDays = 10, redDays = 30, activePayerGraceDays = 15,
+        )
+        val t = deriveExecDebtTriage(
+            listOf(ins("c-1", "p-9", amountDue = 10_000, amountPaid = 0, status = "unpaid", dueDate = "2026-08-01")), // 44 days late
+            now,
+            custom,
+        )
+        // 44 > custom red 30 → chronic, and the label carries the CONFIGURED numbers
+        assertEquals(10_000L, t.buckets.first { it.bucket == ExecTriageBucket.CHRONIC }.amount)
+        assertEquals("Retard > 30 j (intervention)", t.buckets.first { it.bucket == ExecTriageBucket.CHRONIC }.label)
+        assertEquals("Retard 10–30 j (relance)", t.buckets.first { it.bucket == ExecTriageBucket.REMINDER }.label)
+        assertEquals("Retard ≤ 10 j (à surveiller)", t.buckets.first { it.bucket == ExecTriageBucket.CURRENT }.label)
+        assertEquals(1, t.callList.size)
+    }
+
+    @Test
+    fun `triage - the default labels carry the canonical seed numbers (15 and 60)`() {
+        val labels = execDebtTriageLabels(ExecDebtAgingThresholds.DEFAULT)
+        assertEquals("Non échue", labels.getValue(ExecTriageBucket.NOT_DUE))
+        assertEquals("Retard ≤ 15 j (à surveiller)", labels.getValue(ExecTriageBucket.CURRENT))
+        assertEquals("Retard 15–60 j (relance)", labels.getValue(ExecTriageBucket.REMINDER))
+        assertEquals("Retard > 60 j (intervention)", labels.getValue(ExecTriageBucket.CHRONIC))
     }
 
     @Test
