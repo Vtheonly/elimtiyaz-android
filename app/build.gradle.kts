@@ -146,10 +146,38 @@ secrets {
 // variant resolves assets from main+release only, so the MigrationTestHelper
 // schema history is unreachable there by design. The upgrade test's canonical
 // gate is the debug variant (where it runs 4/4 on the real committed history).
+// ARCH-012 (19th session, 2026-09-02): the release variant's applicationId
+// suffix (.bxmzlx) defeats Robolectric's launcher-activity resolution
+// (robolectric/robolectric#4736) — createComposeRule() fails with
+// "Unable to resolve activity for Intent { … cmp=…bxmzlx/ComponentActivity }"
+// ONLY under the suffixed package (the debug variant of the same test is
+// green). Screenshot/semantic Compose tests pin the rendering pipeline
+// (theme/typography — variant-independent), so they are DEBUG-variant gates
+// by design; the release variant gets this documented exclusion instead of a
+// permanently red suite. Removing this exclusion requires fixing Robolectric's
+// release-manifest resolution (needs a manifest-merge investigation).
+//
+// ARCH-012 scope extension (T-460, 130th session, 2026-10-02): the exclusion
+// list had NOT been extended as later sessions landed new Compose-semantic
+// and Room-schema tests — `./gradlew test` (the full debug+release gate) was
+// red on main for the T-181/T-348/T-456/T-458/T-044-pass-3a generations
+// (the third recurrence of the "update BOTH sides when the set grows" lesson
+// — the RealtimeSyncT069Test pattern). ALL 6 late additions are the SAME two
+// documented ARCH-012 classes: createComposeRule tests (ElScrollableTabRow,
+// ElInfoTip, ParentYearHistorySection, AuditDiffSheet) and MigrationTestHelper
+// schema tests (RoomSchemaUpgradeT181/T348 — the schemas are debug-scoped by
+// the sourceSets rule below). The fix extends the SAME exclusion; the debug
+// variant remains the canonical gate for these tests (654/0 this session).
 tasks.withType<Test>().matching { it.name == "testReleaseUnitTest" }.configureEach {
   filter {
     excludeTestsMatching("com.example.GreetingScreenshotTest")
     excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT046GapTest")
+    excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT181Test")
+    excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT348Test")
+    excludeTestsMatching("com.example.ui.designsystem.ElScrollableTabRowTest")
+    excludeTestsMatching("com.example.ui.designsystem.overlays.ElInfoTipTest")
+    excludeTestsMatching("com.example.ui.features.financials.ParentYearHistorySectionTest")
+    excludeTestsMatching("com.example.ui.features.settings.AuditDiffSheetTest")
   }
 }
 
