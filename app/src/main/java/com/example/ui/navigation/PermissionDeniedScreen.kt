@@ -8,25 +8,25 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.example.ui.components.ElEmptyState
-import com.example.ui.components.ElScaffold
-import com.example.ui.components.ElTopBar
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.theme.ElTheme
 
 @Composable
 internal fun PermissionDeniedScreen(onBack: () -> Unit) {
     ElScaffold(
         topBar = { ElTopBar(title = "Accès refusé", onBack = onBack) },
-    ) {
+    ) { innerPadding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
+            modifier = Modifier.fillMaxSize().padding(innerPadding).padding(ElTheme.spacing.xl),
             verticalArrangement = Arrangement.Center,
         ) {
             ElEmptyState(
                 icon = Icons.Default.Lock,
                 title = "Permission insuffisante",
-                message = "Votre rôle ne vous permet pas d'accéder à cet écran. Contactez un administrateur si vous pensez qu'il s'agit d'une erreur.",
-                actionText = "Retour",
+                subtitle = "Votre rôle ne vous permet pas d'accéder à cet écran. Contactez un administrateur si vous pensez qu'il s'agit d'une erreur.",
+                actionLabel = "Retour",
                 onAction = onBack,
             )
         }

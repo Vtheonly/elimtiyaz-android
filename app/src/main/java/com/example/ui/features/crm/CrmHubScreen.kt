@@ -14,7 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.core.Session
-import com.example.ui.components.ModernSecondaryTabRow
+import com.example.ui.designsystem.components.tabs.ElTabRow
 
 @Composable
 fun CrmHubScreen(
@@ -31,10 +31,12 @@ fun CrmHubScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        ModernSecondaryTabRow(
+        // T-460 pass E: the DS segmented tab row (3 tabs fit the fixed row —
+        // the same tab language as the Dashboard/Academics hubs).
+        ElTabRow(
             tabs = tabs,
-            selectedTabIndex = selectedTab,
-            onTabSelected = { selectedTab = it },
+            selectedIndex = selectedTab,
+            onSelected = { selectedTab = it },
         )
         Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.TopStart) {
             when (selectedTab) {

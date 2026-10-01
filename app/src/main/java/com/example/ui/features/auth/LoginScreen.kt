@@ -1,12 +1,9 @@
 package com.example.ui.features.auth
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,8 +19,6 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,11 +38,11 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElScaffold
-import com.example.ui.components.ElTextField
-import com.example.ui.theme.elDesignTokens
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.input.ElTextField
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.theme.ElTheme
 
 /**
  * Login screen.
@@ -72,7 +67,7 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
-    val tokens = elDesignTokens()
+    val c = ElTheme.colors
 
     // Defensive fallback: if for any reason the AppNavHost session observer
     // doesn't fire (e.g. SessionManager was already non-null before this
@@ -84,10 +79,13 @@ fun LoginScreen(
 
     var passwordVisible by remember { mutableStateOf(false) }
 
-    ElScaffold {
+    // T-460 pass E: DS scaffold (the content lambda applies PaddingValues per
+    // the T-144 contract) + ElTheme tokens (was elDesignTokens/MaterialTheme).
+    ElScaffold { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             contentAlignment = Alignment.Center,
@@ -102,29 +100,29 @@ fun LoginScreen(
                     modifier = Modifier
                         .size(80.dp)
                         .clip(CircleShape)
-                        .background(tokens.primaryDiagonalBrush),
+                        .background(c.primaryBrush),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         "EI",
-                        style = MaterialTheme.typography.headlineMedium.copy(
+                        style = ElTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 32.sp,
                         ),
-                        color = Color.White,
+                        color = c.textOnColor,
                     )
                 }
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         "El-Imtiyaz Staff",
-                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onBackground,
+                        style = ElTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                        color = c.textPrimary,
                     )
                     Text(
                         "Plateforme de gestion scolaire",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = ElTheme.typography.bodyMedium,
+                        color = c.textSecondary,
                     )
                 }
 
@@ -132,13 +130,13 @@ fun LoginScreen(
 
                 ElCard(modifier = Modifier.fillMaxWidth()) {
                     Column(
-                        modifier = Modifier.padding(20.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         Text(
                             "Connexion",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = c.textPrimary,
                         )
 
                         // Email binds DIRECTLY to VM state (single source of truth)
@@ -160,26 +158,11 @@ fun LoginScreen(
                             onValueChange = { viewModel.updatePassword(it) },
                             label = "Mot de passe",
                             leadingIcon = Icons.Default.Lock,
-                            trailingIcon = {
-                                Box(
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .clip(CircleShape)
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null,
-                                            onClick = { passwordVisible = !passwordVisible },
-                                        ),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                        contentDescription = if (passwordVisible) "Masquer" else "Afficher",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(20.dp),
-                                    )
-                                }
-                            },
+                            // T-460: the DS field's vector trailing-icon slot +
+                            // onTrailingIconClick replace the legacy composable
+                            // lambda toggle (same behaviour, the DS language).
+                            trailingIcon = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            onTrailingIconClick = { passwordVisible = !passwordVisible },
                             singleLine = true,
                             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -191,14 +174,14 @@ fun LoginScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(MaterialTheme.shapes.small)
-                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
+                                    .clip(ElTheme.shapes.small)
+                                    .background(c.danger.copy(alpha = 0.1f))
                                     .padding(12.dp),
                             ) {
                                 Text(
                                     err,
-                                    color = MaterialTheme.colorScheme.error,
-                                    style = MaterialTheme.typography.bodySmall,
+                                    color = c.danger,
+                                    style = ElTheme.typography.bodySmall,
                                 )
                             }
                         }
@@ -213,23 +196,13 @@ fun LoginScreen(
                     }
                 }
 
-                // Change password link
-                Box(
-                    modifier = Modifier
-                        .clip(MaterialTheme.shapes.small)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onChangePassword,
-                        )
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                ) {
-                    Text(
-                        "Changer le mot de passe",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+                // Change password link — an inline text button in the DS
+                // language (press-scale handled by ElButton GHOST).
+                ElButton(
+                    text = "Changer le mot de passe",
+                    onClick = onChangePassword,
+                    variant = com.example.ui.designsystem.components.button.ElButtonVariant.GHOST,
+                )
 
                 // CROSS-100 (T-002 session): the "Comptes démo" quick-fill
                 // chips were REMOVED — the shared demo password never works

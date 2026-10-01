@@ -10,9 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,17 +22,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.Result
 import com.example.domain.repository.AuthRepository
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElButtonStyle
-import com.example.ui.components.ElDialog
-import com.example.ui.components.ElTextField
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.input.ElTextField
+import com.example.ui.designsystem.overlays.ElDialogShell
+import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -96,6 +94,7 @@ fun ChangePasswordModal(
     viewModel: ChangePasswordViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
+    val c = ElTheme.colors
     var current by remember { mutableStateOf("") }
     var new by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
@@ -104,76 +103,88 @@ fun ChangePasswordModal(
         if (state.success) onDismiss()
     }
 
-    ElDialog(
-        onDismiss = onDismiss,
-        title = "Changer le mot de passe",
-        content = {
-            Column(
+    // T-460 pass E: the legacy ElDialog (title/content/confirmButton/
+    // dismissButton slots) rebuilt on the DS ElDialogShell + ElButton row —
+    // the same dialog language as the grade-entry and promotion dialogs.
+    ElDialogShell(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                "Changer le mot de passe",
+                style = ElTheme.typography.titleLarge.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                color = c.textPrimary,
+            )
+            ElTextField(
+                value = current, onValueChange = { current = it },
+                label = "Mot de passe actuel",
+                leadingIcon = Icons.Default.Lock,
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                ElTextField(
-                    value = current, onValueChange = { current = it },
-                    label = "Mot de passe actuel",
-                    leadingIcon = Icons.Default.Lock,
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                ElTextField(
-                    value = new, onValueChange = { new = it },
-                    label = "Nouveau mot de passe",
-                    leadingIcon = Icons.Default.Lock,
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                ElTextField(
-                    value = confirm, onValueChange = { confirm = it },
-                    label = "Confirmer",
-                    leadingIcon = Icons.Default.Lock,
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            )
+            ElTextField(
+                value = new, onValueChange = { new = it },
+                label = "Nouveau mot de passe",
+                leadingIcon = Icons.Default.Lock,
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            ElTextField(
+                value = confirm, onValueChange = { confirm = it },
+                label = "Confirmer",
+                leadingIcon = Icons.Default.Lock,
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
 
-                val strength = passwordStrength(new)
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                    StrengthRow("8 caractères minimum", strength.minLength)
-                    StrengthRow("Une lettre minuscule", strength.hasLower)
-                    StrengthRow("Une lettre majuscule", strength.hasUpper)
-                    StrengthRow("Un chiffre", strength.hasDigit)
-                }
-
-                Text(
-                    "⚠ Toutes les sessions seront révoquées sur tous vos appareils.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            val strength = passwordStrength(new)
+            Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                StrengthRow("8 caractères minimum", strength.minLength)
+                StrengthRow("Une lettre minuscule", strength.hasLower)
+                StrengthRow("Une lettre majuscule", strength.hasUpper)
+                StrengthRow("Un chiffre", strength.hasDigit)
             }
-        },
-        confirmButton = {
-            ElButton(
-                text = if (state.isLoading) "..." else "Changer",
-                onClick = { viewModel.changePassword(current, new, confirm) },
-                enabled = !state.isLoading,
-                loading = state.isLoading,
+
+            Text(
+                "⚠ Toutes les sessions seront révoquées sur tous vos appareils.",
+                style = ElTheme.typography.bodySmall,
+                color = c.danger,
             )
-        },
-        dismissButton = {
-            ElButton(
-                text = "Annuler",
-                onClick = onDismiss,
-                style = ElButtonStyle.Secondary,
-            )
-        },
-    )
+
+            state.error?.let { Text(it, color = c.danger, style = ElTheme.typography.bodySmall) }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ElButton(
+                    text = if (state.isLoading) "..." else "Changer",
+                    onClick = { viewModel.changePassword(current, new, confirm) },
+                    enabled = !state.isLoading,
+                    loading = state.isLoading,
+                    variant = ElButtonVariant.PRIMARY,
+                    modifier = Modifier.weight(1f),
+                )
+                ElButton(
+                    text = "Annuler",
+                    onClick = onDismiss,
+                    variant = ElButtonVariant.SECONDARY,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
 }
 
 @Composable
 private fun StrengthRow(label: String, met: Boolean) {
+    val c = ElTheme.colors
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(vertical = 2.dp),
@@ -181,13 +192,13 @@ private fun StrengthRow(label: String, met: Boolean) {
         Icon(
             if (met) Icons.Default.Check else Icons.Default.Close,
             contentDescription = null,
-            tint = if (met) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+            tint = if (met) c.primary else c.outline,
             modifier = Modifier.height(16.dp),
         )
         Text(
             label,
-            style = MaterialTheme.typography.bodySmall,
-            color = if (met) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = ElTheme.typography.bodySmall,
+            color = if (met) c.primary else c.textSecondary,
             modifier = Modifier.padding(start = 8.dp),
         )
     }
