@@ -270,13 +270,20 @@ class CrossPlatformScenarioRunner {
         val waterfallInstallment = WaterfallInstallment(
             id = "ins-001", category = PaymentCategory.TUITION,
             amountDue = 10_000_000L, amountPaid = 10_000_000L, amountPending = 0L,
-            dueDate = "2026-09-15T00:00:00Z", status = "paid",
+            // T-449 (the time-bomb repair): a FUTURE due date (relative to the
+            // test's pinned now) + the EXPLICIT nowEpochMs — the pre-fix test
+            // relied on the REAL wall clock being before 2026-09-15 (true when
+            // written on 2026-09-13, false from 2026-09-15 on: the default
+            // nowEpochMs = System.currentTimeMillis() re-evaluated the past-due
+            // fixture as "overdue"). Deterministic forever now.
+            dueDate = "2026-10-15T00:00:00Z", status = "paid",
         )
         val revert = revertPaymentAllocation(
             installments = listOf(waterfallInstallment),
             reversalAmount = 10_000_000L,
             categoryFilter = PaymentCategory.TUITION,
             originalWasPending = false,  // CRITICAL — was PAID, not PENDING
+            nowEpochMs = now.toEpochMilli(), // 2026-09-25 < the due date — deterministic
         )
         assertEquals(1, revert.reverts.size)
         assertEquals(0L, revert.reverts[0].newAmountPaid)

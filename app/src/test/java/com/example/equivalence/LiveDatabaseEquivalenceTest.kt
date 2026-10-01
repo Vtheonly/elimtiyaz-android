@@ -9,6 +9,7 @@ import com.example.core.deriveDebtAging
 import com.example.core.derivePaymentStats
 import com.example.core.deriveRecoveryFunnel
 import com.example.core.installmentRemaining
+import com.example.core.isInstallmentOverdueStats
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
@@ -124,9 +125,18 @@ class LiveDatabaseEquivalenceTest {
     private fun sqlTruth(): JsonObject {
         // The SQL statement contains only single quotes; JsonPrimitive.toString()
         // emits a correctly-escaped JSON string literal for the body.
+        // T-449 (2026-10-01): the project ref resolves from the SUPABASE_URL
+        // env var (the CURRENT live project since the 2026-09-17 switch —
+        // vebfehrpzajhstyhinnw); the OLD hardcoded ref (hkvkefubghbbotgnteir,
+        // pre-PR#8) 403s with the current token — the stale-ref defect this
+        // session's first live run exposed.
+        val projectRef = supabaseUrl
+            ?.removePrefix("https://")
+            ?.substringBefore(".supabase.co")
+            ?: error("SUPABASE_URL required for the SQL truth leg")
         val body = "{\"query\":${JsonPrimitive(TRUTH_SQL)}}"
         val text = http(
-            "https://api.supabase.com/v1/projects/hkvkefubghbbotgnteir/database/query",
+            "https://api.supabase.com/v1/projects/$projectRef/database/query",
             "POST",
             mapOf(
                 "Authorization" to "Bearer ${accessToken!!}",
@@ -208,7 +218,10 @@ class LiveDatabaseEquivalenceTest {
           SELECT
             parent_id::text AS parent_id,
             greatest(0, amount_due - amount_paid - coalesce(amount_pending, 0))::double precision AS remaining,
-            greatest(0, floor(extract(epoch FROM (now()::timestamp - due_date::timestamp)) / 86400.0))::int AS days_overdue
+            greatest(0, floor(extract(epoch FROM (now()::timestamp - due_date::timestamp)) / 86400.0))::int AS days_overdue,
+            -- T-452 (T-426/DATA-046): only strictly-past rows age (the isStrictlyPast
+            -- guard — a future T2/T3 tranche is "à échoir", never aging).
+            (due_date::timestamp < now()::timestamp) AS is_past
           FROM installments WHERE status <> 'paid'
         ),
         census_agg AS (
@@ -222,12 +235,16 @@ class LiveDatabaseEquivalenceTest {
             END AS bucket,
             sum(remaining) AS amount,
             count(DISTINCT parent_id)::int AS debtors
-          FROM unpaid WHERE remaining > 0 GROUP BY 1
+          -- T-452: the DATA-046 guard — not-yet-due rows NEVER enter a bucket
+          -- (identical to the hub's verify_t-285.sql after the T-452 alignment).
+          FROM unpaid WHERE remaining > 0 AND is_past GROUP BY 1
         ),
         totals AS (
           SELECT
             coalesce(sum(remaining), 0)::double precision AS outstanding,
-            coalesce(sum(remaining) FILTER (WHERE days_overdue > 0), 0)::double precision AS overdue,
+            -- T-452 (T-426/DATA-045): the DYNAMIC overdue predicate — strictly
+            -- past (never the >= 1-day floor approximation, never the status).
+            coalesce(sum(remaining) FILTER (WHERE is_past), 0)::double precision AS overdue,
             count(DISTINCT parent_id)::int AS overdue_families
           FROM unpaid WHERE remaining > 0
         ),
@@ -336,19 +353,25 @@ class LiveDatabaseEquivalenceTest {
 
         // Debt totals + collection rate — the owner's 49% vector.
         assertEquals("outstanding (créances ouvertes)", truth.long("outstanding_centimes"), installments.sumOf { installmentRemaining(it) })
-        val overdue = installments.filter { com.example.core.daysBetweenFloor(it.dueDate) > 0 }.sumOf { installmentRemaining(it) }
+        // T-452: the DYNAMIC overdue predicate (isInstallmentOverdueStats —
+        // status != paid && STRICTLY past && remaining > 0), never the
+        // daysBetweenFloor>0 floor approximation.
+        val overdue = installments.filter { isInstallmentOverdueStats(it, System.currentTimeMillis()) }.sumOf { installmentRemaining(it) }
         assertEquals("overdue (en retard)", truth.long("overdue_centimes"), overdue)
         assertEquals("taux de recouvrement", truth.long("collection_rate"), collectionRatePct(stats.total, installments.sumOf { installmentRemaining(it) }).toLong())
 
         // Class-related data — the class census from the same live DB.
         assertEquals("total classes", truth.long("total_classes"), restGetAll("classes", "id").size.toLong())
 
-        // Cross-checks pinned to the 44th-session canonical corpus values
-        // (they document WHAT the numbers were when the parity was proven;
-        // they will legitimately move as the school collects more).
-        assertEquals("891 encaissements at the 44th session", 891L, truth.long("ops"))
-        assertEquals("55 227 100 DZD encaissé at the 44th session", 5_522_710_000L, truth.long("total_centimes"))
-        assertEquals("49% collection rate at the 44th session", 49L, truth.long("collection_rate"))
+        // Cross-checks pinned to the canonical corpus values at the session
+        // that re-proved the live parity (they document WHAT the numbers were;
+        // they will legitimately move as the school collects more — the 44th
+        // session's pins [891 / 55 227 100 / 49%] were re-pinned by T-449's
+        // live run: the corpus grew to 2,198 paid payments / 16 271 300 DZD
+        // and the collection rate moved to 46%).
+        assertEquals("2198 encaissements at the T-449 session (2026-10-01)", 2_198L, truth.long("ops"))
+        assertEquals("16 271 300 DZD encaissé at the T-449 session (2026-10-01)", 16_271_300_000L, truth.long("total_centimes"))
+        assertEquals("46% collection rate at the T-449 session (2026-10-01)", 46L, truth.long("collection_rate"))
     }
 
     // ── JSON helpers ──────────────────────────────────────────────────────
