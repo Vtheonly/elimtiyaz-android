@@ -344,12 +344,65 @@ fun deriveExecDiscountErosion(ledger: List<ExecLedgerEntry>): ExecDiscountErosio
 
 enum class ExecTriageBucket { NOT_DUE, CURRENT, REMINDER, CHRONIC }
 
-val EXEC_TRIAGE_LABELS_FR: Map<ExecTriageBucket, String> = mapOf(
+/**
+ * T-450 (PARITY-006, the owner's issue-#1 mandate) — the mirror of the
+ * desktop's canonical `DebtAgingThresholds`
+ * (src/domain/calc/ledger/debt-aging.ts, T-429/DEBT-100 — migration 0125's
+ * owner-specified seed values, read live from `system_settings` category
+ * `debt` by `observeThresholds()` on the desktop). The bucket KEYS stay
+ * stable; the edges move with the tenant's configuration.
+ */
+data class ExecDebtAgingThresholds(
+    /** Days past due still counted as "en cours" (the tolerance window). */
+    val gracePeriodDays: Int,
+    /** Past this many days late the account is "À surveiller" (yellow). */
+    val yellowDays: Int,
+    /** Past this many days late the account is "Critique / Contentieux" (red). */
+    val redDays: Int,
+    /**
+     * A payment within the last N days marks the parent a "payeur actif" —
+     * an ANNOTATION on the explanation, NEVER a status input (the T-429
+     * decoupling: a recent payment must not mask past-due debt).
+     */
+    val activePayerGraceDays: Int,
+) {
+    companion object {
+        /** The owner-specified defaults (migration 0125's seed values). */
+        val DEFAULT = ExecDebtAgingThresholds(
+            gracePeriodDays = 5,
+            yellowDays = 15,
+            redDays = 60,
+            activePayerGraceDays = 15,
+        )
+    }
+}
+
+/**
+ * T-450 — the mirror of the desktop's `debtTriageLabels(thresholds)`
+ * (T-443/DEBT-101): the labels DERIVE from the configured thresholds so
+ * the numbers the user sees always match the edges actually applied.
+ * The semantic mapping onto the canonical 4-tier status
+ * (financial-rules §15.1 INV-16f):
+ *
+ *   not_due  ← age ≤ 0                      (the future-due tail)
+ *   current  ← 0 < age ≤ yellowDays         (the grace + yellow tiers)
+ *   reminder ← yellowDays < age ≤ redDays   (the orange tier — relance)
+ *   chronic  ← age > redDays                (the red tier — intervention)
+ */
+fun execDebtTriageLabels(thresholds: ExecDebtAgingThresholds): Map<ExecTriageBucket, String> = mapOf(
     ExecTriageBucket.NOT_DUE to "Non échue",
-    ExecTriageBucket.CURRENT to "Retard < 15 j (à surveiller)",
-    ExecTriageBucket.REMINDER to "Retard 15–45 j (relance)",
-    ExecTriageBucket.CHRONIC to "Retard > 45 j (intervention)",
+    ExecTriageBucket.CURRENT to "Retard ≤ ${thresholds.yellowDays} j (à surveiller)",
+    ExecTriageBucket.REMINDER to "Retard ${thresholds.yellowDays}–${thresholds.redDays} j (relance)",
+    ExecTriageBucket.CHRONIC to "Retard > ${thresholds.redDays} j (intervention)",
 )
+
+/**
+ * The DEFAULTS-tier labels (the documented seed values — grace 5 / yellow
+ * 15 / red 60). Retained for display-only consumers; the derivation
+ * always carries ITS OWN labels derived from the thresholds it was
+ * handed (the desktop `TRIAGE_BUCKET_LABELS_FR` convention).
+ */
+val EXEC_TRIAGE_LABELS_FR: Map<ExecTriageBucket, String> = execDebtTriageLabels(ExecDebtAgingThresholds.DEFAULT)
 
 data class ExecTriageBucketStat(
     val bucket: ExecTriageBucket,
@@ -369,19 +422,28 @@ data class ExecCallListEntry(
 data class ExecDebtTriage(
     val buckets: List<ExecTriageBucketStat>,
     val totalOutstanding: Long,
-    /** The >45-day families ranked by full exposure — the immediate call list. */
+    /** The beyond-RED (worst days > redDays) families ranked by full exposure — the immediate call list. */
     val callList: List<ExecCallListEntry>,
 )
 
 /**
  * Real debt aging split into the owner-mandated action tiers (mirrors
- * deriveDebtTriage): not_due (future due date) / current (<15 j) /
- * reminder (15–45 j) / chronic (>45 j). Days overdue uses
- * [execDaysBetweenFloor]; the >45 boundary is STRICT (> 45).
+ * deriveDebtTriage — T-443/DEBT-101): not_due (future due date) /
+ * current (0 < age ≤ yellowDays) / reminder (yellowDays < age ≤ redDays) /
+ * chronic (age > redDays). Days overdue uses [execDaysBetweenFloor]; the
+ * chronic boundary is STRICT (> redDays). The edges derive from the SAME
+ * configurable thresholds as the canonical 4-tier debt status
+ * (financial-rules §15.1 INV-16f — `system_settings` category `debt`,
+ * migration 0125's seed: grace 5 / yellow 15 / red 60 / active-payer 15);
+ * the call list is the beyond-RED families (worstDaysOverdue > redDays),
+ * ranked by full exposure. A family appears in the call list when ANY
+ * unpaid installment is beyond the RED threshold; their exposure is their
+ * FULL outstanding (all buckets), ranked descending.
  */
 fun deriveExecDebtTriage(
     installments: List<ExecInstallment>,
     nowEpochMs: Long,
+    thresholds: ExecDebtAgingThresholds = ExecDebtAgingThresholds.DEFAULT,
 ): ExecDebtTriage {
     val bucketOrder = listOf(
         ExecTriageBucket.NOT_DUE,
@@ -396,6 +458,7 @@ fun deriveExecDebtTriage(
     }
     val acc = bucketOrder.associateWith { Acc() }
     val perFamily = HashMap<String, LongArray>() // [outstanding, worstDaysOverdue]
+    val labels = execDebtTriageLabels(thresholds)
 
     for (i in installments) {
         val remaining = execInstallmentRemaining(i.amountDue, i.amountPaid, i.amountPending, i.status)
@@ -403,8 +466,8 @@ fun deriveExecDebtTriage(
         val days = execDaysBetweenFloor(i.dueDate, nowEpochMs)
         val bucket = when {
             days <= 0L -> ExecTriageBucket.NOT_DUE
-            days < 15L -> ExecTriageBucket.CURRENT
-            days <= 45L -> ExecTriageBucket.REMINDER
+            days <= thresholds.yellowDays -> ExecTriageBucket.CURRENT
+            days <= thresholds.redDays -> ExecTriageBucket.REMINDER
             else -> ExecTriageBucket.CHRONIC
         }
         val a = acc.getValue(bucket)
@@ -421,7 +484,7 @@ fun deriveExecDebtTriage(
         val a = acc.getValue(bucket)
         ExecTriageBucketStat(
             bucket = bucket,
-            label = EXEC_TRIAGE_LABELS_FR.getValue(bucket),
+            label = labels.getValue(bucket),
             amount = a.amount,
             installmentCount = a.installmentCount,
             familyCount = a.families.size,
@@ -430,7 +493,7 @@ fun deriveExecDebtTriage(
     }
 
     val callList = perFamily.entries
-        .filter { it.value[1] > 45L }
+        .filter { it.value[1] > thresholds.redDays }
         .map { (parentId, v) -> ExecCallListEntry(parentId, v[0], v[1]) }
         .sortedByDescending { it.outstanding }
         .take(10)
