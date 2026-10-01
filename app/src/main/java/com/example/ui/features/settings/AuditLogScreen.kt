@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -28,13 +27,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.domain.model.AuditLog
 import com.example.domain.repository.AuditRepository
-import com.example.ui.components.AuditDiffSheet
-import com.example.ui.components.ElTag
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagSize
+import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.nav.ElTopBar
-import com.example.ui.theme.PrimaryBlue
+import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -81,22 +81,23 @@ fun AuditLogScreen(
 
 @Composable
 private fun AuditLogCard(log: AuditLog, onClick: () -> Unit) {
+    val c = ElTheme.colors
     ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.COMPACT, onClick = onClick) {
         Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
             Row {
-                Text(log.action, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, color = PrimaryBlue, fontSize = 13.sp), modifier = Modifier.weight(1f))
-                Text(log.occurredAt.take(19).replace("T", " "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(log.action, style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, color = c.primary, fontSize = 13.sp), modifier = Modifier.weight(1f))
+                Text(log.occurredAt.take(19).replace("T", " "), style = ElTheme.typography.labelSmall, color = c.textSecondary)
             }
             Spacer(Modifier.height(4.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text(log.actorName, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium))
-                log.actorRole?.let { role -> ElTag(text = role, color = PrimaryBlue) }
+                Text(log.actorName, style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium), color = c.textPrimary)
+                log.actorRole?.let { role -> ElTag(text = role, tone = ElTagTone.INFO, size = ElTagSize.MD) }
             }
-            Text("${log.entityType}/${log.entityId.take(8)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            log.note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            Text("${log.entityType}/${log.entityId.take(8)}", style = ElTheme.typography.bodySmall, color = c.textSecondary)
+            log.note?.let { Text(it, style = ElTheme.typography.bodySmall, color = c.textSecondary) }
         }
     }
 }

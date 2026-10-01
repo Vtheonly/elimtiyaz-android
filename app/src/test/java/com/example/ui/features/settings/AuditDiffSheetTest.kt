@@ -1,4 +1,4 @@
-package com.example.ui.components
+package com.example.ui.features.settings
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasTestTag

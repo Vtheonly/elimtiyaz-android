@@ -13,8 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -27,7 +25,7 @@ import com.example.infrastructure.sync.SyncState
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.display.ElInfoRow
 import com.example.ui.designsystem.components.display.ElSectionHeader
-import com.example.ui.theme.PrimaryBlue
+import com.example.ui.designsystem.theme.ElTheme
 
 @Composable
 internal fun DiagnosticsSection(
@@ -43,14 +41,14 @@ internal fun DiagnosticsSection(
                     Icon(
                         imageVector = if (online) Icons.Default.Cloud else Icons.Default.CloudOff,
                         contentDescription = null,
-                        tint = if (online) PrimaryBlue else MaterialTheme.colorScheme.error,
+                        tint = if (online) ElTheme.colors.primary else ElTheme.colors.danger,
                         modifier = Modifier.size(20.dp),
                     )
                     Spacer(Modifier.width(10.dp))
                     Text(
                         text = if (online) "En ligne" else "Hors ligne",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = if (online) PrimaryBlue else MaterialTheme.colorScheme.error,
+                        style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = if (online) ElTheme.colors.primary else ElTheme.colors.danger,
                     )
                 }
                 Spacer(Modifier.height(4.dp))
