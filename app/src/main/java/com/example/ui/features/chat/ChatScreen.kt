@@ -17,26 +17,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Badge
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,48 +31,63 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.domain.model.ChatChannel
+import com.example.ui.designsystem.components.button.ElIconButton
+import com.example.ui.designsystem.components.display.ElAlertBanner
+import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagSize
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.feedback.ElSpinner
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.theme.ElTheme
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
 /**
- * T-102-follow-up / ANDR-CHAT-200 — the Android chat CHANNEL LIST (v1).
+ * Channel list — first screen of the chat stack (T-102).
  *
- * The staff member's channels (membership-scoped by RLS), ordered by last
- * activity (0061's maintained columns), archived hidden — the same list
- * the website's MessagesView renders for parents and the desktop renders
- * for staff. Channel CREATION is deliberately absent (staff-only via the
- * desktop's parent-detail drawer → canonical `create_direct_channel`
- * RPC, ADR-008: this screen is read + reply).
+ * Read-side only (per ADR-008 the desktop creates channels from parent
+ * files; the send path lives in ChatDetail). Channel rows show the channel
+ * name, and a last-activity timestamp when present.
+ *
+ * T-460 pass G-c (issue #3 F-06): the raw-M3 chrome → the design system
+ * (ElScaffold/ElTopBar, the DS spinner in the top bar, ElAlertBanner for
+ * errors, ElEmptyState for the empty case). The ADR-008 read-side contract
+ * and the refresh action are preserved.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     onBack: () -> Unit,
     onOpenChannel: (ChatChannel) -> Unit,
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
     val state by viewModel.state.collectAsState()
 
-    Scaffold(
+    ElScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Messagerie") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                    }
-                },
+            ElTopBar(
+                title = "Messagerie",
+                onBack = onBack,
                 actions = {
                     if (state.loading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp).padding(end = 12.dp),
-                            strokeWidth = 2.dp,
+                        ElSpinner(
+                            size = 22,
+                            strokeWidth = 2,
+                            color = c.primary,
+                            modifier = Modifier.padding(end = 12.dp),
                         )
                     }
-                    IconButton(onClick = viewModel::refresh) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Actualiser")
-                    }
+                    ElIconButton(
+                        icon = Icons.Default.Refresh,
+                        onClick = viewModel::refresh,
+                        contentDescription = "Actualiser",
+                        tint = c.textPrimary,
+                        background = androidx.compose.ui.graphics.Color.Transparent,
+                    )
                 },
             )
         },
@@ -97,13 +98,9 @@ fun ChatScreen(
                 .padding(padding),
         ) {
             state.error?.let { error ->
-                Text(
-                    text = error,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ElAlertBanner(
+                    title = error,
+                    severity = ElAlertSeverity.DANGER,
                 )
             }
 
@@ -125,32 +122,17 @@ fun ChatScreen(
 
 @Composable
 private fun EmptyChannelsHint() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 48.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                "Aucune conversation",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Les conversations sont ouvertes par le personnel depuis le bureau " +
-                    "(fiche parent → Messager). Les parents y répondent depuis le portail.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            )
-        }
-    }
+    ElEmptyState(
+        icon = Icons.Default.Refresh,
+        title = "Aucune conversation",
+        subtitle = "Les conversations sont ouvertes par le personnel depuis le bureau " +
+            "(fiche parent → Messager). Les parents y répondent depuis le portail.",
+    )
 }
 
 @Composable
 private fun ChannelRow(channel: ChatChannel, onClick: () -> Unit) {
+    val c = ElTheme.colors
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -163,13 +145,13 @@ private fun ChannelRow(channel: ChatChannel, onClick: () -> Unit) {
             modifier = Modifier
                 .size(42.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .background(c.primary),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = channel.name.take(1).uppercase(),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                style = ElTheme.typography.titleMedium,
+                color = c.onPrimary,
                 fontWeight = FontWeight.Bold,
             )
         }
@@ -177,15 +159,15 @@ private fun ChannelRow(channel: ChatChannel, onClick: () -> Unit) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = channel.name,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
+                style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = c.textPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = channel.lastMessagePreview ?: channel.description ?: "",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = ElTheme.typography.bodySmall,
+                color = c.textSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -194,16 +176,12 @@ private fun ChannelRow(channel: ChatChannel, onClick: () -> Unit) {
             channel.lastMessageAt?.let { ts ->
                 Text(
                     text = relativeTime(ts),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = ElTheme.typography.labelSmall,
+                    color = c.textSecondary,
                 )
             }
             if (channel.isAnnouncement) {
-                Text(
-                    "Annonce",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.tertiary,
-                )
+                ElTag(text = "Annonce", tone = ElTagTone.INFO, size = ElTagSize.SM)
             }
         }
     }

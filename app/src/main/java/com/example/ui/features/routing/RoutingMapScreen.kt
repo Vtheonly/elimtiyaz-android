@@ -17,19 +17,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -40,6 +32,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.theme.ElTheme
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -229,7 +224,6 @@ class RoutingMapViewModel @Inject constructor(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RoutingMapScreen(
     onBack: () -> Unit,
@@ -297,11 +291,13 @@ fun RoutingMapScreen(
         return
     }
 
-    Scaffold(
+    val c = ElTheme.colors
+
+    ElScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(vehicle?.plate ?: "Tournée") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Retour") } },
+            ElTopBar(
+                title = vehicle?.plate ?: "Tournée",
+                onBack = onBack,
             )
         },
     ) { padding ->
@@ -313,51 +309,67 @@ fun RoutingMapScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(280.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                    .background(c.surfaceVariant),
                 contentAlignment = Alignment.Center,
             ) {
                 if (stops.isNotEmpty()) {
-                    RouteCanvas(stops = stops, currentIndex = currentStopIndex, liveLocation = liveLocation)
+                    RouteCanvas(
+                        stops = stops,
+                        currentIndex = currentStopIndex,
+                        liveLocation = liveLocation,
+                        routeColor = c.primary,
+                        currentStopColor = c.danger,
+                        stopColor = c.textSecondary,
+                        liveColor = c.success,
+                    )
                 } else {
-                    Text(if (isLoading) "Chargement…" else "Aucun arrêt.", style = MaterialTheme.typography.bodySmall)
+                    Text(if (isLoading) "Chargement…" else "Aucun arrêt.", style = ElTheme.typography.bodySmall, color = c.textSecondary)
                 }
             }
 
             error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
+                com.example.ui.designsystem.components.display.ElAlertBanner(
+                    title = it,
+                    severity = com.example.ui.designsystem.components.display.ElAlertSeverity.DANGER,
+                )
             }
 
             // Bottom sheet with current stop info
             currentStop?.let { stop ->
-                Card(
+                com.example.ui.designsystem.components.card.ElCard(
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    elevation = CardDefaults.cardElevation(2.dp),
+                    size = com.example.ui.designsystem.components.card.ElCardSize.STANDARD,
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            androidx.compose.material3.Icon(Icons.Default.LocationOn, contentDescription = null, tint = c.primary)
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Arrêt ${currentStopIndex + 1} / ${stops.size}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                Text(stop.studentName, style = MaterialTheme.typography.bodyMedium)
-                                Text(stop.address, style = MaterialTheme.typography.bodySmall)
+                                Text("Arrêt ${currentStopIndex + 1} / ${stops.size}", style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
+                                Text(stop.studentName, style = ElTheme.typography.bodyMedium, color = c.textPrimary)
+                                Text(stop.address, style = ElTheme.typography.bodySmall, color = c.textSecondary)
                             }
                         }
                         Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Distance: %.2f km".format(distanceRemaining), style = MaterialTheme.typography.labelSmall)
-                            Text("ETA: %.0f min".format(etaMin), style = MaterialTheme.typography.labelSmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("Distance : %.2f km".format(distanceRemaining), style = ElTheme.typography.labelSmall, color = c.textSecondary)
+                            Text("ETA : %.0f min".format(etaMin), style = ElTheme.typography.labelSmall, color = c.textSecondary)
                         }
                         Spacer(Modifier.height(12.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            androidx.compose.material3.Button(onClick = { viewModel.advanceStop() }) {
-                                Icon(Icons.Default.CheckCircle, contentDescription = null)
-                                Text(" Avancer")
-                            }
-                            androidx.compose.material3.TextButton(onClick = { viewModel.endTrip { onTripEnded() } }) {
-                                Icon(Icons.Default.Stop, contentDescription = null)
-                                Text(" Terminer")
-                            }
+                            com.example.ui.designsystem.components.button.ElButton(
+                                text = "Avancer",
+                                onClick = { viewModel.advanceStop() },
+                                variant = com.example.ui.designsystem.components.button.ElButtonVariant.PRIMARY,
+                                icon = Icons.Default.CheckCircle,
+                                modifier = Modifier.weight(1f),
+                            )
+                            com.example.ui.designsystem.components.button.ElButton(
+                                text = "Terminer",
+                                onClick = { viewModel.endTrip { onTripEnded() } },
+                                variant = com.example.ui.designsystem.components.button.ElButtonVariant.DANGER,
+                                icon = Icons.Default.Stop,
+                                modifier = Modifier.weight(1f),
+                            )
                         }
                     }
                 }
@@ -367,15 +379,18 @@ fun RoutingMapScreen(
             LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 items(stops) { stop ->
                     val idx = stops.indexOf(stop)
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    com.example.ui.designsystem.components.card.ElCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        size = com.example.ui.designsystem.components.card.ElCardSize.COMPACT,
+                    ) {
                         Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("#${idx + 1}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(0.2f))
+                            Text("#${idx + 1}", style = ElTheme.typography.labelSmall, color = c.textSecondary, modifier = Modifier.weight(0.2f))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(stop.studentName, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                                Text(stop.address, style = MaterialTheme.typography.labelSmall)
+                                Text(stop.studentName, style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
+                                Text(stop.address, style = ElTheme.typography.labelSmall, color = c.textSecondary)
                             }
                             if (idx < currentStopIndex) {
-                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+                                androidx.compose.material3.Icon(Icons.Default.CheckCircle, contentDescription = null, tint = c.success)
                             }
                         }
                     }
@@ -386,7 +401,15 @@ fun RoutingMapScreen(
 }
 
 @Composable
-private fun RouteCanvas(stops: List<RoutingStop>, currentIndex: Int, liveLocation: GeoPoint?) {
+private fun RouteCanvas(
+    stops: List<RoutingStop>,
+    currentIndex: Int,
+    liveLocation: GeoPoint?,
+    routeColor: Color,
+    currentStopColor: Color,
+    stopColor: Color,
+    liveColor: Color,
+) {
     if (stops.isEmpty()) return
     Canvas(modifier = Modifier.fillMaxSize()) {
         val allLats = stops.map { it.lat } + (liveLocation?.let { listOf(it.lat) } ?: emptyList())
@@ -408,7 +431,7 @@ private fun RouteCanvas(stops: List<RoutingStop>, currentIndex: Int, liveLocatio
         val points = stops.map { project(it.lat, it.lng) }
         for (i in 1 until points.size) {
             drawLine(
-                color = Color.Blue,
+                color = routeColor,
                 start = points[i - 1],
                 end = points[i],
                 strokeWidth = 4f,
@@ -418,7 +441,7 @@ private fun RouteCanvas(stops: List<RoutingStop>, currentIndex: Int, liveLocatio
         // Stops
         points.forEachIndexed { idx, p ->
             drawCircle(
-                color = if (idx == currentIndex) Color.Red else Color.DarkGray,
+                color = if (idx == currentIndex) currentStopColor else stopColor,
                 radius = if (idx == currentIndex) 12f else 6f,
                 center = p,
             )
@@ -427,7 +450,7 @@ private fun RouteCanvas(stops: List<RoutingStop>, currentIndex: Int, liveLocatio
         // Live driver position
         liveLocation?.let { loc ->
             val p = project(loc.lat, loc.lng)
-            drawCircle(color = Color.Green, radius = 10f, center = p)
+            drawCircle(color = liveColor, radius = 10f, center = p)
         }
     }
 }
