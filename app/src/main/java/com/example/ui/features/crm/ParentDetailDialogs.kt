@@ -54,18 +54,16 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.PaymentCategory
 import com.example.core.formatDzd
 import com.example.domain.model.Parent
-import com.example.ui.components.ElAvatar
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElInfoRow
-import com.example.ui.components.ElSectionHeader
-import com.example.ui.components.ElTag
-import com.example.ui.components.ElTopBar
-import com.example.ui.theme.DangerRed
-import com.example.ui.theme.PrimaryBlue
-import com.example.ui.theme.SuccessGreen
-import com.example.ui.theme.WarmGold
-import com.example.ui.theme.elDesignTokens
+import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.display.ElChip
+import com.example.ui.designsystem.components.display.ElChipVariant
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.theme.ElTheme
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.util.PhoneUtils
 
 private val ADJUSTMENT_MOTIFS = listOf(
@@ -81,22 +79,24 @@ private val ADJUSTMENT_MOTIFS = listOf(
 internal fun ReconLine(
     label: String,
     amount: Long,
-    color: Color = MaterialTheme.colorScheme.onSurface,
+    color: Color? = null,
     bold: Boolean = false,
 ) {
+    val c = ElTheme.colors
+    val resolvedColor = color ?: ElTheme.colors.textPrimary
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
             label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = ElTheme.typography.labelSmall,
+            color = c.textSecondary,
         )
         Text(
             "${if (amount < 0L) "−" else if (amount > 0L) "+" else ""}${(kotlin.math.abs(amount) / 100).formatDzd()} DZD",
-            style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium),
-            color = color,
+            style = ElTheme.typography.labelSmall.copy(fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium),
+            color = resolvedColor,
         )
     }
 }
@@ -118,6 +118,7 @@ internal fun AdjustAccountDialog(
     onConfirm: (amountCentimes: Long, category: PaymentCategory, reason: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val c = ElTheme.colors
     var amountText by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var motif by remember { mutableStateOf(ADJUSTMENT_MOTIFS.first()) }
@@ -133,8 +134,8 @@ internal fun AdjustAccountDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     if (outstanding != null) "Solde en cours : ${(outstanding / 100).formatDzd()} DZD" else "Solde en cours : —",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = ElTheme.typography.bodySmall,
+                    color = c.textSecondary,
                 )
                 OutlinedTextField(
                     value = amountText,
@@ -148,25 +149,25 @@ internal fun AdjustAccountDialog(
                 )
                 Text(
                     "Positif = débit (pénalité / majoration) · Négatif = crédit (remise / avoir)",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = ElTheme.typography.labelSmall,
+                    color = c.textSecondary,
                 )
-                Text("Motif *", style = MaterialTheme.typography.labelMedium)
+                Text("Motif *", style = ElTheme.typography.labelMedium)
                 androidx.compose.foundation.layout.FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     ADJUSTMENT_MOTIFS.forEach { m ->
-                        ElTag(text = m, selected = motif == m, color = PrimaryBlue, onClick = { motif = m })
+                        ElChip(text = m, variant = ElChipVariant.FILTER, selected = motif == m, onClick = { motif = m })
                     }
                 }
-                Text("Catégorie (débits uniquement)", style = MaterialTheme.typography.labelMedium)
+                Text("Catégorie (débits uniquement)", style = ElTheme.typography.labelMedium)
                 androidx.compose.foundation.layout.FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    ADJUSTMENT_CATEGORIES.forEach { (c, label) ->
-                        ElTag(text = label, selected = category == c, color = PrimaryBlue, onClick = { category = c })
+                    ADJUSTMENT_CATEGORIES.forEach { (code, label) ->
+                        ElChip(text = label, variant = ElChipVariant.FILTER, selected = category == code, onClick = { category = code })
                     }
                 }
                 OutlinedTextField(
@@ -224,6 +225,7 @@ internal fun AddChildDialog(
     ) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val c = ElTheme.colors
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var birthDate by remember { mutableStateOf("") }
@@ -250,32 +252,39 @@ internal fun AddChildDialog(
                 OutlinedTextField(value = birthDate, onValueChange = { birthDate = it }, label = { Text("Date de naissance (AAAA-MM-JJ) *") }, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     genderOptions.forEach { opt ->
-                        ElTag(text = opt, selected = genderLabel == opt, color = PrimaryBlue, onClick = { genderLabel = opt })
+                        ElChip(text = opt, variant = ElChipVariant.FILTER, selected = genderLabel == opt, onClick = { genderLabel = opt })
                     }
                 }
-                com.example.ui.components.ElDropdown(
+                com.example.ui.designsystem.components.input.ElDropdown(
                     label = "Niveau scolaire",
                     selectedValue = gradeLevel,
-                    options = com.example.core.GRADE_LEVEL_CODES,
-                    onSelected = {
-                        gradeLevel = it
+                    options = com.example.core.GRADE_LEVEL_CODES.map { code ->
+                        com.example.ui.designsystem.components.input.ElDropdownOption(
+                            value = code,
+                            label = code,
+                        )
+                    },
+                    onSelected = { option ->
+                        gradeLevel = option.value
                         className = "Aucune"
                     },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (gradeLevel.isNotBlank() && cycleClasses.isNotEmpty()) {
-                    com.example.ui.components.ElDropdown(
+                    com.example.ui.designsystem.components.input.ElDropdown(
                         label = "Classe (optionnel)",
                         selectedValue = className,
-                        options = listOf("Aucune") + cycleClasses.map { it.name },
-                        onSelected = { name -> className = name },
+                        options = (listOf("Aucune") + cycleClasses.map { it.name }).map { name ->
+                            com.example.ui.designsystem.components.input.ElDropdownOption(value = name, label = name)
+                        },
+                        onSelected = { option -> className = option.value },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
                 Text(
                     "L'élève sera rattaché à ce parent (dépendance parent-first). La facturation est générée selon la tarification du niveau.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = ElTheme.typography.labelSmall,
+                    color = c.textSecondary,
                 )
             }
         },

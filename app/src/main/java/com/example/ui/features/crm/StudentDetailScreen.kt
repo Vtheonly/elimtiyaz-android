@@ -70,23 +70,23 @@ import com.example.domain.repository.LedgerRepository
 import com.example.domain.repository.ParentRepository
 import com.example.domain.repository.PaymentRepository
 import com.example.domain.repository.StudentRepository
-import com.example.ui.components.ElAlertBanner
-import com.example.ui.components.ElAlertSeverity
-import com.example.ui.components.ElAvatar
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElInfoRow
-import com.example.ui.components.ElProgressBar
-import com.example.ui.components.ElScaffold
-import com.example.ui.components.ElSectionHeader
-import com.example.ui.components.ElTag
-import com.example.ui.components.ElTopBar
-import com.example.ui.components.ModernSecondaryTabRow
-import com.example.ui.theme.DangerRed
-import com.example.ui.theme.PrimaryBlue
-import com.example.ui.theme.SuccessGreen
-import com.example.ui.theme.WarmGold
-import com.example.ui.theme.elDesignTokens
+import com.example.ui.designsystem.components.display.ElAlertBanner
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElAvatarSize
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.components.display.ElChip
+import com.example.ui.designsystem.components.feedback.ElLinearProgress
+import com.example.ui.designsystem.components.display.ElChipVariant
+import com.example.ui.designsystem.theme.ElTheme
+import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.components.tabs.ElScrollableTabRow
 import com.example.ui.util.PhoneUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -121,7 +121,7 @@ fun StudentDetailScreen(
     val bulletinBusy by viewModel.bulletinBusy.collectAsState()
     val bulletinShareRequest by viewModel.bulletinShareRequest.collectAsState()
     val context = LocalContext.current
-    val tokens = elDesignTokens()
+    val c = ElTheme.colors
 
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Profil & Famille", "Notes & Bulletins", "Présences & Retards", "Finances & Échéances", "Historique")
@@ -171,39 +171,40 @@ fun StudentDetailScreen(
                 },
             )
         },
-    ) {
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(paddingValues)
                 .padding(horizontal = 16.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             student?.let { s ->
-                ElCard(modifier = Modifier.fillMaxWidth(), accent = PrimaryBlue) {
+                ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        ElAvatar(initials = s.fullName, size = 52)
+                        ElAvatar(initials = s.fullName, size = ElAvatarSize.L)
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(s.fullName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                            Text("Matricule: ${s.code} • ${s.gradeLevel.uppercase()}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(s.fullName, style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                            Text("Matricule: ${s.code} • ${s.gradeLevel.uppercase()}", style = ElTheme.typography.bodySmall, color = c.textSecondary)
                         }
                         ElTag(
                             text = if (s.status == "active") "Inscrit" else s.status,
-                            color = if (s.status == "active") SuccessGreen else DangerRed,
+                            tone = if (s.status == "active") ElTagTone.SUCCESS else ElTagTone.DANGER,
                         )
                     }
                 }
             }
 
-            ModernSecondaryTabRow(
+            ElScrollableTabRow(
                 tabs = tabs,
-                selectedTabIndex = selectedTab,
-                onTabSelected = { selectedTab = it },
+                selectedIndex = selectedTab,
+                onSelected = { selectedTab = it },
             )
 
             when (selectedTab) {
@@ -213,14 +214,14 @@ fun StudentDetailScreen(
                 ) {
                     item {
                         student?.let { s ->
-                            ElCard(modifier = Modifier.fillMaxWidth()) {
+                            ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     ElSectionHeader(title = "Renseignements Généraux")
                                     ElInfoRow(label = "Date de naissance", value = s.birthDate)
                                     ElInfoRow(label = "Cycle scolaire", value = s.level.replaceFirstChar { it.uppercase() })
                                     ElInfoRow(label = "Niveau d'études", value = s.gradeLevel.uppercase())
                                     ElInfoRow(label = "Date d'inscription", value = s.enrollmentDate.take(10))
-                                    s.medicalNotes?.let { ElInfoRow(label = "Notes médicales", value = it, valueColor = DangerRed) }
+                                    s.medicalNotes?.let { ElInfoRow(label = "Notes médicales", value = it, valueColor = c.danger) }
                                 }
                             }
                         }
@@ -228,15 +229,15 @@ fun StudentDetailScreen(
 
                     item {
                         parent?.let { p ->
-                            ElCard(modifier = Modifier.fillMaxWidth()) {
+                            ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     ElSectionHeader(title = "Tuteur Légal / Parent")
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        ElAvatar(initials = p.fullName, size = 40)
+                                        ElAvatar(initials = p.fullName, size = ElAvatarSize.M)
                                         Spacer(Modifier.width(10.dp))
                                         Column(modifier = Modifier.weight(1f)) {
-                                            Text(p.fullName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                                            Text("Code: ${p.code} • ${p.phone}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(p.fullName, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                                            Text("Code: ${p.code} • ${p.phone}", style = ElTheme.typography.bodySmall, color = c.textSecondary)
                                         }
                                     }
 
@@ -245,30 +246,30 @@ fun StudentDetailScreen(
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .height(38.dp)
-                                                .clip(MaterialTheme.shapes.small)
-                                                .background(tokens.successBrush)
+                                                .clip(com.example.ui.designsystem.theme.ElShapes.small)
+                                                .background(c.success)
                                                 .clickable { PhoneUtils.dial(context, p.phone) },
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(Icons.Default.Call, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                                                 Spacer(Modifier.width(6.dp))
-                                                Text("Appeler", color = Color.White, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                                                Text("Appeler", color = Color.White, style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                                             }
                                         }
                                         Box(
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .height(38.dp)
-                                                .clip(MaterialTheme.shapes.small)
-                                                .background(tokens.successBrush)
+                                                .clip(com.example.ui.designsystem.theme.ElShapes.small)
+                                                .background(c.success)
                                                 .clickable { PhoneUtils.openWhatsApp(context, p.whatsapp ?: p.phone) },
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(Icons.Default.Whatsapp, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                                                 Spacer(Modifier.width(6.dp))
-                                                Text("WhatsApp", color = Color.White, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                                                Text("WhatsApp", color = Color.White, style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                                             }
                                         }
                                     }
@@ -279,7 +280,7 @@ fun StudentDetailScreen(
 
                     if (siblings.isNotEmpty()) {
                         item {
-                            ElCard(modifier = Modifier.fillMaxWidth()) {
+                            ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     ElSectionHeader(title = "Fratrie inscrite (${siblings.size})")
                                     siblings.forEach { sib ->
@@ -289,11 +290,11 @@ fun StudentDetailScreen(
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                                ElAvatar(initials = sib.fullName, size = 32)
+                                                ElAvatar(initials = sib.fullName, size = ElAvatarSize.S)
                                                 Spacer(Modifier.width(8.dp))
-                                                Text(sib.fullName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
+                                                Text(sib.fullName, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
                                             }
-                                            ElTag(text = sib.gradeLevel.uppercase(), color = PrimaryBlue)
+                                            ElTag(text = sib.gradeLevel.uppercase(), tone = ElTagTone.INFO)
                                         }
                                     }
                                 }
@@ -310,9 +311,9 @@ fun StudentDetailScreen(
                     item {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf("T1", "T2", "T3").forEach { t ->
-                                ElTag(
+                                ElChip(
                                     text = t,
-                                    color = if (t == selectedTerm) PrimaryBlue else MaterialTheme.colorScheme.outline,
+                                    variant = ElChipVariant.FILTER,
                                     selected = t == selectedTerm,
                                     onClick = { selectedTerm = t },
                                 )
@@ -342,7 +343,7 @@ fun StudentDetailScreen(
                         ?.let { (subjectById[it.subjectId]?.name ?: it.subjectId) to it.subjectAverage!! }
 
                     item {
-                        ElCard(modifier = Modifier.fillMaxWidth(), accent = if ((gpa ?: 0.0) >= 10.0) SuccessGreen else DangerRed) {
+                        ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -350,12 +351,12 @@ fun StudentDetailScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("Moyenne Générale — $selectedTerm", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Moyenne Générale — $selectedTerm", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                                         Spacer(Modifier.height(4.dp))
                                         Text(
                                             text = gpa?.let { "%.2f / 20".format(it) } ?: "En attente des examens",
-                                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = if ((gpa ?: 0.0) >= 10.0) SuccessGreen else DangerRed,
+                                            style = ElTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = if ((gpa ?: 0.0) >= 10.0) c.success else c.danger,
                                         )
                                         Spacer(Modifier.height(4.dp))
                                         Text(
@@ -364,25 +365,25 @@ fun StudentDetailScreen(
                                                 isPassing(gpa) -> "Admis • Mention $mention"
                                                 else -> "Moyenne inférieure au seuil de passage • $mention"
                                             },
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = ElTheme.typography.bodySmall,
+                                            color = c.textSecondary,
                                         )
                                     }
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Text(
                                             if (rankIdx >= 0) "${rankIdx + 1}${if (rankIdx + 1 == 1) "er" else "e"}" else "—",
-                                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = PrimaryBlue,
+                                            style = ElTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = c.primary,
                                         )
                                         Text(
                                             if (classGpas.isNotEmpty()) "sur ${classGpas.size}" else "rang",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = ElTheme.typography.labelSmall,
+                                            color = c.textSecondary,
                                         )
                                     }
                                 }
                                 Spacer(Modifier.height(10.dp))
-                                ElProgressBar(progress = ((gpa ?: 0.0) / 20.0).toFloat())
+                                ElLinearProgress(progress = ((gpa ?: 0.0) / 20.0).toFloat())
                                 Spacer(Modifier.height(10.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -401,9 +402,9 @@ fun StudentDetailScreen(
 
                     item {
                         if (termGpas.values.any { it != null }) {
-                            ElCard(modifier = Modifier.fillMaxWidth()) {
+                            ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                                 Column(modifier = Modifier.padding(14.dp)) {
-                                    Text("Progression de l'année", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                    Text("Progression de l'année", style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                                     Spacer(Modifier.height(8.dp))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -415,33 +416,33 @@ fun StudentDetailScreen(
                                             Column(
                                                 horizontalAlignment = Alignment.CenterHorizontally,
                                                 modifier = Modifier
-                                                    .clip(MaterialTheme.shapes.small)
+                                                    .clip(com.example.ui.designsystem.theme.ElShapes.small)
                                                     .background(
                                                         when {
-                                                            isCurrent -> PrimaryBlue.copy(alpha = 0.12f)
-                                                            termGpa != null && isPassing(termGpa) -> SuccessGreen.copy(alpha = 0.08f)
-                                                            termGpa != null -> DangerRed.copy(alpha = 0.08f)
-                                                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                                            isCurrent -> c.primary.copy(alpha = 0.12f)
+                                                            termGpa != null && isPassing(termGpa) -> c.success.copy(alpha = 0.08f)
+                                                            termGpa != null -> c.danger.copy(alpha = 0.08f)
+                                                            else -> c.surfaceVariant.copy(alpha = 0.5f)
                                                         },
                                                     )
                                                     .padding(horizontal = 14.dp, vertical = 10.dp),
                                             ) {
                                                 Text(
                                                     t,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = if (isCurrent) PrimaryBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    style = ElTheme.typography.labelSmall,
+                                                    color = if (isCurrent) c.primary else c.textSecondary,
                                                 )
                                                 Text(
                                                     termGpa?.let { "%.2f".format(it) } ?: "—",
-                                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                                    style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                                     color = when {
-                                                        termGpa == null -> MaterialTheme.colorScheme.outline
-                                                        isPassing(termGpa) -> SuccessGreen
-                                                        else -> DangerRed
+                                                        termGpa == null -> c.textMuted
+                                                        isPassing(termGpa) -> c.success
+                                                        else -> c.danger
                                                     },
                                                 )
                                                 if (isCurrent) {
-                                                    Text("Trimestre affiché", style = MaterialTheme.typography.labelSmall, color = PrimaryBlue)
+                                                    Text("Trimestre affiché", style = ElTheme.typography.labelSmall, color = c.primary)
                                                 }
                                             }
                                         }
@@ -459,7 +460,7 @@ fun StudentDetailScreen(
                                         label = "Point fort",
                                         subjectName = name,
                                         average = avg,
-                                        color = SuccessGreen,
+                                        color = c.success,
                                         modifier = Modifier.weight(1f),
                                     )
                                 }
@@ -468,7 +469,7 @@ fun StudentDetailScreen(
                                         label = "À renforcer",
                                         subjectName = name,
                                         average = avg,
-                                        color = DangerRed,
+                                        color = c.danger,
                                         modifier = Modifier.weight(1f),
                                     )
                                 }
@@ -478,15 +479,15 @@ fun StudentDetailScreen(
 
                     if (assessments.isEmpty()) {
                         item {
-                            ElCard(modifier = Modifier.fillMaxWidth()) {
-                                Text("Aucune note saisie pour ce trimestre.", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall)
+                            ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
+                                Text("Aucune note saisie pour ce trimestre.", modifier = Modifier.padding(16.dp), style = ElTheme.typography.bodySmall)
                             }
                         }
                     } else {
                         item {
                             Text(
                                 "Détail par matière",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             )
                         }
                         items(assessments.sortedWith(
@@ -511,20 +512,20 @@ fun StudentDetailScreen(
                         }
 
                         item {
-                            ElCard(modifier = Modifier.fillMaxWidth(), accent = PrimaryBlue) {
+                            ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                                 Column(modifier = Modifier.padding(14.dp)) {
                                     Text(
                                         "Bulletin officiel — $selectedTerm",
-                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                        style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                     )
                                     Spacer(Modifier.height(4.dp))
                                     Text(
                                         "Génère le bulletin PDF (notes, coefficients, moyenne générale, mention, rang) prêt à partager avec la famille.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = ElTheme.typography.bodySmall,
+                                        color = c.textSecondary,
                                     )
                                     Spacer(Modifier.height(10.dp))
-                                    com.example.ui.components.ElButton(
+                                    com.example.ui.designsystem.components.button.ElButton(
                                         text = if (bulletinBusy) "Génération…" else "Générer le bulletin $selectedTerm",
                                         onClick = { viewModel.generateBulletin(studentId, selectedTerm) },
                                         fullWidth = true,
@@ -542,7 +543,7 @@ fun StudentDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     item {
-                        ElCard(modifier = Modifier.fillMaxWidth()) {
+                        ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                             Column(modifier = Modifier.padding(14.dp)) {
                                 ElSectionHeader(title = "Bilan des présences")
                                 Spacer(Modifier.height(8.dp))
@@ -551,20 +552,20 @@ fun StudentDetailScreen(
                                     horizontalArrangement = Arrangement.SpaceAround,
                                 ) {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("%.1f%%".format(attendanceStats.rate), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = SuccessGreen)
-                                        Text("Assiduité", style = MaterialTheme.typography.labelSmall)
+                                        Text("%.1f%%".format(attendanceStats.rate), style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = c.success)
+                                        Text("Assiduité", style = ElTheme.typography.labelSmall)
                                     }
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("${attendanceStats.presentCount}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = PrimaryBlue)
-                                        Text("Présents", style = MaterialTheme.typography.labelSmall)
+                                        Text("${attendanceStats.presentCount}", style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = c.primary)
+                                        Text("Présents", style = ElTheme.typography.labelSmall)
                                     }
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("${attendanceStats.unexcusedCount}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = DangerRed)
-                                        Text("Injustifiées", style = MaterialTheme.typography.labelSmall)
+                                        Text("${attendanceStats.unexcusedCount}", style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = c.danger)
+                                        Text("Injustifiées", style = ElTheme.typography.labelSmall)
                                     }
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text("${attendanceStats.lateCount}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = WarmGold)
-                                        Text("Retards", style = MaterialTheme.typography.labelSmall)
+                                        Text("${attendanceStats.lateCount}", style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = c.warning)
+                                        Text("Retards", style = ElTheme.typography.labelSmall)
                                     }
                                 }
                             }
@@ -573,21 +574,21 @@ fun StudentDetailScreen(
 
                     if (attendanceRecords.isEmpty()) {
                         item {
-                            ElCard(modifier = Modifier.fillMaxWidth()) {
-                                Text("Aucune absence ou retard enregistré.", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall)
+                            ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
+                                Text("Aucune absence ou retard enregistré.", modifier = Modifier.padding(16.dp), style = ElTheme.typography.bodySmall)
                             }
                         }
                     } else {
                         items(attendanceRecords.take(30)) { rec ->
-                            val (badgeColor, label) = when (rec.status) {
-                                "present" -> SuccessGreen to "Présent"
-                                "absent_unexcused" -> DangerRed to "Absence non justifiée"
-                                "absent_excused" -> WarmGold to "Absence excusée"
-                                "late" -> PrimaryBlue to "Retard"
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant to rec.status
+                            val (badgeTone, label) = when (rec.status) {
+                                "present" -> ElTagTone.SUCCESS to "Présent"
+                                "absent_unexcused" -> ElTagTone.DANGER to "Absence non justifiée"
+                                "absent_excused" -> ElTagTone.WARNING to "Absence excusée"
+                                "late" -> ElTagTone.INFO to "Retard"
+                                else -> ElTagTone.NEUTRAL to rec.status
                             }
 
-                            ElCard(modifier = Modifier.fillMaxWidth(), compact = true) {
+                            ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.COMPACT) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -596,12 +597,12 @@ fun StudentDetailScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(rec.date, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                                        Text(rec.date, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                                         rec.note?.let {
-                                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(it, style = ElTheme.typography.bodySmall, color = c.textSecondary)
                                         }
                                     }
-                                    ElTag(text = label, color = badgeColor)
+                                    ElTag(text = label, tone = badgeTone)
                                 }
                             }
                         }
@@ -620,18 +621,18 @@ fun StudentDetailScreen(
                         val ownDue = installments.filter { it.status != com.example.core.PaymentStatus.CANCELLED }.sumOf { it.amountDue }
                         val ownPaid = installments.sumOf { it.amountPaid }
 
-                        ElCard(modifier = Modifier.fillMaxWidth(), accent = if (studentRest > 0) DangerRed else SuccessGreen) {
+                        ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                             Column(modifier = Modifier.padding(14.dp)) {
                                 ElSectionHeader(title = "Finances — part de cet élève")
                                 Spacer(Modifier.height(6.dp))
                                 ElInfoRow(label = "Tranches de cet élève (dû)", value = "${(ownDue / 100).formatDzd()} DZD")
-                                ElInfoRow(label = "Tranches de cet élève (payé)", value = "${(ownPaid / 100).formatDzd()} DZD", valueColor = SuccessGreen)
+                                ElInfoRow(label = "Tranches de cet élève (payé)", value = "${(ownPaid / 100).formatDzd()} DZD", valueColor = c.success)
 
                                 Spacer(Modifier.height(10.dp))
                                 ElButton(
                                     text = "Encaisser pour cet élève",
                                     onClick = { student?.let { s -> onNavigateToCounter(s.parentId, s.id) } },
-                                    style = com.example.ui.components.ElButtonStyle.Primary,
+                                    variant = com.example.ui.designsystem.components.button.ElButtonVariant.PRIMARY,
                                     icon = Icons.Default.Payments,
                                     fullWidth = true,
                                 )
@@ -640,36 +641,36 @@ fun StudentDetailScreen(
                                 ElSectionHeader(title = "Solde familial consolidé (tous enfants)")
                                 Spacer(Modifier.height(4.dp))
                                 ElInfoRow(label = "Total scolarité & transport", value = "${(studentDue / 100).formatDzd()} DZD")
-                                ElInfoRow(label = "Total réglé", value = "${(studentPaid / 100).formatDzd()} DZD", valueColor = SuccessGreen)
-                                ElInfoRow(label = "Reste à payer", value = "${(studentRest / 100).formatDzd()} DZD", valueColor = if (studentRest > 0) DangerRed else SuccessGreen)
+                                ElInfoRow(label = "Total réglé", value = "${(studentPaid / 100).formatDzd()} DZD", valueColor = c.success)
+                                ElInfoRow(label = "Reste à payer", value = "${(studentRest / 100).formatDzd()} DZD", valueColor = if (studentRest > 0) c.danger else c.success)
                             }
                         }
                     }
 
                     if (installments.isNotEmpty()) {
                         item {
-                            Text("Échéancier des tranches", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            Text("Échéancier des tranches", style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                         }
                         items(installments) { inst ->
-                            val statusColor = when (inst.status.name) {
-                                "PAID" -> SuccessGreen
-                                "PARTIAL" -> WarmGold
-                                "OVERDUE" -> DangerRed
-                                else -> PrimaryBlue
+                            val statusTone = when (inst.status.name) {
+                                "PAID" -> ElTagTone.SUCCESS
+                                "PARTIAL" -> ElTagTone.WARNING
+                                "OVERDUE" -> ElTagTone.DANGER
+                                else -> ElTagTone.INFO
                             }
-                            ElCard(modifier = Modifier.fillMaxWidth(), compact = true) {
+                            ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.COMPACT) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                     ) {
-                                        Text(inst.label, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                                        ElTag(text = inst.status.name, color = statusColor)
+                                        Text(inst.label, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                                        ElTag(text = inst.status.name, tone = statusTone)
                                     }
                                     Spacer(Modifier.height(4.dp))
                                     ElInfoRow(label = "Échéance", value = inst.dueDate)
                                     ElInfoRow(label = "Montant dû", value = "${(inst.amountDue / 100).formatDzd()} DZD")
-                                    ElInfoRow(label = "Payé", value = "${(inst.amountPaid / 100).formatDzd()} DZD", valueColor = SuccessGreen)
+                                    ElInfoRow(label = "Payé", value = "${(inst.amountPaid / 100).formatDzd()} DZD", valueColor = c.success)
                                 }
                             }
                         }
@@ -678,10 +679,10 @@ fun StudentDetailScreen(
                     if (payments.isNotEmpty()) {
                         item {
                             Spacer(Modifier.height(6.dp))
-                            Text("Reçus d'encaissements", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                            Text("Reçus d'encaissements", style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                         }
                         items(payments) { p ->
-                            ElCard(modifier = Modifier.fillMaxWidth(), compact = true) {
+                            ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.COMPACT) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -690,10 +691,10 @@ fun StudentDetailScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Column {
-                                        Text(p.receiptNumber, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                                        Text("${p.method.name} • ${p.collectedAt.take(10)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(p.receiptNumber, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                                        Text("${p.method.name} • ${p.collectedAt.take(10)}", style = ElTheme.typography.bodySmall, color = c.textSecondary)
                                     }
-                                    Text("+${(p.amount / 100).formatDzd()} DZD", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = SuccessGreen)
+                                    Text("+${(p.amount / 100).formatDzd()} DZD", style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = c.success)
                                 }
                             }
                         }
@@ -712,7 +713,7 @@ fun StudentDetailScreen(
             }
 
             saveMessage?.let {
-                ElAlertBanner(message = it, severity = ElAlertSeverity.Success, title = "Modifications enregistrées")
+                ElAlertBanner(message = it, severity = ElAlertSeverity.SUCCESS, title = "Modifications enregistrées")
             }
         }
     }
@@ -733,15 +734,17 @@ fun StudentDetailScreen(
                     OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Prénom") }, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Nom") }, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = birthDate, onValueChange = { birthDate = it }, label = { Text("Date de naissance (AAAA-MM-JJ)") }, modifier = Modifier.fillMaxWidth())
-                    com.example.ui.components.ElDropdown(
+                    com.example.ui.designsystem.components.input.ElDropdown(
                         label = "Niveau scolaire",
                         selectedValue = gradeLevel,
-                        options = GRADE_LEVEL_CODES,
-                        onSelected = { gradeLevel = it },
+                        options = GRADE_LEVEL_CODES.map { code ->
+                            com.example.ui.designsystem.components.input.ElDropdownOption(value = code, label = code)
+                        },
+                        onSelected = { option -> gradeLevel = option.value },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     OutlinedTextField(value = medicalNotes, onValueChange = { medicalNotes = it }, label = { Text("Notes médicales") }, modifier = Modifier.fillMaxWidth())
-                    Text("Matricule ${s.code} — non modifiable.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Matricule ${s.code} — non modifiable.", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                 }
             },
             confirmButton = {
