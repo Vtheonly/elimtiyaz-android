@@ -13,17 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,9 +28,17 @@ import com.example.domain.model.Parent
 import com.example.domain.model.Student
 import com.example.domain.repository.ParentRepository
 import com.example.domain.repository.StudentRepository
-import com.example.ui.components.ElAvatar
-import com.example.ui.components.ElTag
-import com.example.ui.theme.PrimaryBlue
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.display.ElAvatarSize
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagSize
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.components.input.ElTextField
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -90,7 +88,6 @@ class GlobalSearchViewModel @Inject constructor(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GlobalSearchScreen(
     onBack: () -> Unit,
@@ -98,32 +95,30 @@ fun GlobalSearchScreen(
     onNavigateToStudent: (String) -> Unit,
     viewModel: GlobalSearchViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
     val query by viewModel.query.collectAsState()
     val parents by viewModel.parents.collectAsState()
     val students by viewModel.students.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Recherche globale") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Retour") } },
-            )
-        },
+    // T-460 pass E: raw M3 Scaffold/TopAppBar/Card/OutlinedTextField → the DS
+    // equivalents (the audit's §2.2 "Global search ❌ LEGACY" entry).
+    ElScaffold(
+        topBar = { ElTopBar(title = "Recherche globale", onBack = onBack) },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-            OutlinedTextField(
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(ElTheme.spacing.lg)) {
+            ElTextField(
                 value = query,
                 onValueChange = viewModel::onQueryChange,
-                label = { Text("Rechercher un parent ou un élève…") },
-                placeholder = { Text("Nom, matricule, téléphone...") },
+                label = "Rechercher un parent ou un élève…",
+                placeholder = "Nom, matricule, téléphone...",
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
 
             if (isSearching) {
                 Spacer(Modifier.height(6.dp))
-                Text("Recherche en cours…", style = MaterialTheme.typography.bodySmall, color = PrimaryBlue)
+                Text("Recherche en cours…", style = ElTheme.typography.bodySmall, color = c.primary)
             }
 
             Spacer(Modifier.height(10.dp))
@@ -136,27 +131,28 @@ fun GlobalSearchScreen(
                     item {
                         Text(
                             "Parents trouvés (${parents.size})",
-                            style = MaterialTheme.typography.titleSmall,
+                            style = ElTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
+                            color = c.textPrimary,
                         )
                     }
                     items(parents) { parent ->
-                        Card(
+                        ElCard(
                             modifier = Modifier.fillMaxWidth(),
+                            size = ElCardSize.COMPACT,
                             onClick = { onNavigateToParent(parent.id) },
-                            elevation = CardDefaults.cardElevation(1.dp),
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                ElAvatar(initials = parent.fullName, size = 38)
+                                ElAvatar(initials = parent.fullName, size = ElAvatarSize.M)
                                 Spacer(Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(parent.fullName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                                    Text("${parent.code} • Tél: ${parent.phone}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(parent.fullName, style = ElTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = c.textPrimary)
+                                    Text("${parent.code} • Tél: ${parent.phone}", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                                 }
-                                ElTag(text = "Parent", color = PrimaryBlue)
+                                ElTag(text = "Parent", tone = ElTagTone.INFO, size = ElTagSize.MD)
                             }
                         }
                     }
@@ -167,27 +163,28 @@ fun GlobalSearchScreen(
                         Spacer(Modifier.height(8.dp))
                         Text(
                             "Élèves trouvés (${students.size})",
-                            style = MaterialTheme.typography.titleSmall,
+                            style = ElTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
+                            color = c.textPrimary,
                         )
                     }
                     items(students) { student ->
-                        Card(
+                        ElCard(
                             modifier = Modifier.fillMaxWidth(),
+                            size = ElCardSize.COMPACT,
                             onClick = { onNavigateToStudent(student.id) },
-                            elevation = CardDefaults.cardElevation(1.dp),
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                ElAvatar(initials = student.fullName, size = 38)
+                                ElAvatar(initials = student.fullName, size = ElAvatarSize.M)
                                 Spacer(Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(student.fullName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                                    Text("${student.code} • ${student.gradeLevel.uppercase()}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(student.fullName, style = ElTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = c.textPrimary)
+                                    Text("${student.code} • ${student.gradeLevel.uppercase()}", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                                 }
-                                ElTag(text = student.level, color = MaterialTheme.colorScheme.secondary)
+                                ElTag(text = student.level, tone = ElTagTone.NEUTRAL, size = ElTagSize.MD)
                             }
                         }
                     }
@@ -196,7 +193,7 @@ fun GlobalSearchScreen(
                 if (parents.isEmpty() && students.isEmpty() && query.isNotBlank() && !isSearching) {
                     item {
                         Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text("Aucun résultat pour « $query ».", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                            Text("Aucun résultat pour « $query ».", style = ElTheme.typography.bodyMedium, color = c.textSecondary)
                         }
                     }
                 }
