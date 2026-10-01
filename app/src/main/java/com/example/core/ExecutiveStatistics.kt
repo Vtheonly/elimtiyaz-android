@@ -160,14 +160,48 @@ data class ExecTrancheWave(
     val paidCount: Int,
     val familyCount: Int,
     val debtorFamilyCount: Int,
+    /**
+     * T-451 (T-427/DATA-048 mirror): distinct families with an unsettled,
+     * STILL-OWING row whose due date is STRICTLY PAST — the wave's
+     * actually-late families. `debtorFamilyCount` counts every owing
+     * family regardless of due date (a future T2/T3 tranche's current
+     * balance is "non soldée", NOT "en retard").
+     */
+    val overdueDebtorFamilyCount: Int,
     val dueTotal: Long,             // centimes
     val paidTotal: Long,
     val remainingTotal: Long,
     val collectedPct: Int,          // round(paidTotal / dueTotal × 100)
     val clearedPct: Int,            // round(paidCount / installmentCount × 100)
     val dueDate: String?,           // earliest due date ISO (null when empty)
+    /**
+     * T-451 (T-435/UI-317 mirror): LATEST due date in the wave (ISO) —
+     * with [dueDate] the wave's due-date RANGE (the spread the card
+     * renders when rows drifted off the official schedule; equal on the
+     * official schedule where every row of a wave shares one date).
+     */
+    val dueDateMax: String?,
     val phase: WavePhase,
 )
+
+/**
+ * T-451 (T-424/DATA-042 mirror) — THE canonical tranche-settled predicate,
+ * INV-4 family: a tranche is settled when its status says paid OR nothing
+ * remains to collect (`due − paid − pending` clamped at 0 — uncleared
+ * pending funds count as coverage, exactly like the remaining). One
+ * predicate for EVERY surface — per-surface status-only checks render
+ * DIFFERENT verdicts for the same row (an uncleared cheque covering a
+ * tranche: "settled" on one surface, "not paid" on another).
+ */
+fun execIsInstallmentSettled(
+    status: String,
+    amountDue: Long,
+    amountPaid: Long,
+    amountPending: Long,
+): Boolean {
+    if (status == "paid") return true
+    return (amountDue - amountPaid - amountPending).coerceAtLeast(0L) == 0L
+}
 
 private fun waveCategoryRank(category: String): Int = when (category) {
     "tuition" -> 0
@@ -177,11 +211,16 @@ private fun waveCategoryRank(category: String): Int = when (category) {
 
 /**
  * The three seasonal cash surges — per (category × trancheNumber) wave
- * (mirrors deriveTrancheWaves; groups by the CANONICAL tranche_number,
- * never label parsing). A wave is OVERDUE when any unpaid installment's
- * due date is past `now`; NOT_DUE when every unpaid remainder is in the
- * future; IN_WINDOW otherwise (fully-collected waves report IN_WINDOW —
- * complete, 100%).
+ * (mirrors deriveTrancheWaves + the canonical deriveTrancheWaveStats
+ * grouping, T-424/T-425/T-427/T-435): groups by the CANONICAL
+ * tranche_number, never label parsing, and — the T-425 official model —
+ * NON-WAVE rows (tranche 0 = the registration fee FI, out-of-range
+ * legacy values) are EXCLUDED, never coerced into a wave. A wave is
+ * OVERDUE when any unsettled row's due date is past `now`; NOT_DUE when
+ * every unsettled remainder is in the future; IN_WINDOW otherwise
+ * (fully-collected waves report IN_WINDOW — complete, 100%). Settled
+ * follows the ONE canonical predicate [execIsInstallmentSettled], never
+ * a per-surface status check.
  */
 fun deriveExecTrancheWaves(
     installments: List<ExecInstallment>,
@@ -195,17 +234,24 @@ fun deriveExecTrancheWaves(
         var paidCount = 0
         val families = mutableSetOf<String>()
         val debtorFamilies = mutableSetOf<String>()
+        // T-427 (DATA-048): the wave's actually-late families (PAST-DUE only).
+        val overdueDebtorFamilies = mutableSetOf<String>()
         var dueTotal = 0L
         var paidTotal = 0L
         var remainingTotal = 0L
         var dueDateMin: Long? = null
+        var dueDateMax: Long? = null
         var anyUnpaidOverdue = false
         var anyUnpaidFuture = false
     }
 
     val byWave = LinkedHashMap<String, Acc>()
     for (i in installments) {
-        val wave = i.trancheNumber.coerceIn(1, 3)
+        // Rule 1 (T-425, the official model) — non-wave rows are EXCLUDED,
+        // never coerced: tranche 0 (the registration fee FI), out-of-range
+        // legacy values never form a wave. There is NO 4th tranche.
+        val wave = i.trancheNumber
+        if (wave != 1 && wave != 2 && wave != 3) continue
         val key = "${i.category}#$wave"
         val acc = byWave.getOrPut(key) { Acc(i.category, wave) }
         acc.installmentCount += 1
@@ -216,12 +262,25 @@ fun deriveExecTrancheWaves(
         if (dueTs != null && (acc.dueDateMin == null || dueTs < acc.dueDateMin!!)) {
             acc.dueDateMin = dueTs
         }
-        if (i.status == "paid") {
+        // T-435 (UI-317): the range's other bound — the LATEST due date in
+        // the wave (the spread's far edge; equals dueDateMin on the official
+        // schedule where every row of a wave shares one date).
+        if (dueTs != null && (acc.dueDateMax == null || dueTs > acc.dueDateMax!!)) {
+            acc.dueDateMax = dueTs
+        }
+        // Rule 3 — the INV-4 remaining over every row (settled rows add 0).
+        val remaining = execInstallmentRemaining(i.amountDue, i.amountPaid, i.amountPending, i.status)
+        acc.remainingTotal += remaining
+        // Rule 2 — the canonical settled predicate (never a status check).
+        if (execIsInstallmentSettled(i.status, i.amountDue, i.amountPaid, i.amountPending)) {
             acc.paidCount += 1
         } else {
-            val remaining = execInstallmentRemaining(i.amountDue, i.amountPaid, i.amountPending, i.status)
-            acc.remainingTotal += remaining
             if (remaining > 0) acc.debtorFamilies.add(i.parentId)
+            // T-427 (DATA-048): an owing family whose row is PAST DUE is
+            // "en retard"; a future-dated owing family is only "non soldée".
+            if (remaining > 0 && dueTs != null && dueTs < nowEpochMs) {
+                acc.overdueDebtorFamilies.add(i.parentId)
+            }
             if (dueTs != null) {
                 if (dueTs < nowEpochMs) acc.anyUnpaidOverdue = true
                 else acc.anyUnpaidFuture = true
@@ -243,12 +302,14 @@ fun deriveExecTrancheWaves(
             paidCount = acc.paidCount,
             familyCount = acc.families.size,
             debtorFamilyCount = acc.debtorFamilies.size,
+            overdueDebtorFamilyCount = acc.overdueDebtorFamilies.size,
             dueTotal = acc.dueTotal,
             paidTotal = acc.paidTotal,
             remainingTotal = acc.remainingTotal,
             collectedPct = execSharePct(acc.paidTotal, acc.dueTotal),
             clearedPct = execSharePct(acc.paidCount.toLong(), acc.installmentCount.toLong()),
             dueDate = acc.dueDateMin?.let { formatIsoMillis(it) },
+            dueDateMax = acc.dueDateMax?.let { formatIsoMillis(it) },
             phase = phase,
         )
     }

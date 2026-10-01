@@ -1112,12 +1112,16 @@ object AndroidEquivalenceRunner {
                                 put("paidCount", w.paidCount)
                                 put("familyCount", w.familyCount)
                                 put("debtorFamilyCount", w.debtorFamilyCount)
+                                // T-451 (T-427 mirror): the wave's actually-late families.
+                                put("overdueDebtorFamilyCount", w.overdueDebtorFamilyCount)
                                 put("dueTotal", w.dueTotal)
                                 put("paidTotal", w.paidTotal)
                                 put("remainingTotal", w.remainingTotal)
                                 put("collectedPct", w.collectedPct)
                                 put("clearedPct", w.clearedPct)
                                 if (w.dueDate != null) put("dueDate", w.dueDate) else put("dueDate", kotlinx.serialization.json.JsonNull)
+                                // T-451 (T-435 mirror): the due-date RANGE's far bound.
+                                if (w.dueDateMax != null) put("dueDateMax", w.dueDateMax) else put("dueDateMax", kotlinx.serialization.json.JsonNull)
                                 put("phase", w.phase.name.lowercase())
                             })
                         }

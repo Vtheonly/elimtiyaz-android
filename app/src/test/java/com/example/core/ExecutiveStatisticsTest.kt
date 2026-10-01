@@ -201,12 +201,77 @@ class ExecutiveStatisticsTest {
     }
 
     @Test
-    fun `waves - defaults missing trancheNumber to wave 1 (legacy rows)`() {
-        val legacy = deriveExecTrancheWaves(
-            listOf(ins("l-1", amountDue = 10_000, amountPaid = 10_000, status = "paid").copy(trancheNumber = 1)),
+    fun `waves - T-451 the canonical settled predicate - a row whose INV-4 remaining is zero is settled even when status is not paid`() {
+        // T-424 (DATA-042): isInstallmentSettled = status 'paid' OR
+        // clampNonNegative(due - paid - pending) === 0 — the per-surface
+        // status-only check rendered DIFFERENT verdicts for the same row.
+        val waves = deriveExecTrancheWaves(
+            listOf(
+                ins("c-1", "p-9", trancheNumber = 1, amountDue = 100_000, amountPaid = 100_000, status = "unpaid", dueDate = "2025-09-15"),
+                ins("c-2", "p-9", trancheNumber = 1, amountDue = 50_000, amountPaid = 50_000, status = "partial", dueDate = "2025-09-15"),
+            ),
             now,
         )
-        assertEquals(1, legacy[0].wave)
+        assertEquals(2, waves[0].paidCount)
+        assertEquals(0L, waves[0].remainingTotal)
+        assertEquals(0, waves[0].debtorFamilyCount)
+        assertEquals(100, waves[0].clearedPct)
+        assertEquals(WavePhase.IN_WINDOW, waves[0].phase)
+        // The predicate is also exported for surface-level use.
+        assertTrue(execIsInstallmentSettled("unpaid", 100_000, 100_000, 0))
+        assertTrue(execIsInstallmentSettled("partial", 60_000, 50_000, 10_000)) // pending coverage counts
+        assertFalse(execIsInstallmentSettled("partial", 60_000, 50_000, 0))
+        assertTrue(execIsInstallmentSettled("paid", 60_000, 0, 0))
+    }
+
+    @Test
+    fun `waves - T-451 non-wave rows (FI tranche 0 and legacy out-of-range) are EXCLUDED, never coerced into a wave`() {
+        // T-425 (DATA-044, the official model): tranche 0 = the registration
+        // fee (FI — a FEE, not a tranche); out-of-range legacy values (the
+        // phantom T4) never form a wave. The live DB carries 1,137 FI rows at
+        // tranche 0 — the old coerceIn(1,3) pooled them into wave 1.
+        val waves = deriveExecTrancheWaves(
+            listOf(
+                ins("fi-1", "p-1", trancheNumber = 0, amountDue = 100_000, amountPaid = 100_000, status = "paid", dueDate = "2025-09-15"),
+                ins("fi-2", "p-2", trancheNumber = 0, amountDue = 110_000, amountPaid = 110_000, status = "paid", dueDate = "2025-09-15"),
+                ins("t4-1", "p-1", trancheNumber = 4, amountDue = 80_000, amountPaid = 0, status = "unpaid", dueDate = "2026-06-15"),
+                ins("t1-1", "p-1", trancheNumber = 1, amountDue = 120_000, amountPaid = 60_000, status = "partial", dueDate = "2025-09-15"),
+            ),
+            now,
+        )
+        assertEquals(listOf("tuition#1"), waves.map { it.key })
+        assertEquals(1, waves[0].installmentCount)
+        assertEquals(120_000L, waves[0].dueTotal)
+        // The FI rows' money NEVER reaches the waves.
+        assertEquals(60_000L, waves[0].paidTotal)
+    }
+
+    @Test
+    fun `waves - T-451 overdueDebtorFamilyCount separates owing families from actually-LATE families (T-427 DATA-048)`() {
+        val waves = deriveExecTrancheWaves(
+            listOf(
+                // p-1 owes, PAST DUE (2025-09-15 < now) — actually late
+                ins("o-1", "p-1", trancheNumber = 1, amountDue = 100_000, amountPaid = 0, status = "unpaid", dueDate = "2025-09-15"),
+                // p-2 owes the SAME wave but the due date is FUTURE (2026-12-15) — owing, not late
+                ins("o-2", "p-2", trancheNumber = 1, amountDue = 100_000, amountPaid = 0, status = "unpaid", dueDate = "2026-12-15"),
+            ),
+            now,
+        )
+        assertEquals(2, waves[0].debtorFamilyCount)
+        assertEquals(1, waves[0].overdueDebtorFamilyCount)
+    }
+
+    @Test
+    fun `waves - T-451 dueDateMax carries the wave due-date RANGE far bound (T-435 UI-317)`() {
+        val waves = deriveExecTrancheWaves(
+            listOf(
+                ins("dr-1", "p-1", trancheNumber = 2, amountDue = 80_000, amountPaid = 0, status = "unpaid", dueDate = "2025-12-15"),
+                ins("dr-2", "p-2", trancheNumber = 2, amountDue = 80_000, amountPaid = 0, status = "unpaid", dueDate = "2026-01-20"), // drifted off the official schedule
+            ),
+            now,
+        )
+        assertEquals("2025-12-15T00:00:00.000Z", waves[0].dueDate)
+        assertEquals("2026-01-20T00:00:00.000Z", waves[0].dueDateMax)
     }
 
     @Test

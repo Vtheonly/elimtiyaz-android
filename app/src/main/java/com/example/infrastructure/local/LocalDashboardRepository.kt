@@ -524,9 +524,11 @@ class LocalDashboardRepository @Inject constructor(
                     wave = it.wave,
                     installmentCount = it.installmentCount, paidCount = it.paidCount,
                     familyCount = it.familyCount, debtorFamilyCount = it.debtorFamilyCount,
+                    overdueDebtorFamilyCount = it.overdueDebtorFamilyCount,
                     dueTotal = it.dueTotal, paidTotal = it.paidTotal, remainingTotal = it.remainingTotal,
                     collectedPct = it.collectedPct, clearedPct = it.clearedPct,
-                    dueDate = it.dueDate, phase = it.phase.name.lowercase(),
+                    dueDate = it.dueDate, dueDateMax = it.dueDateMax,
+                    phase = it.phase.name.lowercase(),
                 )
             },
             erosion = ExecErosionItem(
