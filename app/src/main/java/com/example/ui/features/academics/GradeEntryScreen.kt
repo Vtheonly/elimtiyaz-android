@@ -1,6 +1,7 @@
 package com.example.ui.features.academics
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,12 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Class
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Grade
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,19 +43,25 @@ import com.example.core.Session
 import com.example.core.computeSubjectAverage
 import com.example.core.isPassing
 import com.example.domain.model.Student
-import com.example.ui.components.ElAlertBanner
-import com.example.ui.components.ElAlertSeverity
-import com.example.ui.components.ElAvatar
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElDropdown
-import com.example.ui.components.ElEmptyState
-import com.example.ui.components.ElProgressBar
-import com.example.ui.components.ElSectionHeader
-import com.example.ui.components.ElTag
-import com.example.ui.components.ElTopBar
-import com.example.ui.theme.DangerRed
-import com.example.ui.theme.PrimaryBlue
-import com.example.ui.theme.SuccessGreen
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElAlertBanner
+import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.display.ElAvatarSize
+import com.example.ui.designsystem.components.display.ElChip
+import com.example.ui.designsystem.components.display.ElChipVariant
+import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.feedback.ElLinearProgress
+import com.example.ui.designsystem.components.input.ElDropdown
+import com.example.ui.designsystem.components.input.ElDropdownOption
+import com.example.ui.designsystem.components.input.ElTextField
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.overlays.ElDialogShell
+import com.example.ui.designsystem.theme.ElTheme
 import java.time.LocalDate
 
 @Composable
@@ -75,6 +78,7 @@ fun GradeEntryScreen(
     val classAssessments by viewModel.classAssessments.collectAsState()
     val busy by viewModel.busy.collectAsState()
     val message by viewModel.message.collectAsState()
+    val c = ElTheme.colors
 
     var selectedClassId by remember { mutableStateOf<String?>(initialClassId) }
     var selectedSubjectId by remember { mutableStateOf<String?>(null) }
@@ -137,7 +141,7 @@ fun GradeEntryScreen(
         // Trimester Selector Card
         ElCard(modifier = Modifier.fillMaxWidth()) {
             Column(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Row(
@@ -148,16 +152,16 @@ fun GradeEntryScreen(
                     ElSectionHeader(title = "Trimestre d'évaluation")
                     Text(
                         text = "Année $academicYear",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = ElTheme.typography.labelSmall,
+                        color = c.textSecondary,
                     )
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("T1", "T2", "T3").forEach { t ->
-                        ElTag(
+                        ElChip(
                             text = "Trimestre $t",
-                            color = PrimaryBlue,
+                            variant = ElChipVariant.FILTER,
                             selected = t == term,
                             onClick = { term = t },
                         )
@@ -170,7 +174,7 @@ fun GradeEntryScreen(
             ElEmptyState(
                 icon = Icons.Default.Class,
                 title = "Aucune classe",
-                message = "Aucune classe n'est disponible pour la saisie des notes.",
+                subtitle = "Aucune classe n'est disponible pour la saisie des notes.",
             )
             return@Column
         }
@@ -178,10 +182,10 @@ fun GradeEntryScreen(
         // Class & Subject Selectors
         ElDropdown(
             label = "Classe",
-            selectedValue = selectedClass?.name ?: "",
-            options = classes.map { it.name },
-            onSelected = { name ->
-                selectedClassId = classes.firstOrNull { it.name == name }?.id
+            options = classes.map { ElDropdownOption(value = it.id, label = it.name) },
+            selectedValue = selectedClassId,
+            onSelected = { option ->
+                selectedClassId = option.value
                 selectedSubjectId = null
             },
             modifier = Modifier.fillMaxWidth(),
@@ -190,11 +194,9 @@ fun GradeEntryScreen(
         if (subjects.isNotEmpty()) {
             ElDropdown(
                 label = "Matière",
-                selectedValue = selectedSubject?.name ?: "",
-                options = subjects.map { "${it.name} (Coef ${it.coefficient})" },
-                onSelected = { label ->
-                    selectedSubjectId = subjects.firstOrNull { "${it.name} (Coef ${it.coefficient})" == label }?.id
-                },
+                options = subjects.map { ElDropdownOption(value = it.id, label = "${it.name} (Coef ${it.coefficient})") },
+                selectedValue = selectedSubjectId,
+                onSelected = { option -> selectedSubjectId = option.value },
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -203,7 +205,7 @@ fun GradeEntryScreen(
         if (selectedSubject != null && students.isNotEmpty()) {
             ElCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     ElSectionHeader(
@@ -218,44 +220,44 @@ fun GradeEntryScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = "$enteredCount / ${students.size}",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                color = PrimaryBlue,
+                                style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                color = c.primary,
                             )
                             Text(
                                 text = "Saisies complètes",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = ElTheme.typography.labelSmall,
+                                color = c.textSecondary,
                             )
                         }
 
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = classAverage?.let { "%.2f / 20".format(it) } ?: "—",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                color = if ((classAverage ?: 0.0) >= 10.0) SuccessGreen else DangerRed,
+                                style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                color = if ((classAverage ?: 0.0) >= 10.0) c.success else c.danger,
                             )
                             Text(
                                 text = "Moyenne générale",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = ElTheme.typography.labelSmall,
+                                color = c.textSecondary,
                             )
                         }
 
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = passRate?.let { "%.0f%%".format(it) } ?: "—",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                color = SuccessGreen,
+                                style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                color = c.success,
                             )
                             Text(
                                 text = "Taux de réussite",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = ElTheme.typography.labelSmall,
+                                color = c.textSecondary,
                             )
                         }
                     }
 
-                    ElProgressBar(
+                    ElLinearProgress(
                         progress = if (students.isEmpty()) 0f else enteredCount.toFloat() / students.size,
                     )
                 }
@@ -264,8 +266,9 @@ fun GradeEntryScreen(
 
         message?.let {
             ElAlertBanner(
+                title = if (it.contains("succès") || it.contains("enregistrée", ignoreCase = true)) "Succès" else "Information",
                 message = it,
-                severity = if (it.contains("succès") || it.contains("enregistrée", ignoreCase = true)) ElAlertSeverity.Success else ElAlertSeverity.Warning,
+                severity = if (it.contains("succès") || it.contains("enregistrée", ignoreCase = true)) ElAlertSeverity.SUCCESS else ElAlertSeverity.WARNING,
             )
         }
 
@@ -274,7 +277,7 @@ fun GradeEntryScreen(
             ElEmptyState(
                 icon = Icons.Default.Grade,
                 title = "Aucun élève",
-                message = "Aucun élève trouvé dans cette classe.",
+                subtitle = "Aucun élève trouvé dans cette classe.",
             )
         } else if (selectedSubject != null) {
             ElSectionHeader(
@@ -290,34 +293,32 @@ fun GradeEntryScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { editingStudent = student },
-                    accent = when {
+                    border = when {
                         avg == null -> null
-                        avg >= 10.0 -> SuccessGreen
-                        else -> DangerRed
+                        avg >= 10.0 -> BorderStroke(ElTheme.borders.thin, c.success.copy(alpha = 0.45f))
+                        else -> BorderStroke(ElTheme.borders.thin, c.danger.copy(alpha = 0.45f))
                     },
-                    compact = true,
+                    size = ElCardSize.STANDARD,
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            ElAvatar(initials = student.fullName, size = 40)
+                            ElAvatar(initials = student.fullName, size = ElAvatarSize.M)
                             Spacer(Modifier.width(12.dp))
                             Column {
                                 Text(
                                     text = student.fullName,
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                                 )
                                 Text(
                                     text = "D1: ${assessment?.devoir1?.let { "%.1f".format(it) } ?: "—"}  •  " +
                                         "D2: ${assessment?.devoir2?.let { "%.1f".format(it) } ?: "—"}  •  " +
                                         "Ex: ${assessment?.examen?.let { "%.1f".format(it) } ?: "—"}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = ElTheme.typography.bodySmall,
+                                    color = c.textSecondary,
                                 )
                             }
                         }
@@ -326,19 +327,19 @@ fun GradeEntryScreen(
                             if (avg != null) {
                                 Text(
                                     text = "%.2f".format(avg),
-                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                    color = if (avg >= 10.0) SuccessGreen else DangerRed,
+                                    style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = if (avg >= 10.0) c.success else c.danger,
                                 )
                                 Text(
                                     text = if (avg >= 10.0) "Admis" else "Non acquis",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (avg >= 10.0) SuccessGreen else DangerRed,
+                                    style = ElTheme.typography.labelSmall,
+                                    color = if (avg >= 10.0) c.success else c.danger,
                                 )
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.Edit,
                                     contentDescription = "Saisir",
-                                    tint = PrimaryBlue,
+                                    tint = c.primary,
                                     modifier = Modifier.size(20.dp),
                                 )
                             }
@@ -373,52 +374,54 @@ fun GradeEntryScreen(
             ccVal, selectedSubject?.coefficientCc ?: 0.0,
         )
 
-        AlertDialog(
-            onDismissRequest = { editingStudent = null },
-            title = {
+        ElDialogShell(onDismissRequest = { editingStudent = null }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 Column {
                     Text(
                         text = student.fullName,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = c.textPrimary,
                     )
                     Text(
                         text = "${selectedSubject?.name ?: ""} • $term",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = ElTheme.typography.bodySmall,
+                        color = c.textSecondary,
                     )
                 }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
+                    ElTextField(
                         value = d1Text,
                         onValueChange = { if (it.isEmpty() || it.toDoubleOrNull()?.let { v -> v in 0.0..20.0 } == true) d1Text = it },
-                        label = { Text("Devoir 1 (/20)") },
+                        label = "Devoir 1 (/20)",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    OutlinedTextField(
+                    ElTextField(
                         value = d2Text,
                         onValueChange = { if (it.isEmpty() || it.toDoubleOrNull()?.let { v -> v in 0.0..20.0 } == true) d2Text = it },
-                        label = { Text("Devoir 2 (/20)") },
+                        label = "Devoir 2 (/20)",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    OutlinedTextField(
+                    ElTextField(
                         value = exText,
                         onValueChange = { if (it.isEmpty() || it.toDoubleOrNull()?.let { v -> v in 0.0..20.0 } == true) exText = it },
-                        label = { Text("Examen (/20) • Coef ${selectedSubject?.coefficientExamen ?: 2}") },
+                        label = "Examen (/20) • Coef ${selectedSubject?.coefficientExamen ?: 2}",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     if (ccEnabled) {
-                        OutlinedTextField(
+                        ElTextField(
                             value = ccText,
                             onValueChange = { if (it.isEmpty() || it.toDoubleOrNull()?.let { v -> v in 0.0..20.0 } == true) ccText = it },
-                            label = { Text("Contrôle continu (/20) • Coef ${selectedSubject?.coefficientCc ?: 0}") },
+                            label = "Contrôle continu (/20) • Coef ${selectedSubject?.coefficientCc ?: 0}",
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
@@ -432,67 +435,72 @@ fun GradeEntryScreen(
                             .clip(RoundedCornerShape(8.dp))
                             .background(
                                 when {
-                                    previewAvg == null -> MaterialTheme.colorScheme.surfaceVariant
-                                    previewAvg >= 10.0 -> SuccessGreen.copy(alpha = 0.15f)
-                                    else -> DangerRed.copy(alpha = 0.15f)
+                                    previewAvg == null -> c.surfaceVariant
+                                    previewAvg >= 10.0 -> c.success.copy(alpha = 0.15f)
+                                    else -> c.danger.copy(alpha = 0.15f)
                                 },
                             )
                             .padding(12.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = "Moyenne calculée", style = MaterialTheme.typography.labelSmall)
+                            Text(text = "Moyenne calculée", style = ElTheme.typography.labelSmall)
                             Text(
                                 text = previewAvg?.let { "%.2f / 20".format(it) } ?: "— (3 notes requises)",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 color = when {
-                                    previewAvg == null -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    previewAvg >= 10.0 -> SuccessGreen
-                                    else -> DangerRed
+                                    previewAvg == null -> c.textSecondary
+                                    previewAvg >= 10.0 -> c.success
+                                    else -> c.danger
                                 },
                             )
                         }
                     }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val cid = selectedClassId ?: return@TextButton
-                        val sid = selectedSubjectId ?: return@TextButton
-                        viewModel.enterGrade(
-                            studentId = student.id,
-                            subjectId = sid,
-                            classId = cid,
-                            term = term,
-                            academicYear = academicYear,
-                            devoir1 = d1Val,
-                            devoir2 = d2Val,
-                            examen = exVal,
-                            coefficient = selectedSubject?.coefficient ?: 1.0,
-                            cc = ccVal,
-                            actorId = session.userId,
-                            actorName = session.displayName,
-                            onSuccess = {
-                                val currentIdx = students.indexOfFirst { it.id == student.id }
-                                if (currentIdx in 0 until students.lastIndex) {
-                                    editingStudent = students[currentIdx + 1]
-                                } else {
-                                    editingStudent = null
-                                }
-                            },
-                        )
-                    },
-                    enabled = !busy && (d1Val != null || d2Val != null || exVal != null || ccVal != null),
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text("Enregistrer")
+                    ElButton(
+                        text = "Enregistrer",
+                        onClick = {
+                            val cid = selectedClassId ?: return@ElButton
+                            val sid = selectedSubjectId ?: return@ElButton
+                            viewModel.enterGrade(
+                                studentId = student.id,
+                                subjectId = sid,
+                                classId = cid,
+                                term = term,
+                                academicYear = academicYear,
+                                devoir1 = d1Val,
+                                devoir2 = d2Val,
+                                examen = exVal,
+                                coefficient = selectedSubject?.coefficient ?: 1.0,
+                                cc = ccVal,
+                                actorId = session.userId,
+                                actorName = session.displayName,
+                                onSuccess = {
+                                    val currentIdx = students.indexOfFirst { it.id == student.id }
+                                    if (currentIdx in 0 until students.lastIndex) {
+                                        editingStudent = students[currentIdx + 1]
+                                    } else {
+                                        editingStudent = null
+                                    }
+                                },
+                            )
+                    },
+                        enabled = !busy && (d1Val != null || d2Val != null || exVal != null || ccVal != null),
+                        variant = ElButtonVariant.PRIMARY,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ElButton(
+                        text = "Fermer",
+                        onClick = { editingStudent = null },
+                        variant = ElButtonVariant.GHOST,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { editingStudent = null }) {
-                    Text("Fermer")
-                }
-            },
-        )
+            }
+        }
     }
 }

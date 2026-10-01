@@ -1,6 +1,7 @@
 package com.example.ui.features.academics
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,11 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.School
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -38,19 +35,25 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.PromotionDecisions
 import com.example.core.getNextGradeProgression
-import com.example.ui.components.ElAvatar
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElEmptyState
-import com.example.ui.components.ElProgressBar
-import com.example.ui.components.ElSectionHeader
-import com.example.ui.components.ElScaffold
-import com.example.ui.components.ElTag
-import com.example.ui.components.ElTopBar
-import com.example.ui.theme.DangerRed
-import com.example.ui.theme.PrimaryBlue
-import com.example.ui.theme.SuccessGreen
-import com.example.ui.theme.WarmGold
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.display.ElAvatarSize
+import com.example.ui.designsystem.components.display.ElChip
+import com.example.ui.designsystem.components.display.ElChipVariant
+import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagSize
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.feedback.ElLinearProgress
+import com.example.ui.designsystem.components.input.ElTextField
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.overlays.ElDialogShell
+import com.example.ui.designsystem.theme.ElTheme
 
 /**
  * Vault §06.04 — Promotion Review Queue (Steps 3 + 4 of the One-Click Batch
@@ -77,6 +80,7 @@ fun PromotionReviewScreen(
     val error by viewModel.error.collectAsState()
     val message by viewModel.message.collectAsState()
     val canPromote = viewModel.canPromote
+    val c = ElTheme.colors
 
     // Override dialog state (Step 3 — manual exception).
     var overrideTarget by remember { mutableStateOf<PromotionReviewViewModel.PromotionCandidate?>(null) }
@@ -102,54 +106,58 @@ fun PromotionReviewScreen(
                 onBack = onBack,
             )
         },
-    ) {
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
+                .padding(innerPadding)
+                .padding(horizontal = ElTheme.spacing.lg),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             // ── Summary header ──────────────────────────────────────────
-            ElCard(modifier = Modifier.fillMaxWidth(), accent = PrimaryBlue) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            ElCard(
+                modifier = Modifier.fillMaxWidth(),
+                border = BorderStroke(ElTheme.borders.thin, c.primary.copy(alpha = 0.45f)),
+            ) {
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     ElSectionHeader(title = "Étape 3 sur 4 — Revue avant exécution")
                     Text(
                         "La moyenne annuelle de chaque élève a été calculée (moteur canonique, " +
                             "clubs exclus). GPA ≥ 10 → promotion · GPA < 10 → redoublement. " +
                             "Ajustez les cas particuliers avant d'exécuter le lot.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = ElTheme.typography.bodySmall,
+                        color = c.textSecondary,
                     )
                     Spacer(Modifier.height(4.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        SummaryStat("Promus", approved, SuccessGreen, Modifier.weight(1f))
-                        SummaryStat("Redoublants", retained, DangerRed, Modifier.weight(1f))
-                        SummaryStat("Diplômés", graduated, PrimaryBlue, Modifier.weight(1f))
+                        SummaryStat("Promus", approved, c.success, Modifier.weight(1f))
+                        SummaryStat("Redoublants", retained, c.danger, Modifier.weight(1f))
+                        SummaryStat("Diplômés", graduated, c.primary, Modifier.weight(1f))
                     }
                     if (pendingReview > 0) {
                         Text(
                             "⚠ $pendingReview élève(s) sans notes — arbitrage manuel requis avant l'exécution.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = WarmGold,
+                            style = ElTheme.typography.bodySmall,
+                            color = c.warning,
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
                 }
             }
 
-            message?.let { Text(it, color = SuccessGreen, style = MaterialTheme.typography.bodySmall) }
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            message?.let { Text(it, color = c.success, style = ElTheme.typography.bodySmall) }
+            error?.let { Text(it, color = c.danger, style = ElTheme.typography.bodySmall) }
 
             if (isLoading) {
-                Text("Calcul des moyennes annuelles…", style = MaterialTheme.typography.bodyMedium)
+                Text("Calcul des moyennes annuelles…", style = ElTheme.typography.bodyMedium)
             } else if (candidates.isEmpty()) {
                 ElEmptyState(
                     icon = Icons.Default.School,
                     title = "Aucun élève à évaluer",
-                    message = "Cette classe ne compte aucun élève actif.",
+                    subtitle = "Cette classe ne compte aucun élève actif.",
                 )
             } else {
                 // ── Step 3: the review queue ────────────────────────────
@@ -176,8 +184,8 @@ fun PromotionReviewScreen(
                         } else if (!canPromote) {
                             Text(
                                 "Permission manquante : PROMOTE_STUDENT.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
+                                style = ElTheme.typography.bodySmall,
+                                color = c.danger,
                             )
                         }
                     }
@@ -204,31 +212,46 @@ fun PromotionReviewScreen(
 
     // ── Execution confirmation (Step 4) ────────────────────────────────
     if (showExecuteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showExecuteConfirm = false },
-            title = { Text("Exécuter la promotion — ${klass?.name ?: ""}") },
-            text = {
+        ElDialogShell(onDismissRequest = { showExecuteConfirm = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    "Exécuter la promotion — ${klass?.name ?: ""}",
+                    style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = c.textPrimary,
+                )
                 Text(
                     "$approved élève(s) seront promus au niveau suivant de l'échelle officielle, " +
                         "$retained redoubleront leur année (réinscrits au même niveau), " +
                         "$graduated seront marqués diplômés. " +
                         "L'opération est atomique, journalisée et propagée à la synchronisation.",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = ElTheme.typography.bodySmall,
+                    color = c.textSecondary,
                 )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showExecuteConfirm = false
-                        viewModel.execute()
-                    },
-                    enabled = !isExecuting,
-                ) { Text("Exécuter") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showExecuteConfirm = false }) { Text("Annuler") }
-            },
-        )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ElButton(
+                        text = "Exécuter",
+                        onClick = {
+                            showExecuteConfirm = false
+                            viewModel.execute()
+                        },
+                        enabled = !isExecuting,
+                        variant = ElButtonVariant.PRIMARY,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ElButton(
+                        text = "Annuler",
+                        onClick = { showExecuteConfirm = false },
+                        variant = ElButtonVariant.GHOST,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -238,6 +261,7 @@ private fun PromotionCandidateRow(
     candidate: PromotionReviewViewModel.PromotionCandidate,
     onOverride: () -> Unit,
 ) {
+    val c = ElTheme.colors
     val gpa = candidate.yearlyGpa
     val nextStep = getNextGradeProgression(candidate.student.gradeLevel)
     val nextLabel = when {
@@ -249,21 +273,23 @@ private fun PromotionCandidateRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOverride),
-        accent = when (candidate.decision) {
-            PromotionDecisions.PROMOTED, PromotionDecisions.GRADUATED -> SuccessGreen
-            else -> DangerRed
+        size = ElCardSize.STANDARD,
+        border = when (candidate.decision) {
+            PromotionDecisions.PROMOTED, PromotionDecisions.GRADUATED ->
+                BorderStroke(ElTheme.borders.thin, c.success.copy(alpha = 0.45f))
+            else -> BorderStroke(ElTheme.borders.thin, c.danger.copy(alpha = 0.45f))
         },
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                ElAvatar(initials = candidate.student.fullName, size = 40)
+                ElAvatar(initials = candidate.student.fullName, size = ElAvatarSize.M)
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(candidate.student.fullName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                    Text(candidate.student.fullName, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                     Text(
                         "${candidate.student.gradeLevel.uppercase()} · $nextLabel · ${candidate.gradedSubjectCount} matière(s) évaluée(s)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = ElTheme.typography.labelSmall,
+                        color = c.textSecondary,
                     )
                 }
                 DecisionTag(candidate.decision)
@@ -276,39 +302,39 @@ private fun PromotionCandidateRow(
                         .clip(CircleShape)
                         .background(
                             when {
-                                gpa == null -> WarmGold.copy(alpha = 0.15f)
-                                gpa >= 10.0 -> SuccessGreen.copy(alpha = 0.15f)
-                                else -> DangerRed.copy(alpha = 0.15f)
+                                gpa == null -> c.warning.copy(alpha = 0.15f)
+                                gpa >= 10.0 -> c.success.copy(alpha = 0.15f)
+                                else -> c.danger.copy(alpha = 0.15f)
                             },
                         ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         gpa?.let { "%.1f".format(it) } ?: "—",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         color = when {
-                            gpa == null -> WarmGold
-                            gpa >= 10.0 -> SuccessGreen
-                            else -> DangerRed
+                            gpa == null -> c.warning
+                            gpa >= 10.0 -> c.success
+                            else -> c.danger
                         },
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         if (gpa != null) "Moyenne annuelle — %.2f / 20".format(gpa) else "Aucune note saisie",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = ElTheme.typography.labelSmall,
+                        color = c.textSecondary,
                     )
                     Spacer(Modifier.height(4.dp))
-                    ElProgressBar(progress = ((gpa ?: 0.0) / 20.0).toFloat())
+                    ElLinearProgress(progress = ((gpa ?: 0.0) / 20.0).toFloat())
                 }
             }
 
             if (candidate.needsReview) {
                 Text(
                     "Sans notes — arbitrage manuel requis (l'élève ne peut pas être promu automatiquement).",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = WarmGold,
+                    style = ElTheme.typography.labelSmall,
+                    color = c.warning,
                     fontWeight = FontWeight.Medium,
                 )
             }
@@ -316,8 +342,8 @@ private fun PromotionCandidateRow(
                 Text(
                     "Décision manuelle (recommandation système : ${decisionLabel(candidate.recommendation)})" +
                         (candidate.overrideNote?.let { " — $it" } ?: ""),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = PrimaryBlue,
+                    style = ElTheme.typography.labelSmall,
+                    color = c.primary,
                 )
             }
         }
@@ -326,24 +352,25 @@ private fun PromotionCandidateRow(
 
 @Composable
 private fun SummaryStat(label: String, count: Int, color: androidx.compose.ui.graphics.Color, modifier: Modifier = Modifier) {
+    val c = ElTheme.colors
     Column(
         modifier = modifier
-            .clip(MaterialTheme.shapes.small)
+            .clip(ElTheme.shapes.small)
             .background(color.copy(alpha = 0.10f))
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("$count", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = color)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("$count", style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = color)
+        Text(label, style = ElTheme.typography.labelSmall, color = c.textSecondary)
     }
 }
 
 @Composable
 private fun DecisionTag(decision: String) {
     when (decision) {
-        PromotionDecisions.PROMOTED -> ElTag(text = "APPROVED_FOR_PROMOTION", color = SuccessGreen)
-        PromotionDecisions.GRADUATED -> ElTag(text = "DIPLÔMÉ", color = PrimaryBlue)
-        else -> ElTag(text = "RETAINED_SAME_YEAR", color = DangerRed)
+        PromotionDecisions.PROMOTED -> ElTag(text = "APPROVED_FOR_PROMOTION", tone = ElTagTone.SUCCESS, size = ElTagSize.MD)
+        PromotionDecisions.GRADUATED -> ElTag(text = "DIPLÔMÉ", tone = ElTagTone.INFO, size = ElTagSize.MD)
+        else -> ElTag(text = "RETAINED_SAME_YEAR", tone = ElTagTone.DANGER, size = ElTagSize.MD)
     }
 }
 
@@ -361,57 +388,74 @@ private fun OverrideDecisionDialog(
     onReset: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val c = ElTheme.colors
     var note by remember { mutableStateOf(candidate.overrideNote ?: "") }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Arbitrage — ${candidate.student.fullName}") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    ElDialogShell(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+                Text(
+                    "Arbitrage — ${candidate.student.fullName}",
+                    style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = c.textPrimary,
+                )
                 Text(
                     if (candidate.yearlyGpa != null)
                         "Moyenne annuelle : %.2f / 20 · recommandation système : %s."
                             .format(candidate.yearlyGpa, decisionLabel(candidate.recommendation))
                     else
                         "Aucune note saisie · le système ne recommande pas de promotion automatique.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = ElTheme.typography.bodySmall,
+                    color = c.textSecondary,
                 )
-                Text("Nouvelle décision", style = MaterialTheme.typography.labelMedium)
+                Text("Nouvelle décision", style = ElTheme.typography.labelMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ElTag(
+                    ElChip(
                         text = "Promouvoir",
-                        selected = true,
-                        color = SuccessGreen,
+                        variant = ElChipVariant.ASSIST,
                         onClick = { onConfirm(PromotionDecisions.PROMOTED, note) },
+                        modifier = Modifier.weight(1f),
                     )
-                    ElTag(
+                    ElChip(
                         text = "Redoubler",
-                        selected = true,
-                        color = DangerRed,
+                        variant = ElChipVariant.ASSIST,
                         onClick = { onConfirm(PromotionDecisions.REPEATED, note) },
+                        modifier = Modifier.weight(1f),
                     )
                 }
-                OutlinedTextField(
+                ElTextField(
                     value = note,
                     onValueChange = { note = it },
-                    label = { Text("Motif de l'exception (audit)") },
+                    label = "Motif de l'exception (audit)",
                     modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
+                    singleLine = false,
                 )
                 Text(
                     "Exemples : exception médicale, déménagement, décision de la direction.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = ElTheme.typography.labelSmall,
+                    color = c.textSecondary,
+                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ElButton(
+                    text = "Réinitialiser",
+                    onClick = onReset,
+                    variant = ElButtonVariant.GHOST,
+                    modifier = Modifier.weight(1f),
+                )
+                ElButton(
+                    text = "Fermer",
+                    onClick = onDismiss,
+                    variant = ElButtonVariant.SECONDARY,
+                    modifier = Modifier.weight(1f),
                 )
             }
-        },
-        confirmButton = {},
-        dismissButton = {
-            Row {
-                TextButton(onClick = onReset) { Text("Réinitialiser") }
-                TextButton(onClick = onDismiss) { Text("Fermer") }
-            }
-        },
-    )
+        }
+    }
 }

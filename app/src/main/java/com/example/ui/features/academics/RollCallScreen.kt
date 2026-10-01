@@ -1,6 +1,7 @@
 package com.example.ui.features.academics
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -29,7 +30,6 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -51,24 +51,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
-import com.example.ui.components.ElAlertBanner
-import com.example.ui.components.ElAlertSeverity
-import com.example.ui.components.ElAvatar
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElButtonStyle
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElDropdown
-import com.example.ui.components.ElEmptyState
-import com.example.ui.components.ElSectionHeader
-import com.example.ui.components.ElTag
-import com.example.ui.components.ElTextField
-import com.example.ui.components.ElTopBar
-import com.example.ui.theme.DangerRed
-import com.example.ui.theme.ElPillShape
-import com.example.ui.theme.LightBlue
-import com.example.ui.theme.PrimaryBlue
-import com.example.ui.theme.SuccessGreen
-import com.example.ui.theme.WarmGold
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElAlertBanner
+import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.display.ElAvatarSize
+import com.example.ui.designsystem.components.display.ElChip
+import com.example.ui.designsystem.components.display.ElChipVariant
+import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.input.ElDropdown
+import com.example.ui.designsystem.components.input.ElDropdownOption
+import com.example.ui.designsystem.components.input.ElTextField
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.theme.ElPillShape
+import com.example.ui.designsystem.theme.ElTheme
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -90,6 +90,7 @@ fun RollCallScreen(
     val existingRecords by viewModel.existingRecords.collectAsState()
     val busy by viewModel.busy.collectAsState()
     val message by viewModel.message.collectAsState()
+    val c = ElTheme.colors
 
     var selectedClassId by remember { mutableStateOf<String?>(initialClassId) }
     val statuses = remember { mutableStateMapOf<String, AttendanceStatus>() }
@@ -156,7 +157,7 @@ fun RollCallScreen(
             // ── 1. Paramètres de la séance Card ───────────────────────────────
             ElCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Row(
@@ -166,9 +167,9 @@ fun RollCallScreen(
                     ) {
                         ElSectionHeader(title = "Paramètres de la séance")
                         if (selectedDate != LocalDate.now().toString()) {
-                            ElTag(
+                            ElChip(
                                 text = "Aujourd'hui",
-                                color = PrimaryBlue,
+                                variant = ElChipVariant.FILTER,
                                 onClick = {
                                     viewModel.setDate(LocalDate.now().toString(), selectedClassId)
                                 },
@@ -181,8 +182,8 @@ fun RollCallScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
+                            .background(c.surfaceVariant.copy(alpha = 0.5f))
+                            .border(1.dp, c.outline.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
                             .clickable { showDatePicker = true }
                             .padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -192,27 +193,27 @@ fun RollCallScreen(
                             Icon(
                                 imageVector = Icons.Default.CalendarToday,
                                 contentDescription = null,
-                                tint = PrimaryBlue,
+                                tint = c.primary,
                                 modifier = Modifier.size(20.dp),
                             )
                             Spacer(Modifier.width(10.dp))
                             Column {
                                 Text(
                                     text = "Date de l'appel :",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = ElTheme.typography.labelSmall,
+                                    color = c.textSecondary,
                                 )
                                 Text(
                                     text = formattedDisplayDate,
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = c.textPrimary,
                                 )
                             }
                         }
                         Text(
                             text = "Changer",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = PrimaryBlue,
+                            style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = c.primary,
                         )
                     }
 
@@ -220,8 +221,8 @@ fun RollCallScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
                             text = "Créneau horaire",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = ElTheme.typography.labelSmall,
+                            color = c.textSecondary,
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(
@@ -229,10 +230,10 @@ fun RollCallScreen(
                                 "afternoon" to "Après-midi",
                                 "both" to "Journée entière",
                             ).forEach { (code, label) ->
-                                ElTag(
+                                ElChip(
                                     text = label,
+                                    variant = ElChipVariant.FILTER,
                                     selected = selectedSession == code,
-                                    color = PrimaryBlue,
                                     onClick = { viewModel.setSession(code) },
                                 )
                             }
@@ -245,7 +246,7 @@ fun RollCallScreen(
                 ElEmptyState(
                     icon = Icons.Default.Class,
                     title = "Aucune classe",
-                    message = "Aucune classe n'est disponible.",
+                    subtitle = "Aucune classe n'est disponible.",
                 )
                 return@Column
             }
@@ -253,11 +254,10 @@ fun RollCallScreen(
             // ── 2. Sélection de classe ─────────────────────────────────────────
             ElDropdown(
                 label = "Classe sélectionnée",
-                selectedValue = selectedClass?.name ?: "",
-                options = classes.map { it.name },
-                onSelected = { name ->
-                    val chosen = classes.firstOrNull { it.name == name }
-                    selectedClassId = chosen?.id
+                options = classes.map { ElDropdownOption(value = it.id, label = it.name) },
+                selectedValue = selectedClassId,
+                onSelected = { option ->
+                    selectedClassId = option.value
                     statuses.clear()
                     lateTimes.clear()
                 },
@@ -286,14 +286,14 @@ fun RollCallScreen(
                         AttendanceStatBadge(
                             count = presentCount,
                             label = "présent${if (presentCount > 1) "s" else ""}",
-                            color = SuccessGreen,
+                            color = c.success,
                             active = presentCount > 0,
                         )
                         if (absentCount > 0) {
                             AttendanceStatBadge(
                                 count = absentCount,
                                 label = "absent${if (absentCount > 1) "s" else ""}",
-                                color = DangerRed,
+                                color = c.danger,
                                 active = true,
                             )
                         }
@@ -301,7 +301,7 @@ fun RollCallScreen(
                             AttendanceStatBadge(
                                 count = excusedCount,
                                 label = "excusé${if (excusedCount > 1) "s" else ""}",
-                                color = WarmGold,
+                                color = c.warning,
                                 active = true,
                             )
                         }
@@ -309,7 +309,7 @@ fun RollCallScreen(
                             AttendanceStatBadge(
                                 count = lateCount,
                                 label = "retard${if (lateCount > 1) "s" else ""}",
-                                color = LightBlue,
+                                color = c.info,
                                 active = true,
                             )
                         }
@@ -320,7 +320,7 @@ fun RollCallScreen(
                         onClick = {
                             students.forEach { s -> statuses[s.id] = AttendanceStatus.PRESENT }
                         },
-                        style = ElButtonStyle.Secondary,
+                        variant = ElButtonVariant.SECONDARY,
                         icon = Icons.Default.DoneAll,
                     )
                 }
@@ -331,7 +331,7 @@ fun RollCallScreen(
                 ElEmptyState(
                     icon = Icons.Default.Class,
                     title = "Aucun élève",
-                    message = "Aucun élève trouvé dans cette classe.",
+                    subtitle = "Aucun élève trouvé dans cette classe.",
                 )
             } else {
                 students.forEach { student ->
@@ -339,38 +339,38 @@ fun RollCallScreen(
                     val isLate = currentStatus == AttendanceStatus.LATE
 
                     val (accentColor, statusLabel) = when (currentStatus) {
-                        AttendanceStatus.PRESENT -> SuccessGreen to "Présent"
-                        AttendanceStatus.ABSENT -> DangerRed to "Absent"
-                        AttendanceStatus.EXCUSED -> WarmGold to "Excusé"
-                        AttendanceStatus.LATE -> LightBlue to (lateTimes[student.id] ?: "Retard")
+                        AttendanceStatus.PRESENT -> c.success to "Présent"
+                        AttendanceStatus.ABSENT -> c.danger to "Absent"
+                        AttendanceStatus.EXCUSED -> c.warning to "Excusé"
+                        AttendanceStatus.LATE -> c.info to (lateTimes[student.id] ?: "Retard")
                     }
 
                     ElCard(
                         modifier = Modifier.fillMaxWidth(),
-                        accent = accentColor,
-                        compact = true,
+                        size = ElCardSize.STANDARD,
+                        border = BorderStroke(ElTheme.borders.thin, accentColor.copy(alpha = 0.45f)),
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
                             // En-tête de l'élève
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                ElAvatar(initials = student.fullName, size = 40)
+                                ElAvatar(initials = student.fullName, size = ElAvatarSize.M)
                                 Spacer(Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         student.fullName,
-                                        style = MaterialTheme.typography.titleMedium.copy(
+                                        style = ElTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.SemiBold,
                                             fontSize = 15.sp,
                                         ),
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        color = c.textPrimary,
                                     )
                                     Text(
                                         "Matricule: ${student.code}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = ElTheme.typography.bodySmall,
+                                        color = c.textSecondary,
                                     )
                                 }
                                 Box(
@@ -382,7 +382,7 @@ fun RollCallScreen(
                                 ) {
                                     Text(
                                         text = statusLabel,
-                                        style = MaterialTheme.typography.labelSmall.copy(
+                                        style = ElTheme.typography.labelSmall.copy(
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 11.sp,
                                         ),
@@ -422,27 +422,26 @@ fun RollCallScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(LightBlue.copy(alpha = 0.10f))
-                                        .border(1.dp, LightBlue.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+                                        .background(c.info.copy(alpha = 0.10f))
+                                        .border(1.dp, c.info.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
                                         .padding(horizontal = 12.dp, vertical = 8.dp),
                                 ) {
                                     Icon(
                                         Icons.Default.Schedule,
                                         contentDescription = null,
-                                        tint = LightBlue,
+                                        tint = c.info,
                                         modifier = Modifier.size(18.dp),
                                     )
                                     Spacer(Modifier.width(8.dp))
                                     Text(
                                         "Heure d'arrivée :",
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                        color = c.textPrimary,
                                     )
                                     Spacer(Modifier.width(10.dp))
                                     ElTextField(
                                         value = lateTimes[student.id] ?: "08:15",
                                         onValueChange = { lateTimes[student.id] = it },
-                                        label = "",
                                         modifier = Modifier.width(100.dp),
                                         singleLine = true,
                                     )
@@ -455,9 +454,9 @@ fun RollCallScreen(
 
             message?.let {
                 ElAlertBanner(
-                    message = it,
-                    severity = if (it.contains("succès", ignoreCase = true)) ElAlertSeverity.Success else ElAlertSeverity.Warning,
                     title = if (it.contains("succès", ignoreCase = true)) "Appel Enregistré" else "Information",
+                    message = it,
+                    severity = if (it.contains("succès", ignoreCase = true)) ElAlertSeverity.SUCCESS else ElAlertSeverity.WARNING,
                 )
             }
 
@@ -510,7 +509,7 @@ fun RollCallScreen(
                     }
                     showDatePicker = false
                 }) {
-                    Text("OK", color = PrimaryBlue)
+                    Text("OK", color = c.primary)
                 }
             },
             dismissButton = {
@@ -536,22 +535,24 @@ private fun AttendanceSegmentButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val c = ElTheme.colors
+    val resolvedStatusColor = status.resolvedColor()
     val backgroundColor = if (isSelected) {
-        status.color
+        resolvedStatusColor
     } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        c.surfaceVariant.copy(alpha = 0.5f)
     }
 
     val contentColor = if (isSelected) {
         if (status == AttendanceStatus.EXCUSED) Color(0xFF1A1D23) else Color.White
     } else {
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
+        c.textSecondary.copy(alpha = 0.85f)
     }
 
     val borderColor = if (isSelected) {
-        status.color
+        resolvedStatusColor
     } else {
-        MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+        c.outline.copy(alpha = 0.2f)
     }
 
     Box(
@@ -570,7 +571,7 @@ private fun AttendanceSegmentButton(
     ) {
         Text(
             text = status.label,
-            style = MaterialTheme.typography.labelSmall.copy(
+            style = ElTheme.typography.labelSmall.copy(
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                 fontSize = 12.sp,
             ),
@@ -589,8 +590,9 @@ private fun AttendanceStatBadge(
     color: Color,
     active: Boolean,
 ) {
-    val badgeColor = if (active) color else MaterialTheme.colorScheme.onSurfaceVariant
-    val badgeBg = if (active) color.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+    val c = ElTheme.colors
+    val badgeColor = if (active) color else c.textSecondary
+    val badgeBg = if (active) color.copy(alpha = 0.15f) else c.surfaceVariant.copy(alpha = 0.4f)
 
     Box(
         modifier = Modifier
@@ -609,7 +611,7 @@ private fun AttendanceStatBadge(
             Spacer(Modifier.width(5.dp))
             Text(
                 text = "$count $label",
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                 color = badgeColor,
             )
         }
