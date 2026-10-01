@@ -22,6 +22,7 @@ import com.example.ui.designsystem.components.data.ElChartPalette
 import com.example.ui.designsystem.components.data.ElRatioSegment
 import com.example.ui.designsystem.components.data.ElStackedRatioBar
 import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.overlays.ElInfoTip
 import com.example.ui.designsystem.theme.ElTheme
 
 // ============================================================================
@@ -56,10 +57,15 @@ internal fun AgingCompositionCard(
 
     ElCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ElSectionHeader(
-                title = "Composition de l'Encours",
-                subtitle = "Répartition 100% par profondeur de retard",
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ElSectionHeader(
+                    title = "Composition de l'Encours",
+                    subtitle = "Répartition 100% par profondeur de retard",
+                    modifier = Modifier.weight(1f),
+                )
+                // T-458: the T-447 explainability glossary (presentation-only).
+                ElInfoTip(tip = "aging.card")
+            }
             ElStackedRatioBar(
                 segments = present.map {
                     ElRatioSegment(

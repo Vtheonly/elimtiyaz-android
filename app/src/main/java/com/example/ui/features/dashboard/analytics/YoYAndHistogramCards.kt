@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.model.YoYSnapshot
 import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.overlays.ElInfoTip
 import com.example.ui.designsystem.components.data.ElChartPalette
 import com.example.ui.designsystem.components.data.ElGroupedBarChart
 import com.example.ui.designsystem.components.data.ElGroupedBarPair
@@ -56,11 +57,15 @@ internal fun YoYComparisonCard(
                 title = "Comparatif Annuel",
                 subtitle = "Encaissé N vs N−1 (mêmes mois)",
                 trailing = {
-                    Text(
-                        text = deltaText,
-                        color = deltaColor,
-                        style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 16.sp),
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        // T-458: the T-447 explainability glossary (presentation-only).
+                        ElInfoTip(tip = "yoy.card")
+                        Text(
+                            text = deltaText,
+                            color = deltaColor,
+                            style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 16.sp),
+                        )
+                    }
                 },
             )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

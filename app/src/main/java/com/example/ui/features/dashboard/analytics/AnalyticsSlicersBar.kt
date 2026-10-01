@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.example.core.paymentCategoryLabelFr
 import com.example.ui.designsystem.components.button.ElIconButton
 import com.example.ui.designsystem.components.data.ElChartPalette
+import com.example.ui.designsystem.overlays.ElInfoTip
 import com.example.ui.designsystem.theme.ElTheme
 
 /**
@@ -68,8 +69,12 @@ internal fun AnalyticsSlicersBar(
                     style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = c.textPrimary,
                 )
+                // T-458: the T-447 explainability glossary (presentation-only).
+                ElInfoTip(tip = "slicers.header")
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // T-458: the filtered-count badge's glossary tip.
+                ElInfoTip(tip = "slicers.badge")
                 Text(
                     text = "$sliceCount op. • ${compactDzd(sliceTotalDzd)} DA",
                     color = c.textMuted,

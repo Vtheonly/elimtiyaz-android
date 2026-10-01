@@ -92,6 +92,7 @@ import com.example.ui.designsystem.overlays.ElDialogContent
 import com.example.ui.designsystem.overlays.ElBottomSheet
 import com.example.ui.designsystem.overlays.ElSheetContent
 import com.example.ui.designsystem.overlays.ElToast
+import com.example.ui.designsystem.overlays.ElInfoTip
 import com.example.ui.designsystem.overlays.ElTooltip
 import com.example.ui.designsystem.overlays.ElContextMenu
 import com.example.ui.designsystem.overlays.ElConfirmationDialog

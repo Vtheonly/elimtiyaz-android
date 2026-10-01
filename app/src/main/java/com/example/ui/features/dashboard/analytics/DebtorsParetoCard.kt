@@ -30,6 +30,7 @@ import com.example.ui.designsystem.components.data.ElChartPalette
 import com.example.ui.designsystem.components.data.ElParetoChart
 import com.example.ui.designsystem.components.data.ElParetoPoint
 import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.overlays.ElInfoTip
 import com.example.ui.designsystem.theme.ElTheme
 
 /**
@@ -58,10 +59,15 @@ internal fun DebtorsParetoCard(
 
     ElCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ElSectionHeader(
-                title = "Pareto des Débiteurs",
-                subtitle = "$paretoCut fam. = 80% de l'encours affiché",
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ElSectionHeader(
+                    title = "Pareto des Débiteurs",
+                    subtitle = "$paretoCut fam. = 80% de l'encours affiché",
+                    modifier = Modifier.weight(1f),
+                )
+                // T-458: the T-447 explainability glossary (presentation-only).
+                ElInfoTip(tip = "pareto.card")
+            }
             ElParetoChart(
                 points = pareto.map {
                     ElParetoPoint(
