@@ -108,6 +108,20 @@ the generated `BuildConfig` fields come from the ROOT-level files only.
   `BuildConfig.java` = the plugin found NO root-level `.env` (or the committed
   root `.env.example`'s empty defaults won). It is NOT a `app/.env` problem.
 
+- **The ARCH-012 release-gate rot (130th session, 2026-10-02, T-460):** the
+  `testReleaseUnitTest` exclusion list in `app/build.gradle.kts` (the
+  ARCH-012 mechanism: createComposeRule fails under the suffixed release
+  applicationId .bxmzlx, and the debug-scoped Room schema assets are
+  unreachable on release) had NOT been extended as T-181/T-348/T-044-pass-3a/
+  T-456/T-458 landed their tests — the FULL `./gradlew test` gate was red on
+  main for generations (6 classes / 32 red release-variant tests, pre-existing;
+  found during T-460's final verification). THIRD recurrence of the
+  "update BOTH sides when the set grows" lesson (the RealtimeSyncT069Test
+  pattern). RULE: every new Compose-semantic test (createComposeRule) or
+  MigrationTestHelper test MUST be added to the release exclusion list in the
+  SAME commit that introduces it, or the full gate rots silently (sessions
+  quoting only `testDebugUnitTest` never see it).
+
 - **The T-456/T-457 test-writing lessons (128th session, 2026-10-02):**
   (1) `NumberFormat(Locale.FRANCE)` groups with **U+202F (NARROW NO-BREAK
   SPACE)** — not U+00A0, not a plain space — in BOTH the Robolectric and the
