@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -347,12 +346,12 @@ fun PaymentDetailScreen(
                     }
                     Text(
                         "Reçu ${p.receiptNumber}",
-                        style = MaterialTheme.typography.titleLarge,
+                        style = ElTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
                         elMoneyFormat(p.amount),
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = ElTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = if (p.status.name == "REFUNDED") c.danger else c.success,
                     )
@@ -450,7 +449,7 @@ fun PaymentDetailScreen(
                     Text(
                         "Montant : ${elMoneyFormat(payment!!.amount)}\n" +
                             "Le remboursement annule l'effet du paiement (écriture d'extourne) et ne peut pas être défait.",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = ElTheme.typography.bodySmall,
                     )
                     OutlinedTextField(
                         value = refundReason,

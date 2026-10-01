@@ -46,6 +46,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.example.ui.designsystem.components.feedback.ElEmptyState
 
 @HiltViewModel
 class GlobalSearchViewModel @Inject constructor(
@@ -122,6 +123,15 @@ fun GlobalSearchScreen(
             }
 
             Spacer(Modifier.height(10.dp))
+
+            // T-460 pass H (issue #3 F-03): the honest no-results state (the screen
+            // previously showed nothing at all for a non-blank query with no hits).
+            if (!isSearching && query.isNotBlank() && parents.isEmpty() && students.isEmpty()) {
+                ElEmptyState(
+                    title = "Aucun résultat",
+                    subtitle = "Aucun parent ou élève ne correspond à « ${query.trim()} ».",
+                )
+            }
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),

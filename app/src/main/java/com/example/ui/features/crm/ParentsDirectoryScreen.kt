@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.FamilyRestroom
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -103,6 +102,7 @@ fun ParentsDirectoryScreen(
     onParentClick: (String) -> Unit,
     viewModel: ParentsDirectoryViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
     val query by viewModel.query.collectAsState()
     val parents by viewModel.parents.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -126,7 +126,7 @@ fun ParentsDirectoryScreen(
             )
             Text(
                 "${parents.size} ${if (parents.size > 1) "familles enregistrées" else "famille enregistrée"}",
-                style = MaterialTheme.typography.titleSmall,
+                style = ElTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = ElTheme.colors.textPrimary,
                 modifier = Modifier.weight(1f),
@@ -143,7 +143,7 @@ fun ParentsDirectoryScreen(
         )
 
         error?.let { err ->
-            Text(err, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(8.dp))
+            Text(err, color = c.danger, modifier = Modifier.padding(8.dp))
         }
 
         if (parents.isEmpty()) {
@@ -199,7 +199,7 @@ private fun ParentCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         parent.fullName,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = ElTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -212,12 +212,12 @@ private fun ParentCard(
                 }
                 Text(
                     "Matricule : ${parent.code}",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = ElTheme.typography.bodySmall,
                     color = c.textSecondary,
                 )
                 Text(
                     "Tél : ${parent.phone}",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = ElTheme.typography.bodySmall,
                     color = c.textSecondary,
                 )
             }

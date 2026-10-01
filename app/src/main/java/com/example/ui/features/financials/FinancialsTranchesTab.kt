@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -148,7 +147,7 @@ internal fun TranchesTab(
                 item {
                     Text(
                         "Sélectionnez une famille (${filteredParents.size} trouvée${if (filteredParents.size > 1) "s" else ""}) :",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = ElTheme.typography.labelMedium,
                         color = c.textSecondary,
                     )
                 }
@@ -164,12 +163,12 @@ internal fun TranchesTab(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     p.fullName,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = ElTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
                                 )
                                 Text(
                                     "Code : ${p.code} • ${p.phone}",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = ElTheme.typography.bodySmall,
                                     color = c.textSecondary,
                                 )
                             }
@@ -195,7 +194,7 @@ internal fun TranchesTab(
                     Spacer(Modifier.width(6.dp))
                     Text(
                         "Retour à la liste des familles",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = ElTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = c.primary,
                     )
@@ -218,12 +217,12 @@ internal fun TranchesTab(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     selectedParent.fullName,
-                                    style = MaterialTheme.typography.titleMedium,
+                                    style = ElTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                 )
                                 Text(
                                     "Code : ${selectedParent.code} • ${selectedParent.phone}",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = ElTheme.typography.bodySmall,
                                     color = c.textSecondary,
                                 )
                             }
@@ -235,10 +234,10 @@ internal fun TranchesTab(
 
                         Spacer(Modifier.height(4.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Progression de scolarité", style = MaterialTheme.typography.labelSmall)
+                            Text("Progression de scolarité", style = ElTheme.typography.labelSmall)
                             Text(
                                 "${(progress * 100).toInt()}% réglé",
-                                style = MaterialTheme.typography.labelSmall,
+                                style = ElTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = c.success,
                             )
@@ -248,18 +247,18 @@ internal fun TranchesTab(
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(
                                 "Facturé : ${elMoneyFormat(totalDue)}",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = ElTheme.typography.bodySmall,
                                 color = c.textPrimary,
                             )
                             Text(
                                 "Payé : ${elMoneyFormat(totalPaid)}",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = ElTheme.typography.bodySmall,
                                 color = c.success,
                             )
                         }
                         Text(
                             "Reste à payer : ${elMoneyFormat(remainingDebt)}",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = ElTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (remainingDebt > 0) c.danger else c.success,
                         )
@@ -315,14 +314,14 @@ internal fun TranchesTab(
                                 Column(Modifier.weight(1f)) {
                                     Text(
                                         inst.label,
-                                        style = MaterialTheme.typography.titleMedium,
+                                        style = ElTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
                                     )
                                     // T-322: category context — multi-child families
                                     // have tuition + transport installments mixed.
                                     Text(
                                         installmentCategoryLabel(inst),
-                                        style = MaterialTheme.typography.labelSmall,
+                                        style = ElTheme.typography.labelSmall,
                                         color = c.textSecondary,
                                     )
                                 }
@@ -370,7 +369,7 @@ internal fun TranchesTab(
                 Text(
                     "${inst.label} — ${elMoneyFormat(inst.remaining)}\n" +
                         "L'écriture sera enregistrée dans le grand livre et ventilée sur cette tranche. Cette action ne peut pas être annulée ici.",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = ElTheme.typography.bodySmall,
                 )
             },
             confirmButton = {

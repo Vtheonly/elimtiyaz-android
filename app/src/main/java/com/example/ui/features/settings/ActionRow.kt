@@ -1,11 +1,11 @@
 package com.example.ui.features.settings
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.core.Role
 import com.example.ui.designsystem.components.button.ElButton
 import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.theme.ElTheme
 
 // T-044 pass 2 (2026-09-03): migrated to the design-system button
 // (variant replaces the legacy ElButtonStyle).
@@ -17,7 +17,8 @@ internal fun ActionRow(
     onClick: () -> Unit,
     danger: Boolean = false,
 ) {
-    val tint = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+    val c = ElTheme.colors
+    val tint = if (danger) c.danger else c.textPrimary
     ElButton(
         text = label,
         onClick = onClick,

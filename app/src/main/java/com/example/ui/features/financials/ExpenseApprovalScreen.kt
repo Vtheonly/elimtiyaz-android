@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -313,7 +312,7 @@ fun ExpenseApprovalScreen(
             title = { Text("Rejeter la dépense ${exp.requestCode}") },
             text = {
                 Column {
-                    Text("${exp.title} — ${elMoneyFormat(exp.amount)}", style = MaterialTheme.typography.bodySmall)
+                    Text("${exp.title} — ${elMoneyFormat(exp.amount)}", style = ElTheme.typography.bodySmall)
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
                         value = reason,
@@ -353,7 +352,7 @@ fun ExpenseApprovalScreen(
                 Column {
                     Text(
                         "${exp.title} — ${exp.requestCode} • Décaissée : ${elMoneyFormat(exp.amount)}",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = ElTheme.typography.bodySmall,
                     )
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
@@ -434,7 +433,7 @@ private fun ExpenseDetailView(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             expense.title,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = ElTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.weight(1f),
                         )
@@ -443,11 +442,11 @@ private fun ExpenseDetailView(
                     }
                     Text(
                         "${expense.requestCode} • ${expenseCategoryLabel(expense.category)}",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = ElTheme.typography.bodySmall,
                         color = c.textSecondary,
                     )
                     if (expense.description.isNotBlank()) {
-                        Text(expense.description, style = MaterialTheme.typography.bodySmall)
+                        Text(expense.description, style = ElTheme.typography.bodySmall)
                     }
                     Spacer(Modifier.height(4.dp))
                     ElInfoRow(label = "Montant", value = elMoneyFormat(expense.amount))
@@ -500,7 +499,7 @@ private fun ExpenseDetailView(
                         if (!canApprove) {
                             Text(
                                 "Action réservée aux rôles avec la permission d'approbation.",
-                                style = MaterialTheme.typography.labelSmall,
+                                style = ElTheme.typography.labelSmall,
                                 color = c.textSecondary,
                             )
                         }
@@ -515,7 +514,7 @@ private fun ExpenseDetailView(
                         if (!canDisburse) {
                             Text(
                                 "Action réservée aux rôles avec la permission de décaissement.",
-                                style = MaterialTheme.typography.labelSmall,
+                                style = ElTheme.typography.labelSmall,
                                 color = c.textSecondary,
                             )
                         }
@@ -531,7 +530,7 @@ private fun ExpenseDetailView(
                         if (!canSettleProof) {
                             Text(
                                 "Action réservée aux rôles avec la permission de clôture.",
-                                style = MaterialTheme.typography.labelSmall,
+                                style = ElTheme.typography.labelSmall,
                                 color = c.textSecondary,
                             )
                         }
@@ -575,13 +574,13 @@ private fun ExpenseTimeline(expense: Expense) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             label,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = ElTheme.typography.bodySmall,
                             fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                         )
                         if (at != null) {
                             Text(
                                 "Le $at${if (by != null) " par $by" else ""}",
-                                style = MaterialTheme.typography.labelSmall,
+                                style = ElTheme.typography.labelSmall,
                                 color = ElTheme.colors.textSecondary,
                             )
                         }
@@ -595,7 +594,7 @@ private fun ExpenseTimeline(expense: Expense) {
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "Rejetée${expense.approvalNote?.let { " : $it" } ?: ""}",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = ElTheme.typography.bodySmall,
                     color = ElTheme.colors.danger,
                     fontWeight = FontWeight.Bold,
                 )
@@ -622,7 +621,7 @@ private fun ExpenseCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     expense.title,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = ElTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
                 val (label, tone) = expenseStatusLabel(expense.status)
@@ -630,24 +629,24 @@ private fun ExpenseCard(
             }
             Text(
                 "${expense.requestCode} • ${expenseCategoryLabel(expense.category)}",
-                style = MaterialTheme.typography.bodySmall,
+                style = ElTheme.typography.bodySmall,
                 color = c.textSecondary,
             )
             if (expense.description.isNotBlank()) {
-                Text(expense.description, style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                Text(expense.description, style = ElTheme.typography.bodySmall, maxLines = 2)
             }
             Text(
                 "Montant : ${elMoneyFormat(expense.amount)}",
-                style = MaterialTheme.typography.bodyMedium,
+                style = ElTheme.typography.bodyMedium,
                 color = c.primary,
                 fontWeight = FontWeight.Bold,
             )
-            Text("Bénéficiaire : ${expense.payee}", style = MaterialTheme.typography.bodySmall)
+            Text("Bénéficiaire : ${expense.payee}", style = ElTheme.typography.bodySmall)
 
             if (expense.anomalyScore != null && expense.anomalyScore > 0.5) {
                 Text(
                     "⚠ Anomalie détectée (score : ${expense.anomalyScore})",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = ElTheme.typography.bodySmall,
                     color = c.danger,
                 )
             }

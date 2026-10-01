@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -131,6 +130,7 @@ fun StudentRosterScreen(
     onStudentClick: (String) -> Unit,
     viewModel: StudentRosterViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
     val context = LocalContext.current
     val query by viewModel.query.collectAsState()
     val students by viewModel.students.collectAsState()
@@ -151,7 +151,7 @@ fun StudentRosterScreen(
                 .fillMaxWidth()
                 .padding(bottom = 10.dp),
             shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            color = c.surfaceVariant.copy(alpha = 0.5f),
         ) {
             Row(
                 modifier = Modifier
@@ -166,8 +166,8 @@ fun StudentRosterScreen(
                             .size(10.dp)
                             .clip(CircleShape)
                             .background(
-                                if (isConfigured) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.outline,
+                                if (isConfigured) c.primary
+                                else c.textMuted,
                             ),
                     )
                     Spacer(Modifier.width(8.dp))
@@ -180,7 +180,7 @@ fun StudentRosterScreen(
                     Spacer(Modifier.width(6.dp))
                     Text(
                         text = "${students.size} élève${if (students.size > 1) "s" else ""}",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = ElTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
                 }
@@ -190,7 +190,7 @@ fun StudentRosterScreen(
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = c.primary,
                         )
                     } else if (isConfigured) {
                         IconButton(
@@ -200,7 +200,7 @@ fun StudentRosterScreen(
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Actualiser",
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = c.primary,
                             )
                         }
                     }
@@ -245,12 +245,12 @@ fun StudentRosterScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     student.fullName,
-                                    style = MaterialTheme.typography.titleMedium,
+                                    style = ElTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                 )
                                 Text(
                                     "Matricule : ${student.code} • ${student.gradeLevel.uppercase()}",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = ElTheme.typography.bodySmall,
                                     color = ElTheme.colors.textSecondary,
                                 )
                             }
