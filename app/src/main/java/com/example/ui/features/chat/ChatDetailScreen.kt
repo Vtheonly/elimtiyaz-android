@@ -16,18 +16,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -41,6 +33,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.domain.model.ChatMessage
+import com.example.ui.designsystem.components.button.ElIconButton
+import com.example.ui.designsystem.components.display.ElAlertBanner
+import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagSize
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.components.feedback.ElSpinner
+import com.example.ui.designsystem.components.input.ElTextField
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.theme.ElTheme
 import java.time.format.DateTimeFormatter
 
 /**
@@ -50,7 +53,6 @@ import java.time.format.DateTimeFormatter
  * composer (announcements channels are read-only for non-creators — same
  * rule as the website).
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatDetailScreen(
     channelId: String,
@@ -72,24 +74,16 @@ fun ChatDetailScreen(
         }
     }
 
-    Scaffold(
+    val c = ElTheme.colors
+
+    ElScaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(channelName, maxLines = 1)
-                        if (isAnnouncement) {
-                            Text(
-                                "Annonce — lecture",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.tertiary,
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+            ElTopBar(
+                title = channelName,
+                onBack = onBack,
+                actions = {
+                    if (isAnnouncement) {
+                        ElTag(text = "Annonce — lecture", tone = ElTagTone.INFO, size = ElTagSize.SM)
                     }
                 },
             )
@@ -102,20 +96,16 @@ fun ChatDetailScreen(
                 .imePadding(),
         ) {
             state.error?.let { error ->
-                Text(
-                    text = error,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                ElAlertBanner(
+                    title = error,
+                    severity = ElAlertSeverity.DANGER,
                 )
             }
 
             Box(modifier = Modifier.weight(1f)) {
                 if (state.loading && state.messages.isEmpty()) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                        ElSpinner(size = 36)
                     }
                 }
                 LazyColumn(
@@ -139,8 +129,8 @@ fun ChatDetailScreen(
             if (isAnnouncement) {
                 Text(
                     "Canal d'annonce — lecture seule (le bureau publie, l'école lit).",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = ElTheme.typography.labelSmall,
+                    color = c.textSecondary,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -150,31 +140,33 @@ fun ChatDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.Bottom,
                 ) {
-                    OutlinedTextField(
+                    ElTextField(
                         value = draft,
                         onValueChange = {
                             if (it.length <= ChatDetailViewModel.MAX_BODY_LENGTH) draft = it
                         },
-                        placeholder = { Text("Écrire un message…") },
+                        placeholder = "Écrire un message…",
                         modifier = Modifier.weight(1f),
-                        maxLines = 4,
+                        singleLine = false,
                         enabled = !state.sending,
                     )
                     Spacer(Modifier.width(8.dp))
-                    IconButton(
-                        onClick = {
-                            viewModel.send(draft)
-                            if (state.error == null) draft = ""
-                        },
-                        enabled = !state.sending && draft.isNotBlank(),
-                    ) {
-                        if (state.sending) {
-                            CircularProgressIndicator(modifier = Modifier.width(22.dp))
-                        } else {
-                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Envoyer")
-                        }
+                    if (state.sending) {
+                        ElSpinner(size = 22, strokeWidth = 2, modifier = Modifier.width(22.dp))
+                    } else {
+                        ElIconButton(
+                            icon = Icons.AutoMirrored.Filled.Send,
+                            onClick = {
+                                viewModel.send(draft)
+                                if (state.error == null) draft = ""
+                            },
+                            enabled = !state.sending && draft.isNotBlank(),
+                            contentDescription = "Envoyer",
+                            tint = c.onPrimary,
+                            background = c.primary,
+                        )
                     }
                 }
             }
@@ -184,6 +176,7 @@ fun ChatDetailScreen(
 
 @Composable
 private fun MessageBubble(message: ChatMessage, own: Boolean) {
+    val c = ElTheme.colors
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (own) Arrangement.End else Arrangement.Start,
@@ -196,20 +189,20 @@ private fun MessageBubble(message: ChatMessage, own: Boolean) {
                 bottomEnd = if (own) 3.dp else 14.dp,
             ),
             color = if (own) {
-                MaterialTheme.colorScheme.primaryContainer
+                c.primary
             } else {
-                MaterialTheme.colorScheme.surfaceVariant
+                c.surfaceVariant
             },
             modifier = Modifier.widthIn(max = 300.dp),
         ) {
             Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 Text(
                     text = message.body,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = ElTheme.typography.bodyMedium,
                     color = if (own) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
+                        c.onPrimary
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        c.textPrimary
                     },
                 )
                 Text(
@@ -218,8 +211,8 @@ private fun MessageBubble(message: ChatMessage, own: Boolean) {
                             .withZone(java.time.ZoneId.systemDefault())
                             .format(java.time.Instant.parse(message.sentAt))
                     }.getOrDefault(""),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
+                    style = ElTheme.typography.labelSmall,
+                    color = if (own) c.onPrimary.copy(alpha = 0.7f) else c.textSecondary,
                     modifier = Modifier.align(Alignment.End),
                 )
             }
