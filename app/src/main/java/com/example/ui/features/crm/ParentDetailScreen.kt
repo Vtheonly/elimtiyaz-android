@@ -55,6 +55,7 @@ import com.example.core.PaymentCategory
 import com.example.core.formatDzd
 import com.example.domain.model.Parent
 import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.display.ElInfoRow
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.card.ElCardSize
 import com.example.ui.designsystem.components.display.ElAvatarSize
@@ -246,10 +247,10 @@ fun ParentDetailScreen(
                         ElSectionHeader(title = "Finances")
                         Spacer(Modifier.height(4.dp))
                         ElInfoRow(label = "Total facturé", value = "${(s.totalCharged / 100).formatDzd()} DZD")
-                        ElInfoRow(label = "Total payé", value = "${(s.totalPaid / 100).formatDzd()} DZD", valueColor = c.success)
+                        ElInfoRow(label = "Total payé", value = "${(s.totalPaid / 100).formatDzd()} DZD", valueTint = c.success)
                         ElInfoRow(label = "Solde", value = "${(s.totalOutstanding / 100).formatDzd()} DZD")
                         if (s.totalOverdue > 0) {
-                            ElInfoRow(label = "En retard", value = "${(s.totalOverdue / 100).formatDzd()} DZD", valueColor = c.danger)
+                            ElInfoRow(label = "En retard", value = "${(s.totalOverdue / 100).formatDzd()} DZD", valueTint = c.danger)
                         }
 
                         Spacer(Modifier.height(8.dp))

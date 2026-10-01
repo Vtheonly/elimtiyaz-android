@@ -80,6 +80,7 @@ import com.example.ui.designsystem.components.display.ElChipVariant
 import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.designsystem.components.display.ElAlertSeverity
 import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.display.ElInfoRow
 import com.example.ui.designsystem.components.button.ElButton
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.nav.ElScaffold
@@ -221,7 +222,7 @@ fun StudentDetailScreen(
                                     ElInfoRow(label = "Cycle scolaire", value = s.level.replaceFirstChar { it.uppercase() })
                                     ElInfoRow(label = "Niveau d'études", value = s.gradeLevel.uppercase())
                                     ElInfoRow(label = "Date d'inscription", value = s.enrollmentDate.take(10))
-                                    s.medicalNotes?.let { ElInfoRow(label = "Notes médicales", value = it, valueColor = c.danger) }
+                                    s.medicalNotes?.let { ElInfoRow(label = "Notes médicales", value = it, valueTint = c.danger) }
                                 }
                             }
                         }
@@ -626,7 +627,7 @@ fun StudentDetailScreen(
                                 ElSectionHeader(title = "Finances — part de cet élève")
                                 Spacer(Modifier.height(6.dp))
                                 ElInfoRow(label = "Tranches de cet élève (dû)", value = "${(ownDue / 100).formatDzd()} DZD")
-                                ElInfoRow(label = "Tranches de cet élève (payé)", value = "${(ownPaid / 100).formatDzd()} DZD", valueColor = c.success)
+                                ElInfoRow(label = "Tranches de cet élève (payé)", value = "${(ownPaid / 100).formatDzd()} DZD", valueTint = c.success)
 
                                 Spacer(Modifier.height(10.dp))
                                 ElButton(
@@ -641,8 +642,8 @@ fun StudentDetailScreen(
                                 ElSectionHeader(title = "Solde familial consolidé (tous enfants)")
                                 Spacer(Modifier.height(4.dp))
                                 ElInfoRow(label = "Total scolarité & transport", value = "${(studentDue / 100).formatDzd()} DZD")
-                                ElInfoRow(label = "Total réglé", value = "${(studentPaid / 100).formatDzd()} DZD", valueColor = c.success)
-                                ElInfoRow(label = "Reste à payer", value = "${(studentRest / 100).formatDzd()} DZD", valueColor = if (studentRest > 0) c.danger else c.success)
+                                ElInfoRow(label = "Total réglé", value = "${(studentPaid / 100).formatDzd()} DZD", valueTint = c.success)
+                                ElInfoRow(label = "Reste à payer", value = "${(studentRest / 100).formatDzd()} DZD", valueTint = if (studentRest > 0) c.danger else c.success)
                             }
                         }
                     }
@@ -670,7 +671,7 @@ fun StudentDetailScreen(
                                     Spacer(Modifier.height(4.dp))
                                     ElInfoRow(label = "Échéance", value = inst.dueDate)
                                     ElInfoRow(label = "Montant dû", value = "${(inst.amountDue / 100).formatDzd()} DZD")
-                                    ElInfoRow(label = "Payé", value = "${(inst.amountPaid / 100).formatDzd()} DZD", valueColor = c.success)
+                                    ElInfoRow(label = "Payé", value = "${(inst.amountPaid / 100).formatDzd()} DZD", valueTint = c.success)
                                 }
                             }
                         }

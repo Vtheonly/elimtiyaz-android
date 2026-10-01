@@ -53,7 +53,6 @@ import com.example.ui.designsystem.components.display.ElChip
 import com.example.ui.designsystem.components.display.ElChipGroup
 import com.example.ui.designsystem.components.display.ElBadge
 import com.example.ui.designsystem.components.display.ElAvatar
-import com.example.ui.designsystem.components.display.ElDivider
 import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.designsystem.components.display.ElInfoRow
 import com.example.ui.designsystem.components.display.ElTag

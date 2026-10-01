@@ -72,7 +72,7 @@ data class ElStackedBarSegment(
     val label: String = "",
 )
 
-/** One point of an [ElComposedRevenueChart] (revenue trend explorer). */
+/** One point of a composed revenue chart (revenue trend explorer). */
 data class ElComposedRevenuePoint(
     val label: String,             // month label
     val amount: Float,             // the monthly bar
@@ -90,13 +90,13 @@ data class ElHorizontalBarItem(
     val trailingText: String? = null,
 )
 
-/** One cell of an [ElHeatmapGrid] (collection heatmap matrix). */
+/** One cell of a collection heatmap matrix. */
 data class ElHeatmapCell(
     val level: Int,                // 0–4 intensity (0 = empty)
     val amount: Float = 0f,
 )
 
-/** One row of an [ElHeatmapGrid]. */
+/** One row of a collection heatmap matrix. */
 data class ElHeatmapRow(
     val rowLabel: String,          // "Dim"… "Jeu"
     val cells: List<ElHeatmapCell>,
