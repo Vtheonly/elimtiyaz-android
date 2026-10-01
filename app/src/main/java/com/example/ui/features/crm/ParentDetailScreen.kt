@@ -88,6 +88,7 @@ fun ParentDetailScreen(
     val error by viewModel.error.collectAsState()
     val saveMessage by viewModel.saveMessage.collectAsState()
     val busy by viewModel.busy.collectAsState()
+    val ledgerEntries by viewModel.ledgerEntries.collectAsState()
     val pdfFile by viewModel.pdfFile.collectAsState()
     val context = LocalContext.current
     val tokens = elDesignTokens()
@@ -282,6 +283,18 @@ fun ParentDetailScreen(
                     }
                 }
             }
+
+            // T-456 (INV-20e) — « Historique par Année Scolaire » : the
+            // canonical per-year debt-history section (the SAME component
+            // the Debt Dashboard's « Par année » drawer mounts — one engine,
+            // one rendering component, two surfaces, financial-rules §17.3).
+            // Renders nothing when the family has no financial history.
+            ParentYearHistorySection(
+                parentId = parentId,
+                installments = installments,
+                payments = payments,
+                ledgerEntries = ledgerEntries,
+            )
 
             billingBreakdown?.let { bd ->
                 if (bd.byChild.isNotEmpty() && bd.totalBilled > 0L) {
