@@ -9,31 +9,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -45,6 +39,17 @@ import androidx.lifecycle.viewModelScope
 import com.example.core.Permission
 import com.example.domain.repository.PdfRepository
 import com.example.session.SessionManager
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagSize
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.components.feedback.ElSnackbarHost
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import javax.inject.Inject
@@ -117,13 +122,21 @@ data class ReportType(
     val requiresSalaryPermission: Boolean = false,
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * T-460 pass G-a (issue #3 F-06): the raw-M3 chrome → the design system
+ * (ElScaffold/ElTopBar/ElCard/ElTag/ElButton). The report-generation logic,
+ * the RBAC gating and the FileProvider share flow are preserved verbatim;
+ * the transient status channel stays a snackbar (hosted by ElScaffold's
+ * themed snackbarHost slot; the transient-feedback unification is pass H,
+ * finding F-18).
+ */
 @Composable
 fun ReportsScreen(
     onBack: () -> Unit,
     onNavigateToAuditLog: () -> Unit,
     viewModel: ReportsViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
     val context = LocalContext.current
     val snackbar by viewModel.snackbar.collectAsState()
     val generating by viewModel.generating.collectAsState()
@@ -167,28 +180,44 @@ fun ReportsScreen(
         ReportType("annuaire-personnel", "Annuaire du personnel", "Liste complète du personnel avec coordonnées et salaire (rôle requis).", "PDF", Icons.Default.People, requiresSalaryPermission = true),
     )
 
-    Scaffold(
+    ElScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Rapports") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Retour") } },
+            ElTopBar(
+                title = "Rapports",
+                onBack = onBack,
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { ElSnackbarHost(hostState = snackbarHostState) },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("Journal d'audit", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                        Text("Redirige vers le journal d'audit complet (SuperAdmin / FinancialOfficer).", style = MaterialTheme.typography.bodySmall)
-                        Spacer(Modifier.height(4.dp))
-                        androidx.compose.material3.TextButton(onClick = onNavigateToAuditLog) {
-                            Text("Ouvrir le journal")
+                ElCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    size = ElCardSize.STANDARD,
+                    onClick = onNavigateToAuditLog,
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Journal d'audit", style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Redirige vers le journal d'audit complet (SuperAdmin / FinancialOfficer).",
+                                style = ElTheme.typography.bodySmall,
+                                color = c.textSecondary,
+                            )
                         }
+                        Spacer(Modifier.width(8.dp))
+                        ElButton(
+                            text = "Ouvrir le journal",
+                            onClick = onNavigateToAuditLog,
+                            variant = ElButtonVariant.GHOST,
+                        )
                     }
                 }
             }
@@ -196,31 +225,42 @@ fun ReportsScreen(
             items(reports) { report ->
                 val allowed = !report.requiresSalaryPermission || viewModel.canViewSalary
                 val isGenerating = report.id in generating
-                Card(
+                ElCard(
                     modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(1.dp),
+                    size = ElCardSize.STANDARD,
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                        Row {
-                            Icon(report.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.height(8.dp))
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(report.icon, contentDescription = null, tint = c.primary, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(report.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                Text(report.description, style = MaterialTheme.typography.bodySmall)
-                                Text("Format: ${report.format}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                Text(report.title, style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                Spacer(Modifier.height(2.dp))
+                                Text(report.description, style = ElTheme.typography.bodySmall, color = c.textSecondary)
                             }
+                            Spacer(Modifier.width(8.dp))
+                            ElTag(
+                                text = report.format,
+                                tone = ElTagTone.NEUTRAL,
+                                size = ElTagSize.SM,
+                            )
                         }
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(10.dp))
                         if (allowed) {
-                            androidx.compose.material3.TextButton(
+                            ElButton(
+                                text = "Générer le PDF",
                                 onClick = { viewModel.generate(report.id, report.title) },
-                                enabled = !isGenerating,
-                            ) {
-                                Icon(Icons.Default.PictureAsPdf, contentDescription = null)
-                                Text(if (isGenerating) " Génération…" else " Générer le PDF")
-                            }
+                                variant = ElButtonVariant.SECONDARY,
+                                icon = Icons.Default.PictureAsPdf,
+                                loading = isGenerating,
+                                fullWidth = true,
+                            )
                         } else {
-                            Text("Permission VIEW_SALARY requise.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                            Text(
+                                "Permission VIEW_SALARY requise.",
+                                style = ElTheme.typography.labelSmall,
+                                color = c.danger,
+                            )
                         }
                     }
                 }
