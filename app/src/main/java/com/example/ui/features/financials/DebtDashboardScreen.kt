@@ -1,6 +1,7 @@
 package com.example.ui.features.financials
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,13 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -51,15 +47,20 @@ import com.example.domain.repository.DebtRepository
 import com.example.domain.repository.InstallmentRepository
 import com.example.domain.repository.LedgerRepository
 import com.example.domain.repository.PaymentRepository
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElEmptyState
-import com.example.ui.components.ElInfoRow
-import com.example.ui.components.ElTag
-import com.example.ui.components.ElTopBar
-import com.example.ui.theme.DangerRed
-import com.example.ui.theme.PrimaryBlue
-import com.example.ui.theme.SuccessGreen
-import com.example.ui.theme.WarningOrange
+import com.example.ui.designsystem.components.button.ElIconButton
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElChip
+import com.example.ui.designsystem.components.display.ElChipVariant
+import com.example.ui.designsystem.components.display.ElInfoRow
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagSize
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.overlays.ElBottomSheet
+import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.util.PhoneUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -109,6 +110,7 @@ fun DebtDashboardScreen(
     onNavigateToCounter: (parentId: String?, studentId: String?) -> Unit = { _, _ -> },
     viewModel: DebtDashboardViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
     val debtors by viewModel.debtors.collectAsState()
     val totalOutstanding = debtors.sumOf { it.outstandingAmount }
     // PARITY-002 (T-286): the INV-4 overdue portion from the shared
@@ -123,12 +125,12 @@ fun DebtDashboardScreen(
 
     BackHandler { onBack() }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        ElTopBar(title = "Créances & Retards", onBack = onBack)
-
+    ElScaffold(
+        topBar = { ElTopBar(title = "Créances & Retards", onBack = onBack) },
+    ) { innerPadding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
+            contentPadding = PaddingValues(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
@@ -136,18 +138,22 @@ fun DebtDashboardScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    ElCard(modifier = Modifier.weight(1f), compact = true) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text("Total créances", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.height(4.dp))
-                            Text("${(totalOutstanding / 100).formatDzd()} DA", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = PrimaryBlue)
+                    ElCard(modifier = Modifier.weight(1f), size = ElCardSize.COMPACT) {
+                        Column {
+                            Text("Total créances", style = ElTheme.typography.labelSmall, color = c.textSecondary)
+                            Spacer(Modifier.height(ElTheme.spacing.xs))
+                            Text("${(totalOutstanding / 100).formatDzd()} DA", style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = c.primary)
                         }
                     }
-                    ElCard(modifier = Modifier.weight(1f), accent = DangerRed, compact = true) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text("Total en retard", style = MaterialTheme.typography.labelSmall, color = DangerRed)
-                            Spacer(Modifier.height(4.dp))
-                            Text("${(totalOverdue / 100).formatDzd()} DA", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = DangerRed)
+                    ElCard(
+                        modifier = Modifier.weight(1f),
+                        size = ElCardSize.COMPACT,
+                        border = BorderStroke(ElTheme.borders.thin, c.danger.copy(alpha = 0.45f)),
+                    ) {
+                        Column {
+                            Text("Total en retard", style = ElTheme.typography.labelSmall, color = c.danger)
+                            Spacer(Modifier.height(ElTheme.spacing.xs))
+                            Text("${(totalOverdue / 100).formatDzd()} DA", style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = c.danger)
                         }
                     }
                 }
@@ -166,10 +172,10 @@ fun DebtDashboardScreen(
                         "91_180" to "91–180 j",
                         "180_plus" to "180+ j",
                     ).forEach { (b, label) ->
-                        ElTag(
+                        ElChip(
                             text = label,
+                            variant = ElChipVariant.FILTER,
                             selected = bucketFilter == b,
-                            color = if (b == "180_plus" || b == "91_180") DangerRed else PrimaryBlue,
                             onClick = { bucketFilter = b },
                         )
                     }
@@ -181,7 +187,7 @@ fun DebtDashboardScreen(
                     ElEmptyState(
                         icon = Icons.Default.Call,
                         title = "Aucune créance",
-                        message = "Toutes les familles sélectionnées sont à jour.",
+                        subtitle = "Toutes les familles sélectionnées sont à jour.",
                     )
                 }
             } else {
@@ -190,42 +196,49 @@ fun DebtDashboardScreen(
                     // the tone mirrors the desktop's DEBT_AGING_STATUS_TONE
                     // (green success · yellow warning · orange warning · red
                     // danger); the §15.3 wording is IDENTICAL on every surface.
-                    val statusColor = when (debtor.statusLevel) {
-                        "green" -> SuccessGreen
-                        "yellow", "orange" -> WarningOrange
-                        else -> DangerRed
+                    val statusTone = when (debtor.statusLevel) {
+                        "green" -> ElTagTone.SUCCESS
+                        "yellow", "orange" -> ElTagTone.WARNING
+                        else -> ElTagTone.DANGER
+                    }
+                    val statusColor = when (statusTone) {
+                        ElTagTone.SUCCESS -> c.success
+                        ElTagTone.WARNING -> c.warning
+                        else -> c.danger
                     }
                     ElCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onNavigateToParent(debtor.parentId) },
-                        accent = if (debtor.statusLevel == "red") DangerRed else if (debtor.statusLevel == "green") null else WarningOrange,
-                        compact = true,
+                        size = ElCardSize.STANDARD,
+                        border = if (debtor.statusLevel == "red" || debtor.statusLevel == "yellow" || debtor.statusLevel == "orange") {
+                            BorderStroke(ElTheme.borders.thin, statusColor.copy(alpha = 0.45f))
+                        } else null,
                     ) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(debtor.parentName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                                    Text("${debtor.studentCount} élève(s) rattaché(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(debtor.parentName, style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
+                                    Text("${debtor.studentCount} élève(s) rattaché(s)", style = ElTheme.typography.bodySmall, color = c.textSecondary)
                                 }
                                 // The §15.3 canonical label (INV-16d: never a bare
                                 // color — the explanation travels with the row).
-                                ElTag(text = debtor.statusLabel, color = statusColor)
+                                ElTag(text = debtor.statusLabel, tone = statusTone, size = ElTagSize.MD)
                             }
                             Spacer(Modifier.height(8.dp))
-                            ElInfoRow(label = "Téléphone", value = debtor.parentPhone)
-                            ElInfoRow(label = "Montant dû", value = "${(debtor.outstandingAmount / 100).formatDzd()} DZD", valueColor = DangerRed)
+                            ElInfoRow(label = "Téléphone", value = debtor.parentPhone, valueTint = c.textPrimary)
+                            ElInfoRow(label = "Montant dû", value = "${(debtor.outstandingAmount / 100).formatDzd()} DZD", valueTint = c.danger)
                             // INV-16d: the explanation is part of the contract —
                             // the tier, the thresholds actually applied, the
                             // payeur-actif annotation.
                             if (debtor.statusExplanation.isNotBlank()) {
                                 Text(
                                     debtor.statusExplanation,
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = ElTheme.typography.bodySmall,
                                     color = statusColor,
                                 )
                             }
@@ -236,23 +249,35 @@ fun DebtDashboardScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 if (debtor.daysOverdue > 0) {
-                                    Text("En retard de ${debtor.daysOverdue} jours", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold), color = DangerRed)
+                                    Text("En retard de ${debtor.daysOverdue} jours", style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold), color = c.danger)
                                 } else {
                                     Spacer(Modifier.width(1.dp))
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     // T-456 (INV-20e): the « Par année » drill-down —
                                     // the per-year debt-history drawer.
-                                    IconButton(onClick = { yearHistoryTarget = debtor }) {
-                                        Icon(Icons.Default.CalendarMonth, contentDescription = "Historique par année", tint = PrimaryBlue)
-                                    }
-                                    IconButton(onClick = { onNavigateToCounter(debtor.parentId, null) }) {
-                                        Icon(Icons.Default.Payments, contentDescription = "Encaisser", tint = PrimaryBlue)
-                                    }
+                                    ElIconButton(
+                                        icon = Icons.Default.CalendarMonth,
+                                        onClick = { yearHistoryTarget = debtor },
+                                        contentDescription = "Historique par année",
+                                        tint = c.primary,
+                                        background = Color.Transparent,
+                                    )
+                                    ElIconButton(
+                                        icon = Icons.Default.Payments,
+                                        onClick = { onNavigateToCounter(debtor.parentId, null) },
+                                        contentDescription = "Encaisser",
+                                        tint = c.primary,
+                                        background = Color.Transparent,
+                                    )
                                     if (debtor.parentPhone.isNotBlank()) {
-                                        IconButton(onClick = { PhoneUtils.dial(context, debtor.parentPhone) }) {
-                                            Icon(Icons.Default.Call, contentDescription = "Appeler", tint = SuccessGreen)
-                                        }
+                                        ElIconButton(
+                                            icon = Icons.Default.Call,
+                                            onClick = { PhoneUtils.dial(context, debtor.parentPhone) },
+                                            contentDescription = "Appeler",
+                                            tint = c.success,
+                                            background = Color.Transparent,
+                                        )
                                     }
                                 }
                             }
@@ -281,27 +306,25 @@ fun DebtDashboardScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun YearHistoryDrawer(
     debtor: DebtSummary,
     viewModel: DebtDashboardViewModel,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val c = ElTheme.colors
     // The per-parent canonical stream — collected only while this drawer is
     // composed (the conditional mount; the flow is cold in the ViewModel).
     val history by remember(debtor.parentId) { viewModel.yearHistory(debtor.parentId) }
         .collectAsState(initial = null)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-    ) {
+    // T-460 pass C: the DS sheet chrome (ElBottomSheet with handle + scrim,
+    // navigation-bars padding) replaces the raw M3 ModalBottomSheet.
+    ElBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = ElTheme.spacing.lg, vertical = 8.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -309,22 +332,22 @@ private fun YearHistoryDrawer(
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Column {
-                    Text(debtor.parentName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    Text(debtor.parentName, style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
                     Text(
                         "Dette actuelle : ${(debtor.outstandingAmount / 100).formatDzd()} DZD",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = DangerRed,
+                        style = ElTheme.typography.bodySmall,
+                        color = c.danger,
                     )
                 }
-                Text("Par année", style = MaterialTheme.typography.labelLarge, color = PrimaryBlue)
+                Text("Par année", style = ElTheme.typography.labelLarge, color = c.primary)
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(ElTheme.spacing.md))
             if (history == null) {
-                Text("Chargement de l'historique…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Chargement de l'historique…", style = ElTheme.typography.bodyMedium, color = c.textSecondary)
             } else {
                 ParentYearHistoryBody(history = history!!)
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(ElTheme.spacing.xl))
         }
     }
 }
