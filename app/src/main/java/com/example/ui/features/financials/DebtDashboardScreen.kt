@@ -14,13 +14,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,12 +38,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.ui.features.crm.ParentYearHistoryBody
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.core.ParentYearHistory
+import com.example.core.YearHistoryInput
+import com.example.core.computeParentYearHistory
 import com.example.core.formatDzd
 import com.example.domain.model.DebtSummary
 import com.example.domain.repository.DebtRepository
+import com.example.domain.repository.InstallmentRepository
+import com.example.domain.repository.LedgerRepository
+import com.example.domain.repository.PaymentRepository
 import com.example.ui.components.ElCard
 import com.example.ui.components.ElEmptyState
 import com.example.ui.components.ElInfoRow
@@ -49,16 +62,43 @@ import com.example.ui.theme.SuccessGreen
 import com.example.ui.util.PhoneUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 
 @HiltViewModel
 class DebtDashboardViewModel @Inject constructor(
     private val debtRepository: DebtRepository,
+    private val installmentRepository: InstallmentRepository,
+    private val paymentRepository: PaymentRepository,
+    private val ledgerRepository: LedgerRepository,
 ) : ViewModel() {
     val debtors: StateFlow<List<DebtSummary>> = debtRepository.observeSummary()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    /**
+     * T-456 (INV-20e) — the per-parent canonical year-history stream feeding
+     * the « Par année » drawer (the desktop DebtAgingDetailDrawer's per-year
+     * tab, T-430 conditional-mount: the collectors start only when the drawer
+     * subscribes — this flow is cold). The derivation is the ONE engine
+     * [computeParentYearHistory]; this method never computes anything else.
+     */
+    fun yearHistory(parentId: String): Flow<ParentYearHistory> = combine(
+        installmentRepository.observeByParent(parentId),
+        paymentRepository.observeByParent(parentId),
+        ledgerRepository.observeByParent(parentId),
+    ) { installments, payments, ledgerEntries ->
+        computeParentYearHistory(
+            YearHistoryInput(
+                parentId = parentId,
+                installments = installments,
+                payments = payments,
+                ledgerEntries = ledgerEntries,
+            ),
+        )
+    }
 }
 
 @Composable
@@ -77,6 +117,8 @@ fun DebtDashboardScreen(
     var bucketFilter by remember { mutableStateOf<String?>(null) }
     val filtered = if (bucketFilter == null) debtors else debtors.filter { it.bucket == bucketFilter }
     val context = LocalContext.current
+    // T-456 (INV-20e): the « Par année » drawer's target family (null = closed).
+    var yearHistoryTarget by remember { mutableStateOf<DebtSummary?>(null) }
 
     BackHandler { onBack() }
 
@@ -183,6 +225,11 @@ fun DebtDashboardScreen(
                                     Spacer(Modifier.width(1.dp))
                                 }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
+                                    // T-456 (INV-20e): the « Par année » drill-down —
+                                    // the per-year debt-history drawer.
+                                    IconButton(onClick = { yearHistoryTarget = debtor }) {
+                                        Icon(Icons.Default.CalendarMonth, contentDescription = "Historique par année", tint = PrimaryBlue)
+                                    }
                                     IconButton(onClick = { onNavigateToCounter(debtor.parentId, null) }) {
                                         Icon(Icons.Default.Payments, contentDescription = "Encaisser", tint = PrimaryBlue)
                                     }
@@ -201,6 +248,67 @@ fun DebtDashboardScreen(
             item {
                 Spacer(Modifier.height(80.dp))
             }
+        }
+    }
+
+    // T-456 (INV-20e) — the « Par année » per-year debt-history drawer (the
+    // desktop DebtAgingDetailDrawer's per-year tab). The sheet's content
+    // composes ONLY while open (the T-430 conditional-mount discipline: the
+    // per-parent collectors start on open, stop on dismiss) and mounts the
+    // SAME ParentYearHistorySection the CRM parent screen mounts.
+    yearHistoryTarget?.let { target ->
+        YearHistoryDrawer(
+            debtor = target,
+            viewModel = viewModel,
+            onDismiss = { yearHistoryTarget = null },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun YearHistoryDrawer(
+    debtor: DebtSummary,
+    viewModel: DebtDashboardViewModel,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // The per-parent canonical stream — collected only while this drawer is
+    // composed (the conditional mount; the flow is cold in the ViewModel).
+    val history by remember(debtor.parentId) { viewModel.yearHistory(debtor.parentId) }
+        .collectAsState(initial = null)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column {
+                    Text(debtor.parentName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    Text(
+                        "Dette actuelle : ${(debtor.outstandingAmount / 100).formatDzd()} DZD",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = DangerRed,
+                    )
+                }
+                Text("Par année", style = MaterialTheme.typography.labelLarge, color = PrimaryBlue)
+            }
+            Spacer(Modifier.height(12.dp))
+            if (history == null) {
+                Text("Chargement de l'historique…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                ParentYearHistoryBody(history = history!!)
+            }
+            Spacer(Modifier.height(24.dp))
         }
     }
 }
