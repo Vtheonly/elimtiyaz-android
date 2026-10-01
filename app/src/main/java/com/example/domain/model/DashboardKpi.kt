@@ -71,10 +71,32 @@ data class DashboardKpi(
     val executive: ExecutiveStatsSnapshot = ExecutiveStatsSnapshot(),
     // Year-over-year comparison (StatisticsEngine.deriveYearOverYear — null deltas = "n/a")
     val yoy: YoYSnapshot = YoYSnapshot(),
-    // Tranche wave progress (StatisticsEngine.deriveTrancheWaves — T1/T2/T3 collection health)
+    // Tranche wave progress — T-454 (PARITY-007): fed by the CANONICAL pooled
+    // adapter (deriveExecTrancheWaveStrip over deriveExecPooledTrancheWaves —
+    // the desktop T-447 construction); the label-REGEX StatisticsEngine path
+    // is retired from this contract's production feed.
     val trancheWaves: List<TrancheWaveItem> = emptyList(),
+    // T-454: the Finance strip's TOTALS row (the desktop tab's totals block —
+    // Σdue / Σpaid / the INV-4 remaining / the dynamic overdue count over the
+    // whole selection, non-wave rows included). Rendered by the strip, never
+    // re-derived; the wave sums alone would silently drop the FI pool.
+    val trancheStripTotals: TrancheStripTotalsItem = TrancheStripTotalsItem(),
     // Class demographics (StatisticsEngine.deriveDemographics — capacity REMOVED T-340)
     val demographics: ClassDemographicsSnapshot = ClassDemographicsSnapshot(),
+)
+
+/**
+ * T-454 (PARITY-007) — the Finance strip's 4-cell totals row (the desktop
+ * installment-schedule-tab totals block mirror): the canonical sums over the
+ * WHOLE selection (non-wave/FI rows included), computed at the repository
+ * level by deriveExecTrancheStripTotals.
+ */
+@Serializable
+data class TrancheStripTotalsItem(
+    val totalDue: Long = 0L,        // Σ amountDue (centimes)
+    val totalPaid: Long = 0L,       // Σ amountPaid
+    val totalRemaining: Long = 0L,  // clampNonNegative(Σdue − Σpaid − Σpending)
+    val overdueCount: Int = 0,      // the T-426 dynamic-predicate row count
 )
 
 @Serializable

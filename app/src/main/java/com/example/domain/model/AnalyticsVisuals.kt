@@ -69,18 +69,33 @@ data class YoYSnapshot(
 
 // ============================================================================
 // Tranche wave progress (desktop deriveTrancheWaves — T1/T2/T3 meters)
+// T-454 (PARITY-007): the CONTRACT now mirrors the desktop's CURRENT strip
+// view model (the T-447 adapter over the canonical pooled rows) — the
+// pre-T-454 shape (label-parsed grouping + clamped pct + no dates) is
+// retired from the production feed.
 // ============================================================================
 
 @Serializable
 data class TrancheWaveItem(
     val index: Int,           // 1 | 2 | 3
     val label: String,        // "Tranche 1 (Septembre)" …
-    val hint: String,         // due-window hint (display-only)
-    val due: Long,            // Σ amountDue (centimes)
+    val hint: String,         // due-window hint (display-only fallback)
+    val due: Long,            // Σ amountDue (centimes — the POOLED all-categories basis)
     val paid: Long,           // Σ amountPaid (includes uncleared checks)
     val pending: Long,        // Σ amountPending
-    val pct: Int,             // min(100, Math.round(paid/due×100))
+    /** T-454 (INV-4): the canonical remaining (Σ due − paid − pending, clamped) — the strip's "reste" line. */
+    val remaining: Long = 0L,
+    /** T-454 (PARITY-001): the canonical UNCLAMPED rate — over-covered waves are honest. */
+    val pct: Int,             // round(paid/due×100), never min(100, …)
+    /** T-432 (DATA-049): the tuition-isolated rate — the same number the Statistics wave cards show. */
+    val tuitionPct: Int? = null,
     val isNextTarget: Boolean = false,
+    /** T-427: the wave is overdue (an unsettled row's due date is past). */
+    val isOverdue: Boolean = false,
+    /** T-434/T-435: the wave's DERIVED earliest due date (ISO) — never a hardcoded hint. */
+    val dueDate: String? = null,
+    /** T-435: the wave's derived LATEST due date (ISO) — the range's far bound. */
+    val dueDateMax: String? = null,
 )
 
 // ============================================================================

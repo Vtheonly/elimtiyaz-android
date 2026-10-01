@@ -648,6 +648,167 @@ fun deriveExecNonWaveSummary(
 }
 
 // ============================================================================
+// T-454 (PARITY-007, 127th session — the desktop T-447 UI-surface mirror):
+// the FINANCE-STRIP presentation adapter + the strip totals.
+//
+// MIRRORED FROM (ADR-002 — the desktop's own post-T-447 construction):
+//   `elimtiyaz-desktop/src/features/financials/installment-schedule-tab.tsx`
+//   — `deriveTrancheWaves(rows)` maps the canonical
+//   `derivePooledTrancheWaves(rows, now)` rows (T-447: "the strip's
+//   per-index cards map the domain module's PooledTrancheWave rows — the
+//   SAME object the Statistics main wave cards consume... adding only this
+//   surface's presentation [label/hint/isNextTarget/tuitionPct]. The
+//   hand-rolled pooling... is retired") and the totals block
+//   (`sumInstallmentsDue` / `sumInstallmentsPaid` / `totalOutstanding` +
+//   the T-426 dynamic-overdue count).
+//
+// The Android's pre-T-454 feed (`StatisticsEngine.deriveTrancheWaves` — the
+// label-REGEX grouping + the clamped pct) is RETIRED from the production
+// path: a row whose label drifts off "Tranche N" silently vanished from the
+// meters, and an over-covered wave rendered 100% while the desktop rendered
+// the honest >100 rate.
+// ============================================================================
+
+/**
+ * T-454 — the FINANCE-STRIP view model (the desktop tab's `TrancheWave`
+ * mirror): per wave the POOLED all-categories totals, the canonical
+ * PARITY-001 rate (round, NEVER clamped — over-covered waves are honest),
+ * the derived due-date range, the T-427 overdue flag, the T-432
+ * tuition-isolated rate, and the active-collection target flag.
+ */
+data class ExecTrancheWaveStripRow(
+    val index: Int,               // 1 | 2 | 3 (the fixed slots)
+    val label: String,            // "Tranche 1 (Septembre)" …
+    val hint: String,             // the static schedule hint (display-only fallback)
+    val dueDate: String? = null,  // ISO — the wave's DERIVED earliest due date
+    val dueDateMax: String? = null, // ISO — the wave's derived LATEST due date
+    val isOverdue: Boolean = false, // T-427: any unsettled row past due
+    val due: Long = 0L,           // Σ amountDue (centimes — the POOLED basis)
+    val paid: Long = 0L,          // Σ amountPaid (includes uncleared checks)
+    val pending: Long = 0L,       // Σ amountPending (uncleared non-cash)
+    val remaining: Long = 0L,     // Σ canonical INV-4 remaining
+    val pct: Int = 0,             // w.collectedPct — the canonical unclamped rate
+    val tuitionPct: Int? = null,  // T-432: the tuition-isolated rate (null when no tuition rows)
+    val isNextTarget: Boolean = false, // the first wave with a remaining balance
+)
+
+/** The desktop's TRANCHE_WAVE_META — the fixed T1/T2/T3 slots + the static hints (T-447 state). */
+private val EXEC_TRANCHE_WAVE_META: List<Triple<Int, String, String>> = listOf(
+    Triple(1, "Tranche 1 (Septembre)", "échéance 15 sep"),
+    Triple(2, "Tranche 2 (Décembre)", "échéance 15 déc"),
+    Triple(3, "Tranche 3 (Mars)", "échéance 15 mars"),
+)
+
+/** The zero-row pooled wave (the desktop `emptyPooledWave` mirror — the "no rows billed" slot state). */
+fun emptyExecPooledWave(wave: Int): ExecPooledTrancheWave = ExecPooledTrancheWave(
+    wave = wave,
+    installmentCount = 0,
+    settledCount = 0,
+    familyCount = 0,
+    debtorFamilyCount = 0,
+    overdueDebtorFamilyCount = 0,
+    dueTotal = 0L,
+    paidTotal = 0L,
+    pendingTotal = 0L,
+    remainingTotal = 0L,
+    overCoverageTotal = 0L,
+    collectedPct = 0,
+    dueDateMin = null,
+    dueDateMax = null,
+    anyUnsettledOverdue = false,
+    anyUnsettledFuture = false,
+    perCategory = emptyList(),
+)
+
+/**
+ * T-454 — the Finance-strip view model (the desktop tab's `deriveTrancheWaves`
+ * mirror): the fixed T1/T2/T3 slots mapped from the canonical POOLED rows —
+ * one derivation, this surface's presentation only (never its own math).
+ */
+fun deriveExecTrancheWaveStrip(
+    installments: List<ExecInstallment>,
+    nowEpochMs: Long,
+): List<ExecTrancheWaveStripRow> {
+    val pooled = deriveExecPooledTrancheWaves(installments, nowEpochMs)
+    val byIndex = HashMap<Int, ExecPooledTrancheWave>()
+    for (w in pooled) byIndex[w.wave] = w
+    val firstWithRemaining = pooled
+        .filter { it.remainingTotal > 0L }
+        .map { it.wave }
+        .sorted()
+        .firstOrNull()
+    return EXEC_TRANCHE_WAVE_META.map { (index, label, hint) ->
+        val w = byIndex[index] ?: emptyExecPooledWave(index)
+        // T-432 (DATA-049): the tuition-isolated rate — the SAME number the
+        // Statistics per-category breakdown carries, so the strip's pooled
+        // basis and the wave cards' isolated basis reconcile at a glance.
+        val tuition = w.perCategory.firstOrNull { it.category == "tuition" }
+        val tuitionPct = if (tuition != null && tuition.dueTotal > 0L) {
+            mathRound(tuition.paidTotal.toDouble() / tuition.dueTotal * 100).toInt()
+        } else null
+        ExecTrancheWaveStripRow(
+            index = index,
+            label = label,
+            hint = hint,
+            dueDate = w.dueDateMin?.let { formatIsoMillis(it) },
+            dueDateMax = w.dueDateMax?.let { formatIsoMillis(it) },
+            isOverdue = w.anyUnsettledOverdue,
+            due = w.dueTotal,
+            paid = w.paidTotal,
+            pending = w.pendingTotal,
+            remaining = w.remainingTotal,
+            pct = w.collectedPct,
+            tuitionPct = tuitionPct,
+            isNextTarget = index == firstWithRemaining,
+        )
+    }
+}
+
+/**
+ * T-454 — the canonical dynamic-overdue predicate over the Exec rows (the
+ * desktop `isInstallmentOverdue` mirror): only not-paid, STRICTLY-past-due,
+ * still-owing rows are "en retard" (a future T2/T3 tranche is "à échoir",
+ * never late; a settled row adds 0 by construction).
+ */
+fun isExecInstallmentOverdueRow(i: ExecInstallment, nowEpochMs: Long): Boolean {
+    if (i.status == "paid") return false
+    val dueTs = execTsOf(i.dueDate) ?: return false
+    if (dueTs >= nowEpochMs) return false
+    return execInstallmentRemaining(i.amountDue, i.amountPaid, i.amountPending, i.status) > 0L
+}
+
+/**
+ * T-454 — the Finance-strip TOTALS (the desktop tab's totals block mirror):
+ * the canonical sum helpers over the CURRENT selection (including the
+ * non-wave rows — FI is billed money too), never a re-derivation:
+ * `sumInstallmentsDue` / `sumInstallmentsPaid` / `totalOutstanding` /
+ * the dynamic overdue count.
+ */
+data class ExecTrancheStripTotals(
+    val totalDue: Long,          // Σ amountDue (centimes)
+    val totalPaid: Long,         // Σ amountPaid
+    val totalRemaining: Long,    // clampNonNegative(Σdue − Σpaid − Σpending)
+    val overdueCount: Int,       // the dynamic-predicate row count
+)
+
+fun deriveExecTrancheStripTotals(
+    installments: List<ExecInstallment>,
+    nowEpochMs: Long,
+): ExecTrancheStripTotals {
+    val totalDue = installments.sumOf { it.amountDue }
+    val totalPaid = installments.sumOf { it.amountPaid }
+    val totalPending = installments.sumOf { it.amountPending }
+    val totalRemaining = (totalDue - totalPaid - totalPending).coerceAtLeast(0L)
+    val overdueCount = installments.count { isExecInstallmentOverdueRow(it, nowEpochMs) }
+    return ExecTrancheStripTotals(
+        totalDue = totalDue,
+        totalPaid = totalPaid,
+        totalRemaining = totalRemaining,
+        overdueCount = overdueCount,
+    )
+}
+
+// ============================================================================
 // 2. Discount erosion (Le Taux d'Érosion des Remises)
 // ============================================================================
 

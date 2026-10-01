@@ -13,7 +13,6 @@ import com.example.core.StatsInstallment
 import com.example.core.StatsDateRange
 import com.example.core.StatsStudentRow
 import com.example.core.StatsClassRow
-import com.example.core.StatsTrancheRow
 import com.example.core.RevenuePointInput
 import com.example.core.derivePaymentStats
 import com.example.core.deriveCategoryMix
@@ -29,7 +28,14 @@ import com.example.core.MONTH_LABELS_FR
 import com.example.core.installmentRemaining
 import com.example.core.deriveWeeklyRhythm
 import com.example.core.deriveYearOverYear
-import com.example.core.deriveTrancheWaves
+// T-454 (PARITY-007): the canonical pooled-wave engine feeds — the Finance
+// strip + the wave hero (the desktop T-447 construction: one derivation,
+// N presentations). The label-REGEX deriveTrancheWaves path is RETIRED from
+// this repository's production feed.
+import com.example.core.deriveExecTrancheWaveStrip
+import com.example.core.deriveExecTrancheStripTotals
+import com.example.core.deriveExecPooledTrancheWaves
+import com.example.core.deriveExecNonWaveSummary
 import com.example.core.deriveDemographics
 // T-340 (STATS-400) — the executive-statistics derivations (the desktop T-338 mirror).
 import com.example.core.ExecInstallment
@@ -395,13 +401,39 @@ class LocalDashboardRepository @Inject constructor(
         // with the vanity statistics — the executive snapshot's wave meters
         // render the three-wave STAIRCASE instead.
 
-        // Tranche wave progress (T1/T2/T3 collection health — ALL installments).
-        val trancheRows = g2.installments.map {
-            StatsTrancheRow(it.label, it.amountDue, it.amountPaid, it.amountPending)
+        // ── T-340/T-454 — the EXEC Installment projection (the wave hero, the
+        // Finance strip, and the executive derivations all consume THIS) ──
+        val execInstallments = g2.installments.map {
+            ExecInstallment(
+                id = it.id, parentId = it.parentId,
+                category = it.category, trancheNumber = it.trancheNumber,
+                amountDue = it.amountDue, amountPaid = it.amountPaid,
+                amountPending = it.amountPending, dueDate = it.dueDate,
+                status = it.status,
+            )
         }
-        val trancheWaveItems = deriveTrancheWaves(trancheRows).map {
-            TrancheWaveItem(it.index, it.label, it.hint, it.due, it.paid, it.pending, it.pct, it.isNextTarget)
+
+        // T-454 (PARITY-007, the desktop T-447 mirror): the Finance strip's
+        // wave meters are fed by the CANONICAL POOLED adapter
+        // (deriveExecTrancheWaveStrip over deriveExecPooledTrancheWaves — the
+        // SAME rows the Statistics wave hero consumes) — the label-REGEX
+        // StatisticsEngine path (grouping by "Tranche N" label text + the
+        // clamped pct) is RETIRED from the production feed: a row whose label
+        // drifts off the pattern silently vanished from the meters, and the
+        // desktop groups by the canonical tranche_number column (DASH-404).
+        // The strip's TOTALS (the 4-cell row) also switch to the canonical
+        // totals derivation (Σdue / Σpaid / INV-4 remaining / the T-426
+        // dynamic overdue count) over the SAME rows.
+        val trancheWaveItems = deriveExecTrancheWaveStrip(execInstallments, nowEpochMs).map {
+            TrancheWaveItem(
+                index = it.index, label = it.label, hint = it.hint,
+                due = it.due, paid = it.paid, pending = it.pending, remaining = it.remaining,
+                pct = it.pct, tuitionPct = it.tuitionPct,
+                isNextTarget = it.isNextTarget, isOverdue = it.isOverdue,
+                dueDate = it.dueDate, dueDateMax = it.dueDateMax,
+            )
         }
+        val stripTotals = deriveExecTrancheStripTotals(execInstallments, nowEpochMs)
 
         // Class demographics & capacity (desktop demographics() — ALL classes
         // (no is_active filter on the desktop path), ordered by name).
@@ -433,15 +465,6 @@ class LocalDashboardRepository @Inject constructor(
         // derivations (the owner's unified-calculation mandate: BOTH platforms
         // consume the SAME definitions — the corpus category
         // `executive_statistics` pins desktop ≡ android on every value).
-        val execInstallments = g2.installments.map {
-            ExecInstallment(
-                id = it.id, parentId = it.parentId,
-                category = it.category, trancheNumber = it.trancheNumber,
-                amountDue = it.amountDue, amountPaid = it.amountPaid,
-                amountPending = it.amountPending, dueDate = it.dueDate,
-                status = it.status,
-            )
-        }
         val execLedger = g2.ledger.map {
             ExecLedgerEntry(
                 id = it.id, parentId = it.parentId, category = it.category,
@@ -479,6 +502,11 @@ class LocalDashboardRepository @Inject constructor(
         val execWaves = deriveExecTrancheWaves(execInstallments, nowEpochMs)
         val execErosion = deriveExecDiscountErosion(execLedger)
         val execTriage = deriveExecDebtTriage(execInstallments, nowEpochMs)
+        // T-454 (PARITY-007, the desktop T-447 mirror): the POOLED rows + the
+        // non-wave summary — the canonical objects the wave hero AND the
+        // Finance strip render (one derivation, N presentations).
+        val execPooledWaves = deriveExecPooledTrancheWaves(execInstallments, nowEpochMs)
+        val execNonWave = deriveExecNonWaveSummary(execInstallments, nowEpochMs)
         val parentNamePairs = g1.parents.map { it.id to (it.displayName ?: it.lastName ?: it.id) }
         val execConcentration = deriveExecFamilyConcentration(
             execInstallments, parentNamePairs, execStudents, topN = 10, nowEpochMs = nowEpochMs,
@@ -632,6 +660,13 @@ class LocalDashboardRepository @Inject constructor(
                         riskCategory = it.riskCategory.name.lowercase(),
                     )
                 },
+            // T-454 (PARITY-007): the canonical POOLED all-categories T1/T2/T3
+            // rows + the non-wave « Hors Tranches » groups — the SAME objects
+            // the desktop's WaveVelocityCard and Finance strip render (the
+            // verbatim mirrors of the desktop's PooledTrancheWave /
+            // NonWaveCategoryStats; the UI renders, never re-derives).
+            pooledWaves = execPooledWaves.map { it.toPooledWaveItem() },
+            nonWaveSummary = execNonWave.map { it.toNonWaveItem() },
         )
 
         DashboardKpi(
@@ -676,6 +711,14 @@ class LocalDashboardRepository @Inject constructor(
             executive = executiveSnapshot,
             yoy = yoySnapshot,
             trancheWaves = trancheWaveItems,
+            // T-454 (PARITY-007): the canonical strip totals (the desktop tab's
+            // totals block — the whole selection, FI rows included).
+            trancheStripTotals = com.example.domain.model.TrancheStripTotalsItem(
+                totalDue = stripTotals.totalDue,
+                totalPaid = stripTotals.totalPaid,
+                totalRemaining = stripTotals.totalRemaining,
+                overdueCount = stripTotals.overdueCount,
+            ),
             demographics = demographicsSnapshot,
         )
     }
@@ -934,3 +977,79 @@ class LocalDashboardRepository @Inject constructor(
                 }
         }
 }
+// ───────────────────────────────────────────────────────────────────────────
+// T-454 (PARITY-007) — the pooled-wave + non-wave UI-contract mappers: the
+// core derivation rows → the serializable repository→UI items. PURE
+// presentation mapping (labels + ISO-date strings); ZERO math — every value
+// comes from core/ExecutiveStatistics.kt (the desktop T-447 mirror).
+// ───────────────────────────────────────────────────────────────────────────
+
+private fun com.example.core.ExecPooledTrancheWave.toPooledWaveItem(): com.example.domain.model.ExecPooledWaveItem =
+    com.example.domain.model.ExecPooledWaveItem(
+        wave = wave,
+        installmentCount = installmentCount,
+        settledCount = settledCount,
+        familyCount = familyCount,
+        debtorFamilyCount = debtorFamilyCount,
+        overdueDebtorFamilyCount = overdueDebtorFamilyCount,
+        dueTotal = dueTotal,
+        paidTotal = paidTotal,
+        pendingTotal = pendingTotal,
+        remainingTotal = remainingTotal,
+        overCoverageTotal = overCoverageTotal,
+        collectedPct = collectedPct,
+        dueDateMin = dueDateMin?.let { com.example.core.formatIsoMillis(it) },
+        dueDateMax = dueDateMax?.let { com.example.core.formatIsoMillis(it) },
+        anyUnsettledOverdue = anyUnsettledOverdue,
+        anyUnsettledFuture = anyUnsettledFuture,
+        perCategory = perCategory.map { it.toWaveStatsItem() },
+    )
+
+private fun com.example.core.ExecWaveStatsRow.toWaveStatsItem(): com.example.domain.model.ExecWaveStatsItem =
+    com.example.domain.model.ExecWaveStatsItem(
+        category = category,
+        categoryLabel = com.example.core.paymentCategoryLabelFr(category),
+        wave = wave,
+        installmentCount = installmentCount,
+        settledCount = settledCount,
+        familyCount = familyCount,
+        debtorFamilyCount = debtorFamilyCount,
+        overdueDebtorFamilyCount = overdueDebtorFamilyCount,
+        dueTotal = dueTotal,
+        paidTotal = paidTotal,
+        pendingTotal = pendingTotal,
+        remainingTotal = remainingTotal,
+        dueDateMin = dueDateMin?.let { com.example.core.formatIsoMillis(it) },
+        dueDateMax = dueDateMax?.let { com.example.core.formatIsoMillis(it) },
+        anyUnsettledOverdue = anyUnsettledOverdue,
+        anyUnsettledFuture = anyUnsettledFuture,
+    )
+
+private fun com.example.core.ExecNonWaveCategoryStat.toNonWaveItem(): com.example.domain.model.ExecNonWaveItem =
+    com.example.domain.model.ExecNonWaveItem(
+        kind = when (kind) {
+            com.example.core.ExecNonWaveKind.FI -> com.example.domain.model.ExecNonWaveKindItem.FI
+            com.example.core.ExecNonWaveKind.UNNUMBERED -> com.example.domain.model.ExecNonWaveKindItem.UNNUMBERED
+            com.example.core.ExecNonWaveKind.OUT_OF_RANGE -> com.example.domain.model.ExecNonWaveKindItem.OUT_OF_RANGE
+        },
+        kindLabel = when (kind) {
+            com.example.core.ExecNonWaveKind.FI -> "fi"
+            com.example.core.ExecNonWaveKind.UNNUMBERED -> "unnumbered"
+            com.example.core.ExecNonWaveKind.OUT_OF_RANGE -> "out_of_range"
+        },
+        category = category,
+        categoryLabel = com.example.core.paymentCategoryLabelFr(category),
+        installmentCount = installmentCount,
+        settledCount = settledCount,
+        familyCount = familyCount,
+        debtorFamilyCount = debtorFamilyCount,
+        overdueDebtorFamilyCount = overdueDebtorFamilyCount,
+        dueTotal = dueTotal,
+        paidTotal = paidTotal,
+        pendingTotal = pendingTotal,
+        remainingTotal = remainingTotal,
+        overCoverageTotal = overCoverageTotal,
+        dueDateMin = dueDateMin?.let { com.example.core.formatIsoMillis(it) },
+        dueDateMax = dueDateMax?.let { com.example.core.formatIsoMillis(it) },
+        anyUnsettledOverdue = anyUnsettledOverdue,
+    )

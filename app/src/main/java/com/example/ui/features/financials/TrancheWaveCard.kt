@@ -2,7 +2,6 @@ package com.example.ui.features.financials
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -18,32 +18,44 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.core.formatDzd
+import com.example.domain.model.TrancheStripTotalsItem
 import com.example.domain.model.TrancheWaveItem
 import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardVariant
 import com.example.ui.designsystem.components.data.ElChartPalette
 import com.example.ui.designsystem.components.feedback.ElLinearProgress
 import com.example.ui.designsystem.theme.ElTheme
 
 /**
- * TrancheWaveCard — inventory #12 (PARITY-003).
+ * TrancheWaveCard — inventory #12 (PARITY-003), the T-454 (PARITY-007) form.
  *
- * The native twin of the desktop's `installment-schedule-tab.tsx`
- * tranche-wave meters (T-248): the GLOBAL T1/T2/T3 collection-health
- * meters (pct = min(100, round(paid/due×100)); the first wave with a
- * remaining balance highlighted as the next target; success at ≥90) +
- * the totals row (Total dû / Payé / Reste / En retard). Values from the
- * engine's deriveTrancheWaves (repository contract).
+ * The native twin of the desktop's `installment-schedule-tab.tsx` wave strip
+ * (the T-447 state): the GLOBAL T1/T2/T3 collection-health meters over the
+ * canonical POOLED all-categories rows (the SAME object the Statistics wave
+ * hero consumes — one derivation, two presentations; the label-REGEX feed
+ * is retired). Per wave: the POOLED due/paid/pending/remaining, the
+ * canonical UNCLAMPED rate (over-covered waves render their honest >100
+ * rate), the T-434/T-435 DERIVED échéance range + days-late, the T-432
+ * tuition-isolated rate, the pending line, and the next-target highlight.
+ * The totals row (Total dû / Payé / Reste / En retard) comes from the
+ * canonical strip totals (the whole selection, non-wave/FI rows included —
+ * wave sums alone would silently drop the FI pool).
+ *
+ * T-427 (DATA-048b): the pooling basis is EXPLICIT — the basis label states
+ * that this strip pools every category while the Statistics card's
+ * per-category breakdown isolates them, so the two surfaces' numbers
+ * reconcile at a glance.
  */
 @Composable
 internal fun TrancheWaveCard(
     waves: List<TrancheWaveItem>,
-    overdueCount: Int,
+    totals: TrancheStripTotalsItem?,
     modifier: Modifier = Modifier,
 ) {
     val c = ElTheme.colors
     val allZero = waves.all { it.due == 0L }
     if (allZero) {
-        ElCard(modifier = modifier.fillMaxWidth(), variant = com.example.ui.designsystem.components.card.ElCardVariant.OUTLINED) {
+        ElCard(modifier = modifier.fillMaxWidth(), variant = ElCardVariant.OUTLINED) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = "Vagues de Tranches (T1 / T2 / T3)",
@@ -60,9 +72,11 @@ internal fun TrancheWaveCard(
         return
     }
 
-    val totalDue = waves.sumOf { it.due }
-    val totalPaid = waves.sumOf { it.paid }
-    val totalReste = (totalDue - totalPaid - waves.sumOf { it.pending }).coerceAtLeast(0L)
+    // T-435 (UI-317): the échéance is DERIVED from the rows the card sums —
+    // the wave's due-date RANGE (the static schedule hint stays ONLY as the
+    // fallback when no row carries a parseable date; a hardcoded hint can
+    // silently lie after the data drifts, the derived range never can).
+    val nowEpochMs = System.currentTimeMillis()
 
     ElCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -70,6 +84,12 @@ internal fun TrancheWaveCard(
                 text = "Vagues de Tranches (T1 / T2 / T3)",
                 color = c.textPrimary,
                 style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+            )
+            // T-427 (DATA-048b): the pooling basis is EXPLICIT.
+            Text(
+                text = "Base : toutes catégories de la sélection (parité exacte avec la carte « Vélocité » des Statistiques)",
+                color = c.textMuted,
+                style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
             )
 
             waves.forEach { w ->
@@ -104,6 +124,8 @@ internal fun TrancheWaveCard(
                             }
                         }
                         Text(
+                            // T-447 (PARITY-001): the canonical UNCLAMPED rate —
+                            // an over-covered wave renders its honest >100 rate.
                             text = "${w.pct}%",
                             color = when {
                                 w.isNextTarget -> ElChartPalette.primary
@@ -114,38 +136,118 @@ internal fun TrancheWaveCard(
                         )
                     }
                     // The meter (progress bar; primary for the next target,
-                    // success ≥90, muted otherwise — the desktop tones)
+                    // success ≥90, muted otherwise — the desktop tones; the
+                    // bar itself caps at 100 by construction).
                     ElLinearProgress(
-                        progress = w.pct / 100f,
+                        progress = w.pct.coerceIn(0, 100) / 100f,
                         gradient = when {
                             w.isNextTarget -> listOf(ElChartPalette.primary, ElChartPalette.primaryDeep)
                             w.pct >= 90 -> listOf(ElChartPalette.success, ElChartPalette.success)
                             else -> listOf(c.surfaceVariant, c.surfaceVariant)
                         },
                     )
-                    Text(
-                        text = w.hint + " — Encaissé : ${(w.paid / 100).formatDzd()} DA · Dû : ${(w.due / 100).formatDzd()} DA" +
-                            if (w.pending > 0L) {
-                                " · Dont en attente (chèque / virement) : ${(w.pending / 100).formatDzd()} DA"
-                            } else "",
-                        color = c.textMuted,
-                        style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                    )
+                    // T-434 (UI-316): the échéance is VISIBLE on the strip card.
+                    // T-435 (UI-317): now DERIVED from the rows — the due-date
+                    // range, not a hardcoded hint.
+                    StripDueLine(w = w, nowEpochMs = nowEpochMs)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = "Encaissé : ${(w.paid / 100).formatDzd()} DA",
+                            color = c.textMuted,
+                            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        )
+                        Text(
+                            text = "Dû : ${(w.due / 100).formatDzd()} DA",
+                            color = c.textMuted,
+                            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        )
+                    }
+                    // T-432 (DATA-049): the tuition-isolated rate — the SAME
+                    // number the Statistics card shows, so the two surfaces'
+                    // different bases reconcile at a glance.
+                    if (w.tuitionPct != null) {
+                        Text(
+                            text = "dont scolarité : ${w.tuitionPct}%",
+                            color = c.textMuted,
+                            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        )
+                    }
+                    if (w.pending > 0L) {
+                        Text(
+                            text = "Dont en attente (chèque / virement) : ${(w.pending / 100).formatDzd()} DA",
+                            color = ElChartPalette.warning,
+                            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        )
+                    }
                 }
             }
 
-            // Totals row (the desktop 4-cell row)
+            // Totals row (the desktop 4-cell block — the canonical strip
+            // totals over the WHOLE selection, non-wave/FI rows included).
+            val t = totals
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                TrancheTotal("Total dû", (totalDue / 100).formatDzd() + " DA", c.textPrimary, Modifier.weight(1f))
-                TrancheTotal("Payé", (totalPaid / 100).formatDzd() + " DA", ElChartPalette.success, Modifier.weight(1f))
-                TrancheTotal("Reste", (totalReste / 100).formatDzd() + " DA", ElChartPalette.danger, Modifier.weight(1f))
-                TrancheTotal("En retard", "$overdueCount", ElChartPalette.warning, Modifier.weight(1f))
+                TrancheTotal("Total dû", "${((t?.totalDue ?: waves.sumOf { it.due }) / 100).formatDzd()} DA", c.textPrimary, Modifier.weight(1f))
+                TrancheTotal("Payé", "${((t?.totalPaid ?: waves.sumOf { it.paid }) / 100).formatDzd()} DA", ElChartPalette.success, Modifier.weight(1f))
+                TrancheTotal("Reste", "${((t?.totalRemaining ?: ((t?.totalDue ?: waves.sumOf { it.due }) - (t?.totalPaid ?: waves.sumOf { it.paid }) - waves.sumOf { it.pending }).coerceAtLeast(0L)) / 100).formatDzd()} DA", ElChartPalette.danger, Modifier.weight(1f))
+                TrancheTotal("En retard", "${t?.overdueCount ?: 0}", ElChartPalette.warning, Modifier.weight(1f))
             }
         }
     }
+}
+
+/**
+ * The échéance line — the desktop's strip card due line (T-434/T-435):
+ * the DERIVED range (never the static hint when a row carries a date), the
+ * days-late suffix when the wave claims lateness (an unsettled overdue row),
+ * the days-remaining suffix for future waves. One clock (the card's).
+ */
+@Composable
+private fun StripDueLine(w: TrancheWaveItem, nowEpochMs: Long) {
+    val c = ElTheme.colors
+    val range = dueRangeLabel(w)
+    val daysLate = if (w.dueDate != null) com.example.core.execDaysBetweenFloor(w.dueDate!!, nowEpochMs) else 0L
+    val claimsLateness = w.isOverdue && w.remaining > 0L
+    val text = if (range != null) {
+        "Échéance : $range" + when {
+            claimsLateness -> " — $daysLate j de retard"
+            w.remaining > 0L && daysLate < 0L -> " — dans ${-daysLate} j"
+            else -> ""
+        }
+    } else {
+        w.hint
+    }
+    Text(
+        text = text,
+        color = if (claimsLateness) ElChartPalette.danger else c.textMuted,
+        style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+    )
+}
+
+/** "dd MMM yyyy" / "min → max" — the desktop formatDueDateRange mirror. */
+private fun dueRangeLabel(w: TrancheWaveItem): String? {
+    val minIso = w.dueDate ?: return null
+    val min = try {
+        java.time.Instant.parse(minIso)
+    } catch (_: Exception) {
+        return null
+    }
+    val fmt = java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy", java.util.Locale.FRENCH)
+        .withZone(java.time.ZoneOffset.UTC)
+    val minLabel = fmt.format(min)
+    val maxIso = w.dueDateMax ?: return minLabel
+    if (maxIso == minIso) return minLabel
+    val max = try {
+        java.time.Instant.parse(maxIso)
+    } catch (_: Exception) {
+        return minLabel
+    }
+    return "$minLabel → ${fmt.format(max)}"
 }
 
 @Composable

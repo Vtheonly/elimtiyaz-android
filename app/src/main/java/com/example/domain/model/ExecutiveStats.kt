@@ -24,6 +24,23 @@ data class ExecutiveStatsSnapshot(
     val dynamics: ExecDynamicsSnapshot = ExecDynamicsSnapshot(),
     val riskSummary: ExecRiskSummaryItem = ExecRiskSummaryItem(),
     val riskRadar: List<ExecRiskProfileItem> = emptyList(),
+    /**
+     * T-454 (PARITY-007 / the desktop T-447 STATS-401 mirror): the canonical
+     * POOLED all-categories T1/T2/T3 rows — the object BOTH the dashboard
+     * wave hero (WaveVelocityCard) and the Finance strip (TrancheWaveCard)
+     * render. Computed ONCE at the repository level by
+     * `deriveExecPooledTrancheWaves` (the verbatim mirror of the desktop's
+     * `derivePooledTrancheWaves`); the UI layers NEVER re-derive (the
+     * one-derivation rule — one calculation, N presentations).
+     */
+    val pooledWaves: List<ExecPooledWaveItem> = emptyList(),
+    /**
+     * T-454: the non-wave rows (FI / unnumbered / out-of-range) grouped by
+     * (kind × category) — the categories the wave model excludes BY DESIGN,
+     * rendered in their own « Hors Tranches » section so the analysis
+     * covers every revenue commitment with nothing silently dropped.
+     */
+    val nonWaveSummary: List<ExecNonWaveItem> = emptyList(),
 )
 
 @Serializable
@@ -47,6 +64,90 @@ data class ExecWaveItem(
     /** T-451 (T-435 mirror): the wave's due-date RANGE far bound (ISO). */
     val dueDateMax: String? = null,
     val phase: String = "in_window",// not_due | in_window | overdue
+)
+
+// ============================================================================
+// T-454 (PARITY-007, 127th session — the desktop T-447 STATS-401 mirror):
+// the POOLED wave + non-wave UI contract. The serializable repository→UI
+// twins of core/ExecutiveStatistics.kt's ExecPooledTrancheWave /
+// ExecWaveStatsRow / ExecNonWaveCategoryStat — the exact-dinar parity
+// objects the desktop's WaveVelocityCard and Finance strip render (one
+// derivation, two presentations; the UI NEVER re-computes).
+// ============================================================================
+
+/** The per-(category × wave) breakdown row inside a pooled wave (the TrancheWaveStats mirror). */
+@Serializable
+data class ExecWaveStatsItem(
+    val category: String,
+    val categoryLabel: String,      // FR label
+    val wave: Int,                  // 1 | 2 | 3
+    val installmentCount: Int,
+    val settledCount: Int,
+    val familyCount: Int,
+    val debtorFamilyCount: Int,
+    val overdueDebtorFamilyCount: Int,
+    val dueTotal: Long,             // centimes
+    val paidTotal: Long,
+    val pendingTotal: Long,
+    val remainingTotal: Long,
+    val dueDateMin: String? = null, // ISO (null when no row carries a date)
+    val dueDateMax: String? = null,
+    val anyUnsettledOverdue: Boolean = false,
+    val anyUnsettledFuture: Boolean = false,
+)
+
+/** The POOLED per-wave row (the PooledTrancheWave mirror) — the wave hero + the Finance strip's shared basis. */
+@Serializable
+data class ExecPooledWaveItem(
+    val wave: Int,                  // 1 | 2 | 3
+    val installmentCount: Int,
+    val settledCount: Int,
+    val familyCount: Int,           // SET UNION across categories
+    val debtorFamilyCount: Int,     // SET UNION across categories
+    val overdueDebtorFamilyCount: Int, // SET UNION across categories
+    val dueTotal: Long,             // centimes
+    val paidTotal: Long,
+    val pendingTotal: Long,
+    val remainingTotal: Long,
+    /** Σ per-row max(0, paid + pending − due) — the parent credit ON the rows. */
+    val overCoverageTotal: Long = 0L,
+    /** round(paidTotal / dueTotal × 100) — PARITY-001, never clamped. */
+    val collectedPct: Int = 0,
+    val dueDateMin: String? = null, // ISO (null when no row carries a date)
+    val dueDateMax: String? = null,
+    val anyUnsettledOverdue: Boolean = false,
+    val anyUnsettledFuture: Boolean = false,
+    /** The wave's per-category breakdown (stable order: tuition → transport → others). */
+    val perCategory: List<ExecWaveStatsItem> = emptyList(),
+)
+
+/** The non-wave row classes (the NonWaveKind mirror). */
+@Serializable
+enum class ExecNonWaveKindItem {
+    FI, UNNUMBERED, OUT_OF_RANGE;
+    val wire: String get() = name.lowercase()
+}
+
+/** The non-wave (kind × category) group (the NonWaveCategoryStats mirror) — the « Hors Tranches » section. */
+@Serializable
+data class ExecNonWaveItem(
+    val kind: ExecNonWaveKindItem,
+    val kindLabel: String,          // FR label ("fi" | "unnumbered" | "out_of_range")
+    val category: String,
+    val categoryLabel: String,      // FR label
+    val installmentCount: Int,
+    val settledCount: Int,
+    val familyCount: Int,
+    val debtorFamilyCount: Int,
+    val overdueDebtorFamilyCount: Int,
+    val dueTotal: Long,             // centimes
+    val paidTotal: Long,
+    val pendingTotal: Long,
+    val remainingTotal: Long,
+    val overCoverageTotal: Long = 0L,
+    val dueDateMin: String? = null,
+    val dueDateMax: String? = null,
+    val anyUnsettledOverdue: Boolean = false,
 )
 
 @Serializable

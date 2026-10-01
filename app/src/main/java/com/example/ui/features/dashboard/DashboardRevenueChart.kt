@@ -85,7 +85,15 @@ internal fun DashboardRevenueChart(
 
         // ── 2. The wave staircase hero (replaces the smooth monthly trend —
         // T-340 / STATS-400, the owner's kill list; desktop T-339 parity) ──
-        WaveVelocityCard(waves = executive.waves)
+        // T-454 (PARITY-007): the desktop T-447 pooled form — the canonical
+        // POOLED all-categories T1/T2/T3 grid (the same rows the Finance
+        // strip consumes), the HERO variant (the desktop overview's variant).
+        WaveVelocityCard(
+            waves = executive.waves,
+            pooledWaves = executive.pooledWaves,
+            nonWave = executive.nonWaveSummary,
+            variant = "hero",
+        )
 
         // ── 3. Répartition par Catégorie (REAL data, kept) ──
         ElCard(modifier = Modifier.fillMaxWidth()) {

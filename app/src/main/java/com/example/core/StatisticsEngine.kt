@@ -29,8 +29,11 @@ import java.time.ZoneOffset
  *
  * PARITY-003 (45th session, 2026-09-11): the visual-parity extension —
  * deriveWeeklyRhythm, deriveCollectionHeatmap, deriveYearOverYear (+ range/
- * slicer helpers), deriveTrancheWaves, deriveDemographics (the 5 families
- * the 13-chart inventory required). Same mirror discipline.
+ * slicer helpers), deriveDemographics (the 5 families the 13-chart
+ * inventory required). Same mirror discipline. T-454 (PARITY-007, 127th
+ * session): the tranche-wave family moved to the CANONICAL pooled path in
+ * core/ExecutiveStatistics.kt (deriveExecTrancheWaveStrip — the desktop
+ * T-447 construction); this file's label-regex derivation is retired.
  *
  * T-340 (61st session, 2026-09-14 — STATS-400, the vanity purge): the
  * desktop REMOVED deriveAmountHistogram / deriveCollectionHeatmap /
@@ -544,7 +547,8 @@ fun attendanceRatePct(records: List<String>): Int? {
 //    deriveCollectionHeatmap, deriveYearOverYear, shiftIsoYearBack,
 //    previousAcademicYear)
 //   `elimtiyaz-desktop/src/features/financials/installment-schedule-tab.tsx`
-//   (trancheNumberOf, deriveTrancheWaves) + `domain/calc/payment/sums.ts` +
+//   (T-454: the label-regex wave extraction RETIRED — the canonical pooled
+//   adapter lives in core/ExecutiveStatistics.kt) + `domain/calc/payment/sums.ts` +
 //   `domain/calc/payment/queries.ts` (totalOutstanding)
 //   `elimtiyaz-desktop/src/infrastructure/supabase/repositories/supabase-dashboard-repository.ts`
 //   (demographics — grade/gender/age/capacity)
@@ -753,83 +757,18 @@ fun deriveYearOverYear(
 }
 
 // ============================================================================
-// T-248 — tranche wave progress (T1 / T2 / T3 collection health)
+// T-248 → T-454 (PARITY-007): the label-parsing tranche-wave derivation is
+// RETIRED from the production path (the desktop retired its own hand-rolled
+// pooling in T-447 — "the last piece of wave math living in a feature file;
+// it is retired"). The Finance strip + the dashboard wave hero now consume
+// the CANONICAL pooled derivation: `deriveExecTrancheWaveStrip` /
+// `deriveExecPooledTrancheWaves` / `deriveExecNonWaveSummary` in
+// core/ExecutiveStatistics.kt (grouping by the canonical tranche_number
+// column — a row whose label drifts off "Tranche N" silently vanished from
+// the meters under the old regex feed; the canonical column never lies).
+// The corpus family `analytics_visuals.trancheWaves` pins the CURRENT
+// semantics cross-platform (regenerated T-455).
 // ============================================================================
-
-/**
- * The minimal installment projection for the tranche waves (desktop
- * Installment fields used by deriveTrancheWaves: label + the three sums).
- */
-data class StatsTrancheRow(
-    val label: String,          // "Tranche 1", "Tranche 2 (Jan–Mar)", "Année complète", …
-    val amountDue: Long,        // centimes
-    val amountPaid: Long,       // Σ allocated (includes uncleared checks)
-    val amountPending: Long,    // uncleared non-cash funds on the tranche
-)
-
-/**
- * T-248 — canonical tranche-number matcher (labels: "Tranche 1",
- * "Tranche 2 (Jan–Mar)", … — never a bare substring match, which would
- * also catch "Tranche 10" or "Année complète 1"). Returns 1/2/3 or null.
- * (desktop trancheNumberOf — verbatim.)
- */
-fun trancheNumberOf(label: String): Int? {
-    val m = Regex("^\\s*Tranche\\s*([1-3])\\b", RegexOption.IGNORE_CASE).find(label) ?: return null
-    return m.groupValues[1].toInt()
-}
-
-data class TrancheWave(
-    val index: Int,             // 1 | 2 | 3
-    val label: String,          // "Tranche 1 (Septembre)" …
-    val hint: String,           // due-window hint (display-only)
-    val due: Long,              // Σ amountDue (centimes)
-    val paid: Long,             // Σ amountPaid (includes uncleared checks)
-    val pending: Long,          // Σ amountPending
-    val pct: Int,               // min(100, Math.round(paid/due×100))
-    val isNextTarget: Boolean,  // first wave with remaining > 0
-)
-
-/** Canonical remaining per INV-4 over a wave's rows (desktop totalOutstanding). */
-private fun waveOutstanding(rows: List<StatsTrancheRow>): Long =
-    (rows.sumOf { it.amountDue } - rows.sumOf { it.amountPaid } - rows.sumOf { it.amountPending })
-        .coerceAtLeast(0L)
-
-/**
- * T-248 — derive the T1/T2/T3 collection waves from REAL rows (desktop
- * deriveTrancheWaves — verbatim): per wave due (Σ amountDue), paid (Σ
- * amountPaid — INCLUDES uncleared checks, the display convention), pending
- * (Σ amountPending), pct = min(100, Math.round(paid/due×100));
- * isNextTarget marks the first wave with a canonical remaining balance.
- */
-fun deriveTrancheWaves(rows: List<StatsTrancheRow>): List<TrancheWave> {
-    val groups = HashMap<Int, MutableList<StatsTrancheRow>>()
-    for (r in rows) {
-        val n = trancheNumberOf(r.label) ?: continue
-        groups.getOrPut(n) { mutableListOf() }.add(r)
-    }
-    val firstWithRemaining = groups.entries
-        .filter { waveOutstanding(it.value) > 0L }
-        .map { it.key }
-        .sorted()
-        .firstOrNull()
-    val meta = listOf(
-        Triple(1, "Tranche 1 (Septembre)", "échéance 15 sep — à l'inscription"),
-        Triple(2, "Tranche 2 (Décembre)", "échéance 15 déc"),
-        Triple(3, "Tranche 3 (Mars)", "échéance 15 mars"),
-    )
-    return meta.map { (index, label, hint) ->
-        val list = groups[index] ?: emptyList()
-        val due = list.sumOf { it.amountDue }
-        val paid = list.sumOf { it.amountPaid }
-        val pending = list.sumOf { it.amountPending }
-        val pct = if (due > 0) minOf(100, mathRound(paid.toDouble() / due * 100).toInt()) else 0
-        TrancheWave(
-            index = index, label = label, hint = hint,
-            due = due, paid = paid, pending = pending,
-            pct = pct, isNextTarget = index == firstWithRemaining,
-        )
-    }
-}
 
 // ============================================================================
 // Class demographics & capacity (desktop SupabaseDashboardRepository.demographics)

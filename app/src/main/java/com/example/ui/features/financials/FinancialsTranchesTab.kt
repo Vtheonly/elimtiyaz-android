@@ -37,6 +37,7 @@ import com.example.core.PaymentStatus
 import com.example.core.ParentLedgerSummary
 import com.example.domain.model.Installment
 import com.example.domain.model.Parent
+import com.example.domain.model.TrancheStripTotalsItem
 import com.example.domain.model.TrancheWaveItem
 import com.example.ui.designsystem.components.button.ElButton
 import com.example.ui.designsystem.components.button.ElButtonVariant
@@ -76,8 +77,12 @@ internal fun TranchesTab(
     onNavigateToCounter: (parentId: String?, studentId: String?) -> Unit,
     // PARITY-003 — the GLOBAL T1/T2/T3 wave meters (engine-derived from the
     // repository KPI contract; the desktop installment-schedule-tab twin).
+    // T-454 (PARITY-007): the meters are the canonical POOLED rows and the
+    // totals row is the canonical strip totals (the whole selection, FI
+    // rows included — the old overdueFamiliesCount feed was the FAMILY
+    // count, not the desktop's ROW count).
     globalWaves: List<TrancheWaveItem> = emptyList(),
-    globalOverdueCount: Int = 0,
+    globalStripTotals: TrancheStripTotalsItem? = null,
 ) {
     val c = ElTheme.colors
     var searchQuery by remember { mutableStateOf("") }
@@ -113,7 +118,7 @@ internal fun TranchesTab(
         // desktop installment-schedule-tab twin; engine-derived values).
         if (globalWaves.isNotEmpty()) {
             item {
-                TrancheWaveCard(waves = globalWaves, overdueCount = globalOverdueCount)
+                TrancheWaveCard(waves = globalWaves, totals = globalStripTotals)
             }
         }
 

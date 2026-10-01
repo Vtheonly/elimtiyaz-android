@@ -136,9 +136,12 @@ fun FinancialsHubScreen(
                         onSelectParent = { installmentViewModel.selectParent(it) },
                         onMarkPaid = { installmentViewModel.markPaid(it) },
                         onNavigateToCounter = { pId, sId -> onNavigateToCounterPayment(pId, sId) },
-                        // PARITY-003 — the global wave meters from the KPI contract
+                        // PARITY-003 — the global wave meters from the KPI contract.
+                        // T-454 (PARITY-007): the canonical POOLED rows + the
+                        // canonical strip totals (the whole selection, FI rows
+                        // included — the same derivation the desktop strip uses).
                         globalWaves = kpis?.trancheWaves ?: emptyList(),
-                        globalOverdueCount = kpis?.overdueFamiliesCount ?: 0,
+                        globalStripTotals = kpis?.trancheStripTotals,
                     )
                     2 -> CreancesTab(
                         outstandingDebt = kpis?.outstandingDebt ?: 0L,

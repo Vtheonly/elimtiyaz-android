@@ -472,59 +472,14 @@ class StatisticsEngineTest {
         assertEquals(47, yoy.deltaPercent)
     }
 
-    // ── deriveTrancheWaves + trancheNumberOf ──────────────────────────────
-
-    @Test
-    fun `tranche waves — regex traps, pct clamp, next-target, paid includes pending`() {
-        // The desktop corpus scenario (analytics_visuals_tranche_waves):
-        // T1: 60k due / 50k paid → pct 83; T2: 60k due / 15k paid + 5k pending → pct 25;
-        // T3: 30k due / 0 → pct 0. "Année complète" + "Tranche 10" NEVER match.
-        // "tranche 3" (lowercase) MATCHES (IGNORE_CASE).
-        assertEquals(1, trancheNumberOf("Tranche 1"))
-        assertEquals(2, trancheNumberOf("Tranche 2 (Jan–Mar)"))
-        assertEquals(3, trancheNumberOf("tranche 3"))
-        assertNull(trancheNumberOf("Année complète"))
-        assertNull(trancheNumberOf("Tranche 10")) // \b after [1-3] blocks the 0
-        assertNull(trancheNumberOf("Tranche 4"))
-
-        val rows = listOf(
-            StatsTrancheRow("Tranche 1", 4_000_000, 4_000_000, 0),
-            StatsTrancheRow("Tranche 1", 2_000_000, 1_000_000, 0),
-            StatsTrancheRow("Tranche 2 (Jan–Mar)", 3_000_000, 1_500_000, 500_000),
-            StatsTrancheRow("Tranche 2", 3_000_000, 0, 0),
-            StatsTrancheRow("tranche 3", 3_000_000, 0, 0),
-            StatsTrancheRow("Année complète", 9_000_000, 9_000_000, 0),   // ignored
-            StatsTrancheRow("Tranche 10", 1_000_000, 1_000_000, 0),       // ignored
-        )
-        val waves = deriveTrancheWaves(rows)
-        assertEquals(3, waves.size)
-        assertEquals("Tranche 1 (Septembre)", waves[0].label)
-        // T1: due 60k, paid 50k → pct = round(50/60×100) = 83
-        assertEquals(6_000_000L, waves[0].due)
-        assertEquals(5_000_000L, waves[0].paid)
-        assertEquals(83, waves[0].pct)
-        // T1 remaining = 60−50−0 = 10k > 0 → the FIRST wave with remaining = next target
-        assertTrue(waves[0].isNextTarget)
-        // T2: due 60k, paid 15k (Σ amountPaid — the PENDING 5k is separate) → pct 25
-        assertEquals(6_000_000L, waves[1].due)
-        assertEquals(1_500_000L, waves[1].paid)
-        assertEquals(500_000L, waves[1].pending)
-        assertEquals(25, waves[1].pct)
-        assertFalse(waves[1].isNextTarget)
-        // T3: due 30k, nothing paid
-        assertEquals(3_000_000L, waves[2].due)
-        assertEquals(0, waves[2].pct)
-        assertFalse(waves[2].isNextTarget)
-    }
-
-    @Test
-    fun `tranche waves — pct clamps at 100 and all-paid waves leave no next target`() {
-        val rows = listOf(StatsTrancheRow("Tranche 1", 1_000_000, 1_200_000, 0)) // overpaid → clamp
-        val waves = deriveTrancheWaves(rows)
-        assertEquals(100, waves[0].pct)
-        // T1 fully paid (no remaining) → NOT the next target
-        assertFalse(waves[0].isNextTarget)
-    }
+    // ── T-454 (PARITY-007): the tranche-wave family moved to the CANONICAL ──
+    // pooled path — the label-regex derivation (deriveTrancheWaves +
+    // trancheNumberOf + StatsTrancheRow) is RETIRED from this engine (the
+    // desktop retired its own hand-rolled pooling in T-447). The replacement
+    // tests (the pooled strip adapter: the label-irrelevance, the canonical
+    // unclamped rate, the non-wave exclusion, the due-date range, the
+    // next-target) live in ExecutiveStatisticsTest (deriveExecTrancheWaveStrip)
+    // + the CrossPlatformEquivalenceTest ui_surfaces corpus leg.
 
     // ── deriveDemographics ────────────────────────────────────────────────
 

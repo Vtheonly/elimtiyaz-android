@@ -949,6 +949,9 @@ object AndroidEquivalenceRunner {
             // android centime-exact on every value.
             "deriveAnalyticsVisuals" -> {
                 val range = when_.range?.let { com.example.core.StatsDateRange(it.from, it.to) }
+                // T-455: the wave derivations' ONE clock — the pinned
+                // scenario `now` (the corpus is deterministic).
+                val nowMs = parseNowMs(when_.now ?: "2026-09-10T00:00:00Z")
 
                 // (a) Weekly rhythm — the FULL payments stream (the
                 // counter-activity convention: only "refunded" excluded).
@@ -968,11 +971,23 @@ object AndroidEquivalenceRunner {
                 val previous = when_.previousRevenue.map { com.example.core.RevenuePointInput(it.label, it.amountDzd * 100) }
                 val yoy = com.example.core.deriveYearOverYear(current, previous)
 
-                // (d) Tranche waves — over the installments.
-                val trancheRows = given.installments.map {
-                    com.example.core.StatsTrancheRow(it.label, it.amountDue, it.amountPaid, it.amountPending)
+                // (d) Tranche waves — T-455 (PARITY-007 item 3): the CURRENT
+                // production adapter (the canonical POOLED rows via
+                // deriveExecTrancheWaveStrip — the same construction the
+                // desktop runner's re-extracted bridge adapter computes;
+                // the retired label-REGEX StatisticsEngine path no longer
+                // feeds this op). The extended fields are the Finance
+                // strip's REAL view model.
+                val trancheStripRows = given.installments.map {
+                    com.example.core.ExecInstallment(
+                        id = it.id, parentId = it.parentId, category = it.category,
+                        trancheNumber = it.trancheNumber,
+                        amountDue = it.amountDue, amountPaid = it.amountPaid,
+                        amountPending = it.amountPending, dueDate = it.dueDate,
+                        status = it.status,
+                    )
                 }
-                val trancheWaves = com.example.core.deriveTrancheWaves(trancheRows)
+                val trancheWaves = com.example.core.deriveExecTrancheWaveStrip(trancheStripRows, nowMs)
 
                 // (e) Demographics — students + classes, pinned year.
                 val currentYear = java.time.Instant.parse(when_.now ?: "2026-09-10T00:00:00Z")
@@ -1017,10 +1032,19 @@ object AndroidEquivalenceRunner {
                                 put("index", w.index)
                                 put("label", w.label)
                                 put("hint", w.hint)
+                                // T-455: the Finance strip's CURRENT view model —
+                                // the pooled basis, the canonical rate, the
+                                // derived range, the flags, the remaining, the
+                                // tuition-isolated rate.
+                                if (w.dueDate != null) put("dueDate", w.dueDate) else put("dueDate", kotlinx.serialization.json.JsonNull)
+                                if (w.dueDateMax != null) put("dueDateMax", w.dueDateMax) else put("dueDateMax", kotlinx.serialization.json.JsonNull)
+                                put("isOverdue", w.isOverdue)
                                 put("due", w.due)
                                 put("paid", w.paid)
                                 put("pending", w.pending)
+                                put("remaining", w.remaining)
                                 put("pct", w.pct)
+                                if (w.tuitionPct != null) put("tuitionPct", w.tuitionPct) else put("tuitionPct", kotlinx.serialization.json.JsonNull)
                                 put("isNextTarget", w.isNextTarget)
                             })
                         }
@@ -1322,6 +1346,137 @@ object AndroidEquivalenceRunner {
                     })
                     put("nonWaveSummary", kotlinx.serialization.json.buildJsonArray {
                         nonWaveSummary.forEach { n ->
+                            add(buildJsonObject {
+                                put("kind", n.kind.name.lowercase())
+                                put("category", n.category)
+                                put("installmentCount", n.installmentCount)
+                                put("settledCount", n.settledCount)
+                                put("familyCount", n.familyCount)
+                                put("debtorFamilyCount", n.debtorFamilyCount)
+                                put("overdueDebtorFamilyCount", n.overdueDebtorFamilyCount)
+                                put("dueTotal", n.dueTotal)
+                                put("paidTotal", n.paidTotal)
+                                put("pendingTotal", n.pendingTotal)
+                                put("remainingTotal", n.remainingTotal)
+                                put("overCoverageTotal", n.overCoverageTotal)
+                                if (n.dueDateMin != null) put("dueDateMin", n.dueDateMin) else put("dueDateMin", kotlinx.serialization.json.JsonNull)
+                                if (n.dueDateMax != null) put("dueDateMax", n.dueDateMax) else put("dueDateMax", kotlinx.serialization.json.JsonNull)
+                                put("anyUnsettledOverdue", n.anyUnsettledOverdue)
+                            })
+                        }
+                    })
+                }
+            }
+
+            // ── T-455 (PARITY-007, 127th session): the UI-SURFACE derivation
+            // op — the ANDROID MIRROR of the desktop runner's deriveUiSurfaces.
+            // Runs the SAME canonical Kotlin derivations the production
+            // screens consume (deriveExecTrancheWaveStrip / deriveExecTrancheStripTotals
+            // / deriveExecPooledTrancheWaves / deriveExecNonWaveSummary — the
+            // ADR-002 mirrors of the desktop's adapters) over the same given
+            // with the same PINNED now. The corpus then-blocks are the REAL
+            // desktop engine output — this op must match them on EVERY value:
+            // the strip view model, the 4-cell totals, the wave-velocity card
+            // slots (the T-427 status flags, the T-434 days-late, the T-447
+            // badges), and the non-wave groups.
+            "deriveUiSurfaces" -> {
+                val nowMs = parseNowMs(when_.now ?: "2026-10-01T00:00:00Z")
+                val execInstallments = given.installments.map {
+                    com.example.core.ExecInstallment(
+                        id = it.id, parentId = it.parentId, category = it.category,
+                        trancheNumber = it.trancheNumber,
+                        amountDue = it.amountDue, amountPaid = it.amountPaid,
+                        amountPending = it.amountPending, dueDate = it.dueDate,
+                        status = it.status,
+                    )
+                }
+                val stripWaves = com.example.core.deriveExecTrancheWaveStrip(execInstallments, nowMs)
+                val stripTotals = com.example.core.deriveExecTrancheStripTotals(execInstallments, nowMs)
+                val pooled = com.example.core.deriveExecPooledTrancheWaves(execInstallments, nowMs)
+                val nonWave = com.example.core.deriveExecNonWaveSummary(execInstallments, nowMs)
+
+                // The fixed T1..T3 slots — the presentation the
+                // WaveVelocityCard renders (the emptyExecPooledWave slot
+                // factory + the T-427 status derivation + the T-434
+                // days-late, one clock).
+                val slots = listOf(1, 2, 3).map { wave ->
+                    pooled.firstOrNull { it.wave == wave } ?: com.example.core.emptyExecPooledWave(wave)
+                }
+                val totalDue = pooled.sumOf { it.dueTotal }
+                val totalPaid = pooled.sumOf { it.paidTotal }
+                val totalPending = pooled.sumOf { it.pendingTotal }
+                val totalRemaining = pooled.sumOf { it.remainingTotal }
+                val globalPct = if (totalDue > 0L) com.example.core.execSharePct(totalPaid, totalDue) else 0
+
+                buildJsonObject {
+                    put("financeStripWaves", kotlinx.serialization.json.buildJsonArray {
+                        stripWaves.forEach { w ->
+                            add(buildJsonObject {
+                                put("index", w.index)
+                                put("label", w.label)
+                                put("hint", w.hint)
+                                if (w.dueDate != null) put("dueDate", w.dueDate) else put("dueDate", kotlinx.serialization.json.JsonNull)
+                                if (w.dueDateMax != null) put("dueDateMax", w.dueDateMax) else put("dueDateMax", kotlinx.serialization.json.JsonNull)
+                                put("isOverdue", w.isOverdue)
+                                put("due", w.due)
+                                put("paid", w.paid)
+                                put("pending", w.pending)
+                                put("remaining", w.remaining)
+                                put("pct", w.pct)
+                                if (w.tuitionPct != null) put("tuitionPct", w.tuitionPct) else put("tuitionPct", kotlinx.serialization.json.JsonNull)
+                                put("isNextTarget", w.isNextTarget)
+                            })
+                        }
+                    })
+                    put("financeStripTotals", buildJsonObject {
+                        put("totalDue", stripTotals.totalDue)
+                        put("totalPaid", stripTotals.totalPaid)
+                        put("totalRemaining", stripTotals.totalRemaining)
+                        put("overdueCount", stripTotals.overdueCount)
+                    })
+                    put("waveVelocityCards", buildJsonObject {
+                        put("globalBadges", buildJsonObject {
+                            put("globalPct", globalPct)
+                            put("totalPending", totalPending)
+                            put("totalRemaining", totalRemaining)
+                        })
+                        put("slots", kotlinx.serialization.json.buildJsonArray {
+                            slots.forEach { w ->
+                                val isComplete = w.remainingTotal == 0L && w.installmentCount > 0
+                                val isOverdue = w.anyUnsettledOverdue
+                                val daysLate = if (w.dueDateMin != null) {
+                                    com.example.core.execDaysBetweenFloor(com.example.core.formatIsoMillis(w.dueDateMin!!), nowMs)
+                                } else 0L
+                                add(buildJsonObject {
+                                    put("wave", w.wave)
+                                    put("installmentCount", w.installmentCount)
+                                    put("settledCount", w.settledCount)
+                                    put("familyCount", w.familyCount)
+                                    put("debtorFamilyCount", w.debtorFamilyCount)
+                                    put("overdueDebtorFamilyCount", w.overdueDebtorFamilyCount)
+                                    put("dueTotal", w.dueTotal)
+                                    put("paidTotal", w.paidTotal)
+                                    put("pendingTotal", w.pendingTotal)
+                                    put("remainingTotal", w.remainingTotal)
+                                    put("overCoverageTotal", w.overCoverageTotal)
+                                    put("collectedPct", w.collectedPct)
+                                    if (w.dueDateMin != null) put("dueDateMin", w.dueDateMin) else put("dueDateMin", kotlinx.serialization.json.JsonNull)
+                                    if (w.dueDateMax != null) put("dueDateMax", w.dueDateMax) else put("dueDateMax", kotlinx.serialization.json.JsonNull)
+                                    put("anyUnsettledOverdue", w.anyUnsettledOverdue)
+                                    put("anyUnsettledFuture", w.anyUnsettledFuture)
+                                    // The rendered status (T-427).
+                                    put("isComplete", isComplete)
+                                    put("isOverdue", isOverdue)
+                                    put("statusText", if (isComplete) "Clôturée" else if (isOverdue) "En retard" else "En cours")
+                                    // The rendered échéance suffix (T-434): one clock.
+                                    put("daysLate", daysLate)
+                                    put("perCategoryCount", w.perCategory.size)
+                                })
+                            }
+                        })
+                    })
+                    put("nonWaveSummary", kotlinx.serialization.json.buildJsonArray {
+                        nonWave.forEach { n ->
                             add(buildJsonObject {
                                 put("kind", n.kind.name.lowercase())
                                 put("category", n.category)

@@ -963,4 +963,144 @@ class ExecutiveStatisticsTest {
         assertEquals(0, s.tripleCriticalCount)
         assertEquals(0, s.tripleCriticalPct)
     }
+
+    // ════════════════════════════════════════════════════════════════════
+    // T-454 (PARITY-007) — the Finance-strip view-model adapter + the strip
+    // totals (the desktop installment-schedule-tab T-447 construction: the
+    // fixed T1/T2/T3 slots mapped from the canonical POOLED rows — one
+    // derivation, this surface's presentation only).
+    // ════════════════════════════════════════════════════════════════════
+
+    @Test
+    fun `strip - the fixed T1 T2 T3 slots, the pooled basis, the canonical unclamped rate`() {
+        // The corpus scenario shape (analytics_visuals_tranche_waves): the
+        // label is IRRELEVANT (the "Tranche 10"-labeled row at column 1
+        // joins wave 1), the non-wave rows (FI at 0 / out-of-range at 4)
+        // are excluded from every wave, and the pooled rate is round(…)
+        // NEVER clamped.
+        val rows = listOf(
+            ins("i1", "p-1", "tuition", 1, 4_000_000, 4_000_000, 0, "2025-09-15", "paid"),
+            ins("i2", "p-2", "tuition", 1, 2_000_000, 1_000_000, 0, "2025-09-15", "partial"),
+            // The row that WOULD be labeled "Tranche 10" — the engine has NO
+            // label field at all: the canonical trancheNumber column is the
+            // ONLY grouping key (the pre-T-454 regex feed silently dropped
+            // such rows; the corpus scenario pins the same class).
+            ins("i3", "p-6", "tuition", 1, 1_000_000, 1_000_000, 0, "2025-10-01", "paid"),
+            ins("i4", "p-1", "tuition", 2, 3_000_000, 1_500_000, 500_000, "2025-12-15", "partial"),
+            ins("i5", "p-3", "tuition", 2, 3_000_000, 0, 0, "2025-12-15", "unpaid"),
+            ins("i6", "p-4", "tuition", 3, 3_000_000, 0, 0, "2026-03-15", "unpaid"),
+            // The FI registration fee (tranche 0) — NEVER folded into T1.
+            ins("i7", "p-8", "tuition", 0, 250_000, 0, 0, "2025-09-01", "unpaid"),
+        )
+        val strip = deriveExecTrancheWaveStrip(rows, now)
+        assertEquals(3, strip.size) // the FIXED slots
+        assertEquals("Tranche 1 (Septembre)", strip[0].label)
+        assertEquals("échéance 15 sep", strip[0].hint)
+        // Wave 1 pools ALL categories + the "Tranche 10"-labeled row:
+        // due 4M + 2M + 1M = 7M, paid 4M + 1M + 1M = 6M.
+        assertEquals(7_000_000L, strip[0].due)
+        assertEquals(6_000_000L, strip[0].paid)
+        assertEquals(86, strip[0].pct) // round(6/7×100) = 86 — the canonical rate
+        // The wave-1 derived échéance RANGE (min 2025-09-15 → max 2025-10-01).
+        assertEquals("2025-09-15T00:00:00.000Z", strip[0].dueDate)
+        assertEquals("2025-10-01T00:00:00.000Z", strip[0].dueDateMax)
+        // Wave 1 is the FIRST wave with a remaining balance (i2 owes 1M) → target.
+        assertTrue(strip[0].isNextTarget)
+        // The tuition-isolated rate: tuition paid 6M / tuition due 7M → 86.
+        assertEquals(86, strip[0].tuitionPct)
+        // Wave 2: due 6M, paid 1.5M, pending 0.5M → remaining 4M; rate 25.
+        assertEquals(6_000_000L, strip[1].due)
+        assertEquals(1_500_000L, strip[1].paid)
+        assertEquals(500_000L, strip[1].pending)
+        assertEquals(4_000_000L, strip[1].remaining)
+        assertEquals(25, strip[1].pct)
+        assertFalse(strip[1].isNextTarget)
+        // Wave 3: due 3M, nothing paid → pct 0; future-dated (2026-03-15 <
+        // now 2026-09-14 → past; the flag derives from the rows).
+        assertEquals(3_000_000L, strip[2].due)
+        assertEquals(0, strip[2].pct)
+        assertFalse(strip[2].isNextTarget)
+        // The FI row NEVER lands in a wave: its 250_000 is absent from every slot.
+        assertTrue(strip.none { it.due >= 7_250_000L })
+    }
+
+    @Test
+    fun `strip - the over-covered wave renders its honest above-100 rate`() {
+        // The pre-T-454 feed CLAMPED this at 100 (Math.min) — the desktop's
+        // T-447 fix renders the honest rate (an over-covered wave = parent
+        // credit ON the rows).
+        val rows = listOf(
+            ins("o1", "p-1", "tuition", 1, 1_000_000, 1_200_000, 0, "2025-09-15", "paid"),
+        )
+        val strip = deriveExecTrancheWaveStrip(rows, now)
+        assertEquals(120, strip[0].pct)
+        // Over-covered → no remaining → NOT the next target.
+        assertEquals(0L, strip[0].remaining)
+        assertFalse(strip[0].isNextTarget)
+    }
+
+    @Test
+    fun `strip - the empty selection renders the honest zero slots`() {
+        val strip = deriveExecTrancheWaveStrip(emptyList(), now)
+        assertEquals(3, strip.size)
+        assertTrue(strip.all { it.due == 0L && it.paid == 0L && it.pct == 0 && it.dueDate == null && !it.isNextTarget })
+        // The desktop's T-447 static hints (the fallback when no row carries
+        // a parseable date — "échéance 15 sep", NOT the old "… — à l'inscription").
+        assertEquals("échéance 15 sep", strip[0].hint)
+        assertEquals("échéance 15 déc", strip[1].hint)
+        assertEquals("échéance 15 mars", strip[2].hint)
+    }
+
+    @Test
+    fun `strip totals - the canonical sums over the WHOLE selection, FI rows included`() {
+        // The 4-cell totals row: Σdue / Σpaid / the INV-4 remaining / the
+        // dynamic overdue count. The FI row is BILLED money — the wave sums
+        // alone would silently drop it (the pre-T-454 card summed the waves).
+        val rows = listOf(
+            ins("t1", "p-1", "tuition", 1, 2_000_000, 1_000_000, 0, "2025-09-15", "partial"),
+            ins("t2", "p-2", "tuition", 2, 3_000_000, 0, 0, "2025-12-15", "unpaid"),
+            ins("t3", "p-3", "tuition", 0, 250_000, 0, 0, "2025-09-01", "unpaid"), // FI, past-due
+            ins("t4", "p-1", "tuition", 3, 4_000_000, 0, 0, "2027-03-15", "unpaid"), // future
+        )
+        val totals = deriveExecTrancheStripTotals(rows, now)
+        assertEquals(9_250_000L, totals.totalDue)   // 2M + 3M + 250k + 4M (FI + future included)
+        assertEquals(1_000_000L, totals.totalPaid)
+        assertEquals(8_250_000L, totals.totalRemaining) // 9.25M − 1M − 0
+        // Overdue: t1 (partial, past-due, owing) + t3 (FI, unpaid, past-due) = 2.
+        // t4 is FUTURE (à échoir, never late); t2 is unpaid but due 2025-12-15
+        // < now → past-due + owing → ALSO overdue. Let me recount: t1 ✓, t2 ✓,
+        // t3 ✓, t4 future ✗ → 3.
+        assertEquals(3, totals.overdueCount)
+    }
+
+    @Test
+    fun `overdue predicate - paid, future, settled-despite-status and sub-day rows`() {
+        // The canonical dynamic predicate (the desktop isInstallmentOverdue):
+        // only not-paid, STRICTLY-past-due, still-owing rows are "en retard".
+        val paid = ins("a", "p-1", "tuition", 1, 100, 100, 0, "2025-09-15", "paid")
+        assertFalse(isExecInstallmentOverdueRow(paid, now))
+        val future = ins("b", "p-1", "tuition", 3, 100, 0, 0, "2027-03-15", "unpaid")
+        assertFalse(isExecInstallmentOverdueRow(future, now))
+        // An uncleared cheque covering the row settles it (INV-4 — never late).
+        val coveredByPending = ins("c", "p-1", "tuition", 1, 100, 0, 100, "2025-09-15", "partial")
+        assertFalse(isExecInstallmentOverdueRow(coveredByPending, now))
+        val owing = ins("d", "p-1", "tuition", 1, 100, 40, 0, "2025-09-15", "partial")
+        assertTrue(isExecInstallmentOverdueRow(owing, now))
+        // dueDate == now → NOT strictly past.
+        val dueNow = ins("e", "p-1", "tuition", 1, 100, 0, 0, "2026-09-14T12:00:00Z", "unpaid")
+        assertFalse(isExecInstallmentOverdueRow(dueNow, now))
+    }
+
+    @Test
+    fun `emptyExecPooledWave - the zero-row slot factory`() {
+        val w = emptyExecPooledWave(2)
+        assertEquals(2, w.wave)
+        assertEquals(0, w.installmentCount)
+        assertEquals(0L, w.dueTotal)
+        assertEquals(0L, w.remainingTotal)
+        assertNull(w.dueDateMin)
+        assertNull(w.dueDateMax)
+        assertFalse(w.anyUnsettledOverdue)
+        assertTrue(w.perCategory.isEmpty())
+    }
 }

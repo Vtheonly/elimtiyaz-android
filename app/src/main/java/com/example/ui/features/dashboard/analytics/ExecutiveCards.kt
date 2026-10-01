@@ -30,6 +30,8 @@ import com.example.domain.model.ExecCallListEntryItem
 import com.example.domain.model.ExecConcentrationSnapshot
 import com.example.domain.model.ExecDynamicsSnapshot
 import com.example.domain.model.ExecErosionItem
+import com.example.domain.model.ExecNonWaveItem
+import com.example.domain.model.ExecPooledWaveItem
 import com.example.domain.model.ExecRiskProfileItem
 import com.example.domain.model.ExecRiskSummaryItem
 import com.example.domain.model.ExecServiceItem
@@ -38,6 +40,7 @@ import com.example.domain.model.ExecTransportSnapshot
 import com.example.domain.model.ExecWaveItem
 import com.example.domain.model.ExecutiveStatsSnapshot
 import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.data.ElChartPalette
 import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.feedback.ElLinearProgress
@@ -67,106 +70,230 @@ import com.example.ui.designsystem.theme.ElTheme
 // Wave velocity — the revenue hero (the staircase)
 // ============================================================================
 
-private val WAVE_LABELS_FR = mapOf(
-    1 to "T1 · Inscription + 1er versement (Sept)",
-    2 to "T2 · 2ème versement (Déc)",
-    3 to "T3 · 3ème versement (Mars)",
+/**
+ * T-454 (PARITY-007, 127th session): the wave titles follow the desktop's
+ * T-447 WAVE_TITLES (§15.65a) — the subtitles state the ALL-CATEGORIES basis
+ * and NEVER fold the registration fee into T1 (FI is tranche 0, a non-wave
+ * row with its own « Hors Tranches » section). The old
+ * "T1 · Inscription + 1er versement (Sept)" subtitle contradicted the
+ * billing model (the desktop's own STATS-401 finding).
+ */
+private val WAVE_TITLES_FR: Map<Int, Pair<String, String>> = mapOf(
+    1 to ("Tranche 1 (T1)" to "Toutes catégories — 1er versement (Sept)"),
+    2 to ("Tranche 2 (T2)" to "Toutes catégories — mi-parcours (Déc)"),
+    3 to ("Tranche 3 (T3)" to "Toutes catégories — clôture (Mars)"),
 )
 
-private fun phaseLabelFr(phase: String): String = when (phase) {
-    "overdue" -> "échue"
-    "not_due" -> "à venir"
-    else -> "en cours"
+// T-454: phaseLabelFr + phaseTone retired with the old WaveMeter (the pooled
+// card uses the T-427 Clôturée/En retard/En cours badge derivation instead).
+
+/**
+ * The desktop's `formatDueDateRange` mirror (core/format/date.ts —
+ * T-435/T-439): "dd MMM yyyy", the "min → max" range when the rows drifted
+ * off the official schedule, null when no row carries a parseable date.
+ * UTC formatting so a UTC-negative machine never shows the day before.
+ */
+private fun formatDueDateRangeFr(dueDateMinIso: String?, dueDateMaxIso: String?): String? {
+    if (dueDateMinIso == null) return null
+    val min = try {
+        java.time.Instant.parse(dueDateMinIso)
+    } catch (_: Exception) {
+        return null
+    }
+    val fmt = java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy", java.util.Locale.FRENCH)
+        .withZone(java.time.ZoneOffset.UTC)
+    val minLabel = fmt.format(min)
+    if (dueDateMaxIso == null || dueDateMaxIso == dueDateMinIso) return minLabel
+    val max = try {
+        java.time.Instant.parse(dueDateMaxIso)
+    } catch (_: Exception) {
+        return minLabel
+    }
+    return "$minLabel → ${fmt.format(max)}"
 }
 
-private fun phaseTone(phase: String): ElTagTone = when (phase) {
-    "overdue" -> ElTagTone.DANGER
-    "not_due" -> ElTagTone.NEUTRAL
-    else -> ElTagTone.SUCCESS
+/** The desktop's daysBetweenFloor over the pooled rows' ISO dates. */
+private fun waveDaysLate(dueDateIso: String?, nowEpochMs: Long): Long =
+    if (dueDateIso == null) 0L else com.example.core.execDaysBetweenFloor(dueDateIso, nowEpochMs)
+
+/** The non-wave group labels (the desktop's label derivation). */
+private fun nonWaveKindLabelFr(kind: com.example.domain.model.ExecNonWaveKindItem, categoryLabel: String): String = when (kind) {
+    com.example.domain.model.ExecNonWaveKindItem.FI -> "Frais d'inscription (FI)"
+    com.example.domain.model.ExecNonWaveKindItem.UNNUMBERED -> "$categoryLabel — hors tranche"
+    com.example.domain.model.ExecNonWaveKindItem.OUT_OF_RANGE -> "$categoryLabel — hors bornes"
 }
 
 /**
- * WaveVelocityCard — the tranche-wave collection meters. THE revenue hero:
- * school revenue is a staircase of three waves, not a smooth curve. Each
- * meter shows billed vs collected vs remaining with the value-based
- * collection rate — the number that predicts whether payroll clears.
+ * WaveVelocityCard — THE revenue hero (the T-447 pooled form).
+ *
+ * The native twin of the desktop's `executive-cards.tsx` WaveVelocityCard:
+ * the MAIN T1/T2/T3 analysis is the canonical POOLED all-categories grid
+ * (every billing category per wave — the exact-dinar parity object the
+ * Finance Tranches strip consumes; one derivation, two presentations),
+ * each wave carrying the 2×3 metric grid (Facturé / Encaissé / **En cours**
+ * / Reste dû / Familles / Catégories), the reconciliation identity
+ * (Total dû = Encaissé + En cours + Reste dû [+ couverts au-delà]), the
+ * per-category chips, the T-434/T-435 échéance range + days-late, and the
+ * T-427 status badge (Clôturée / En retard / En cours).
+ *
+ * The FULL variant adds the « Hors Tranches » section (FI + unnumbered +
+ * out-of-range — the commitments the wave model excludes BY DESIGN, visible,
+ * never silently dropped) and the per-category detail grid; the HERO variant
+ * (the dashboard overview) renders the pooled grid alone.
+ *
+ * T-454 (PARITY-007): values come EXCLUSIVELY from the snapshot's
+ * `pooledWaves` / `nonWaveSummary` (computed once at the repository level by
+ * `deriveExecPooledTrancheWaves` / `deriveExecNonWaveSummary`) — ZERO inline
+ * math, ZERO re-derivation (§15.16). The previous tuition/others split is
+ * retired (the desktop removed its own in T-447).
  */
 @Composable
 fun WaveVelocityCard(
     waves: List<ExecWaveItem>,
+    pooledWaves: List<ExecPooledWaveItem>,
+    nonWave: List<ExecNonWaveItem>,
     modifier: Modifier = Modifier,
+    variant: String = "full",
 ) {
-    val tuition = waves.filter { it.category == "tuition" }
-    val others = waves.filter { it.category != "tuition" }
-    val totalDue = waves.sumOf { it.dueTotal }
-    val totalPaid = waves.sumOf { it.paidTotal }
-    val totalRemaining = waves.sumOf { it.remainingTotal }
+    val c = ElTheme.colors
+    val nowEpochMs = System.currentTimeMillis()
+    // The global badges — sums over the POOLED rows (the presentation-side
+    // totals; the reconciliation identity is per-row canonical).
+    val totalDue = pooledWaves.sumOf { it.dueTotal }
+    val totalPaid = pooledWaves.sumOf { it.paidTotal }
+    val totalPending = pooledWaves.sumOf { it.pendingTotal }
+    val totalRemaining = pooledWaves.sumOf { it.remainingTotal }
+    val globalPct = if (totalDue > 0L) com.example.core.execSharePct(totalPaid, totalDue) else 0
+    // The fixed T1..T3 slots — waves with no rows render the honest zero state.
+    val slots = listOf(1, 2, 3).map { wave -> pooledWaves.firstOrNull { it.wave == wave } }
+    val hasAnyRow = pooledWaves.isNotEmpty() || nonWave.isNotEmpty()
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // ── Header ──
             Text(
-                text = "Vélocité de Recouvrement par Vague",
+                text = "Vélocité de Recouvrement par Vague Saisonnière",
                 style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                color = ElTheme.colors.textPrimary,
+                color = c.textPrimary,
             )
             Text(
-                text = if (waves.isNotEmpty()) {
-                    "${(totalPaid / 100).formatDzd()} DA encaissés / ${(totalDue / 100).formatDzd()} DA facturés · ${(totalRemaining / 100).formatDzd()} DA restants"
-                } else {
-                    "Taux de recouvrement par tranche saisonnière (Sept / Déc / Mars)"
-                },
+                text = "Analyse T1/T2/T3 toutes catégories (Scolarité, Transport, FI, services) — parité exacte avec l'onglet Finances → Tranches",
                 style = ElTheme.typography.bodySmall,
-                color = if (waves.isNotEmpty()) ElTheme.colors.danger else ElTheme.colors.textSecondary,
+                color = c.textSecondary,
             )
-            Spacer(Modifier.height(10.dp))
+            if (hasAnyRow) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "$globalPct% collecté global",
+                        color = ElChartPalette.primary,
+                        style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
+                    )
+                    if (totalPending > 0L) {
+                        Text(
+                            text = "${(totalPending / 100).formatDzd()} DA en cours",
+                            color = ElChartPalette.info,
+                            style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp),
+                        )
+                    }
+                    Text(
+                        text = "${(totalRemaining / 100).formatDzd()} DA restant",
+                        color = ElChartPalette.danger,
+                        style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp),
+                    )
+                }
+            }
 
-            if (waves.isEmpty()) {
+            if (!hasAnyRow) {
+                // The honest empty state (§15.16).
                 Text(
-                    text = "Aucune tranche facturée sur la période.",
+                    text = "Aucune tranche facturée sur la période sélectionnée.",
                     style = ElTheme.typography.bodySmall,
-                    color = ElTheme.colors.textSecondary,
+                    color = c.textSecondary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
                 )
             } else {
-                tuition.forEach { w ->
-                    WaveMeter(w)
-                    if (w != tuition.last()) Spacer(Modifier.height(10.dp))
-                }
-                if (others.isNotEmpty()) {
-                    Spacer(Modifier.height(12.dp))
-                    HorizontalDivider(color = ElTheme.colors.outlineVariant, thickness = 1.dp)
-                    Spacer(Modifier.height(8.dp))
+                // ── The MAIN pooled T1/T2/T3 grid ──
+                slots.forEach { slot -> PooledWaveMeter(w = slot, nowEpochMs = nowEpochMs) }
+
+                // ── T-447: the « Hors Tranches » section (FULL variant only) ──
+                if (nonWave.isNotEmpty() && variant == "full") {
+                    Spacer(Modifier.height(2.dp))
+                    HorizontalDivider(color = c.outlineVariant, thickness = 1.dp)
                     Text(
-                        text = "AUTRES VAGUES",
+                        text = "HORS TRANCHES — INSCRIPTION & ENGAGEMENTS NON-TRANCHES",
                         style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = ElTheme.colors.textSecondary,
+                        color = c.textSecondary,
                     )
-                    Spacer(Modifier.height(4.dp))
-                    others.forEach { w ->
+                    nonWave.forEach { g ->
+                        val range = formatDueDateRangeFr(g.dueDateMin, g.dueDateMax)
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "${nonWaveKindLabelFr(g.kind, g.categoryLabel)} · ${g.installmentCount} engagement${if (g.installmentCount > 1) "s" else ""}",
+                                    style = ElTheme.typography.bodySmall,
+                                    color = c.textPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = "${(g.remainingTotal / 100).formatDzd()} DA restants" +
+                                        (range?.let { " · échéance $it" } ?: "") +
+                                        (if (g.remainingTotal == 0L && g.installmentCount > 0) " · soldé" else ""),
+                                    style = ElTheme.typography.labelSmall,
+                                    color = if (g.remainingTotal > 0L) ElChartPalette.danger else ElChartPalette.success,
+                                )
+                            }
+                            val pct = if (g.dueTotal > 0L) com.example.core.execSharePct(g.paidTotal, g.dueTotal) else 0
                             Text(
-                                text = "${w.categoryLabel} · T${w.wave}",
-                                style = ElTheme.typography.bodySmall,
-                                color = ElTheme.colors.textPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f),
+                                text = "$pct%",
+                                style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                color = c.textPrimary,
                             )
+                        }
+                    }
+                }
+
+                // ── T-447: the per-category detail grid (FULL variant only) ──
+                if (waves.isNotEmpty() && variant == "full") {
+                    Spacer(Modifier.height(2.dp))
+                    HorizontalDivider(color = c.outlineVariant, thickness = 1.dp)
+                    Text(
+                        text = "DÉTAIL PAR CATÉGORIE DE FACTURATION",
+                        style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = c.textSecondary,
+                    )
+                    waves.forEach { w ->
+                        val auxDue = formatDueDateRangeFr(w.dueDate, w.dueDateMax)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "${w.categoryLabel} · T${w.wave}",
+                                    style = ElTheme.typography.bodySmall,
+                                    color = c.textPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = "${(w.remainingTotal / 100).formatDzd()} DA restants" +
+                                        (auxDue?.let { " · échéance $it" } ?: "") +
+                                        (if (w.phase == "overdue" && w.remainingTotal > 0L) " · en retard" else ""),
+                                    style = ElTheme.typography.labelSmall,
+                                    color = if (w.phase == "overdue" && w.remainingTotal > 0L) ElChartPalette.danger else c.textSecondary,
+                                )
+                            }
                             Text(
                                 text = "${w.collectedPct}%",
                                 style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                color = ElTheme.colors.textPrimary,
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                text = "${(w.remainingTotal / 100).formatDzd()} DA restants",
-                                style = ElTheme.typography.labelSmall,
-                                color = ElTheme.colors.textSecondary,
+                                color = c.textPrimary,
                             )
                         }
                     }
@@ -176,71 +303,229 @@ fun WaveVelocityCard(
     }
 }
 
+/**
+ * One pooled T1/T2/T3 meter — the desktop's pooled-card twin: the status
+ * badge, the échéance range + days-late, the big rate + dossiers, the
+ * meter, the 2×3 metric grid, the reconciliation identity, and the
+ * per-category chips. Pure renderer over [ExecPooledWaveItem] (null = the
+ * honest zero-row slot).
+ */
 @Composable
-private fun WaveMeter(w: ExecWaveItem) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
+    val c = ElTheme.colors
+    val wave = w?.wave ?: return
+    // The zero-row slot state (the desktop emptyPooledWave presentation).
+    val dueTotal = w?.dueTotal ?: 0L
+    val paidTotal = w?.paidTotal ?: 0L
+    val pendingTotal = w?.pendingTotal ?: 0L
+    val remainingTotal = w?.remainingTotal ?: 0L
+    val installmentCount = w?.installmentCount ?: 0
+    val settledCount = w?.settledCount ?: 0
+    val familyCount = w?.familyCount ?: 0
+    val debtorFamilyCount = w?.debtorFamilyCount ?: 0
+    val overdueDebtorFamilyCount = w?.overdueDebtorFamilyCount ?: 0
+    val overCoverageTotal = w?.overCoverageTotal ?: 0L
+    val collectedPct = w?.collectedPct ?: 0
+    val anyUnsettledOverdue = w?.anyUnsettledOverdue ?: false
+    val anyUnsettledFuture = w?.anyUnsettledFuture ?: false
+    val title = WAVE_TITLES_FR[wave] ?: ("Tranche $wave" to "Toutes catégories")
+
+    // T-427 (DATA-048): a wave is "Clôturée" only when NOTHING remains to
+    // collect (remainingTotal === 0, the canonical INV-4 basis).
+    val isComplete = remainingTotal == 0L && installmentCount > 0
+    val isOverdue = anyUnsettledOverdue
+    val statusText = if (isComplete) "Clôturée" else if (isOverdue) "En retard" else "En cours"
+    val statusTone = if (isComplete) ElTagTone.SUCCESS else if (isOverdue) ElTagTone.DANGER else ElTagTone.INFO
+
+    // T-434/T-435: the wave's échéance is ON the card (the verdict's visible
+    // cause) — the DERIVED range, the days-late/days-remaining suffix.
+    val dueRangeLabel = formatDueDateRangeFr(w?.dueDateMin, w?.dueDateMax)
+    val daysLate = waveDaysLate(w?.dueDateMin, nowEpochMs)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(c.surfaceVariant.copy(alpha = 0.35f))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        // Header: title + status badge
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = WAVE_LABELS_FR[w.wave] ?: "Tranche ${w.wave}",
-                style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = ElTheme.colors.textPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            ElTag(text = phaseLabelFr(w.phase), tone = phaseTone(w.phase))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title.first,
+                    style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = c.textPrimary,
+                )
+                Text(
+                    text = title.second,
+                    style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    color = c.textSecondary,
+                )
+                if (dueRangeLabel != null) {
+                    Text(
+                        text = "Échéance : $dueRangeLabel" +
+                            if (!isComplete) {
+                                when {
+                                    isOverdue -> " — $daysLate j de retard"
+                                    daysLate < 0 -> " — dans ${-daysLate} j"
+                                    else -> ""
+                                }
+                            } else "",
+                        style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = if (isOverdue && !isComplete) ElChartPalette.danger else c.textSecondary,
+                    )
+                }
+            }
+            ElTag(text = statusText, tone = statusTone)
         }
-        Spacer(Modifier.height(6.dp))
-        // The meter: collected share of the billed total. Red only when the
-        // wave is overdue AND under 90% (the desktop operational tone rule).
-        val meterColor = if (w.phase == "overdue" && w.collectedPct < 90) ElTheme.colors.danger else ElTheme.colors.success
+
+        // The big rate + the dossiers count + the meter
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            Text(
+                text = "$collectedPct%",
+                style = ElTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Black),
+                color = c.textPrimary,
+            )
+            Text(
+                text = "$settledCount/$installmentCount dossiers",
+                style = ElTheme.typography.labelSmall,
+                color = c.textSecondary,
+            )
+        }
+        val meterColor = when {
+            isComplete -> ElChartPalette.success
+            isOverdue -> ElChartPalette.danger
+            else -> ElChartPalette.primary
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(10.dp)
+                .height(8.dp)
                 .clip(RoundedCornerShape(50))
-                .background(ElTheme.colors.surfaceVariant),
+                .background(c.surfaceVariant),
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(w.collectedPct.coerceIn(0, 100) / 100f)
-                    .height(10.dp)
+                    .fillMaxWidth(collectedPct.coerceIn(0, 100) / 100f)
+                    .height(8.dp)
                     .clip(RoundedCornerShape(50))
                     .background(meterColor),
             )
         }
-        Spacer(Modifier.height(4.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "${w.collectedPct}%",
-                style = ElTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Black),
-                color = ElTheme.colors.textPrimary,
+
+        // The 2×3 metric grid — the mandate's Total Due = Paid + Pending +
+        // Remaining identity verifiable at a glance.
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            PooledMetric("FACTURÉ", "${(dueTotal / 100).formatDzd()} DA", c.textPrimary, Modifier.weight(1f))
+            PooledMetric("ENCAISSÉ", "${(paidTotal / 100).formatDzd()} DA", ElChartPalette.success, Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            PooledMetric(
+                "EN COURS",
+                "${(pendingTotal / 100).formatDzd()} DA",
+                if (pendingTotal > 0L) ElChartPalette.info else c.textSecondary,
+                Modifier.weight(1f),
             )
-            Text(
-                text = "${w.paidCount}/${w.installmentCount} tranches",
-                style = ElTheme.typography.labelSmall,
-                color = ElTheme.colors.textSecondary,
+            PooledMetric(
+                "RESTE DÛ",
+                "${(remainingTotal / 100).formatDzd()} DA",
+                if (remainingTotal > 0L) ElChartPalette.danger else c.textSecondary,
+                Modifier.weight(1f),
             )
         }
-        Spacer(Modifier.height(2.dp))
-        Column {
-            ExecStatRow(label = "Facturé", value = "${(w.dueTotal / 100).formatDzd()} DA")
-            ExecStatRow(label = "Encaissé", value = "${(w.paidTotal / 100).formatDzd()} DA")
-            ExecStatRow(
-                label = "Restant",
-                value = "${(w.remainingTotal / 100).formatDzd()} DA",
-                valueColor = if (w.remainingTotal > 0) ElTheme.colors.danger else ElTheme.colors.textSecondary,
-            )
-            ExecStatRow(label = "Familles", value = "${w.debtorFamilyCount} débitrices · ${w.familyCount} facturées")
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            // T-427 (DATA-048b): the sub-label is PHASE-DRIVEN — an overdue
+            // wave counts its actually-late families; a future wave's owing
+            // families are "à échoir" / "non soldées".
+            val familiesLabel = if (isOverdue) "FAMILLES EN RETARD" else if (anyUnsettledFuture) "FAMILLES À ÉCHOIR" else "FAMILLES NON SOLDÉES"
+            val familiesValue = if (isOverdue) overdueDebtorFamilyCount else debtorFamilyCount
+            val familiesColor = if (familiesValue > 0) {
+                if (isOverdue) ElChartPalette.danger else ElChartPalette.warning
+            } else c.textSecondary
+            PooledMetric(familiesLabel, "$familiesValue / $familyCount", familiesColor, Modifier.weight(1f))
+            PooledMetric("CATÉGORIES", "${w?.perCategory?.size ?: 0}", c.textPrimary, Modifier.weight(1f))
         }
+
+        // The reconciliation line (T-447): Total dû = Encaissé + En cours +
+        // Reste dû (+ couverts au-delà when funds exceed the due).
+        Text(
+            text = "Total dû ${(dueTotal / 100).formatDzd()} DA = Encaissé ${(paidTotal / 100).formatDzd()} DA + " +
+                "En cours ${(pendingTotal / 100).formatDzd()} DA + Reste dû ${(remainingTotal / 100).formatDzd()} DA" +
+                if (overCoverageTotal > 0L) " (+ ${(overCoverageTotal / 100).formatDzd()} DA couverts au-delà)" else "",
+            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+            color = c.textMuted,
+        )
+
+        // The per-category breakdown chips (the audit trail that no revenue
+        // category is silently excluded from the main analysis).
+        val perCategory = w?.perCategory ?: emptyList()
+        if (perCategory.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                perCategory.forEach { cat ->
+                    val catPct = if (cat.dueTotal > 0L) com.example.core.execSharePct(cat.paidTotal, cat.dueTotal) else 0
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(c.surfaceVariant.copy(alpha = 0.5f))
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                    ) {
+                        Text(
+                            text = cat.categoryLabel,
+                            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            color = c.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = "$catPct%" + if (cat.remainingTotal > 0L) " · ${(cat.remainingTotal / 100).formatDzd()}" else "",
+                            style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 9.sp),
+                            color = if (cat.remainingTotal > 0L) ElChartPalette.danger else c.textPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PooledMetric(
+    label: String,
+    value: String,
+    valueColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+            color = ElTheme.colors.textMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = value,
+            style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = valueColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -1010,7 +1295,13 @@ fun ExecutiveDashboard(
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TripleRiskSummaryCard(summary = snapshot.riskSummary, profiles = snapshot.riskRadar)
-        WaveVelocityCard(waves = snapshot.waves)
+        // T-454 (PARITY-007): the FULL T-447 pooled form — the pooled grid +
+        // the « Hors Tranches » section + the per-category detail.
+        WaveVelocityCard(
+            waves = snapshot.waves,
+            pooledWaves = snapshot.pooledWaves,
+            nonWave = snapshot.nonWaveSummary,
+        )
         DebtTriageCard(triage = snapshot.triage)
         DiscountErosionCard(erosion = snapshot.erosion)
         FamilyConcentrationCard(concentration = snapshot.concentration)
