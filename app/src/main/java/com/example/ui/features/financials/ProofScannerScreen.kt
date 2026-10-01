@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,7 +26,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -44,14 +44,15 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.example.ui.components.ElAlertBanner
-import com.example.ui.components.ElAlertSeverity
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElButtonStyle
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElTopBar
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.display.ElAlertBanner
+import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.card.ElCardVariant
+import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.navigation.LocalSession
-import com.example.ui.theme.SuccessGreen
+import com.example.ui.designsystem.theme.ElTheme
 import java.io.File
 
 @Composable
@@ -59,6 +60,7 @@ fun ProofScannerScreen(
     onBack: () -> Unit,
     viewModel: ProofScannerViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
     val isLoading by viewModel.isLoading.collectAsState()
     val uploadedPath by viewModel.uploadedPath.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -132,11 +134,13 @@ fun ProofScannerScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.lg),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ElCard(modifier = Modifier.fillMaxWidth().height(280.dp), gradient = false) {
+            // T-460 pass C: the preview pane — the DS OUTLINED card (flat,
+            // structural border; was the legacy gradient=false ElCard).
+            ElCard(modifier = Modifier.fillMaxWidth().height(280.dp), variant = ElCardVariant.OUTLINED, size = com.example.ui.designsystem.components.card.ElCardSize.COMFORTABLE) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     if (photoUri != null) {
                         AsyncImage(
@@ -151,22 +155,22 @@ fun ProofScannerScreen(
                                 modifier = Modifier
                                     .size(64.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                                    .background(c.primary.copy(alpha = 0.1f)),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
                                     Icons.Default.CameraAlt,
                                     contentDescription = null,
                                     modifier = Modifier.size(32.dp),
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    tint = c.primary,
                                 )
                             }
                             Spacer(Modifier.height(12.dp))
-                            Text("Aperçu de la pièce", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
+                            Text("Aperçu de la pièce", style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), color = c.textPrimary)
                             Text(
                                 "Chèque, virement bancaire ou reçu de dépense",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = ElTheme.typography.bodySmall,
+                                color = c.textSecondary,
                             )
                         }
                     }
@@ -174,22 +178,25 @@ fun ProofScannerScreen(
             }
 
             error?.let { msg ->
-                ElAlertBanner(message = msg, severity = ElAlertSeverity.Danger, title = "Erreur")
+                ElAlertBanner(title = "Erreur", message = msg, severity = ElAlertSeverity.DANGER)
             }
 
             uploadedPath?.let { path ->
-                ElCard(modifier = Modifier.fillMaxWidth(), accent = SuccessGreen) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        Text("Preuve capturée et enregistrée !", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = SuccessGreen)
+                ElCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    border = BorderStroke(ElTheme.borders.thin, c.success.copy(alpha = 0.45f)),
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text("Preuve capturée et enregistrée !", style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = c.success)
                         if (path.startsWith("file://")) {
                             // T-362/UPLOAD-103: an honest offline state — the
                             // proof is ONLY on the device until connectivity
                             // returns (never a fake "synced" message).
-                            Text("Mode hors-ligne : preuve conservée sur l'appareil.", style = MaterialTheme.typography.bodySmall)
-                            Text("Elle n'est PAS encore sur le serveur — reprenez l'envoi une fois connecté.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Mode hors-ligne : preuve conservée sur l'appareil.", style = ElTheme.typography.bodySmall, color = c.textPrimary)
+                            Text("Elle n'est PAS encore sur le serveur — reprenez l'envoi une fois connecté.", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                         } else {
-                            Text("Envoyée au coffre Supabase Storage : $path", style = MaterialTheme.typography.bodySmall)
-                            Text("Chemin d'accès canonique (établissement/entité/fichier).", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Envoyée au coffre Supabase Storage : $path", style = ElTheme.typography.bodySmall, color = c.textPrimary)
+                            Text("Chemin d'accès canonique (établissement/entité/fichier).", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                         }
                     }
                 }
@@ -232,7 +239,7 @@ fun ProofScannerScreen(
                     galleryLauncher.launch("image/*")
                 },
                 enabled = !isLoading,
-                style = ElButtonStyle.Secondary,
+                variant = ElButtonVariant.SECONDARY,
                 fullWidth = true,
                 icon = Icons.Default.Image,
             )

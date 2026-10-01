@@ -1,6 +1,7 @@
 package com.example.ui.features.financials
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,16 +18,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -35,29 +30,31 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.PaymentStatus
 import com.example.core.formatDzd
-import com.example.ui.components.ElAvatar
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElEmptyState
-import com.example.ui.components.ElProgressBar
-import com.example.ui.components.ElSectionHeader
-import com.example.ui.components.ElTag
-import com.example.ui.components.ElTextField
-import com.example.ui.theme.DangerRed
-import com.example.ui.theme.PrimaryBlue
-import com.example.ui.theme.SuccessGreen
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.display.ElAvatarSize
+import com.example.ui.designsystem.components.display.ElChip
+import com.example.ui.designsystem.components.display.ElChipVariant
+import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.feedback.ElLinearProgress
+import com.example.ui.designsystem.components.input.ElTextField
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.theme.ElTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InstallmentScheduleScreen(
     onBack: () -> Unit,
     viewModel: InstallmentScheduleViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
     val parents by viewModel.parents.collectAsState()
     val selectedParentId by viewModel.selectedParentId.collectAsState()
     val installments by viewModel.installments.collectAsState()
@@ -85,19 +82,17 @@ fun InstallmentScheduleScreen(
         viewModel.selectParent("")
     }
 
-    Scaffold(
+    // T-460 pass C: the DS scaffold + top bar (the back arrow keeps the
+    // two-level semantics: parent selected → clear; otherwise → onBack()).
+    ElScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Échéancier des Tranches") },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        if (!selectedParentId.isNullOrBlank()) {
-                            viewModel.selectParent("")
-                        } else {
-                            onBack()
-                        }
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+            ElTopBar(
+                title = "Échéancier des Tranches",
+                onBack = {
+                    if (!selectedParentId.isNullOrBlank()) {
+                        viewModel.selectParent("")
+                    } else {
+                        onBack()
                     }
                 },
             )
@@ -107,7 +102,7 @@ fun InstallmentScheduleScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (selectedParent == null) {
@@ -128,34 +123,34 @@ fun InstallmentScheduleScreen(
                         ElEmptyState(
                             icon = Icons.Default.Payments,
                             title = "Aucune famille trouvée",
-                            message = "Vérifiez vos termes de recherche.",
+                            subtitle = "Vérifiez vos termes de recherche.",
                         )
                     }
                 } else {
                     item {
                         Text(
                             "Sélectionnez une famille (${filteredParents.size} disponibles) :",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = ElTheme.typography.labelMedium,
+                            color = c.textSecondary,
                         )
                     }
                     items(filteredParents) { p ->
                         ElCard(
                             modifier = Modifier.fillMaxWidth(),
+                            size = ElCardSize.COMPACT,
                             onClick = { viewModel.selectParent(p.id) },
-                            compact = true,
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                ElAvatar(initials = p.fullName, size = 38)
+                                ElAvatar(initials = p.fullName, size = ElAvatarSize.M)
                                 Spacer(Modifier.width(10.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(p.fullName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                                    Text("Code : ${p.code} • Tél : ${p.phone}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(p.fullName, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
+                                    Text("Code : ${p.code} • Tél : ${p.phone}", style = ElTheme.typography.bodySmall, color = c.textSecondary)
                                 }
-                                Text("Sélectionner", color = PrimaryBlue, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                                Text("Sélectionner", color = c.primary, style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                             }
                         }
                     }
@@ -165,7 +160,6 @@ fun InstallmentScheduleScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(MaterialTheme.shapes.small)
                             .clickable { viewModel.selectParent("") }
                             .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -173,48 +167,51 @@ fun InstallmentScheduleScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Retour à la liste",
-                            tint = PrimaryBlue,
+                            tint = c.primary,
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
                             text = "Retour à la liste des familles",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = PrimaryBlue,
+                            style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = c.primary,
                         )
                     }
                 }
 
                 item {
-                    ElCard(modifier = Modifier.fillMaxWidth(), accent = PrimaryBlue) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ElCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        border = BorderStroke(ElTheme.borders.thin, c.primary.copy(alpha = 0.45f)),
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(selectedParent.fullName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                                    Text("Code : ${selectedParent.code} • Tél : ${selectedParent.phone}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(selectedParent.fullName, style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
+                                    Text("Code : ${selectedParent.code} • Tél : ${selectedParent.phone}", style = ElTheme.typography.bodySmall, color = c.textSecondary)
                                 }
-                                ElTag(
+                                ElChip(
                                     text = "Changer",
-                                    color = PrimaryBlue,
+                                    variant = ElChipVariant.ASSIST,
                                     onClick = { viewModel.selectParent("") },
                                 )
                             }
 
                             Spacer(Modifier.height(4.dp))
                             ElSectionHeader(title = "Progression des règlements")
-                            ElProgressBar(progress = progress)
+                            ElLinearProgress(progress = progress)
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Facturé : ${(totalDue / 100).formatDzd()} DZD", style = MaterialTheme.typography.bodySmall)
-                                Text("Payé : ${(totalPaid / 100).formatDzd()} DZD", style = MaterialTheme.typography.bodySmall, color = SuccessGreen)
+                                Text("Facturé : ${(totalDue / 100).formatDzd()} DZD", style = ElTheme.typography.bodySmall, color = c.textPrimary)
+                                Text("Payé : ${(totalPaid / 100).formatDzd()} DZD", style = ElTheme.typography.bodySmall, color = c.success)
                             }
                             Text(
                                 "Reste à payer : ${(remainingDebt / 100).formatDzd()} DZD (${((1f - progress) * 100).toInt()}%)",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                color = if (remainingDebt > 0) DangerRed else SuccessGreen,
+                                style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                color = if (remainingDebt > 0) c.danger else c.success,
                             )
                         }
                     }
@@ -222,8 +219,11 @@ fun InstallmentScheduleScreen(
 
                 message?.let {
                     item {
-                        ElCard(modifier = Modifier.fillMaxWidth(), accent = SuccessGreen) {
-                            Text(it, modifier = Modifier.padding(14.dp), style = MaterialTheme.typography.bodyMedium)
+                        ElCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            border = BorderStroke(ElTheme.borders.thin, c.success.copy(alpha = 0.45f)),
+                        ) {
+                            Text(it, style = ElTheme.typography.bodyMedium, color = c.textPrimary)
                         }
                     }
                 }
@@ -235,7 +235,7 @@ fun InstallmentScheduleScreen(
                         ElEmptyState(
                             icon = Icons.Default.Payments,
                             title = "Aucune tranche enregistrée",
-                            message = "Aucun échéancier actif pour cette famille.",
+                            subtitle = "Aucun échéancier actif pour cette famille.",
                         )
                     }
                 } else {
