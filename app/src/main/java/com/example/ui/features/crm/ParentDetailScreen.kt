@@ -54,18 +54,18 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.PaymentCategory
 import com.example.core.formatDzd
 import com.example.domain.model.Parent
-import com.example.ui.components.ElAvatar
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElInfoRow
-import com.example.ui.components.ElSectionHeader
-import com.example.ui.components.ElTag
-import com.example.ui.components.ElTopBar
-import com.example.ui.theme.DangerRed
-import com.example.ui.theme.PrimaryBlue
-import com.example.ui.theme.SuccessGreen
-import com.example.ui.theme.WarmGold
-import com.example.ui.theme.elDesignTokens
+import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElAvatarSize
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.theme.ElTheme
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElIconButton
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.util.PhoneUtils
 
 @Composable
@@ -91,7 +91,7 @@ fun ParentDetailScreen(
     val ledgerEntries by viewModel.ledgerEntries.collectAsState()
     val pdfFile by viewModel.pdfFile.collectAsState()
     val context = LocalContext.current
-    val tokens = elDesignTokens()
+    val c = ElTheme.colors
 
     var showEditDialog by remember { mutableStateOf(false) }
     var showAddChildDialog by remember { mutableStateOf(false) }
@@ -128,21 +128,24 @@ fun ParentDetailScreen(
         }
     }
 
-    Scaffold(
+    ElScaffold(
         topBar = {
             ElTopBar(
                 title = parent?.fullName ?: "Parent",
                 onBack = onBack,
                 actions = {
                     if (parent != null) {
-                        IconButton(onClick = { showEditDialog = true }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Modifier le parent")
-                        }
+                        ElIconButton(
+                            icon = Icons.Default.Edit,
+                            onClick = { showEditDialog = true },
+                            contentDescription = "Modifier le parent",
+                            tint = c.primary,
+                            background = androidx.compose.ui.graphics.Color.Transparent,
+                        )
                     }
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier
@@ -152,17 +155,17 @@ fun ParentDetailScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            error?.let { Text(it, color = c.danger) }
 
             parent?.let { p ->
-                ElCard(modifier = Modifier.fillMaxWidth()) {
+                ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            ElAvatar(initials = p.fullName, size = 56)
+                            ElAvatar(initials = p.fullName, size = ElAvatarSize.L)
                             Spacer(Modifier.width(12.dp))
                             Column {
-                                Text(p.fullName, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
-                                Text(p.code, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(p.fullName, style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+                                Text(p.code, style = ElTheme.typography.bodyMedium, color = c.textSecondary)
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -170,8 +173,8 @@ fun ParentDetailScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(44.dp)
-                                    .clip(MaterialTheme.shapes.small)
-                                    .background(tokens.successBrush)
+                                    .clip(com.example.ui.designsystem.theme.ElShapes.small)
+                                    .background(c.success)
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
@@ -182,15 +185,15 @@ fun ParentDetailScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Call, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(6.dp))
-                                    Text("Appeler", color = Color.White, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
+                                    Text("Appeler", color = Color.White, style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                                 }
                             }
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(44.dp)
-                                    .clip(MaterialTheme.shapes.small)
-                                    .background(tokens.successBrush)
+                                    .clip(com.example.ui.designsystem.theme.ElShapes.small)
+                                    .background(c.success)
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
@@ -201,14 +204,14 @@ fun ParentDetailScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Whatsapp, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(6.dp))
-                                    Text("WhatsApp", color = Color.White, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
+                                    Text("WhatsApp", color = Color.White, style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                                 }
                             }
                         }
                     }
                 }
 
-                ElCard(modifier = Modifier.fillMaxWidth()) {
+                ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         ElSectionHeader(title = "Contact")
                         Spacer(Modifier.height(4.dp))
@@ -238,15 +241,15 @@ fun ParentDetailScreen(
             }
 
             summary?.let { s ->
-                ElCard(modifier = Modifier.fillMaxWidth()) {
+                ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         ElSectionHeader(title = "Finances")
                         Spacer(Modifier.height(4.dp))
                         ElInfoRow(label = "Total facturé", value = "${(s.totalCharged / 100).formatDzd()} DZD")
-                        ElInfoRow(label = "Total payé", value = "${(s.totalPaid / 100).formatDzd()} DZD", valueColor = SuccessGreen)
+                        ElInfoRow(label = "Total payé", value = "${(s.totalPaid / 100).formatDzd()} DZD", valueColor = c.success)
                         ElInfoRow(label = "Solde", value = "${(s.totalOutstanding / 100).formatDzd()} DZD")
                         if (s.totalOverdue > 0) {
-                            ElInfoRow(label = "En retard", value = "${(s.totalOverdue / 100).formatDzd()} DZD", valueColor = DangerRed)
+                            ElInfoRow(label = "En retard", value = "${(s.totalOverdue / 100).formatDzd()} DZD", valueColor = c.danger)
                         }
 
                         Spacer(Modifier.height(8.dp))
@@ -254,7 +257,7 @@ fun ParentDetailScreen(
                             ElButton(
                                 text = "Encaisser",
                                 onClick = { parent?.id?.let { onNavigateToCounter(it, null) } },
-                                style = com.example.ui.components.ElButtonStyle.Primary,
+                                variant = com.example.ui.designsystem.components.button.ElButtonVariant.PRIMARY,
                                 icon = Icons.Default.Payments,
                                 modifier = Modifier.weight(1f),
                                 enabled = !busy,
@@ -263,7 +266,7 @@ fun ParentDetailScreen(
                                 ElButton(
                                     text = if (busy) "Génération…" else "Relevé PDF",
                                     onClick = { viewModel.generateStatementPdf(parentId) },
-                                    style = com.example.ui.components.ElButtonStyle.Secondary,
+                                    variant = com.example.ui.designsystem.components.button.ElButtonVariant.SECONDARY,
                                     icon = Icons.Default.PictureAsPdf,
                                     modifier = Modifier.weight(1f),
                                     enabled = !busy,
@@ -273,7 +276,7 @@ fun ParentDetailScreen(
                                 ElButton(
                                     text = "Ajustement",
                                     onClick = { showAdjustDialog = true },
-                                    style = com.example.ui.components.ElButtonStyle.Secondary,
+                                    variant = com.example.ui.designsystem.components.button.ElButtonVariant.SECONDARY,
                                     icon = Icons.Default.Tune,
                                     modifier = Modifier.weight(1f),
                                     enabled = !busy,
@@ -298,7 +301,7 @@ fun ParentDetailScreen(
 
             billingBreakdown?.let { bd ->
                 if (bd.byChild.isNotEmpty() && bd.totalBilled > 0L) {
-                    ElCard(modifier = Modifier.fillMaxWidth()) {
+                    ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -308,8 +311,8 @@ fun ParentDetailScreen(
                                 ElSectionHeader(title = "Prestations facturées")
                                 Text(
                                     "Année ${bd.academicYear}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = ElTheme.typography.labelSmall,
+                                    color = c.textSecondary,
                                 )
                             }
                             if (bd.hasSyntheticTranches) {
@@ -317,8 +320,8 @@ fun ParentDetailScreen(
                                     "Échéancier non matérialisé en base pour au moins un enfant — " +
                                         "affichage déduit du décompte canonique (40/30/30, échéances " +
                                         "15 sep / 15 déc / 15 mars). Les montants restent exacts.",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = com.example.ui.theme.WarmGold,
+                                    style = ElTheme.typography.labelSmall,
+                                    color = c.warning,
                                 )
                             }
                             bd.byChild.forEach { childBd ->
@@ -330,11 +333,11 @@ fun ParentDetailScreen(
                                     ) {
                                         Text(
                                             "${childBd.child.displayName} (${childBd.child.gradeLevelLabel})",
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                            style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                                         )
                                         Text(
                                             "${(childBd.billedTotal / 100).formatDzd()} DZD",
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                         )
                                     }
                                     childBd.lineItems.forEach { item ->
@@ -344,14 +347,14 @@ fun ParentDetailScreen(
                                         ) {
                                             Text(
                                                 item.label,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                style = ElTheme.typography.bodySmall,
+                                                color = c.textSecondary,
                                                 modifier = Modifier.weight(1f),
                                             )
                                             Text(
                                                 "${(item.amount / 100).formatDzd()} DZD",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                style = ElTheme.typography.bodySmall,
+                                                color = c.textSecondary,
                                             )
                                         }
                                     }
@@ -363,10 +366,10 @@ fun ParentDetailScreen(
                                             com.example.core.TrancheDisplayStatus.PENDING -> "En attente"
                                             com.example.core.TrancheDisplayStatus.UNPAID -> "Due"
                                         }
-                                        val statusColor = when (tr.status) {
-                                            com.example.core.TrancheDisplayStatus.PAID -> SuccessGreen
-                                            com.example.core.TrancheDisplayStatus.PENDING -> com.example.ui.theme.WarmGold
-                                            else -> DangerRed
+                                        val statusTone = when (tr.status) {
+                                            com.example.core.TrancheDisplayStatus.PAID -> ElTagTone.SUCCESS
+                                            com.example.core.TrancheDisplayStatus.PENDING -> ElTagTone.WARNING
+                                            else -> ElTagTone.DANGER
                                         }
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -374,23 +377,23 @@ fun ParentDetailScreen(
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             Column(modifier = Modifier.weight(1f)) {
-                                                Text(trancheLabel, style = MaterialTheme.typography.bodySmall)
+                                                Text(trancheLabel, style = ElTheme.typography.bodySmall)
                                                 Text(
                                                     "Prévu ${(tr.amountDue / 100).formatDzd()} · " +
                                                         "Payé ${(tr.amountPaid / 100).formatDzd()}" +
                                                         if (tr.amountPending > 0L) {
                                                             " · En attente ${(tr.amountPending / 100).formatDzd()}"
                                                         } else "",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    style = ElTheme.typography.labelSmall,
+                                                    color = c.textSecondary,
                                                 )
                                             }
                                             Column(horizontalAlignment = Alignment.End) {
-                                                ElTag(text = statusLabel, color = statusColor)
+                                                ElTag(text = statusLabel, tone = statusTone)
                                                 Text(
                                                     "Reste ${(tr.remaining / 100).formatDzd()} DZD",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = if (tr.remaining > 0L) DangerRed else SuccessGreen,
+                                                    style = ElTheme.typography.labelSmall,
+                                                    color = if (tr.remaining > 0L) c.danger else c.success,
                                                 )
                                             }
                                         }
@@ -402,8 +405,8 @@ fun ParentDetailScreen(
                             if (bd.unattributedItems.isNotEmpty()) {
                                 Text(
                                     "Famille — éléments non rattachés à un enfant",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                    color = c.textSecondary,
                                 )
                                 bd.unattributedItems.forEach { item ->
                                     Row(
@@ -412,14 +415,14 @@ fun ParentDetailScreen(
                                     ) {
                                         Text(
                                             item.label,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = ElTheme.typography.bodySmall,
+                                            color = c.textSecondary,
                                             modifier = Modifier.weight(1f),
                                         )
                                         Text(
                                             "${(item.amount / 100).formatDzd()} DZD",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = ElTheme.typography.bodySmall,
+                                            color = c.textSecondary,
                                         )
                                     }
                                 }
@@ -428,8 +431,8 @@ fun ParentDetailScreen(
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 "Par service :",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                color = c.textSecondary,
                             )
                             bd.byService.forEach { svc ->
                                 Row(
@@ -438,19 +441,19 @@ fun ParentDetailScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(svc.label, style = MaterialTheme.typography.bodySmall)
+                                        Text(svc.label, style = ElTheme.typography.bodySmall)
                                         Text(
                                             "${svc.sharePct} % du total · " + svc.childAttribution.joinToString(" · ") {
                                                 "${it.studentName} ${(it.amount / 100).formatDzd()}"
                                             },
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = ElTheme.typography.labelSmall,
+                                            color = c.textSecondary,
                                         )
                                     }
                                     Text(
                                         "${(svc.amount / 100).formatDzd()} DZD",
-                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.primary,
+                                        style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                        color = c.primary,
                                     )
                                 }
                             }
@@ -465,30 +468,30 @@ fun ParentDetailScreen(
                             ) {
                                 Text(
                                     "Réconciliation du compte",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = c.textSecondary,
                                 )
                                 ReconLine("Brut facturé", recon.grossBilled)
                                 if (recon.adjustmentsCredit > 0L) {
-                                    ReconLine("− Remises / déductions", -recon.adjustmentsCredit, SuccessGreen)
+                                    ReconLine("− Remises / déductions", -recon.adjustmentsCredit, c.success)
                                 }
                                 if (recon.adjustmentsDebit > 0L) {
-                                    ReconLine("+ Majorations", recon.adjustmentsDebit, DangerRed)
+                                    ReconLine("+ Majorations", recon.adjustmentsDebit, c.danger)
                                 }
                                 ReconLine("= Net à payer", recon.netDue)
-                                ReconLine("− Encaissé confirmé", -recon.clearedPaid, SuccessGreen)
+                                ReconLine("− Encaissé confirmé", -recon.clearedPaid, c.success)
                                 if (recon.pendingPaid > 0L) {
-                                    ReconLine("− En attente (chèque/virement)", -recon.pendingPaid, com.example.ui.theme.WarmGold)
+                                    ReconLine("− En attente (chèque/virement)", -recon.pendingPaid, c.warning)
                                 }
                                 ReconLine("= Reste net (dérivé)", recon.derivedRemaining)
                                 if (recon.hasBridge) {
-                                    ReconLine("± Pont — autres écritures", recon.bridge, com.example.ui.theme.WarmGold)
+                                    ReconLine("± Pont — autres écritures", recon.bridge, c.warning)
                                 }
                                 recon.serverOutstanding?.let { server ->
                                     ReconLine(
                                         "Solde du compte (serveur)",
                                         server,
-                                        if (server > 0L) DangerRed else SuccessGreen,
+                                        if (server > 0L) c.danger else c.success,
                                         bold = true,
                                     )
                                 }
@@ -499,22 +502,22 @@ fun ParentDetailScreen(
             }
 
             if (classifiedAdjustments.isNotEmpty()) {
-                ElCard(modifier = Modifier.fillMaxWidth()) {
+                ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         ElSectionHeader(title = "Ajustements (${classifiedAdjustments.size})")
-                        classifiedAdjustments.forEach { c ->
-                            val isCredit = c.kind == "credit"
-                            val provenanceColor = when (c.provenance) {
-                                com.example.core.AdjustmentProvenance.DOCUMENTED -> SuccessGreen
-                                com.example.core.AdjustmentProvenance.REVERSAL_PAIR -> WarmGold
-                                com.example.core.AdjustmentProvenance.UNDOCUMENTED -> DangerRed
+                        classifiedAdjustments.forEach { adj ->
+                            val isCredit = adj.kind == "credit"
+                            val provenanceTone = when (adj.provenance) {
+                                com.example.core.AdjustmentProvenance.DOCUMENTED -> ElTagTone.SUCCESS
+                                com.example.core.AdjustmentProvenance.REVERSAL_PAIR -> ElTagTone.WARNING
+                                com.example.core.AdjustmentProvenance.UNDOCUMENTED -> ElTagTone.DANGER
                             }
 
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(MaterialTheme.shapes.small)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                    .clip(com.example.ui.designsystem.theme.ElShapes.small)
+                                    .background(c.surfaceVariant.copy(alpha = 0.4f))
                                     .padding(12.dp),
                             ) {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -524,21 +527,21 @@ fun ParentDetailScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Text(
-                                            "${if (isCredit) "−" else "+"}${(kotlin.math.abs(c.amount) / 100).formatDzd()} DZD",
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = if (isCredit) SuccessGreen else DangerRed,
+                                            "${if (isCredit) "−" else "+"}${(kotlin.math.abs(adj.amount) / 100).formatDzd()} DZD",
+                                            style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = if (isCredit) c.success else c.danger,
                                         )
-                                        ElTag(text = c.provenanceLabel, color = provenanceColor)
+                                        ElTag(text = adj.provenanceLabel, tone = provenanceTone)
                                     }
                                     Text(
-                                        text = c.reasonLabel,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurface,
+                                        text = adj.reasonLabel,
+                                        style = ElTheme.typography.bodySmall,
+                                        color = c.textPrimary,
                                     )
                                     Text(
-                                        text = "${c.at.take(10)} • Auteur: ${c.approvedBy}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        text = "${adj.at.take(10)} • Auteur: ${adj.approvedBy}",
+                                        style = ElTheme.typography.labelSmall,
+                                        color = c.textSecondary,
                                     )
                                 }
                             }
@@ -547,7 +550,7 @@ fun ParentDetailScreen(
                 }
             }
 
-            ElCard(modifier = Modifier.fillMaxWidth()) {
+            ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -556,10 +559,10 @@ fun ParentDetailScreen(
                     ) {
                         ElSectionHeader(title = "Enfants (${children.size})")
                         if (viewModel.canAddChild) {
-                            com.example.ui.components.ElButton(
+                            com.example.ui.designsystem.components.button.ElButton(
                                 text = "Ajouter un enfant",
                                 onClick = { showAddChildDialog = true },
-                                style = com.example.ui.components.ElButtonStyle.Secondary,
+                                variant = com.example.ui.designsystem.components.button.ElButtonVariant.SECONDARY,
                                 enabled = !busy,
                             )
                         }
@@ -569,7 +572,7 @@ fun ParentDetailScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(MaterialTheme.shapes.small)
+                                .clip(com.example.ui.designsystem.theme.ElShapes.small)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
@@ -577,13 +580,13 @@ fun ParentDetailScreen(
                                 )
                                 .padding(vertical = 4.dp),
                         ) {
-                            ElAvatar(initials = kid.fullName, size = 36)
+                            ElAvatar(initials = kid.fullName, size = ElAvatarSize.S)
                             Spacer(Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(kid.fullName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
-                                Text(kid.gradeLevel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(kid.fullName, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
+                                Text(kid.gradeLevel, style = ElTheme.typography.bodySmall, color = c.textSecondary)
                             }
-                            Text(">", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(">", style = ElTheme.typography.bodyMedium, color = c.textSecondary)
                         }
                     }
                 }
@@ -599,7 +602,7 @@ fun ParentDetailScreen(
                     }
                     .sortedBy { it.first }
                 if (activeServices.isNotEmpty()) {
-                    ElCard(modifier = Modifier.fillMaxWidth()) {
+                    ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             ElSectionHeader(title = "Services actifs (${activeServices.size})")
                             activeServices.forEach { (studentId, category, remaining) ->
@@ -611,12 +614,12 @@ fun ParentDetailScreen(
                                     Text(
                                         "${childById[studentId]?.fullName ?: "Famille"} · " +
                                             categoryFrenchLabel(category),
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        style = ElTheme.typography.bodyMedium,
                                     )
                                     Text(
                                         if (remaining > 0L) "${(remaining / 100).formatDzd()} DZD restants" else "Réglé",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (remaining > 0L) MaterialTheme.colorScheme.onSurfaceVariant else SuccessGreen,
+                                        style = ElTheme.typography.bodySmall,
+                                        color = if (remaining > 0L) c.textSecondary else c.success,
                                     )
                                 }
                             }
@@ -630,14 +633,14 @@ fun ParentDetailScreen(
                 .sortedBy { it.dueDate }
                 .take(5)
             if (upcoming.isNotEmpty()) {
-                ElCard(modifier = Modifier.fillMaxWidth()) {
+                ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         ElSectionHeader(title = "Échéancier (${installments.count { it.status != com.example.core.PaymentStatus.PAID }} en cours)")
                         upcoming.forEach { inst ->
-                            val statusColor = when (inst.status.name) {
-                                "OVERDUE" -> DangerRed
-                                "PARTIAL", "PENDING", "PENDING_CLEARANCE" -> com.example.ui.theme.WarmGold
-                                else -> PrimaryBlue
+                            val statusTone = when (inst.status.name) {
+                                "OVERDUE" -> ElTagTone.DANGER
+                                "PARTIAL", "PENDING", "PENDING_CLEARANCE" -> ElTagTone.WARNING
+                                else -> ElTagTone.INFO
                             }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -645,14 +648,14 @@ fun ParentDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(inst.label, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
+                                    Text(inst.label, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
                                     Text(
                                         "Échéance ${inst.dueDate} · ${(inst.amountDue / 100).formatDzd()} DZD",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = ElTheme.typography.labelSmall,
+                                        color = c.textSecondary,
                                     )
                                 }
-                                ElTag(text = inst.status.name, color = statusColor)
+                                ElTag(text = inst.status.name, tone = statusTone)
                             }
                         }
                     }
@@ -661,7 +664,7 @@ fun ParentDetailScreen(
 
             if (payments.isNotEmpty()) {
                 val recent = payments.sortedByDescending { it.collectedAt }.take(10)
-                ElCard(modifier = Modifier.fillMaxWidth()) {
+                ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         ElSectionHeader(title = "Historique des paiements (${payments.size})")
                         recent.forEach { pay ->
@@ -671,23 +674,23 @@ fun ParentDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(pay.receiptNumber, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
+                                    Text(pay.receiptNumber, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
                                     Text(
                                         "${categoryFrenchLabel(pay.category)} · ${pay.method.name} · ${pay.collectedAt.take(10)}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = ElTheme.typography.labelSmall,
+                                        color = c.textSecondary,
                                     )
                                 }
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text(
                                         "+${(pay.amount / 100).formatDzd()} DZD",
-                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = SuccessGreen,
+                                        style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = c.success,
                                     )
                                     Text(
                                         pay.status.name,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (pay.status == com.example.core.PaymentStatus.PAID) SuccessGreen else com.example.ui.theme.WarmGold,
+                                        style = ElTheme.typography.labelSmall,
+                                        color = if (pay.status == com.example.core.PaymentStatus.PAID) c.success else c.warning,
                                     )
                                 }
                             }
@@ -695,8 +698,8 @@ fun ParentDetailScreen(
                         if (payments.size > recent.size) {
                             Text(
                                 "+ ${payments.size - recent.size} paiement(s) antérieur(s)",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = ElTheme.typography.labelSmall,
+                                color = c.textSecondary,
                             )
                         }
                     }
@@ -704,7 +707,7 @@ fun ParentDetailScreen(
             }
 
             saveMessage?.let {
-                Text(it, color = SuccessGreen, style = MaterialTheme.typography.bodySmall)
+                Text(it, color = c.success, style = ElTheme.typography.bodySmall)
             }
             Spacer(Modifier.height(88.dp))
         }
@@ -730,7 +733,7 @@ fun ParentDetailScreen(
                     OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = occupation, onValueChange = { occupation = it }, label = { Text("Profession") }, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Adresse") }, modifier = Modifier.fillMaxWidth())
-                    Text("Code ${p.code} — non modifiable.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Code ${p.code} — non modifiable.", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                 }
             },
             confirmButton = {

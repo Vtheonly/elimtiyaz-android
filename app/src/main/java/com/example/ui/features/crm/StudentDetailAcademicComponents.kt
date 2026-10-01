@@ -70,23 +70,20 @@ import com.example.domain.repository.LedgerRepository
 import com.example.domain.repository.ParentRepository
 import com.example.domain.repository.PaymentRepository
 import com.example.domain.repository.StudentRepository
-import com.example.ui.components.ElAlertBanner
-import com.example.ui.components.ElAlertSeverity
-import com.example.ui.components.ElAvatar
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElInfoRow
-import com.example.ui.components.ElProgressBar
-import com.example.ui.components.ElScaffold
-import com.example.ui.components.ElSectionHeader
-import com.example.ui.components.ElTag
-import com.example.ui.components.ElTopBar
-import com.example.ui.components.ModernSecondaryTabRow
-import com.example.ui.theme.DangerRed
-import com.example.ui.theme.PrimaryBlue
-import com.example.ui.theme.SuccessGreen
-import com.example.ui.theme.WarmGold
-import com.example.ui.theme.elDesignTokens
+import com.example.ui.designsystem.components.display.ElAlertBanner
+import com.example.ui.designsystem.components.feedback.ElLinearProgress
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.theme.ElTheme
+import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.components.tabs.ElScrollableTabRow
 import com.example.ui.util.PhoneUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -107,9 +104,10 @@ internal fun mentionFor(gpa: Double?): String = when {
 
 @Composable
 internal fun GradeStat(label: String, value: String) {
+    val c = ElTheme.colors
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = PrimaryBlue)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = c.primary)
+        Text(label, style = ElTheme.typography.labelSmall, color = c.textSecondary)
     }
 }
 
@@ -121,19 +119,19 @@ internal fun SubjectHighlightCard(
     color: androidx.compose.ui.graphics.Color,
     modifier: Modifier = Modifier,
 ) {
-    ElCard(modifier = modifier, compact = true) {
+    ElCard(modifier = modifier, size = ElCardSize.COMPACT) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = color, fontWeight = FontWeight.Bold)
+            Text(label, style = ElTheme.typography.labelSmall, color = color, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
             Text(
                 subjectName,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
             Text(
                 "%.2f / 20".format(average),
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = color,
             )
         }
@@ -153,12 +151,13 @@ internal fun SubjectGradeCard(
     passingGrade: Double,
     enteredAt: String,
 ) {
+    val c = ElTheme.colors
     val avgColor = when {
-        average == null -> WarmGold
-        passing -> SuccessGreen
-        else -> DangerRed
+        average == null -> c.warning
+        passing -> c.success
+        else -> c.danger
     }
-    ElCard(modifier = Modifier.fillMaxWidth(), compact = true, accent = avgColor) {
+    ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.COMPACT) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -172,17 +171,17 @@ internal fun SubjectGradeCard(
                 ) {
                     Text(
                         subjectName,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                     if (isExtracurricular) {
-                        ElTag(text = "Hors programme", color = WarmGold)
+                        ElTag(text = "Hors programme", tone = ElTagTone.WARNING)
                     }
                 }
                 Text(
                     text = average?.let { "%.2f".format(it) } ?: "—",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = avgColor,
                 )
             }
@@ -195,37 +194,34 @@ internal fun SubjectGradeCard(
                 Spacer(Modifier.weight(1f))
                 Text(
                     "Coef ${if (coefficient == coefficient.toLong().toDouble()) "${coefficient.toLong()}" else "$coefficient"}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = ElTheme.typography.labelSmall,
+                    color = c.textSecondary,
                 )
             }
 
             if (average != null) {
                 Spacer(Modifier.height(8.dp))
-                ElProgressBar(
-                    progress = (average / 20.0).toFloat(),
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                )
+                ElLinearProgress(progress = (average / 20.0).toFloat())
                 Spacer(Modifier.height(6.dp))
                 Text(
                     if (passing) "Acquis (≥ $passingGrade/20)" else "À renforcer (< $passingGrade/20)",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = ElTheme.typography.labelSmall,
                     color = avgColor,
                 )
             } else {
                 Spacer(Modifier.height(6.dp))
                 Text(
                     "Moyenne à paraître — les 3 notes doivent être saisies (formule (D1 + D2 + 2×Ex) / 4)",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = WarmGold,
+                    style = ElTheme.typography.labelSmall,
+                    color = c.warning,
                 )
             }
 
             if (enteredAt.isNotBlank()) {
                 Text(
                     "Saisie le ${enteredAt.take(10)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
+                    style = ElTheme.typography.labelSmall,
+                    color = c.textSecondary,
                 )
             }
         }
@@ -234,19 +230,20 @@ internal fun SubjectGradeCard(
 
 @Composable
 private fun MarkPill(label: String, value: Double?) {
+    val c = ElTheme.colors
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
             .background(
-                if (value != null) PrimaryBlue.copy(alpha = 0.12f)
-                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                if (value != null) c.primary.copy(alpha = 0.12f)
+                else c.surfaceVariant.copy(alpha = 0.6f),
             )
             .padding(horizontal = 8.dp, vertical = 2.dp),
     ) {
         Text(
             "$label ${value?.let { if (it == it.toLong().toDouble()) "${it.toLong()}" else "$it" } ?: "—"}",
-            style = MaterialTheme.typography.labelSmall,
-            color = if (value != null) PrimaryBlue else MaterialTheme.colorScheme.outline,
+            style = ElTheme.typography.labelSmall,
+            color = if (value != null) c.primary else c.textMuted,
         )
     }
 }
@@ -257,16 +254,17 @@ internal fun AcademicHistoryTab(
     subjects: List<com.example.domain.model.Subject>,
     currentYear: String,
 ) {
+    val c = ElTheme.colors
     val subjectById = subjects.associateBy { it.id }
 
     if (history.isEmpty()) {
-        ElCard(modifier = Modifier.fillMaxWidth()) {
+        ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Historique académique", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                Text("Historique académique", style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                 Text(
                     "Aucun historique pour cet élève — les performances par trimestre apparaîtront ici au fil des années, avec le détail des bulletins et les décisions de promotion.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = ElTheme.typography.bodySmall,
+                    color = c.textSecondary,
                 )
             }
         }
@@ -278,13 +276,13 @@ internal fun AcademicHistoryTab(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
-            ElCard(modifier = Modifier.fillMaxWidth(), accent = PrimaryBlue) {
+            ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                 Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Parcours complet — ${history.size} année(s)", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                    Text("Parcours complet — ${history.size} année(s)", style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                     Text(
                         "Historique permanent en lecture seule : les années clôturées ne peuvent pas être modifiées (toute correction passe par une nouvelle entrée journalisée).",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = ElTheme.typography.labelSmall,
+                        color = c.textSecondary,
                     )
                 }
             }
@@ -302,19 +300,19 @@ private fun AcademicYearCard(
     subjectById: Map<String, com.example.domain.model.Subject>,
     currentYear: String,
 ) {
+    val c = ElTheme.colors
     var expanded by remember { mutableStateOf(false) }
     val isCurrent = year.academicYear == currentYear
     val gpaColor = when {
-        year.yearlyGpa == null -> WarmGold
-        year.yearlyGpaSafe() >= 10.0 -> SuccessGreen
-        else -> DangerRed
+        year.yearlyGpa == null -> c.warning
+        year.yearlyGpaSafe() >= 10.0 -> c.success
+        else -> c.danger
     }
 
     ElCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { expanded = !expanded },
-        accent = gpaColor,
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
@@ -325,27 +323,27 @@ private fun AcademicYearCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         "Année ${year.academicYear}" + (if (isCurrent) " (en cours)" else ""),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     )
                     Text(
                         listOfNotNull(
                             year.gradeLevel?.let { "Niveau ${it.uppercase()}" },
                             year.attendanceRate?.let { "Présence %.0f%%".format(it) },
                         ).joinToString(" · "),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = ElTheme.typography.labelSmall,
+                        color = c.textSecondary,
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         year.yearlyGpa?.let { "%.2f / 20".format(it) } ?: "—",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = gpaColor,
                     )
                     Text(
                         if (expanded) "Bulletins ▲" else "Bulletins ▼",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = PrimaryBlue,
+                        style = ElTheme.typography.labelSmall,
+                        color = c.primary,
                     )
                 }
             }
@@ -353,9 +351,9 @@ private fun AcademicYearCard(
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 year.termGpas.forEach { (term, gpa) ->
                     val tColor = when {
-                        gpa == null -> MaterialTheme.colorScheme.outline
-                        gpa >= 10.0 -> SuccessGreen
-                        else -> DangerRed
+                        gpa == null -> c.textMuted
+                        gpa >= 10.0 -> c.success
+                        else -> c.danger
                     }
                     Box(
                         modifier = Modifier
@@ -365,7 +363,7 @@ private fun AcademicYearCard(
                     ) {
                         Text(
                             "$term ${gpa?.let { "%.2f".format(it) } ?: "—"}",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = ElTheme.typography.labelSmall,
                             color = tColor,
                             fontWeight = FontWeight.SemiBold,
                         )
@@ -375,19 +373,19 @@ private fun AcademicYearCard(
 
             year.promotionOutcome?.let { outcome ->
                 when (outcome) {
-                    "promoted" -> ElTag(text = "APPROVED_FOR_PROMOTION", color = SuccessGreen)
-                    "graduated" -> ElTag(text = "DIPLÔMÉ", color = PrimaryBlue)
-                    else -> ElTag(text = "RETAINED_SAME_YEAR", color = DangerRed)
+                    "promoted" -> ElTag(text = "APPROVED_FOR_PROMOTION", tone = ElTagTone.SUCCESS)
+                    "graduated" -> ElTag(text = "DIPLÔMÉ", tone = ElTagTone.INFO)
+                    else -> ElTag(text = "RETAINED_SAME_YEAR", tone = ElTagTone.DANGER)
                 }
             } ?: run {
-                if (!isCurrent) ElTag(text = "Année en attente de clôture", color = WarmGold)
+                if (!isCurrent) ElTag(text = "Année en attente de clôture", tone = ElTagTone.WARNING)
             }
 
             if (expanded) {
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "Bulletin complet — ${year.academicYear}",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                 )
                 val bySubject = year.assessments.groupBy { it.subjectId }
                 bySubject.forEach { (subjectId, rows) ->
@@ -402,21 +400,21 @@ private fun AcademicYearCard(
                         ) {
                             Text(
                                 name + if (last.isExtracurricular) " (hors programme)" else "",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                                 modifier = Modifier.weight(1f),
                                 maxLines = 1,
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                             )
                             Text(
                                 last.subjectAverage?.let { "%.2f".format(it) } ?: "—",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                                color = if (last.isExtracurricular) WarmGold else gpaColor,
+                                style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                color = if (last.isExtracurricular) c.warning else gpaColor,
                             )
                         }
                         Text(
                             "D1 ${last.devoir1 ?: "—"} · D2 ${last.devoir2 ?: "—"} · Examen ${last.examen ?: "—"} · Coef ${last.coefficient}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = ElTheme.typography.labelSmall,
+                            color = c.textSecondary,
                         )
                     }
                 }
@@ -424,8 +422,8 @@ private fun AcademicYearCard(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         "Année clôturée — lecture seule (append-only).",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline,
+                        style = ElTheme.typography.labelSmall,
+                        color = c.textSecondary,
                     )
                 }
             }
