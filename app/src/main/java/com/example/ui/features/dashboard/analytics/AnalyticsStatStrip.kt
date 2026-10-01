@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import com.example.core.formatDzd
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.data.ElChartPalette
+import com.example.ui.designsystem.overlays.ElInfoTip
 import com.example.ui.designsystem.theme.ElTheme
 
 /**
@@ -52,6 +53,7 @@ internal fun AnalyticsStatStrip(
             subtext = "encaissements",
             color = ElChartPalette.primary,
             modifier = Modifier.weight(1f),
+            tip = "statStrip.count",
         )
         StatCard(
             title = "TOTAL ENCAISSÉ",
@@ -59,6 +61,7 @@ internal fun AnalyticsStatStrip(
             subtext = null,
             color = ElChartPalette.success,
             modifier = Modifier.weight(1f),
+            tip = "statStrip.total",
         )
         StatCard(
             title = "MOYENNE",
@@ -66,6 +69,7 @@ internal fun AnalyticsStatStrip(
             subtext = "DZD / op.",
             color = ElChartPalette.cyan,
             modifier = Modifier.weight(1f),
+            tip = "statStrip.mean",
         )
     }
     Row(
@@ -78,6 +82,7 @@ internal fun AnalyticsStatStrip(
             subtext = "DZD",
             color = ElChartPalette.violet,
             modifier = Modifier.weight(1f),
+            tip = "statStrip.median",
         )
         StatCard(
             title = "ÉCART-TYPE (Σ)",
@@ -85,6 +90,7 @@ internal fun AnalyticsStatStrip(
             subtext = "DZD",
             color = ElChartPalette.gold,
             modifier = Modifier.weight(1f),
+            tip = "statStrip.stdDev",
         )
         StatCard(
             title = "MEILLEUR MOIS",
@@ -92,6 +98,7 @@ internal fun AnalyticsStatStrip(
             subtext = if (bestMonthLabel != null) compactDzd(bestMonthAmount / 100) else null,
             color = ElChartPalette.info,
             modifier = Modifier.weight(1f),
+            tip = "statStrip.bestMonth",
         )
     }
 }
@@ -104,6 +111,8 @@ private fun StatCard(
     subtext: String?,
     color: androidx.compose.ui.graphics.Color,
     modifier: Modifier = Modifier,
+    /** T-458: the dotted StatsTips glossary key (null = no tip). */
+    tip: String? = null,
 ) {
     val c = ElTheme.colors
     ElCard(
@@ -112,12 +121,16 @@ private fun StatCard(
         elevation = null,
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
-            Text(
-                text = title,
-                color = c.textMuted,
-                style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 0.5.sp),
-                maxLines = 1,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = title,
+                    color = c.textMuted,
+                    style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 0.5.sp),
+                    maxLines = 1,
+                )
+                // T-458: the T-447 explainability glossary (presentation-only).
+                if (tip != null) ElInfoTip(tip = tip, size = 10)
+            }
             Spacer(Modifier.height(4.dp))
             Text(
                 text = value,

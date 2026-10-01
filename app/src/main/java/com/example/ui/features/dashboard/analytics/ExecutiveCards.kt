@@ -41,6 +41,7 @@ import com.example.domain.model.ExecWaveItem
 import com.example.domain.model.ExecutiveStatsSnapshot
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.data.ElChartPalette
+import com.example.ui.designsystem.overlays.ElInfoTip
 import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.feedback.ElLinearProgress
@@ -171,11 +172,16 @@ fun WaveVelocityCard(
     ElCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // ── Header ──
-            Text(
-                text = "Vélocité de Recouvrement par Vague Saisonnière",
-                style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                color = c.textPrimary,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Vélocité de Recouvrement par Vague Saisonnière",
+                    style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = c.textPrimary,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                // T-458: the T-447 explainability glossary (presentation-only).
+                ElInfoTip(tip = "waveVelocity.card")
+            }
             Text(
                 text = "Analyse T1/T2/T3 toutes catégories (Scolarité, Transport, FI, services) — parité exacte avec l'onglet Finances → Tranches",
                 style = ElTheme.typography.bodySmall,
@@ -183,23 +189,32 @@ fun WaveVelocityCard(
             )
             if (hasAnyRow) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "$globalPct% collecté global",
-                        color = ElChartPalette.primary,
-                        style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
-                    )
-                    if (totalPending > 0L) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = "${(totalPending / 100).formatDzd()} DA en cours",
-                            color = ElChartPalette.info,
+                            text = "$globalPct% collecté global",
+                            color = ElChartPalette.primary,
+                            style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
+                        )
+                        ElInfoTip(tip = "waveVelocity.collectedPct", size = 11)
+                    }
+                    if (totalPending > 0L) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "${(totalPending / 100).formatDzd()} DA en cours",
+                                color = ElChartPalette.info,
+                                style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp),
+                            )
+                            ElInfoTip(tip = "waveVelocity.pending", size = 11)
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "${(totalRemaining / 100).formatDzd()} DA restant",
+                            color = ElChartPalette.danger,
                             style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp),
                         )
+                        ElInfoTip(tip = "waveVelocity.remaining", size = 11)
                     }
-                    Text(
-                        text = "${(totalRemaining / 100).formatDzd()} DA restant",
-                        color = ElChartPalette.danger,
-                        style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp),
-                    )
                 }
             }
 
@@ -640,14 +655,21 @@ fun DebtTriageCard(
     val chronic = triage.buckets.firstOrNull { it.bucket == "chronic" }
     ElCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
-            Text(
-                text = "Triage des Créances — Qui Appeler Aujourd'hui",
-                style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                color = ElTheme.colors.textPrimary,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Triage des Créances — Qui Appeler Aujourd'hui",
+                    style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = ElTheme.colors.textPrimary,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                // T-458: the T-447 explainability glossary (presentation-only).
+                ElInfoTip(tip = "triage.card")
+            }
             Text(
                 text = if (triage.totalOutstanding > 0) {
-                    val chronicPart = chronic?.let { " · ${(it.amount / 100).formatDzd()} DA critiques > 45 j" } ?: ""
+                    // T-457: the critical part derives its day count from the
+                    // thresholds actually applied (never the stale "> 45 j").
+                    val chronicPart = chronic?.let { " · ${(it.amount / 100).formatDzd()} DA critiques > ${triage.redDays} j" } ?: ""
                     "${(triage.totalOutstanding / 100).formatDzd()} DA d'encours total$chronicPart"
                 } else {
                     "Encours ventilé par ancienneté réelle et liste d'action immédiate"
@@ -686,6 +708,9 @@ fun DebtTriageCard(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
+                        // T-458: the per-bucket glossary tip (the desktop's
+                        // per-bucket mounting — triage.notDue/current/…).
+                        ElInfoTip(tip = "triage.${b.bucket}", size = 11)
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -736,7 +761,9 @@ fun DebtTriageCard(
                             text = "LISTE D'APPEL IMMÉDIATE (> ${triage.redDays} j — ${triage.callList.size} familles)",
                             style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = ElTheme.colors.danger,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
+                        ElInfoTip(tip = "triage.callList", size = 11)
                         Spacer(Modifier.height(4.dp))
                         triage.callList.forEach { f ->
                             CallListRow(f)
