@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
 import com.example.domain.model.AuditLog
-import com.example.ui.components.AuditDiffSheet
+import com.example.ui.features.settings.AuditDiffSheet
 import com.example.ui.components.ElCard
 import com.example.ui.components.ElEmptyState
 import com.example.ui.components.ElSectionHeader

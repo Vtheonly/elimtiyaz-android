@@ -1,4 +1,4 @@
-package com.example.ui.components
+package com.example.ui.features.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,13 +18,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,7 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -47,23 +42,23 @@ import com.example.core.FieldDiffKind
 import com.example.core.computeAuditDiffRows
 import com.example.core.countDiffRows
 import com.example.domain.model.AuditLog
-import com.example.ui.theme.DangerRed
-import com.example.ui.theme.PrimaryBlue
-import com.example.ui.theme.SuccessGreen
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagSize
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.overlays.ElBottomSheet
+import com.example.ui.designsystem.theme.ElTheme
 
 /* ------------------------------------------------------------------ */
 /*  AuditDiffSheet — T-297 (OFFLINE-400), the Android half of the      */
 /*  T-296 desktop AuditDiffDrawer.                                     */
 /*                                                                     */
-/*  Was (AuditStreamScreen): a bottom sheet FABRICATING a JSON payload */
-/*  from 6 scalar fields, never reading beforeJson/afterJson.          */
-/*  Now: the canonical FieldDiff engine (core/FieldDiff.kt, verbatim   */
-/*  mirror of src/domain/calc/diff/field-diff.ts, commit 86dcf77)      */
-/*  drives real field-level rows — OLD value red/struck, NEW value     */
-/*  green, added green-only, removed red-only — plus the actor         */
-/*  attribution block (Name + Account ID + Role) and the collapsible   */
-/*  raw forensic view. Shared by AuditStreamScreen (Personnel) and     */
-/*  AuditLogScreen (Settings) — ONE renderer, two entry points.        */
+/*  UI-unification pass (T-044 expansion, the issue's §2.9/§2.6 mixed */
+/*  entry): the shared renderer moved out of the legacy ui/components  */
+/*  kit onto the design system (ElBottomSheet chrome + ElTag tones +   */
+/*  ElTheme tokens). Behaviour, testTags and every user-facing string  */
+/*  are preserved — AuditDiffSheetTest pins the contract. Shared by    */
+/*  AuditStreamScreen (Personnel) and AuditLogScreen (Settings) —      */
+/*  ONE renderer, two entry points.                                    */
 /* ------------------------------------------------------------------ */
 
 /** Parse + compute once per entry (memoized on the raw strings). */
@@ -73,24 +68,19 @@ private fun rememberAuditDiffRows(log: AuditLog): List<DiffRow> =
         computeAuditDiffRows(log.beforeJson, log.afterJson)
     }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuditDiffSheet(
     log: AuditLog?,
     onDismiss: () -> Unit,
 ) {
     if (log == null) return
-    val sheetState = rememberModalBottomSheetState()
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-    ) {
+    ElBottomSheet(onDismissRequest = onDismiss) {
         AuditDiffSheetContent(
             log = log,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp),
+                .padding(horizontal = ElTheme.spacing.xl)
+                .padding(bottom = ElTheme.spacing.xl),
         )
     }
 }
@@ -101,23 +91,25 @@ fun AuditDiffSheetContent(
     log: AuditLog,
     modifier: Modifier = Modifier,
 ) {
+    val c = ElTheme.colors
     val rows = rememberAuditDiffRows(log)
     val counts = remember(rows) { countDiffRows(rows) }
     var showRaw by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier.verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
     ) {
         // ── Title + entity line ─────────────────────────────────────
         Text(
             "Diff — ${log.action}",
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+            color = c.textPrimary,
         )
         Text(
             "${log.entityType} · ID ${log.entityId}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = ElTheme.typography.bodyMedium,
+            color = c.textSecondary,
         )
 
         // ── Actor attribution block (Name + Account ID + Role) ──────
@@ -132,19 +124,18 @@ fun AuditDiffSheetContent(
             Column {
                 Text(
                     "NOTE",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    ),
+                    style = ElTheme.typography.labelSmall.copy(color = c.textSecondary),
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(ElTheme.spacing.xs))
                 Text(
                     note,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = ElTheme.typography.bodySmall,
+                    color = c.textPrimary,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f))
-                        .padding(8.dp),
+                        .background(c.surfaceVariant.copy(alpha = 0.08f))
+                        .padding(ElTheme.spacing.sm),
                 )
             }
         }
@@ -171,19 +162,19 @@ fun AuditDiffSheetContent(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(6.dp))
                         .clickable { showRaw = !showRaw }
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = ElTheme.spacing.sm),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         if (showRaw) "▾" else "▸",
                         fontSize = 12.sp,
-                        color = PrimaryBlue,
+                        color = c.primary,
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.xs + 2.dp))
                     Text(
                         "JSON brut (forensique)",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            color = PrimaryBlue,
+                        style = ElTheme.typography.labelMedium.copy(
+                            color = c.primary,
                             fontWeight = FontWeight.Medium,
                         ),
                     )
@@ -208,19 +199,20 @@ private fun ActorAttributionBlock(
     actorId: String,
     actorRole: String?,
 ) {
+    val c = ElTheme.colors
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
-            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f))
+            .background(c.surfaceVariant.copy(alpha = 0.08f))
             .padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(
             "OPÉRATEUR",
-            style = MaterialTheme.typography.labelSmall.copy(
+            style = ElTheme.typography.labelSmall.copy(
                 fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = c.textSecondary,
             ),
         )
         Row(
@@ -231,21 +223,20 @@ private fun ActorAttributionBlock(
             Icon(
                 Icons.Default.Person,
                 contentDescription = null,
-                tint = PrimaryBlue,
+                tint = c.primary,
                 modifier = Modifier.width(16.dp).height(16.dp),
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     actorName.ifBlank { "—" },
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    color = c.textPrimary,
                     modifier = Modifier.testTag("audit_diff_actor_name"),
                 )
                 Text(
                     actorId,
                     fontFamily = FontFamily.Monospace,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    ),
+                    style = ElTheme.typography.labelSmall.copy(color = c.textSecondary),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.testTag("audit_diff_actor_id"),
@@ -257,21 +248,22 @@ private fun ActorAttributionBlock(
                 Icon(
                     Icons.Default.Shield,
                     contentDescription = null,
-                    tint = PrimaryBlue,
+                    tint = c.primary,
                     modifier = Modifier.width(14.dp).height(14.dp),
                 )
-                Spacer(Modifier.width(4.dp))
+                Spacer(Modifier.width(ElTheme.spacing.xs))
                 ElTag(
                     text = actorRole,
-                    color = PrimaryBlue,
+                    tone = ElTagTone.INFO,
+                    size = ElTagSize.MD,
                     modifier = Modifier.testTag("audit_diff_actor_role"),
                 )
             } else {
                 Text(
                     "rôle non enregistré",
-                    style = MaterialTheme.typography.labelSmall.copy(
+                    style = ElTheme.typography.labelSmall.copy(
                         fontStyle = FontStyle.Italic,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        color = c.textSecondary.copy(alpha = 0.6f),
                     ),
                 )
             }
@@ -285,46 +277,48 @@ private fun ActorAttributionBlock(
 
 @Composable
 private fun DiffSummaryRow(added: Int, removed: Int, changed: Int) {
+    val c = ElTheme.colors
     val total = added + removed + changed
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             "Diff par champ",
-            style = MaterialTheme.typography.labelSmall.copy(
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
+            style = ElTheme.typography.labelSmall.copy(color = c.textSecondary),
         )
         if (total > 0) {
             if (removed > 0) {
                 ElTag(
                     text = "$removed supprimé${if (removed == 1) "" else "s"}",
-                    color = DangerRed,
+                    tone = ElTagTone.DANGER,
+                    size = ElTagSize.MD,
                     modifier = Modifier.testTag("audit_diff_summary_removed"),
                 )
             }
             if (changed > 0) {
                 ElTag(
                     text = "$changed modifié${if (changed == 1) "" else "s"}",
-                    color = PrimaryBlue,
+                    tone = ElTagTone.INFO,
+                    size = ElTagSize.MD,
                     modifier = Modifier.testTag("audit_diff_summary_changed"),
                 )
             }
             if (added > 0) {
                 ElTag(
                     text = "$added ajouté${if (added == 1) "" else "s"}",
-                    color = SuccessGreen,
+                    tone = ElTagTone.SUCCESS,
+                    size = ElTagSize.MD,
                     modifier = Modifier.testTag("audit_diff_summary_added"),
                 )
             }
         } else {
             Text(
                 "aucune différence structurelle",
-                style = MaterialTheme.typography.labelSmall.copy(
+                style = ElTheme.typography.labelSmall.copy(
                     fontStyle = FontStyle.Italic,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = c.textSecondary,
                 ),
             )
         }
@@ -340,35 +334,32 @@ private fun DiffSummaryRow(added: Int, removed: Int, changed: Int) {
 
 @Composable
 fun DiffTable(rows: List<DiffRow>, modifier: Modifier = Modifier) {
+    val c = ElTheme.colors
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant,
-                shape = RoundedCornerShape(8.dp),
-            )
+            .border(ElTheme.borders.thin, c.outlineVariant, RoundedCornerShape(8.dp))
             .testTag("audit_diff_table"),
     ) {
         // Header row — the 3 column labels.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                .padding(vertical = 8.dp),
+                .background(c.surfaceVariant.copy(alpha = 0.35f))
+                .padding(vertical = ElTheme.spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TableHeaderText("Champ", Modifier.weight(0.30f), MaterialTheme.colorScheme.onSurfaceVariant)
-            TableHeaderText("Avant (ancien)", Modifier.weight(0.35f), DangerRed)
-            TableHeaderText("Après (nouveau)", Modifier.weight(0.35f), SuccessGreen)
+            TableHeaderText("Champ", Modifier.weight(0.30f), c.textSecondary)
+            TableHeaderText("Avant (ancien)", Modifier.weight(0.35f), c.danger)
+            TableHeaderText("Après (nouveau)", Modifier.weight(0.35f), c.success)
         }
         rows.forEachIndexed { index, row ->
             if (index > 0) {
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 0.dp),
-                    thickness = 0.5.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    thickness = ElTheme.borders.hairline,
+                    color = c.outlineVariant.copy(alpha = 0.5f),
                 )
             }
             DiffFieldRow(row)
@@ -377,10 +368,10 @@ fun DiffTable(rows: List<DiffRow>, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun TableHeaderText(text: String, modifier: Modifier = Modifier, color: Color) {
+private fun TableHeaderText(text: String, modifier: Modifier = Modifier, color: androidx.compose.ui.graphics.Color) {
     Text(
         text.uppercase(),
-        style = MaterialTheme.typography.labelSmall.copy(
+        style = ElTheme.typography.labelSmall.copy(
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.4.sp,
@@ -399,10 +390,11 @@ private fun TableHeaderText(text: String, modifier: Modifier = Modifier, color: 
 
 @Composable
 fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
+    val c = ElTheme.colors
     val (accent, kindLabel) = when (row.kind) {
-        FieldDiffKind.ADDED -> SuccessGreen to "ajouté"
-        FieldDiffKind.REMOVED -> DangerRed to "supprimé"
-        FieldDiffKind.CHANGED -> PrimaryBlue to "modifié"
+        FieldDiffKind.ADDED -> c.success to "ajouté"
+        FieldDiffKind.REMOVED -> c.danger to "supprimé"
+        FieldDiffKind.CHANGED -> c.primary to "modifié"
     }
     Row(
         modifier = modifier
@@ -422,24 +414,24 @@ fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
             Text(
                 row.field,
                 fontFamily = FontFamily.Monospace,
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                color = MaterialTheme.colorScheme.onSurface,
+                style = ElTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                color = c.textPrimary,
                 modifier = Modifier.testTag("audit_diff_field"),
             )
             if (row.path != row.field && row.path.contains(".")) {
                 Text(
                     row.path,
                     fontFamily = FontFamily.Monospace,
-                    style = MaterialTheme.typography.labelSmall.copy(
+                    style = ElTheme.typography.labelSmall.copy(
                         fontSize = 9.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        color = c.textSecondary.copy(alpha = 0.7f),
                     ),
                     modifier = Modifier.testTag("audit_diff_row_path"),
                 )
             }
             Text(
                 kindLabel,
-                style = MaterialTheme.typography.labelSmall.copy(
+                style = ElTheme.typography.labelSmall.copy(
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Medium,
                     color = accent,
@@ -456,16 +448,16 @@ fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
             if (row.kind != FieldDiffKind.ADDED) {
                 ValueChip(
                     text = row.oldDisplay,
-                    color = DangerRed,
+                    color = c.danger,
                     struck = true,
                     modifier = Modifier.testTag("diff-old-value"),
                 )
             } else {
                 Text(
                     "—",
-                    style = MaterialTheme.typography.labelSmall.copy(
+                    style = ElTheme.typography.labelSmall.copy(
                         fontStyle = FontStyle.Italic,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        color = c.textSecondary.copy(alpha = 0.5f),
                     ),
                 )
             }
@@ -480,7 +472,7 @@ fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
             if (row.kind != FieldDiffKind.REMOVED) {
                 ValueChip(
                     text = row.newDisplay,
-                    color = SuccessGreen,
+                    color = c.success,
                     struck = false,
                     bold = true,
                     modifier = Modifier.testTag("diff-new-value"),
@@ -488,9 +480,9 @@ fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
             } else {
                 Text(
                     "—",
-                    style = MaterialTheme.typography.labelSmall.copy(
+                    style = ElTheme.typography.labelSmall.copy(
                         fontStyle = FontStyle.Italic,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        color = c.textSecondary.copy(alpha = 0.5f),
                     ),
                 )
             }
@@ -502,7 +494,7 @@ fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
 @Composable
 private fun ValueChip(
     text: String,
-    color: Color,
+    color: androidx.compose.ui.graphics.Color,
     struck: Boolean,
     bold: Boolean = false,
     modifier: Modifier = Modifier,
@@ -516,7 +508,7 @@ private fun ValueChip(
         Text(
             text,
             fontFamily = FontFamily.Monospace,
-            style = MaterialTheme.typography.labelSmall.copy(
+            style = ElTheme.typography.labelSmall.copy(
                 fontSize = 11.sp,
                 color = color,
                 fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
@@ -534,16 +526,17 @@ private fun ValueChip(
 
 @Composable
 private fun HonestEmptyDiffState(hasSnapshots: Boolean) {
+    val c = ElTheme.colors
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
             .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                width = ElTheme.borders.thin,
+                color = c.textSecondary.copy(alpha = 0.3f),
                 shape = RoundedCornerShape(6.dp),
             )
-            .padding(16.dp),
+            .padding(ElTheme.spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
@@ -552,9 +545,7 @@ private fun HonestEmptyDiffState(hasSnapshots: Boolean) {
             } else {
                 "Aucun instantané avant/après enregistré pour cette entrée."
             },
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
+            style = ElTheme.typography.bodySmall.copy(color = c.textSecondary),
             modifier = Modifier.testTag("audit_diff_empty_state"),
         )
     }
@@ -567,19 +558,20 @@ private fun HonestEmptyDiffState(hasSnapshots: Boolean) {
 @Composable
 private fun RawJsonBlock(label: String, raw: String?) {
     if (raw.isNullOrBlank()) return
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val c = ElTheme.colors
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
         Text(
             label,
-            style = MaterialTheme.typography.labelSmall.copy(
+            style = ElTheme.typography.labelSmall.copy(
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = c.textSecondary,
             ),
         )
         Text(
             raw,
             fontFamily = FontFamily.Monospace,
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp),
+            color = c.textSecondary,
         )
     }
 }

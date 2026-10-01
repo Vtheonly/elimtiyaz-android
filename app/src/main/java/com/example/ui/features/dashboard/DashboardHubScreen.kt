@@ -32,8 +32,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
 import com.example.domain.model.CategoryRevenueItem
 import com.example.domain.model.DashboardKpi
-import com.example.ui.components.ModernSecondaryTabRow
 import com.example.ui.designsystem.components.button.ElIconButton
+import com.example.ui.designsystem.components.tabs.ElTabRow
 import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.feedback.ElLoadingBlock
@@ -150,11 +150,12 @@ fun DashboardHubScreen(
                 )
             }
 
-            // Tab Switcher
-            ModernSecondaryTabRow(
+            // Tab Switcher (T-044/unification: the DS segmented tab row — the
+            // same tab language as ClassDetailScreen; 2 tabs fit the fixed row)
+            ElTabRow(
                 tabs = viewTabs,
-                selectedTabIndex = selectedViewTab,
-                onTabSelected = { selectedViewTab = it },
+                selectedIndex = selectedViewTab,
+                onSelected = { selectedViewTab = it },
             )
 
             if (isLoading) {
