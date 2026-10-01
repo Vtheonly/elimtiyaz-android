@@ -36,12 +36,16 @@ data class ExecWaveItem(
     val paidCount: Int,
     val familyCount: Int,
     val debtorFamilyCount: Int,
+    /** T-451 (T-427 mirror): the wave's actually-late families (PAST-DUE only). */
+    val overdueDebtorFamilyCount: Int = 0,
     val dueTotal: Long,             // centimes
     val paidTotal: Long,
     val remainingTotal: Long,
     val collectedPct: Int,
     val clearedPct: Int,
     val dueDate: String? = null,
+    /** T-451 (T-435 mirror): the wave's due-date RANGE far bound (ISO). */
+    val dueDateMax: String? = null,
     val phase: String = "in_window",// not_due | in_window | overdue
 )
 
