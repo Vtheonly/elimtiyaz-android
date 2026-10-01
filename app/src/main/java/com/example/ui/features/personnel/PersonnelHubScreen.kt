@@ -6,13 +6,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalShipping
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -24,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.example.core.Permission
 import com.example.core.Role
 import com.example.core.Session
-import com.example.ui.components.ModernSecondaryTabRow
+import com.example.ui.designsystem.components.tabs.ElScrollableTabRow
 
 @Composable
 fun PersonnelHubScreen(
@@ -55,10 +56,12 @@ fun PersonnelHubScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        ModernSecondaryTabRow(
+        // T-460 pass F: the DS scrollable tab row (the role-dependent tab
+        // list can reach 6 — the scrollable variant, as in the Financials hub).
+        ElScrollableTabRow(
             tabs = tabs,
-            selectedTabIndex = selectedTab,
-            onTabSelected = { selectedTab = it },
+            selectedIndex = selectedTab,
+            onSelected = { selectedTab = it },
         )
         Box(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -93,13 +96,18 @@ fun PersonnelHubScreen(
 @Composable
 private fun DriverRoutingEntry(onNavigateToRouting: () -> Unit, onNavigateToWorkflowMonitor: () -> Unit) {
     Column {
-        Button(onClick = onNavigateToRouting, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.LocalShipping, contentDescription = null)
-            Text(" Mode chauffeur — Tournées")
-        }
-        Spacer(Modifier.padding(8.dp))
-        TextButton(onClick = onNavigateToWorkflowMonitor, modifier = Modifier.fillMaxWidth()) {
-            Text("Moniteur de workflows")
-        }
+        ElButton(
+            text = "Mode chauffeur — Tournées",
+            onClick = onNavigateToRouting,
+            icon = Icons.Default.LocalShipping,
+            fullWidth = true,
+        )
+        Spacer(Modifier.height(8.dp))
+        ElButton(
+            text = "Moniteur de workflows",
+            onClick = onNavigateToWorkflowMonitor,
+            variant = ElButtonVariant.GHOST,
+            fullWidth = true,
+        )
     }
 }

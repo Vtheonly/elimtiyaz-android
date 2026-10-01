@@ -13,8 +13,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElGradient
+import com.example.ui.designsystem.components.feedback.ElLinearProgress
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.theme.ElTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -25,13 +29,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
 import com.example.domain.model.ReleveActivity
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElEmptyState
-import com.example.ui.components.ElGradientStatCard
-import com.example.ui.components.ElProgressBar
-import com.example.ui.theme.PrimaryBlue
-import com.example.ui.theme.SuccessGreen
-import com.example.ui.theme.WarmGold
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElGradientStatCard
+import com.example.ui.designsystem.components.feedback.ElEmptyState
 
 @Composable
 fun ReleveScreen(
@@ -41,6 +41,7 @@ fun ReleveScreen(
     onBack: (() -> Unit)? = null,
     viewModel: ReleveViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
     val personnel by viewModel.personnel.collectAsState()
     val focused by viewModel.focusedPersonnel.collectAsState()
     val focusedEntries by viewModel.focusedEntries.collectAsState()
@@ -52,7 +53,7 @@ fun ReleveScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (onBack != null) {
-            com.example.ui.components.ElTopBar(
+            ElTopBar(
                 title = "Relevé d'activité",
                 onBack = onBack,
             )
@@ -66,6 +67,7 @@ fun ReleveScreen(
                 title = "Relevé d'activité",
                 value = focused?.fullName ?: "…",
                 subtitle = "Heures enregistrées cette semaine",
+                gradient = ElGradient.BRAND,
                 modifier = Modifier.fillMaxWidth(),
             )
             focused?.let { staff ->
@@ -76,22 +78,23 @@ fun ReleveScreen(
                 ElEmptyState(
                     icon = Icons.Default.Schedule,
                     title = "Aucune activité enregistrée",
-                    message = "Aucune entrée de relevé n'existe encore pour ce membre du personnel.",
+                    subtitle = "Aucune entrée de relevé n'existe encore pour ce membre du personnel.",
                 )
             } else {
                 focusedEntries.take(20).forEach { entry ->
-                    ElCard(modifier = Modifier.fillMaxWidth(), compact = true) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                    ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
                             Row(modifier = Modifier.fillMaxWidth()) {
                                 Text(
                                     entry.date,
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
+                                    style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
+                                    color = c.textPrimary,
                                     modifier = Modifier.weight(1f),
                                 )
                                 Text(
                                     entry.activity.displayFr,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    style = ElTheme.typography.labelMedium,
+                                    color = c.primary,
                                 )
                             }
                             Spacer(Modifier.height(4.dp))
@@ -103,8 +106,8 @@ fun ReleveScreen(
                                         entry.hoursOut?.let { append(" → $it") }
                                     }
                                 },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = ElTheme.typography.bodySmall,
+                                color = c.textSecondary,
                             )
                         }
                     }
@@ -118,6 +121,7 @@ fun ReleveScreen(
             title = "Relevé d'Activité",
             value = "${teachers.size} Enseignants",
             subtitle = "Suivi hebdomadaire des heures",
+            gradient = ElGradient.BRAND,
             modifier = Modifier.fillMaxWidth(),
         )
 
@@ -125,7 +129,7 @@ fun ReleveScreen(
             ElEmptyState(
                 icon = Icons.Default.Code,
                 title = "Aucune donnée d'activité",
-                message = "Aucun personnel avec objectif horaire défini.",
+                subtitle = "Aucun personnel avec objectif horaire défini.",
             )
             return@Column
         }
@@ -145,29 +149,31 @@ private fun ComplianceCard(
     staff: com.example.domain.model.Personnel,
     loggedMinutes: Long,
 ) {
+    val c = ElTheme.colors
     val target = staff.weeklyHoursTarget.coerceAtLeast(1)
     val loggedHours = loggedMinutes / 60.0
     val compliance = (loggedHours / target * 100).toInt().coerceIn(0, 100)
     val complianceColor = when {
-        compliance >= 95 -> SuccessGreen
-        compliance >= 80 -> WarmGold
-        else -> PrimaryBlue
+        compliance >= 95 -> c.success
+        compliance >= 80 -> c.warning
+        else -> c.primary
     }
 
-    ElCard(modifier = Modifier.fillMaxWidth(), compact = true) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 staff.fullName,
-                style = MaterialTheme.typography.titleMedium.copy(
+                style = ElTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp,
                 ),
+                color = c.textPrimary,
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 "%.1f / $target Heures Effectuées".format(loggedHours),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = ElTheme.typography.bodySmall,
+                color = c.textSecondary,
             )
 
             Spacer(Modifier.height(10.dp))
@@ -175,15 +181,15 @@ private fun ComplianceCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("Conformité", style = MaterialTheme.typography.labelSmall)
+                Text("Conformité", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                 Text(
                     "$compliance%",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                     color = complianceColor,
                 )
             }
             Spacer(Modifier.height(6.dp))
-            ElProgressBar(progress = compliance / 100f)
+            ElLinearProgress(progress = compliance / 100f)
         }
     }
 }
