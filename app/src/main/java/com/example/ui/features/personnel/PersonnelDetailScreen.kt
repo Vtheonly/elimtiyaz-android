@@ -13,32 +13,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,7 +34,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -56,7 +42,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.Permission
-import com.example.core.Result
 import com.example.core.Role
 import com.example.core.formatDzd
 import com.example.domain.model.Personnel
@@ -65,6 +50,24 @@ import com.example.domain.repository.PersonnelRepository
 import com.example.domain.repository.ReleveRepository
 import com.example.domain.repository.UpdatePersonnelInput
 import com.example.session.SessionManager
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.button.ElIconButton
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.display.ElAvatarSize
+import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagSize
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.components.feedback.ElLinearProgress
+import com.example.ui.designsystem.components.feedback.ElLoadingBlock
+import com.example.ui.designsystem.components.input.ElTextField
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.overlays.ElDialogShell
+import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.util.PhoneUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.DayOfWeek
@@ -129,8 +132,8 @@ class PersonnelDetailViewModel @Inject constructor(
             val actorId = sessionManager.currentUserId() ?: "system"
             val actorName = sessionManager.currentDisplayName() ?: "System"
             when (val result = personnelRepository.updatePersonnel(id, input, actorId, actorName)) {
-                is Result.Ok -> _message.value = "Employé mis à jour."
-                is Result.Err -> _error.value = result.error.userMessage
+                is com.example.core.Result.Ok -> _message.value = "Employé mis à jour."
+                is com.example.core.Result.Err -> _error.value = result.error.userMessage
             }
             _busy.value = false
         }
@@ -142,8 +145,8 @@ class PersonnelDetailViewModel @Inject constructor(
             val actorId = sessionManager.currentUserId() ?: "system"
             val actorName = sessionManager.currentDisplayName() ?: "System"
             when (val result = personnelRepository.deletePersonnel(id, actorId, actorName)) {
-                is Result.Ok -> _message.value = "Employé marqué comme terminé."
-                is Result.Err -> _error.value = result.error.userMessage
+                is com.example.core.Result.Ok -> _message.value = "Employé marqué comme terminé."
+                is com.example.core.Result.Err -> _error.value = result.error.userMessage
             }
             _busy.value = false
         }
@@ -208,13 +211,23 @@ class PersonnelDetailViewModel @Inject constructor(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * T-460 pass G-b (issue #3 F-06): the raw-M3 PersonnelDetail screen → the
+ * design system. ElScaffold/ElTopBar chrome with the manage actions as
+ * ElIconButtons; the loading gate on ElLoadingBlock (was a bare "Chargement…"
+ * Text); ElAvatar + ElTag status; ElLinearProgress for the hours target;
+ * edit/delete dialogs on ElDialogShell + ElTextField. All VM logic, the RBAC
+ * gates (canViewSalary/canManage), the T-324 call-affordance rule and the
+ * relevé flow are preserved verbatim.
+ */
 @Composable
 fun PersonnelDetailScreen(
     onBack: () -> Unit,
     onNavigateToReleve: (String) -> Unit,
     viewModel: PersonnelDetailViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
+    val context = LocalContext.current
     val personnel by viewModel.personnel.collectAsState()
     val recentEntries by viewModel.recentEntries.collectAsState()
     val hoursLogged by viewModel.hoursLoggedThisWeek.collectAsState()
@@ -224,37 +237,56 @@ fun PersonnelDetailScreen(
     val error by viewModel.error.collectAsState()
     val busy by viewModel.busy.collectAsState()
     val message by viewModel.message.collectAsState()
-    val context = LocalContext.current
 
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    Scaffold(
+    ElScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(personnel?.fullName ?: "Personnel") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Retour") } },
+            ElTopBar(
+                title = personnel?.fullName ?: "Personnel",
+                onBack = onBack,
                 actions = {
                     if (viewModel.canManage && personnel != null) {
-                        IconButton(onClick = { showEditDialog = true }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Modifier l'employé")
-                        }
-                        IconButton(onClick = { showDeleteDialog = true }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Retirer l'employé")
-                        }
+                        ElIconButton(
+                            icon = Icons.Default.Edit,
+                            onClick = { showEditDialog = true },
+                            contentDescription = "Modifier l'employé",
+                            tint = c.primary,
+                            background = androidx.compose.ui.graphics.Color.Transparent,
+                        )
+                        ElIconButton(
+                            icon = Icons.Default.Delete,
+                            onClick = { showDeleteDialog = true },
+                            contentDescription = "Retirer l'employé",
+                            tint = c.danger,
+                            background = androidx.compose.ui.graphics.Color.Transparent,
+                        )
                     }
                     // T-324: the call affordance is only tappable with a real
                     // number (it used to toast a confusing error on blank).
                     if (!personnel?.phone.isNullOrBlank()) {
-                        IconButton(onClick = {
-                            personnel?.phone?.let { PhoneUtils.dial(context, it) }
-                        }) { Icon(Icons.Default.Call, contentDescription = "Appeler") }
+                        ElIconButton(
+                            icon = Icons.Default.Call,
+                            onClick = {
+                                personnel?.phone?.let { PhoneUtils.dial(context, it) }
+                            },
+                            contentDescription = "Appeler",
+                            tint = c.primary,
+                            background = androidx.compose.ui.graphics.Color.Transparent,
+                        )
                     }
                     personnel?.email?.let { email ->
-                        IconButton(onClick = {
-                            val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$email"))
-                            context.startActivity(Intent.createChooser(intent, "Email"))
-                        }) { Icon(Icons.Default.Email, contentDescription = "Email") }
+                        ElIconButton(
+                            icon = Icons.Default.Email,
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$email"))
+                                context.startActivity(Intent.createChooser(intent, "Email"))
+                            },
+                            contentDescription = "Email",
+                            tint = c.primary,
+                            background = androidx.compose.ui.graphics.Color.Transparent,
+                        )
                     }
                 },
             )
@@ -262,15 +294,15 @@ fun PersonnelDetailScreen(
     ) { padding ->
         if (isLoading && personnel == null) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Chargement…")
+                ElLoadingBlock(message = "Chargement de la fiche employé…")
             }
-            return@Scaffold
+            return@ElScaffold
         }
         val p = personnel ?: run {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text(error ?: "Personnel introuvable.", color = MaterialTheme.colorScheme.error)
+                Text(error ?: "Personnel introuvable.", color = c.danger, style = ElTheme.typography.bodyMedium)
             }
-            return@Scaffold
+            return@ElScaffold
         }
 
         LazyColumn(
@@ -278,29 +310,30 @@ fun PersonnelDetailScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                Card(
-                    elevation = CardDefaults.cardElevation(2.dp),
+                ElCard(
                     modifier = Modifier.fillMaxWidth(),
+                    size = ElCardSize.STANDARD,
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier.size(48.dp).clip(CircleShape),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(Icons.Default.Person, contentDescription = null)
-                            }
-                            Spacer(Modifier.size(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            ElAvatar(
+                                initials = p.fullName.split(" ").filter { it.isNotBlank() }.take(2)
+                                    .map { it.first().uppercase() }.joinToString(""),
+                                size = ElAvatarSize.L,
+                            )
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(p.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text(p.position, style = MaterialTheme.typography.bodySmall)
-                                Text("Catégorie : ${p.staffCategory}", style = MaterialTheme.typography.labelSmall)
+                                Text(p.fullName, style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
+                                Text(p.position, style = ElTheme.typography.bodySmall, color = c.textSecondary)
+                                Text("Catégorie : ${p.staffCategory}", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                                 // T-324: humanized status label (was the raw code).
-                                Text(
-                                    "Statut : ${personnelStatusLabel(p.status)}",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (p.status == "active") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("Statut :", style = ElTheme.typography.labelSmall, color = c.textSecondary)
+                                    ElTag(
+                                        text = personnelStatusLabel(p.status),
+                                        tone = if (p.status == "active") ElTagTone.SUCCESS else ElTagTone.DANGER,
+                                        size = ElTagSize.SM,
+                                    )
+                                }
                             }
                         }
                         Spacer(Modifier.height(12.dp))
@@ -313,37 +346,35 @@ fun PersonnelDetailScreen(
                         }
                         message?.let {
                             Spacer(Modifier.height(8.dp))
-                            Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                            Text(it, color = c.primary, style = ElTheme.typography.bodySmall)
                         }
                     }
                 }
             }
 
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ElCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    size = ElCardSize.STANDARD,
+                ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.size(8.dp))
-                            Text("Heures cette semaine", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Schedule, contentDescription = null, tint = c.primary, modifier = Modifier.size(18.dp))
+                            Text("Heures cette semaine", style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
                         }
                         Spacer(Modifier.height(8.dp))
                         val target = hoursTarget.toDouble().coerceAtLeast(1.0)
                         val pct = (hoursLogged / target).coerceIn(0.0, 1.0)
-                        LinearProgressIndicator(
-                            progress = { pct.toFloat() },
-                            modifier = Modifier.fillMaxWidth(),
-                            color = if (pct < 0.5) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        )
+                        ElLinearProgress(progress = pct.toFloat())
                         Spacer(Modifier.height(4.dp))
                         Text(
                             "%.1f h / %d h".format(hoursLogged, hoursTarget),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
+                            style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = c.textPrimary,
                         )
 
                         Spacer(Modifier.height(12.dp))
-                        Text("Répartition par jour", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text("Répartition par jour", style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
                         Spacer(Modifier.height(4.dp))
                         DayBarChart(perDay = perDay)
                     }
@@ -356,21 +387,29 @@ fun PersonnelDetailScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Relevé récent", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    TextButton(onClick = { onNavigateToReleve(p.id) }) { Text("Saisir") }
+                    Text("Relevé récent", style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
+                    ElButton(
+                        text = "Saisir",
+                        onClick = { onNavigateToReleve(p.id) },
+                        variant = ElButtonVariant.GHOST,
+                        size = com.example.ui.designsystem.components.button.ElButtonSize.SMALL,
+                    )
                 }
             }
 
             items(recentEntries) { entry ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                ElCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    size = ElCardSize.COMPACT,
+                ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(entry.activity.displayFr, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            Text(entry.date, style = MaterialTheme.typography.labelSmall)
+                            Text(entry.activity.displayFr, style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = c.textPrimary, modifier = Modifier.weight(1f))
+                            Text(entry.date, style = ElTheme.typography.labelSmall, color = c.textSecondary)
                         }
-                        Text("${entry.hoursIn}${entry.hoursOut?.let { " → $it" } ?: ""}", style = MaterialTheme.typography.bodySmall)
+                        Text("${entry.hoursIn}${entry.hoursOut?.let { " → $it" } ?: ""}", style = ElTheme.typography.bodySmall, color = c.textSecondary)
                         entry.durationMinutes?.let { min ->
-                            Text("%.1f h".format(min / 60.0), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                            Text("%.1f h".format(min / 60.0), style = ElTheme.typography.bodySmall, color = c.primary)
                         }
                     }
                 }
@@ -381,8 +420,8 @@ fun PersonnelDetailScreen(
                 item {
                     Text(
                         "Aucun relevé cette semaine. Utilisez « Saisir » pour enregistrer les heures travaillées.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = ElTheme.typography.bodySmall,
+                        color = c.textSecondary,
                         modifier = Modifier.padding(vertical = 8.dp),
                     )
                 }
@@ -399,78 +438,104 @@ fun PersonnelDetailScreen(
         var status by remember { mutableStateOf(if (p.status == "terminated") "terminated" else "active") }
         val salaryCentimes = salaryDzd.replace(" ", "").toLongOrNull()?.let { it * 100L }
 
-        AlertDialog(
-            onDismissRequest = { showEditDialog = false },
-            title = { Text("Modifier l'employé") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Téléphone") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = position, onValueChange = { position = it }, label = { Text("Poste") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = salaryDzd, onValueChange = { raw -> salaryDzd = raw.filter { it.isDigit() }.take(12) }, label = { Text("Salaire mensuel (DZD)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        ElDialogShell(onDismissRequest = { showEditDialog = false }) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Modifier l'employé",
+                    style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = c.textPrimary,
+                )
+                ElTextField(value = phone, onValueChange = { phone = it }, label = "Téléphone", singleLine = true, modifier = Modifier.fillMaxWidth())
+                ElTextField(value = email, onValueChange = { email = it }, label = "Email", singleLine = true, modifier = Modifier.fillMaxWidth())
+                ElTextField(value = position, onValueChange = { position = it }, label = "Poste", singleLine = true, modifier = Modifier.fillMaxWidth())
+                ElTextField(
+                    value = salaryDzd,
+                    onValueChange = { raw -> salaryDzd = raw.filter { it.isDigit() }.take(12) },
+                    label = "Salaire mensuel (DZD)",
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ElButton(
+                        text = "Annuler",
+                        onClick = { showEditDialog = false },
+                        variant = ElButtonVariant.GHOST,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ElButton(
+                        text = "Enregistrer",
+                        onClick = {
+                            viewModel.updatePersonnel(
+                                p.id,
+                                UpdatePersonnelInput(
+                                    position = position.trim().ifBlank { null },
+                                    phone = phone.trim().ifBlank { null },
+                                    email = email.trim().ifBlank { null },
+                                    salary = salaryCentimes,
+                                    status = status,
+                                ),
+                            )
+                            showEditDialog = false
+                        },
+                        enabled = !busy && phone.isNotBlank(),
+                        variant = ElButtonVariant.PRIMARY,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.updatePersonnel(
-                            p.id,
-                            UpdatePersonnelInput(
-                                position = position.trim().ifBlank { null },
-                                phone = phone.trim().ifBlank { null },
-                                email = email.trim().ifBlank { null },
-                                salary = salaryCentimes,
-                                status = status,
-                            ),
-                        )
-                        showEditDialog = false
-                    },
-                    enabled = !busy && phone.isNotBlank(),
-                ) { Text("Enregistrer") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEditDialog = false }) { Text("Annuler") }
-            },
-        )
+            }
+        }
     }
 
     if (showDeleteDialog && personnel != null) {
         val p = personnel!!
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Retirer ${p.fullName} ?") },
-            text = {
+        ElDialogShell(onDismissRequest = { showDeleteDialog = false }) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Retirer ${p.fullName} ?",
+                    style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = c.textPrimary,
+                )
                 Text(
                     "L'employé sera marqué comme « terminé » et retiré du registre actif.",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = ElTheme.typography.bodyMedium,
+                    color = c.textSecondary,
                 )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deletePersonnel(p.id)
-                        showDeleteDialog = false
-                    },
-                    enabled = !busy,
-                ) { Text("Confirmer", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) { Text("Annuler") }
-            },
-        )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ElButton(
+                        text = "Annuler",
+                        onClick = { showDeleteDialog = false },
+                        variant = ElButtonVariant.GHOST,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ElButton(
+                        text = "Confirmer",
+                        onClick = {
+                            viewModel.deletePersonnel(p.id)
+                            showDeleteDialog = false
+                        },
+                        enabled = !busy,
+                        variant = ElButtonVariant.DANGER,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
 private fun InfoRow(label: String, value: String) {
+    val c = ElTheme.colors
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-        Text(value, style = MaterialTheme.typography.bodySmall)
+        Text(label, style = ElTheme.typography.labelSmall, color = c.textSecondary, modifier = Modifier.weight(1f))
+        Text(value, style = ElTheme.typography.bodySmall, color = c.textPrimary)
     }
 }
 
 @Composable
 private fun DayBarChart(perDay: Map<DayOfWeek, Double>) {
+    val c = ElTheme.colors
     val days = listOf(
         DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
         DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY, DayOfWeek.SUNDAY,
@@ -492,11 +557,11 @@ private fun DayBarChart(perDay: Map<DayOfWeek, Double>) {
                     modifier = Modifier
                         .height((hours / maxHours * 60).coerceAtLeast(2.0).dp)
                         .fillMaxWidth()
-                        .clip(MaterialTheme.shapes.small)
-                        .background(MaterialTheme.colorScheme.primary),
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                        .background(c.primary),
                 )
                 Spacer(Modifier.height(4.dp))
-                Text(labels[idx], style = MaterialTheme.typography.labelSmall)
+                Text(labels[idx], style = ElTheme.typography.labelSmall, color = c.textSecondary)
             }
         }
     }
