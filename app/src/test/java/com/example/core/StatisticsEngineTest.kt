@@ -293,19 +293,51 @@ class StatisticsEngineTest {
                 inst("i1", "p1", "2026-09-05"),        // 5 days overdue → 0_30
                 inst("i2", "p2", "2026-06-20"),        // 82 days → 61_90
                 inst("i3", "p3", "2025-09-01"),        // ~373 days → 180_plus
-                inst("i4", "p4", "2026-09-30"),        // NOT yet due → clamped 0 → 0_30
+                inst("i4", "p4", "2026-09-30"),        // NOT yet due → EXCLUDED (T-452/DATA-046)
                 inst("i5", "p5", "2026-02-01"),        // ~220 days → 180_plus
             ),
             pinnedNowMs,
         )
         val byBucket = census.associateBy { it.bucket }
-        assertEquals(2, byBucket.getValue("0_30").debtorCount) // i1 + i4 (not-yet-due)
+        // T-452 (T-426/DATA-046): only PAST-DUE rows age — the not-yet-due
+        // tranche (i4, a future T2/T3 row) is "à échoir", never aging: it
+        // is EXCLUDED from every bucket (the desktop production
+        // debtByAgingForRange isStrictlyPast guard — the corpus harness and
+        // this engine are aligned with it).
+        assertEquals(1, byBucket.getValue("0_30").debtorCount) // i1 only — i4 excluded
         assertEquals(1, byBucket.getValue("61_90").debtorCount)
         assertEquals(2, byBucket.getValue("180_plus").debtorCount)
-        // i1 + i4 both carry remaining → 2M DZD in the bucket (the desktop
-        // Supabase path accumulates the remaining of not-yet-due rows into
-        // 0_30 — documented behavior, daysBetweenFloor clamps negative).
-        assertEquals(2_000_000L * 100, byBucket.getValue("0_30").amount)
+        assertEquals(1_000_000L * 100, byBucket.getValue("0_30").amount) // i1's remaining only
+    }
+
+    @Test
+    fun `T-452 aging future-row guard - a not-yet-due owing row NEVER enters any bucket`() {
+        // The desktop's T-426 DATA-046 fix (issues #24/#25 Track-2): the old
+        // behavior clamped the future row's negative days into 0_30 via
+        // daysBetweenFloor, inflating the "current" receivable band and the
+        // KPI's overdue-family count with balances that are not late at all.
+        val census = deriveDebtAging(
+            listOf(
+                inst("future", "p-future", "2026-12-15"),   // the December wave — future
+                inst("future2", "p-future2", "2027-03-15"), // the March wave — future
+            ),
+            pinnedNowMs,
+        )
+        assertTrue(census.isEmpty()) // honest: nothing is past due — no fabricated "current" band
+    }
+
+    @Test
+    fun `T-452 dynamic overdue predicate - status is never the source of truth`() {
+        // The desktop's isInstallmentOverdue (T-426 DATA-045): a row with a
+        // stale "unpaid" status that is fully covered (remaining 0) is NOT
+        // overdue; a row with status "overdue" but a FUTURE date is NOT
+        // overdue; a partial row past due IS overdue.
+        val pastDuePartial = inst("p1", "p1", "2026-09-05", dueDzd = 100, paidDzd = 40, status = "partial")
+        val staleUnpaidCovered = inst("p2", "p2", "2026-09-05", dueDzd = 100, paidDzd = 100, status = "unpaid")
+        val futureFlaggedOverdue = inst("p3", "p3", "2026-12-15", status = "overdue")
+        assertTrue(isInstallmentOverdueStats(pastDuePartial, pinnedNowMs))
+        assertFalse(isInstallmentOverdueStats(staleUnpaidCovered, pinnedNowMs))
+        assertFalse(isInstallmentOverdueStats(futureFlaggedOverdue, pinnedNowMs))
     }
 
     @Test

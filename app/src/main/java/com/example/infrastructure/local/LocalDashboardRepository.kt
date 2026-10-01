@@ -19,6 +19,7 @@ import com.example.core.derivePaymentStats
 import com.example.core.deriveCategoryMix
 import com.example.core.deriveMethodMix
 import com.example.core.deriveDebtAging
+import com.example.core.isInstallmentOverdueStats
 import com.example.core.deriveRecoveryFunnel
 import com.example.core.deriveAgingComposition
 import com.example.core.collectionRatePct
@@ -330,13 +331,18 @@ class LocalDashboardRepository @Inject constructor(
         val nowEpochMs = System.currentTimeMillis()
         val agingCensus = deriveDebtAging(statsInstallments, nowEpochMs)
         val totalOutstanding = statsInstallments.sumOf { installmentRemaining(it) }
+        // T-452 (T-426/DATA-045 mirror): the DYNAMIC overdue predicate —
+        // status !== paid && dueDate STRICTLY past && remaining > 0 — never
+        // the `daysBetweenFloor > 0` approximation (a row past due by a few
+        // HOURS counted as not-overdue under the floor semantics; the desktop
+        // KPI's isInstallmentOverdue is strict-past) and never the status
+        // string (live data carries ZERO "overdue" statuses while hundreds of
+        // rows are dynamically overdue).
         val overdueDebt = statsInstallments
-            .filter { it.status != "paid" && daysBetweenFloor(it.dueDate, nowEpochMs) > 0 }
+            .filter { isInstallmentOverdueStats(it, nowEpochMs) }
             .sumOf { installmentRemaining(it) }
         val overdueFamiliesCount = statsInstallments
-            .filter {
-                it.status != "paid" && daysBetweenFloor(it.dueDate, nowEpochMs) > 0 && installmentRemaining(it) > 0L
-            }
+            .filter { isInstallmentOverdueStats(it, nowEpochMs) }
             .map { it.parentId }
             .distinct()
             .size

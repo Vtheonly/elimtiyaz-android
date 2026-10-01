@@ -405,6 +405,14 @@ object AndroidEquivalenceRunner {
                     put("totalPaid", bal.totalPaid)
                     put("totalAdjusted", bal.totalAdjusted)
                     put("unallocatedCredit", bal.unallocatedCredit)
+                    // T-452 (PARITY-006): the account-balance op contract completed —
+                    // the ENGINE has computed these three since the clearance rounds
+                    // (the Android LedgerEngine is at parity); the runner's serialization
+                    // had simply never been extended, so the comparator flagged the
+                    // desktop-emits-0 vs android-omits discrepancies on scenario 024.
+                    put("totalRefunded", bal.totalRefunded)
+                    put("totalCleared", bal.totalCleared)
+                    put("totalPending", bal.totalPending)
                 }
             }
 
@@ -1396,7 +1404,11 @@ object AndroidEquivalenceRunner {
                 add(buildJsonObject {
                     put("accountId", acc.accountId)
                     put("category", acc.category.code)
-                    put("studentId", acc.studentId ?: "")
+                    // T-452 (PARITY-006): null stays null — the desktop emits `null`
+                    // for a family-level account's studentId; the old `?: ""` coerced
+                    // it to an empty string (a JSON-representation divergence the
+                    // comparator flagged on scenarios 023/025).
+                    if (acc.studentId != null) put("studentId", acc.studentId) else put("studentId", kotlinx.serialization.json.JsonNull)
                     put("balance", acc.balance)
                     put("unallocatedCredit", acc.unallocatedCredit)
                     put("totalCharged", acc.totalCharged)
