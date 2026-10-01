@@ -47,6 +47,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.Permission
 import com.example.domain.model.AuditLog
+import com.example.domain.repository.AuthRepository
 import com.example.domain.repository.AuditRepository
 import com.example.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -70,6 +71,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val auditRepository: AuditRepository,
+    private val authRepository: AuthRepository,
     private val sessionManager: SessionManager,
 ) : ViewModel() {
 
@@ -92,6 +94,13 @@ class ProfileViewModel @Inject constructor(
 
     fun signOut(onDone: () -> Unit) {
         viewModelScope.launch {
+            // T-460/issue-#3 F-01: the canonical sign-out path — authRepository
+            // .signOut() deactivates this device's FCM tokens BEFORE revoking
+            // the JWT (the AGENTS.md §3 FCM lifecycle contract); the old
+            // setSession(null)-only bypass left a signed-out device receiving
+            // push notifications. Mirrors MainScreen's ViewModel exactly.
+            runCatching { authRepository.signOut() }
+                .onFailure { /* sign-out proceeds locally even on RPC failure */ }
             sessionManager.setSession(null)
             onDone()
         }
