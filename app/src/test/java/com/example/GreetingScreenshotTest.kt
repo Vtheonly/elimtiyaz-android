@@ -13,7 +13,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.designsystem.theme.ElImtiyazTheme
-import com.example.ui.theme.PrimaryBlue
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
@@ -60,7 +59,9 @@ class GreetingScreenshotTest {
             text = "El-Imtiyaz",
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
-            color = PrimaryBlue,
+            // T-460 pass I: the last legacy-token reference (ui.theme.PrimaryBlue)
+          // is gone with the kit — the smoke test now reads the DS palette.
+          color = com.example.ui.designsystem.theme.ElTheme.colors.primary,
           )
           Text(text = "Plateforme de gestion scolaire")
         }
