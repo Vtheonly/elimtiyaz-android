@@ -727,7 +727,13 @@ fun DebtTriageCard(
                             .padding(10.dp),
                     ) {
                         Text(
-                            text = "LISTE D'APPEL IMMÉDIATE (> 45 j — ${triage.callList.size} familles)",
+                            // T-457 (§15.1 INV-16f): the "beyond RED" number
+                            // DERIVES from the thresholds the derivation
+                            // actually applied (the snapshot's redDays) —
+                            // never the stale hardcoded "> 45 j" (the
+                            // pre-T-457 label contradicted the live 60-day
+                            // red edge since T-443).
+                            text = "LISTE D'APPEL IMMÉDIATE (> ${triage.redDays} j — ${triage.callList.size} familles)",
                             style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = ElTheme.colors.danger,
                         )

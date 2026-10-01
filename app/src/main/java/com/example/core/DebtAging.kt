@@ -241,3 +241,89 @@ fun computeDebtAgingStatus(
             "${thresholds.redDays} j ; dernier paiement il y a $inactivityDays j." + activePayerNote,
     )
 }
+
+// ============================================================================
+// The status-factor derivation (T-457 — §15.2 "the calculation lives" port)
+// ============================================================================
+
+/** The lightweight installment facts the factor derivation needs (the
+ *  platform's domain model fields — INV-4 remaining computed inside). */
+data class DebtAgingInstallmentFacts(
+    val id: String,
+    val parentId: String,
+    val amountDue: Long,          // centimes
+    val amountPaid: Long,
+    val amountPending: Long,
+    val dueDate: String,
+    val status: PaymentStatus,
+)
+
+/** The lightweight ledger-payment facts (non-reversed payment entries). */
+data class DebtAgingPaymentFact(
+    val id: String,
+    val parentId: String,
+    val at: String,
+)
+
+/**
+ * T-457 — derive the §15.1 status FACTORS from the canonical streams
+ * (the factor semantics of the desktop's `computeDebtAgingAnalysis`,
+ * reduced to the status inputs):
+ *
+ *   - `outstandingAmount` = Σ INV-4 remaining over unpaid installments;
+ *   - `debtAgeDays` = floor days from the OLDEST outstanding due date
+ *     (0 when nothing is past due — the aging basis, INV-4);
+ *   - `inactivityDays` = days since the last non-reversed payment entry;
+ *     defaults to `debtAgeDays` when the family NEVER paid (INV-16b);
+ *   - `hasSubsequentYearPayments` = any payment whose INV-14 year is
+ *     STRICTLY after the origin year (the oldest outstanding's year).
+ *
+ * Pure and deterministic; the caller owns the clock (§15.54d). Reuses the
+ * shared `daysBetweenFloor` (WaterfallAllocation.kt — the desktop's
+ * ms-floor semantics).
+ */
+fun deriveDebtAgingStatusFactors(
+    installments: List<DebtAgingInstallmentFacts>,
+    paymentEntries: List<DebtAgingPaymentFact>,
+    nowEpochMs: Long,
+): DebtAgingStatusFactors {
+    var outstanding = 0L
+    var oldestDueDate: String? = null
+    var originYearCode: String? = null
+    for (i in installments) {
+        val remaining = (i.amountDue - i.amountPaid - i.amountPending).coerceAtLeast(0L)
+        if (remaining <= 0L) continue
+        outstanding += remaining
+        val dueMs = parseIsoMillis(i.dueDate)
+        if (dueMs != null && (oldestDueDate == null || dueMs < parseIsoMillis(oldestDueDate)!!)) {
+            oldestDueDate = i.dueDate
+            originYearCode = resolveAcademicYearForDate(i.dueDate)
+        }
+    }
+    // The shared aging helper (core/WaterfallAllocation.kt — the desktop's
+    // ms-floor semantics) — REUSED, never re-implemented.
+    val debtAgeDays = oldestDueDate?.let { daysBetweenFloor(it, nowEpochMs) } ?: 0L
+
+    // The last non-reversed payment (§15: the payment-behavior replay source).
+    var lastPaymentAt: String? = null
+    var hasSubsequentYearPayments = false
+    val originStart = originYearCode?.let { academicYearStart(it) }
+    for (p in paymentEntries) {
+        val atMs = parseIsoMillis(p.at) ?: continue
+        if (lastPaymentAt == null || atMs > (parseIsoMillis(lastPaymentAt) ?: Long.MIN_VALUE)) lastPaymentAt = p.at
+        if (originStart != null) {
+            val payYear = resolveAcademicYearForDate(p.at)
+            val payStart = academicYearStart(payYear)
+            if (payStart != Int.MIN_VALUE && payStart > originStart) hasSubsequentYearPayments = true
+        }
+    }
+    val inactivityDays = lastPaymentAt?.let { daysBetweenFloor(it, nowEpochMs) } ?: debtAgeDays
+
+    return DebtAgingStatusFactors(
+        outstandingAmount = outstanding,
+        debtAgeDays = debtAgeDays,
+        inactivityDays = inactivityDays,
+        hasSubsequentYearPayments = hasSubsequentYearPayments,
+    )
+}
+

@@ -49,6 +49,7 @@ import com.example.core.ExecRadarStudent
 import com.example.core.withRadarFields
 import com.example.core.deriveExecTrancheWaves
 import com.example.core.deriveExecDiscountErosion
+import com.example.core.ExecDebtAgingThresholds
 import com.example.core.deriveExecDebtTriage
 import com.example.core.deriveExecFamilyConcentration
 import com.example.core.deriveExecTransportYield
@@ -502,6 +503,10 @@ class LocalDashboardRepository @Inject constructor(
         val execWaves = deriveExecTrancheWaves(execInstallments, nowEpochMs)
         val execErosion = deriveExecDiscountErosion(execLedger)
         val execTriage = deriveExecDebtTriage(execInstallments, nowEpochMs)
+        // T-457: the thresholds the derivation actually applied (the DEFAULT
+        // until the settings reader lands on Android — the registered
+        // follow-up; the desktop reads them live via observeThresholds).
+        val execTriageRedDays = ExecDebtAgingThresholds.DEFAULT.redDays
         // T-454 (PARITY-007, the desktop T-447 mirror): the POOLED rows + the
         // non-wave summary — the canonical objects the wave hero AND the
         // Finance strip render (one derivation, N presentations).
@@ -582,6 +587,10 @@ class LocalDashboardRepository @Inject constructor(
                     )
                 },
                 totalOutstanding = execTriage.totalOutstanding,
+                // T-457: the thresholds actually applied (the call-list
+                // header derives its "beyond RED" number from this — never
+                // a hardcoded day count).
+                redDays = execTriageRedDays,
                 callList = execTriage.callList.map {
                     ExecCallListEntryItem(
                         parentId = it.parentId,
