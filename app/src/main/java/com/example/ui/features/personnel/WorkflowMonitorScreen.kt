@@ -10,23 +10,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -49,9 +39,16 @@ import com.example.domain.model.WorkflowTrigger
 import com.example.domain.repository.WorkflowRepository
 import com.example.session.SessionManager
 import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElAlertBanner
+import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
 import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagSize
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.overlays.ElDialogShell
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.designsystem.theme.ElTheme
@@ -120,7 +117,6 @@ class WorkflowMonitorViewModel @Inject constructor(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkflowMonitorScreen(
     onBack: () -> Unit,
@@ -141,7 +137,10 @@ fun WorkflowMonitorScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
             error?.let {
-                Text(it, color = ElTheme.colors.danger, modifier = Modifier.padding(bottom = 8.dp))
+                ElAlertBanner(
+                    title = it,
+                    severity = ElAlertSeverity.DANGER,
+                )
             }
 
             if (runs.isEmpty()) {
@@ -163,100 +162,118 @@ fun WorkflowMonitorScreen(
     }
 
     detailRun?.let { run ->
-        AlertDialog(
-            onDismissRequest = { viewModel.openDetail(null) },
-            title = { Text(run.workflowName) },
-            text = {
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Statut: ", style = MaterialTheme.typography.bodySmall)
-                        WorkflowStatusChip(status = run.status)
-                    }
+        // T-460 pass G-b (issue #3 F-08): the run-detail dialog on the DS
+        // ElDialogShell (was a raw M3 AlertDialog) — the T-231 node_results
+        // surface and the retry contract preserved verbatim.
+        ElDialogShell(onDismissRequest = { viewModel.openDetail(null) }) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    run.workflowName,
+                    style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = ElTheme.colors.textPrimary,
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Statut : ", style = ElTheme.typography.bodySmall, color = ElTheme.colors.textSecondary)
+                    WorkflowStatusChip(status = run.status)
+                }
+                Text("Déclencheur : ${run.trigger.displayFr}", style = ElTheme.typography.bodySmall, color = ElTheme.colors.textSecondary)
+                Text("Début : ${run.startedAt}", style = ElTheme.typography.bodySmall, color = ElTheme.colors.textSecondary)
+                run.completedAt?.let { Text("Fin : $it", style = ElTheme.typography.bodySmall, color = ElTheme.colors.textSecondary) }
+                run.durationMs?.let { Text("Durée : ${it}ms", style = ElTheme.typography.bodySmall, color = ElTheme.colors.textSecondary) }
+                run.actorName?.let { Text("Acteur : $it", style = ElTheme.typography.bodySmall, color = ElTheme.colors.textSecondary) }
+                run.errorMessage?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Erreur : $it", style = ElTheme.typography.bodySmall, color = ElTheme.colors.danger)
+                }
+                // T-324 (UI-314): the T-231 decode populates nodeResults —
+                // surface the executed steps instead of leaving the data dead.
+                // The old "Journal" section was dead UI (the mapper never
+                // populated outputLog) and is removed.
+                if (run.nodeResults.isNotEmpty()) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Étapes exécutées (${run.nodeResults.size})",
+                        style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = ElTheme.colors.textPrimary,
+                    )
                     Spacer(Modifier.height(4.dp))
-                    Text("Déclencheur: ${run.trigger.displayFr}", style = MaterialTheme.typography.bodySmall)
-                    Text("Début: ${run.startedAt}", style = MaterialTheme.typography.bodySmall)
-                    run.completedAt?.let { Text("Fin: $it", style = MaterialTheme.typography.bodySmall) }
-                    run.durationMs?.let { Text("Durée: ${it}ms", style = MaterialTheme.typography.bodySmall) }
-                    run.actorName?.let { Text("Acteur: $it", style = MaterialTheme.typography.bodySmall) }
-                    run.errorMessage?.let {
-                        Spacer(Modifier.height(8.dp))
-                        Text("Erreur : $it", style = MaterialTheme.typography.bodySmall, color = ElTheme.colors.danger)
-                    }
-                    // T-324 (UI-314): the T-231 decode populates nodeResults —
-                    // surface the executed steps instead of leaving the data dead.
-                    // The old "Journal" section was dead UI (the mapper never
-                    // populated outputLog) and is removed.
-                    if (run.nodeResults.isNotEmpty()) {
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            "Étapes exécutées (${run.nodeResults.size})",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        run.nodeResults.forEach { node ->
-                            val (label, tone) = workflowNodeStatusLabel(node.status)
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(vertical = 2.dp),
-                            ) {
-                                Text(
-                                    node.nodeName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                ElTag(text = label, tone = tone)
-                            }
-                            node.error?.let { nodeError ->
-                                Text(
-                                    nodeError,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = ElTheme.colors.danger,
-                                    maxLines = 2,
-                                )
-                            }
+                    run.nodeResults.forEach { node ->
+                        val (label, tone) = workflowNodeStatusLabel(node.status)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 2.dp),
+                        ) {
+                            Text(
+                                node.nodeName,
+                                style = ElTheme.typography.bodySmall,
+                                color = ElTheme.colors.textPrimary,
+                                modifier = Modifier.weight(1f),
+                            )
+                            ElTag(text = label, tone = tone)
+                        }
+                        node.error?.let { nodeError ->
+                            Text(
+                                nodeError,
+                                style = ElTheme.typography.labelSmall,
+                                color = ElTheme.colors.danger,
+                                maxLines = 2,
+                            )
                         }
                     }
                 }
-            },
-            confirmButton = {
-                if (viewModel.canRetry && run.status in setOf(WorkflowRunStatus.Failed, WorkflowRunStatus.Timeout)) {
-                    TextButton(onClick = {
-                        viewModel.retry(run.id)
-                        viewModel.openDetail(null)
-                    }) { Icon(Icons.Default.Refresh, contentDescription = null); Text(" Réessayer") }
-                } else {
-                    TextButton(onClick = { viewModel.openDetail(null) }) { Text("Fermer") }
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    if (viewModel.canRetry && run.status in setOf(WorkflowRunStatus.Failed, WorkflowRunStatus.Timeout)) {
+                        ElButton(
+                            text = "Réessayer",
+                            onClick = {
+                                viewModel.retry(run.id)
+                                viewModel.openDetail(null)
+                            },
+                            variant = ElButtonVariant.PRIMARY,
+                            icon = Icons.Default.Refresh,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    ElButton(
+                        text = "Fermer",
+                        onClick = { viewModel.openDetail(null) },
+                        variant = ElButtonVariant.GHOST,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
-            },
-            dismissButton = {
-                if (viewModel.canRetry && run.status in setOf(WorkflowRunStatus.Failed, WorkflowRunStatus.Timeout)) {
-                    TextButton(onClick = { viewModel.openDetail(null) }) { Text("Fermer") }
-                }
-            },
-        )
+            }
+        }
     }
 }
 
 @Composable
 private fun WorkflowRunCard(run: WorkflowRun, onClick: () -> Unit) {
-    Card(
-        elevation = CardDefaults.cardElevation(2.dp),
+    // T-460 pass G-b (issue #3 F-08): the run card on the DS ElCard (was a
+    // raw M3 Card).
+    ElCard(
         modifier = Modifier.fillMaxWidth(),
+        size = ElCardSize.STANDARD,
         onClick = onClick,
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(run.workflowName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(
+                    run.workflowName,
+                    style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                    color = ElTheme.colors.textPrimary,
+                    modifier = Modifier.weight(1f),
+                )
                 WorkflowStatusChip(status = run.status)
             }
             Spacer(Modifier.height(4.dp))
-            Text("Déclencheur: ${run.trigger.displayFr}", style = MaterialTheme.typography.bodySmall)
-            Text("Début: ${run.startedAt}", style = MaterialTheme.typography.labelSmall)
-            run.durationMs?.let { Text("Durée: ${it}ms", style = MaterialTheme.typography.labelSmall) }
+            Text("Déclencheur : ${run.trigger.displayFr}", style = ElTheme.typography.bodySmall, color = ElTheme.colors.textSecondary)
+            Text("Début : ${run.startedAt}", style = ElTheme.typography.labelSmall, color = ElTheme.colors.textSecondary)
+            run.durationMs?.let { Text("Durée : ${it}ms", style = ElTheme.typography.labelSmall, color = ElTheme.colors.textSecondary) }
             run.outputPreview?.let {
                 Spacer(Modifier.height(4.dp))
-                Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                Text(it, style = ElTheme.typography.bodySmall, color = ElTheme.colors.textPrimary, maxLines = 2)
             }
         }
     }
@@ -264,20 +281,22 @@ private fun WorkflowRunCard(run: WorkflowRun, onClick: () -> Unit) {
 
 @Composable
 private fun WorkflowStatusChip(status: WorkflowRunStatus) {
-    val color = when (status) {
-        WorkflowRunStatus.Running -> MaterialTheme.colorScheme.primary
-        WorkflowRunStatus.Succeeded -> MaterialTheme.colorScheme.tertiary
-        WorkflowRunStatus.Failed -> MaterialTheme.colorScheme.error
-        WorkflowRunStatus.Timeout -> MaterialTheme.colorScheme.secondary
+    // T-460 pass G-b: the status chip on the DS ElTag (was a hand-rolled
+    // rounded box with direct colorScheme reads + a hardcoded White).
+    val (tone, tint) = when (status) {
+        WorkflowRunStatus.Running -> ElTagTone.INFO to ElTheme.colors.info
+        WorkflowRunStatus.Succeeded -> ElTagTone.SUCCESS to ElTheme.colors.success
+        WorkflowRunStatus.Failed -> ElTagTone.DANGER to ElTheme.colors.danger
+        WorkflowRunStatus.Timeout -> ElTagTone.WARNING to ElTheme.colors.warning
     }
-    Text(
-        text = status.displayFr,
-        style = MaterialTheme.typography.labelSmall,
-        color = androidx.compose.ui.graphics.Color.White,
-        modifier = Modifier
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .background(color, shape = RoundedCornerShape(8.dp)),
-    )
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(tint, shape = androidx.compose.foundation.shape.CircleShape),
+        )
+        ElTag(text = status.displayFr, tone = tone, size = ElTagSize.SM)
+    }
 }
 
 /** Humanized node-status label + tone (T-324: raw enum names no longer leak). */
