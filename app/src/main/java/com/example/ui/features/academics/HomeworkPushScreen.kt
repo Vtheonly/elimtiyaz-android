@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Class
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,16 +42,19 @@ import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.core.Session
-import com.example.ui.components.ElAlertBanner
-import com.example.ui.components.ElAlertSeverity
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElButtonStyle
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElDropdown
-import com.example.ui.components.ElEmptyState
-import com.example.ui.components.ElGradientStatCard
-import com.example.ui.components.ElTextField
-import com.example.ui.theme.SuccessGreen
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElGradientStatCard
+import com.example.ui.designsystem.components.display.ElAlertBanner
+import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.display.ElGradient
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.input.ElDropdown
+import com.example.ui.designsystem.components.input.ElDropdownOption
+import com.example.ui.designsystem.components.input.ElTextField
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.theme.ElTheme
 import java.io.File
 import java.time.LocalDate
 
@@ -69,6 +71,7 @@ fun HomeworkPushScreen(
     val busy by viewModel.busy.collectAsState()
     val message by viewModel.message.collectAsState()
     val context = LocalContext.current
+    val c = ElTheme.colors
 
     var selectedClassId by remember { mutableStateOf<String?>(initialClassId) }
     var selectedSubjectId by remember { mutableStateOf<String?>(null) }
@@ -147,7 +150,7 @@ fun HomeworkPushScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (onBack != null) {
-            com.example.ui.components.ElTopBar(
+            ElTopBar(
                 title = "Diffusion de devoir — ${selectedClass?.name ?: "…"}",
                 onBack = onBack,
             )
@@ -156,6 +159,7 @@ fun HomeworkPushScreen(
             title = "Diffusion des Devoirs",
             value = selectedClass?.name ?: "Sélectionnez une classe",
             subtitle = "Publiez directement sur le portail élèves & parents",
+            gradient = ElGradient.BRAND,
             modifier = Modifier.fillMaxWidth(),
         )
 
@@ -163,17 +167,17 @@ fun HomeworkPushScreen(
             ElEmptyState(
                 icon = Icons.Default.Class,
                 title = "Aucune classe",
-                message = "Créez d'abord une classe pour diffuser un devoir.",
+                subtitle = "Créez d'abord une classe pour diffuser un devoir.",
             )
             return@Column
         }
 
         ElDropdown(
             label = "Classe Cible",
-            selectedValue = selectedClass?.name ?: "",
-            options = classes.map { it.name },
-            onSelected = { name ->
-                selectedClassId = classes.first { it.name == name }.id
+            options = classes.map { ElDropdownOption(value = it.id, label = it.name) },
+            selectedValue = selectedClassId,
+            onSelected = { option ->
+                selectedClassId = option.value
                 selectedSubjectId = null
             },
             modifier = Modifier.fillMaxWidth(),
@@ -182,9 +186,9 @@ fun HomeworkPushScreen(
         if (subjects.isNotEmpty()) {
             ElDropdown(
                 label = "Matière",
-                selectedValue = selectedSubject?.name ?: "",
-                options = subjects.map { it.name },
-                onSelected = { name -> selectedSubjectId = subjects.first { it.name == name }.id },
+                options = subjects.map { ElDropdownOption(value = it.id, label = it.name) },
+                selectedValue = selectedSubjectId,
+                onSelected = { option -> selectedSubjectId = option.value },
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -194,18 +198,18 @@ fun HomeworkPushScreen(
         ElTextField(value = dueDate, onValueChange = { dueDate = it }, label = "Date de Rendu (AAAA-MM-JJ) *", modifier = Modifier.fillMaxWidth())
 
         ElCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Photo du Tableau / Support", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                        Text("Photo du Tableau / Support", style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
                         Text(
                             if (capturedPhotoName != null) "✓ $capturedPhotoName" else "Aucune photo jointe",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (capturedPhotoName != null) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = ElTheme.typography.bodySmall,
+                            color = if (capturedPhotoName != null) c.success else c.textSecondary,
                         )
                     }
                     if (capturedPhotoName != null) {
@@ -216,7 +220,7 @@ fun HomeworkPushScreen(
                                 capturedPhotoName = null
                                 photoFile = null
                             },
-                            style = ElButtonStyle.Secondary,
+                            variant = ElButtonVariant.SECONDARY,
                         )
                     }
                 }
@@ -251,14 +255,14 @@ fun HomeworkPushScreen(
                                 cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                             }
                         },
-                        style = ElButtonStyle.Secondary,
+                        variant = ElButtonVariant.SECONDARY,
                         icon = Icons.Default.CameraAlt,
                         modifier = Modifier.weight(1f),
                     )
                     ElButton(
                         text = "Galerie",
                         onClick = { galleryLauncher.launch("image/*") },
-                        style = ElButtonStyle.Secondary,
+                        variant = ElButtonVariant.SECONDARY,
                         icon = Icons.Default.Image,
                         modifier = Modifier.weight(1f),
                     )
@@ -268,8 +272,9 @@ fun HomeworkPushScreen(
 
         message?.let {
             ElAlertBanner(
+                title = if (it.startsWith("Devoir diffusé")) "Succès" else "Information",
                 message = it,
-                severity = if (it.startsWith("Devoir diffusé")) ElAlertSeverity.Success else ElAlertSeverity.Warning,
+                severity = if (it.startsWith("Devoir diffusé")) ElAlertSeverity.SUCCESS else ElAlertSeverity.WARNING,
             )
         }
 
