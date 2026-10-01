@@ -12,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Grade
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -21,11 +23,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElButtonStyle
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElEmptyState
-import com.example.ui.components.ElGradientStatCard
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.card.ElGradientStatCard
+import com.example.ui.designsystem.components.display.ElGradient
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.theme.ElTheme
 
 /**
  * TeacherWorkspaceScreen — "Mon espace" (T-237 / RBAC-300, 35th session).
@@ -47,6 +52,7 @@ fun TeacherWorkspaceScreen(
     onNavigateToGradeEntry: (String) -> Unit,
     viewModel: TeacherWorkspaceViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
     val classes by viewModel.myClasses.collectAsState()
     val totalStudents = classes.sumOf { it.enrolledCount }
 
@@ -60,6 +66,7 @@ fun TeacherWorkspaceScreen(
             title = "Mon espace",
             value = session.displayName,
             subtitle = "${classes.size} classe(s) · $totalStudents élève(s)",
+            gradient = ElGradient.BRAND,
             modifier = Modifier.fillMaxWidth(),
         )
 
@@ -67,15 +74,16 @@ fun TeacherWorkspaceScreen(
             ElEmptyState(
                 icon = Icons.Default.School,
                 title = "Aucune classe affectée",
-                message = "Aucune classe ne vous est affectée. Contactez le responsable pédagogique pour activer votre espace.",
+                subtitle = "Aucune classe ne vous est affectée. Contactez le responsable pédagogique pour activer votre espace.",
             )
         } else {
             classes.forEach { cls ->
                 ElCard(
                     modifier = Modifier.fillMaxWidth(),
+                    size = ElCardSize.STANDARD,
                 ) {
                     Column(
-                        modifier = Modifier.padding(14.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Row(
@@ -84,22 +92,23 @@ fun TeacherWorkspaceScreen(
                         ) {
                             Column {
                                 Row {
-                                    androidx.compose.material3.Icon(
+                                    Icon(
                                         Icons.Default.School,
                                         contentDescription = null,
-                                        tint = com.example.ui.theme.PrimaryBlue,
+                                        tint = c.primary,
                                         modifier = Modifier.padding(end = 6.dp),
                                     )
-                                    androidx.compose.material3.Text(
+                                    Text(
                                         cls.name,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 16.sp,
+                                        color = c.textPrimary,
                                     )
                                 }
-                                androidx.compose.material3.Text(
+                                Text(
                                     "Salle : ${cls.room ?: "—"} · ${cls.enrolledCount} élèves · ${cls.academicYear}",
                                     fontSize = 12.sp,
-                                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = c.textSecondary,
                                 )
                             }
                         }
@@ -110,14 +119,14 @@ fun TeacherWorkspaceScreen(
                             ElButton(
                                 text = "Appel",
                                 onClick = { onNavigateToRollCall(cls.id) },
-                                style = ElButtonStyle.Secondary,
+                                variant = ElButtonVariant.SECONDARY,
                                 icon = Icons.Default.CheckCircle,
                                 modifier = Modifier.weight(1f),
                             )
                             ElButton(
                                 text = "Notes",
                                 onClick = { onNavigateToGradeEntry(cls.id) },
-                                style = ElButtonStyle.Secondary,
+                                variant = ElButtonVariant.SECONDARY,
                                 icon = Icons.Default.Grade,
                                 modifier = Modifier.weight(1f),
                             )

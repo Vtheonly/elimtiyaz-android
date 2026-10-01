@@ -19,11 +19,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import com.example.ui.designsystem.overlays.ElDialogShell
+import com.example.ui.designsystem.theme.ElTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,16 +41,22 @@ import com.example.core.Permission
 import com.example.core.Session
 import com.example.domain.model.Personnel
 import com.example.domain.repository.CreatePersonnelInput
-import com.example.ui.components.ElAvatar
-import com.example.ui.components.ElButton
-import com.example.ui.components.ElButtonStyle
-import com.example.ui.components.ElCard
-import com.example.ui.components.ElEmptyState
-import com.example.ui.components.ElFab
-import com.example.ui.components.ElScrollableTabRow
-import com.example.ui.components.ElSectionHeader
-import com.example.ui.components.ElTag
-import com.example.ui.theme.PrimaryBlue
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.display.ElAvatar
+import com.example.ui.designsystem.components.display.ElAvatarSize
+import com.example.ui.designsystem.components.display.ElChip
+import com.example.ui.designsystem.components.display.ElChipVariant
+import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagSize
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.components.button.ElFab
+import com.example.ui.designsystem.components.tabs.ElScrollableTabRow
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.util.PhoneUtils
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
@@ -94,6 +98,7 @@ fun EmployeeDirectoryScreen(
     val message by viewModel.message.collectAsState()
     val busy by viewModel.busy.collectAsState()
     val context = LocalContext.current
+    val c = ElTheme.colors
 
     var selectedCategoryTab by remember { mutableIntStateOf(0) }
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -117,17 +122,19 @@ fun EmployeeDirectoryScreen(
             ElSectionHeader(title = "Registre du Personnel (${personnel.size})")
 
             message?.let {
-                Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                Text(it, color = c.primary, style = ElTheme.typography.bodySmall)
             }
             error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Text(it, color = c.danger, style = ElTheme.typography.bodySmall)
             }
 
             if (tabLabels.size > 1) {
+                // T-460 pass F: the LEGACY ui.components.ElScrollableTabRow
+                // (old tokens) → the DS tabs one (same behaviour, DS pills).
                 ElScrollableTabRow(
                     tabs = tabLabels,
-                    selectedTabIndex = selectedCategoryTab,
-                    onTabSelected = { selectedCategoryTab = it },
+                    selectedIndex = selectedCategoryTab,
+                    onSelected = { selectedCategoryTab = it },
                 )
             }
 
@@ -135,7 +142,7 @@ fun EmployeeDirectoryScreen(
                 ElEmptyState(
                     icon = Icons.Default.Phone,
                     title = "Aucun personnel",
-                    message = "Aucun employé dans cette catégorie.",
+                    subtitle = "Aucun employé dans cette catégorie.",
                 )
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
@@ -187,40 +194,41 @@ private fun EmployeeCard(
     onClick: () -> Unit,
     context: android.content.Context,
 ) {
-    ElCard(modifier = Modifier.fillMaxWidth(), compact = true, onClick = onClick) {
-        Column(modifier = Modifier.padding(14.dp)) {
+    ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD, onClick = onClick) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    ElAvatar(initials = staff.fullName, size = 42)
+                    ElAvatar(initials = staff.fullName, size = ElAvatarSize.M)
                     Spacer(Modifier.width(10.dp))
                     Column {
                         Text(
                             staff.fullName,
-                            style = MaterialTheme.typography.titleMedium.copy(
+                            style = ElTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 15.sp,
                             ),
+                            color = ElTheme.colors.textPrimary,
                         )
                         Text(
                             staff.position,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = ElTheme.typography.bodySmall,
+                            color = ElTheme.colors.textSecondary,
                         )
                     }
                 }
-                ElTag(text = roleDisplayLabel(staff.staffCategory), color = PrimaryBlue)
+                ElTag(text = roleDisplayLabel(staff.staffCategory), tone = ElTagTone.INFO, size = ElTagSize.MD)
             }
 
             Spacer(Modifier.height(8.dp))
             Text(
                 text = if (staff.phone.isNotBlank()) "Tél : ${staff.phone} • Embauché : ${staff.hireDate.take(10)}"
                        else "Embauché : ${staff.hireDate.take(10)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = ElTheme.typography.bodySmall,
+                color = ElTheme.colors.textSecondary,
             )
             Spacer(Modifier.height(10.dp))
 
@@ -228,7 +236,7 @@ private fun EmployeeCard(
                 ElButton(
                     text = "Appeler",
                     onClick = { PhoneUtils.dial(context, staff.phone) },
-                    style = ElButtonStyle.Secondary,
+                    variant = ElButtonVariant.SECONDARY,
                     icon = Icons.Default.Phone,
                     modifier = Modifier.weight(1f),
                     enabled = staff.phone.isNotBlank(),
@@ -241,7 +249,7 @@ private fun EmployeeCard(
                             runCatching { context.startActivity(intent) }
                         }
                     },
-                    style = ElButtonStyle.Secondary,
+                    variant = ElButtonVariant.SECONDARY,
                     icon = Icons.Default.Email,
                     modifier = Modifier.weight(1f),
                     enabled = !staff.email.isNullOrBlank(),
@@ -274,27 +282,34 @@ private fun CreateEmployeeDialog(
     val salaryCentimes = salaryDzd.replace(" ", "").toLongOrNull()?.let { it * 100L }
     val valid = firstName.isNotBlank() && lastName.isNotBlank() && phone.isNotBlank() && hireDate.isNotBlank()
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Ajouter un employé") },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Prénom *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Nom *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+    // T-460 pass F: the DS dialog shell (same dialog language as the other
+    // hubs' forms).
+    ElDialogShell(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                "Ajouter un employé",
+                style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = ElTheme.colors.textPrimary,
+            )
+                ElTextField(value = firstName, onValueChange = { firstName = it }, label = "Prénom *", singleLine = true, modifier = Modifier.fillMaxWidth())
+                ElTextField(value = lastName, onValueChange = { lastName = it }, label = "Nom *", singleLine = true, modifier = Modifier.fillMaxWidth())
 
-                Text("Rôle *", style = MaterialTheme.typography.labelMedium)
+                Text("Rôle *", style = ElTheme.typography.labelMedium, color = ElTheme.colors.textPrimary)
                 androidx.compose.foundation.layout.FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     STAFF_ROLE_OPTIONS.forEach { (code, label) ->
-                        ElTag(
+                        ElChip(
                             text = label,
+                            variant = ElChipVariant.FILTER,
                             selected = roleCode == code,
-                            color = PrimaryBlue,
                             onClick = {
                                 roleCode = code
                                 position = label
@@ -304,65 +319,73 @@ private fun CreateEmployeeDialog(
                 }
 
                 if (departments.isNotEmpty()) {
-                    Text("Département", style = MaterialTheme.typography.labelMedium)
+                    Text("Département", style = ElTheme.typography.labelMedium, color = ElTheme.colors.textPrimary)
                     androidx.compose.foundation.layout.FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        ElTag(
+                        ElChip(
                             text = "Aucun",
+                            variant = ElChipVariant.FILTER,
                             selected = departmentId == null,
-                            color = PrimaryBlue,
                             onClick = { departmentId = null },
                         )
                         departments.forEach { (id, name) ->
-                            ElTag(
+                            ElChip(
                                 text = name,
+                                variant = ElChipVariant.FILTER,
                                 selected = departmentId == id,
-                                color = PrimaryBlue,
                                 onClick = { departmentId = id },
                             )
                         }
                     }
                 }
 
-                OutlinedTextField(value = position, onValueChange = { position = it }, label = { Text("Poste") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Téléphone *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = hireDate, onValueChange = { hireDate = it }, label = { Text("Date d'embauche (AAAA-MM-JJ) *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(
+                ElTextField(value = position, onValueChange = { position = it }, label = "Poste", singleLine = true, modifier = Modifier.fillMaxWidth())
+                ElTextField(value = phone, onValueChange = { phone = it }, label = "Téléphone *", singleLine = true, modifier = Modifier.fillMaxWidth())
+                ElTextField(value = email, onValueChange = { email = it }, label = "Email", singleLine = true, modifier = Modifier.fillMaxWidth())
+                ElTextField(value = hireDate, onValueChange = { hireDate = it }, label = "Date d'embauche (AAAA-MM-JJ) *", singleLine = true, modifier = Modifier.fillMaxWidth())
+                ElTextField(
                     value = salaryDzd,
                     onValueChange = { raw -> salaryDzd = raw.filter { it.isDigit() }.take(12) },
-                    label = { Text("Salaire mensuel (DZD)") },
+                    label = "Salaire mensuel (DZD)",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ElButton(
+                    text = "Annuler",
+                    onClick = onDismiss,
+                    variant = ElButtonVariant.GHOST,
+                    modifier = Modifier.weight(1f),
+                )
+                ElButton(
+                    text = "Ajouter",
+                    onClick = {
+                        onConfirm(
+                            CreatePersonnelInput(
+                                firstName = firstName.trim(),
+                                lastName = lastName.trim(),
+                                staffCategory = roleCode,
+                                roleId = roleCode,
+                                departmentId = departmentId,
+                                position = position.trim().ifBlank { roleCode },
+                                phone = phone.trim(),
+                                email = email.trim().ifBlank { null },
+                                hireDate = hireDate.trim(),
+                                salary = salaryCentimes,
+                            ),
+                        )
+                    },
+                    enabled = !busy && valid,
+                    variant = ElButtonVariant.PRIMARY,
+                    modifier = Modifier.weight(1f),
+                )
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onConfirm(
-                        CreatePersonnelInput(
-                            firstName = firstName.trim(),
-                            lastName = lastName.trim(),
-                            staffCategory = roleCode,
-                            roleId = roleCode,
-                            departmentId = departmentId,
-                            position = position.trim().ifBlank { roleCode },
-                            phone = phone.trim(),
-                            email = email.trim().ifBlank { null },
-                            hireDate = hireDate.trim(),
-                            salary = salaryCentimes,
-                        ),
-                    )
-                },
-                enabled = !busy && valid,
-            ) { Text("Ajouter") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Annuler") }
-        },
-    )
+        }
+    }
 }
