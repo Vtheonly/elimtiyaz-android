@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,21 +14,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -47,9 +36,23 @@ import com.example.domain.repository.CreateSubjectInput
 import com.example.domain.repository.SubjectRepository
 import com.example.domain.repository.UpdateSubjectInput
 import com.example.session.SessionManager
+import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.button.ElIconButton
+import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElCardSize
 import com.example.ui.designsystem.components.display.ElAlertBanner
 import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.display.ElChip
+import com.example.ui.designsystem.components.display.ElChipVariant
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagSize
+import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.input.ElTextField
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.overlays.ElDialogShell
 import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -206,7 +209,6 @@ class SubjectsDirectoryViewModel @Inject constructor(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubjectsDirectoryScreen(
     onBack: () -> Unit,
@@ -235,14 +237,22 @@ fun SubjectsDirectoryScreen(
             }
         }
 
-    Scaffold(
+    val c = ElTheme.colors
+
+    ElScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Matières") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Retour") } },
+            ElTopBar(
+                title = "Matières",
+                onBack = onBack,
                 actions = {
                     if (viewModel.canManage) {
-                        IconButton(onClick = { showCreateDialog = true }) { Icon(Icons.Default.Add, contentDescription = "Nouvelle matière") }
+                        ElIconButton(
+                            icon = Icons.Default.Add,
+                            onClick = { showCreateDialog = true },
+                            contentDescription = "Nouvelle matière",
+                            tint = c.primary,
+                            background = androidx.compose.ui.graphics.Color.Transparent,
+                        )
                     }
                 },
             )
@@ -267,17 +277,17 @@ fun SubjectsDirectoryScreen(
             }
 
             // Vault §05.01 — domain split filter (Scolarite vs Clubs/Therapy).
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
-                FilterChip(selected = domainFilter == null, onClick = { viewModel.onDomainFilter(null) }, label = { Text("Tous domaines") })
-                FilterChip(selected = domainFilter == "scolarite", onClick = { viewModel.onDomainFilter("scolarite") }, label = { Text("Scolarité") })
-                FilterChip(selected = domainFilter == "extracurricular", onClick = { viewModel.onDomainFilter("extracurricular") }, label = { Text("Clubs & Thérapie") })
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+                ElChip(text = "Tous domaines", variant = ElChipVariant.FILTER, selected = domainFilter == null, onClick = { viewModel.onDomainFilter(null) })
+                ElChip(text = "Scolarité", variant = ElChipVariant.FILTER, selected = domainFilter == "scolarite", onClick = { viewModel.onDomainFilter("scolarite") })
+                ElChip(text = "Clubs & Thérapie", variant = ElChipVariant.FILTER, selected = domainFilter == "extracurricular", onClick = { viewModel.onDomainFilter("extracurricular") })
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
-                FilterChip(selected = levelFilter == null, onClick = { viewModel.onLevelFilter(null) }, label = { Text("Tous") })
-                FilterChip(selected = levelFilter == "primaire", onClick = { viewModel.onLevelFilter("primaire") }, label = { Text("Primaire") })
-                FilterChip(selected = levelFilter == "cem", onClick = { viewModel.onLevelFilter("cem") }, label = { Text("CEM") })
-                FilterChip(selected = levelFilter == "lycee", onClick = { viewModel.onLevelFilter("lycee") }, label = { Text("Lycée") })
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 12.dp)) {
+                ElChip(text = "Tous", variant = ElChipVariant.FILTER, selected = levelFilter == null, onClick = { viewModel.onLevelFilter(null) })
+                ElChip(text = "Primaire", variant = ElChipVariant.FILTER, selected = levelFilter == "primaire", onClick = { viewModel.onLevelFilter("primaire") })
+                ElChip(text = "CEM", variant = ElChipVariant.FILTER, selected = levelFilter == "cem", onClick = { viewModel.onLevelFilter("cem") })
+                ElChip(text = "Lycée", variant = ElChipVariant.FILTER, selected = levelFilter == "lycee", onClick = { viewModel.onLevelFilter("lycee") })
             }
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -293,28 +303,54 @@ fun SubjectsDirectoryScreen(
                     }
                 }
                 items(filtered) { subj ->
-                    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(1.dp)) {
+                    ElCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        size = ElCardSize.STANDARD,
+                    ) {
                         Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                            Row {
-                                Text(subj.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                if (subj.isExtracurricular) Text("Hors programme", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Text(
+                                    subj.name,
+                                    style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = c.textPrimary,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (subj.isExtracurricular) {
+                                    ElTag(text = "Hors programme", tone = ElTagTone.WARNING, size = ElTagSize.SM)
+                                }
                             }
-                            Text("Code: ${subj.code} • Niveau: ${subj.level} • Coef: ${subj.coefficient}", style = MaterialTheme.typography.labelSmall)
-                            Text("Seuil réussite: ${subj.passingGrade}/20", style = MaterialTheme.typography.labelSmall)
+                            Text("Code : ${subj.code} • Niveau : ${subj.level} • Coef : ${subj.coefficient}", style = ElTheme.typography.labelSmall, color = c.textSecondary)
+                            Text("Seuil réussite : ${subj.passingGrade}/20", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                             // Vault §06.02 — surface the per-COMPONENT
                             // coefficients so an admin can read the active
                             // subject-average recipe at a glance.
                             Text(
-                                "Pondération: D1 × ${subj.coefficientDevoir1} • D2 × ${subj.coefficientDevoir2} • Ex × ${subj.coefficientExamen}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                "Pondération : D1 × ${subj.coefficientDevoir1} • D2 × ${subj.coefficientDevoir2} • Ex × ${subj.coefficientExamen}",
+                                style = ElTheme.typography.labelSmall,
+                                color = c.textSecondary,
                             )
                             if (viewModel.canManage) {
-                                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
                                     // Vault §05.06 — coefficient edit (audited +
                                     // triggers the GPA recompute server-repo side).
-                                    IconButton(onClick = { editTarget = subj }) { Icon(Icons.Default.Edit, contentDescription = "Modifier") }
-                                    IconButton(onClick = { archiveTarget = subj }) { Icon(Icons.Default.Archive, contentDescription = "Archiver") }
+                                    ElIconButton(
+                                        icon = Icons.Default.Edit,
+                                        onClick = { editTarget = subj },
+                                        contentDescription = "Modifier",
+                                        tint = c.primary,
+                                        background = androidx.compose.ui.graphics.Color.Transparent,
+                                        size = 36,
+                                        iconSize = 18,
+                                    )
+                                    ElIconButton(
+                                        icon = Icons.Default.Archive,
+                                        onClick = { archiveTarget = subj },
+                                        contentDescription = "Archiver",
+                                        tint = c.danger,
+                                        background = androidx.compose.ui.graphics.Color.Transparent,
+                                        size = 36,
+                                        iconSize = 18,
+                                    )
                                 }
                             }
                         }
@@ -337,65 +373,70 @@ fun SubjectsDirectoryScreen(
         // Vault §05.07 — extracurricular toggle (clubs & therapy programs).
         var extracurricularLabel by remember { mutableStateOf("Scolarité") }
         val domainOptions = listOf("Scolarité", "Hors programme (club / thérapie)")
-        AlertDialog(
-            onDismissRequest = { showCreateDialog = false },
-            title = { Text("Nouvelle matière") },
-            text = {
-                Column {
-                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nom *") }, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = code, onValueChange = { code = it }, label = { Text("Code *") }, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(8.dp))
-                    // T-323: structured level selection — the free-text
-                    // "all/primaire/cem/lycee" field was error-prone (a typo
-                    // silently broke the level filter for that subject).
-                    LevelDropdown(level = level, onLevelChange = { level = it })
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = coef, onValueChange = { coef = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("Coefficient (scolarité)") }, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(8.dp))
-                    // Vault §06.02 — per-component coefficients for the
-                    // subject-average recipe (D1×c1 + D2×c2 + Ex×c3) / (c1+c2+c3).
-                    OutlinedTextField(value = coefD1, onValueChange = { coefD1 = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("Coef. Devoir 1") }, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = coefD2, onValueChange = { coefD2 = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("Coef. Devoir 2") }, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(value = coefEx, onValueChange = { coefEx = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text("Coef. Examen") }, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        domainOptions.forEach { opt ->
-                            FilterChip(
-                                selected = extracurricularLabel == opt,
-                                onClick = { extracurricularLabel = opt },
-                                label = { Text(if (opt == "Scolarité") "Scolarité" else "Hors programme") },
-                            )
-                        }
+        ElDialogShell(onDismissRequest = { showCreateDialog = false }) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Nouvelle matière",
+                    style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = ElTheme.colors.textPrimary,
+                )
+                ElTextField(value = name, onValueChange = { name = it }, label = "Nom *", modifier = Modifier.fillMaxWidth())
+                ElTextField(value = code, onValueChange = { code = it }, label = "Code *", modifier = Modifier.fillMaxWidth())
+                // T-323: structured level selection — the free-text
+                // "all/primaire/cem/lycee" field was error-prone (a typo
+                // silently broke the level filter for that subject).
+                LevelDropdown(level = level, onLevelChange = { level = it })
+                // Vault §06.02 — per-component coefficients for the
+                // subject-average recipe (D1×c1 + D2×c2 + Ex×c3) / (c1+c2+c3).
+                ElTextField(value = coef, onValueChange = { coef = it.filter { ch -> ch.isDigit() || ch == '.' } }, label = "Coefficient (scolarité)", modifier = Modifier.fillMaxWidth())
+                ElTextField(value = coefD1, onValueChange = { coefD1 = it.filter { ch -> ch.isDigit() || ch == '.' } }, label = "Coef. Devoir 1", modifier = Modifier.fillMaxWidth())
+                ElTextField(value = coefD2, onValueChange = { coefD2 = it.filter { ch -> ch.isDigit() || ch == '.' } }, label = "Coef. Devoir 2", modifier = Modifier.fillMaxWidth())
+                ElTextField(value = coefEx, onValueChange = { coefEx = it.filter { ch -> ch.isDigit() || ch == '.' } }, label = "Coef. Examen", modifier = Modifier.fillMaxWidth())
+                // Vault §05.07 — extracurricular toggle (clubs & therapy programs).
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    domainOptions.forEach { opt ->
+                        ElChip(
+                            text = if (opt == "Scolarité") "Scolarité" else "Hors programme",
+                            variant = ElChipVariant.FILTER,
+                            selected = extracurricularLabel == opt,
+                            onClick = { extracurricularLabel = opt },
+                        )
                     }
-                    Text(
-                        "Les matières hors programme (clubs, thérapie) sont exclues du GPA de scolarité. " +
-                            "Recette par défaut : (D1 + D2 + 2×Examen) / 4.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                }
+                Text(
+                    "Les matières hors programme (clubs, thérapie) sont exclues du GPA de scolarité. " +
+                        "Recette par défaut : (D1 + D2 + 2×Examen) / 4.",
+                    style = ElTheme.typography.labelSmall,
+                    color = ElTheme.colors.textSecondary,
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ElButton(
+                        text = "Annuler",
+                        onClick = { showCreateDialog = false },
+                        variant = ElButtonVariant.GHOST,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ElButton(
+                        text = "Créer",
+                        onClick = {
+                            viewModel.createSubject(
+                                name, code, level,
+                                coef.toDoubleOrNull() ?: 1.0,
+                                extracurricularLabel != "Scolarité",
+                                coefD1.toDoubleOrNull() ?: 1.0,
+                                coefD2.toDoubleOrNull() ?: 1.0,
+                                coefEx.toDoubleOrNull() ?: 2.0,
+                            )
+                            showCreateDialog = false
+                        },
+                        enabled = name.isNotBlank() && code.isNotBlank(),
+                        variant = ElButtonVariant.PRIMARY,
+                        modifier = Modifier.weight(1f),
                     )
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.createSubject(
-                            name, code, level,
-                            coef.toDoubleOrNull() ?: 1.0,
-                            extracurricularLabel != "Scolarité",
-                            coefD1.toDoubleOrNull() ?: 1.0,
-                            coefD2.toDoubleOrNull() ?: 1.0,
-                            coefEx.toDoubleOrNull() ?: 2.0,
-                        )
-                        showCreateDialog = false
-                    },
-                    enabled = name.isNotBlank() && code.isNotBlank(),
-                ) { Text("Créer") }
-            },
-            dismissButton = { TextButton(onClick = { showCreateDialog = false }) { Text("Annuler") } },
-        )
+            }
+        }
     }
 
     // Vault §05.06 + §06.02 — edit dialog: name + coefficient + passing
@@ -407,94 +448,112 @@ fun SubjectsDirectoryScreen(
         var coefD1 by remember(subj.id) { mutableStateOf(if (subj.coefficientDevoir1 == subj.coefficientDevoir1.toLong().toDouble()) "${subj.coefficientDevoir1.toLong()}" else "${subj.coefficientDevoir1}") }
         var coefD2 by remember(subj.id) { mutableStateOf(if (subj.coefficientDevoir2 == subj.coefficientDevoir2.toLong().toDouble()) "${subj.coefficientDevoir2.toLong()}" else "${subj.coefficientDevoir2}") }
         var coefEx by remember(subj.id) { mutableStateOf(if (subj.coefficientExamen == subj.coefficientExamen.toLong().toDouble()) "${subj.coefficientExamen.toLong()}" else "${subj.coefficientExamen}") }
-        AlertDialog(
-            onDismissRequest = { editTarget = null },
-            title = { Text("Modifier — ${subj.name}") },
-            text = {
-                Column {
-                    OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nom *") }, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = coef,
-                        onValueChange = { coef = it.filter { c -> c.isDigit() || c == '.' } },
-                        label = { Text("Coefficient (scolarité)") },
-                        modifier = Modifier.fillMaxWidth(),
+        ElDialogShell(onDismissRequest = { editTarget = null }) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Modifier — ${subj.name}",
+                    style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = ElTheme.colors.textPrimary,
+                )
+                ElTextField(value = name, onValueChange = { name = it }, label = "Nom *", modifier = Modifier.fillMaxWidth())
+                ElTextField(
+                    value = coef,
+                    onValueChange = { coef = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    label = "Coefficient (scolarité)",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                ElTextField(
+                    value = coefD1,
+                    onValueChange = { coefD1 = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    label = "Coef. Devoir 1",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                ElTextField(
+                    value = coefD2,
+                    onValueChange = { coefD2 = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    label = "Coef. Devoir 2",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                ElTextField(
+                    value = coefEx,
+                    onValueChange = { coefEx = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    label = "Coef. Examen",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                ElTextField(
+                    value = passing,
+                    onValueChange = { passing = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                    label = "Seuil de réussite (/20)",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    "Un changement de coefficient est journalisé et déclenche le recalcul automatique des moyennes de l'année en cours (les années archivées restent immuables).",
+                    style = ElTheme.typography.labelSmall,
+                    color = ElTheme.colors.textSecondary,
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ElButton(
+                        text = "Annuler",
+                        onClick = { editTarget = null },
+                        variant = ElButtonVariant.GHOST,
+                        modifier = Modifier.weight(1f),
                     )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = coefD1,
-                        onValueChange = { coefD1 = it.filter { c -> c.isDigit() || c == '.' } },
-                        label = { Text("Coef. Devoir 1") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = coefD2,
-                        onValueChange = { coefD2 = it.filter { c -> c.isDigit() || c == '.' } },
-                        label = { Text("Coef. Devoir 2") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = coefEx,
-                        onValueChange = { coefEx = it.filter { c -> c.isDigit() || c == '.' } },
-                        label = { Text("Coef. Examen") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = passing,
-                        onValueChange = { passing = it.filter { c -> c.isDigit() || c == '.' } },
-                        label = { Text("Seuil de réussite (/20)") },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Un changement de coefficient est journalisé et déclenche le recalcul automatique des moyennes de l'année en cours (les années archivées restent immuables).",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ElButton(
+                        text = "Enregistrer",
+                        onClick = {
+                            viewModel.updateSubject(
+                                subj.id,
+                                name,
+                                coef.toDoubleOrNull() ?: subj.coefficient,
+                                passing.toDoubleOrNull() ?: subj.passingGrade,
+                                coefD1.toDoubleOrNull() ?: subj.coefficientDevoir1,
+                                coefD2.toDoubleOrNull() ?: subj.coefficientDevoir2,
+                                coefEx.toDoubleOrNull() ?: subj.coefficientExamen,
+                            )
+                            editTarget = null
+                        },
+                        enabled = name.isNotBlank() && (coef.toDoubleOrNull() ?: 0.0) > 0.0,
+                        variant = ElButtonVariant.PRIMARY,
+                        modifier = Modifier.weight(1f),
                     )
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.updateSubject(
-                            subj.id,
-                            name,
-                            coef.toDoubleOrNull() ?: subj.coefficient,
-                            passing.toDoubleOrNull() ?: subj.passingGrade,
-                            coefD1.toDoubleOrNull() ?: subj.coefficientDevoir1,
-                            coefD2.toDoubleOrNull() ?: subj.coefficientDevoir2,
-                            coefEx.toDoubleOrNull() ?: subj.coefficientExamen,
-                        )
-                        editTarget = null
-                    },
-                    enabled = name.isNotBlank() && (coef.toDoubleOrNull() ?: 0.0) > 0.0,
-                ) { Text("Enregistrer") }
-            },
-            dismissButton = { TextButton(onClick = { editTarget = null }) { Text("Annuler") } },
-        )
+            }
+        }
     }
 
     archiveTarget?.let { subj ->
-        AlertDialog(
-            onDismissRequest = { archiveTarget = null },
-            title = { Text("Archiver la matière") },
-            text = { Text("Archiver « ${subj.name} » ?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.archiveSubject(subj.id)
-                        archiveTarget = null
-                    },
-                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
-                        contentColor = ElTheme.colors.danger,
-                    ),
-                ) { Text("Archiver") }
-            },
-            dismissButton = { TextButton(onClick = { archiveTarget = null }) { Text("Annuler") } },
-        )
+        ElDialogShell(onDismissRequest = { archiveTarget = null }) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Archiver la matière",
+                    style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = ElTheme.colors.textPrimary,
+                )
+                Text(
+                    "Archiver « ${subj.name} » ?",
+                    style = ElTheme.typography.bodyMedium,
+                    color = ElTheme.colors.textSecondary,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ElButton(
+                        text = "Annuler",
+                        onClick = { archiveTarget = null },
+                        variant = ElButtonVariant.GHOST,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ElButton(
+                        text = "Archiver",
+                        onClick = {
+                            viewModel.archiveSubject(subj.id)
+                            archiveTarget = null
+                        },
+                        variant = ElButtonVariant.DANGER,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
     }
 }
 
