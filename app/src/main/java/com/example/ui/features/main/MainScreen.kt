@@ -5,18 +5,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -35,7 +28,11 @@ import com.example.core.Session
 import com.example.domain.repository.AuthRepository
 import com.example.infrastructure.notifications.NotificationDeepLink
 import com.example.session.SessionManager
-import com.example.ui.components.ModernBottomNavBar
+import com.example.ui.designsystem.components.button.ElIconButton
+import com.example.ui.designsystem.components.nav.ElBottomBar
+import com.example.ui.designsystem.components.nav.ElNavDestination
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.features.academics.AcademicsHubScreen
 import com.example.ui.features.crm.CrmHubScreen
 import com.example.ui.features.dashboard.DashboardHubScreen
@@ -65,7 +62,16 @@ class MainViewModel @Inject constructor(
     }
 }
 
+/**
+ * A hub destination in the global bottom navigation.
+ *
+ * T-460 pass B (the T-044 route-model rewrite): every hub tab now carries a
+ * stable [route] — the DS [ElBottomBar] is route-keyed (not index-keyed like
+ * the legacy ModernBottomNavBar), so the tab identity survives RBAC filtering
+ * (the visible list can shrink; routes stay stable).
+ */
 data class HubTab(
+    val route: String,
     val label: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val requiresPermission: Permission?,
@@ -84,14 +90,13 @@ fun deepLinkTargetTabIndex(type: String, visible: List<HubTab>): Int {
 }
 
 val HUB_TABS = listOf(
-    HubTab("Tableau", Icons.Default.Dashboard, null, Role.DASHBOARD_ROLES),
-    HubTab("CRM", Icons.Default.Group, Permission.VIEW_ROSTER, null),
-    HubTab("Pédagogie", Icons.Default.MenuBook, Permission.VIEW_ACADEMICS, null),
-    HubTab("Finances", Icons.Default.Payments, Permission.VIEW_FINANCIALS, null),
-    HubTab("Personnel", Icons.Default.Person, Permission.VIEW_PERSONNEL, null),
+    HubTab("dashboard", "Tableau", Icons.Default.Dashboard, null, Role.DASHBOARD_ROLES),
+    HubTab("crm", "CRM", Icons.Default.Group, Permission.VIEW_ROSTER, null),
+    HubTab("academics", "Pédagogie", Icons.AutoMirrored.Filled.MenuBook, Permission.VIEW_ACADEMICS, null),
+    HubTab("financials", "Finances", Icons.Default.Payments, Permission.VIEW_FINANCIALS, null),
+    HubTab("personnel", "Personnel", Icons.Default.Person, Permission.VIEW_PERSONNEL, null),
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     session: Session?,
@@ -170,31 +175,51 @@ fun MainScreen(
         NotificationDeepLink.consume()
     }
 
-    Scaffold(
+    // ── T-460 pass B: the route-keyed DS nav chrome ───────────────────────
+    // The DS ElBottomBar speaks routes (ElNavDestination.route == HubTab.route);
+    // the index-based state (selectedTab / tabHistory / deep links / BackHandler)
+    // is preserved untouched underneath — the route→index translation happens
+    // at the bar's edge, so RBAC filtering + saveable state + the deep-link
+    // contract all behave exactly as before.
+    val destinations = visibleTabs.map { tab ->
+        ElNavDestination(route = tab.route, label = tab.label, icon = tab.icon)
+    }
+    val currentRoute = visibleTabs.getOrNull(safeSelected)?.route ?: destinations.firstOrNull()?.route ?: ""
+    val navigateByRoute: (String) -> Unit = { route ->
+        visibleTabs.indexOfFirst { it.route == route }.takeIf { it >= 0 }?.let(selectTab)
+    }
+
+    ElScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(visibleTabs.getOrElse(safeSelected) { visibleTabs.first() }.label) },
+            ElTopBar(
+                title = visibleTabs.getOrElse(safeSelected) { visibleTabs.first() }.label,
                 actions = {
-                    IconButton(onClick = onNavigateToProfile) {
-                        Icon(Icons.Default.Person, contentDescription = "Profil")
-                    }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Default.Dashboard, contentDescription = "Paramètres")
-                    }
+                    ElIconButton(
+                        icon = Icons.Default.Person,
+                        onClick = onNavigateToProfile,
+                        contentDescription = "Profil",
+                        background = androidx.compose.ui.graphics.Color.Transparent,
+                    )
+                    ElIconButton(
+                        icon = Icons.Default.Dashboard,
+                        onClick = onNavigateToSettings,
+                        contentDescription = "Paramètres",
+                        background = androidx.compose.ui.graphics.Color.Transparent,
+                    )
                 },
             )
         },
         bottomBar = {
-            ModernBottomNavBar(
-                tabs = visibleTabs,
-                selectedTabIndex = safeSelected,
-                onTabSelected = selectTab,
+            ElBottomBar(
+                destinations = destinations,
+                currentRoute = currentRoute,
+                onNavigate = navigateByRoute,
             )
         },
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            when (visibleTabs.getOrNull(safeSelected)?.label) {
-                "Tableau" -> DashboardHubScreen(
+            when (visibleTabs.getOrNull(safeSelected)?.route) {
+                "dashboard" -> DashboardHubScreen(
                     session = session,
                     onNavigateToStudent = onNavigateToStudent,
                     onNavigateToParent = onNavigateToParent,
@@ -202,19 +227,19 @@ fun MainScreen(
                     onNavigateToDebtDashboard = onNavigateToDebtDashboard,
                     onNavigateToBatchRegistration = onNavigateToBatchRegistration,
                     onNavigateToAcademics = {
-                        val idx = visibleTabs.indexOfFirst { it.label == "Pédagogie" }
+                        val idx = visibleTabs.indexOfFirst { it.route == "academics" }
                         if (idx >= 0) selectTab(idx)
                     },
                     onNavigateToCrm = {
-                        val idx = visibleTabs.indexOfFirst { it.label == "CRM" }
+                        val idx = visibleTabs.indexOfFirst { it.route == "crm" }
                         if (idx >= 0) selectTab(idx)
                     },
                     onNavigateToFinancials = {
-                        val idx = visibleTabs.indexOfFirst { it.label == "Finances" }
+                        val idx = visibleTabs.indexOfFirst { it.route == "financials" }
                         if (idx >= 0) selectTab(idx)
                     },
                     onNavigateToPersonnel = {
-                        val idx = visibleTabs.indexOfFirst { it.label == "Personnel" }
+                        val idx = visibleTabs.indexOfFirst { it.route == "personnel" }
                         if (idx >= 0) selectTab(idx)
                     },
                     onNavigateToGlobalSearch = onNavigateToGlobalSearch,
@@ -224,13 +249,13 @@ fun MainScreen(
                     onNavigateToRollCall = onNavigateToRollCall,
                     onNavigateToExpenseDetail = onNavigateToExpenseDetail,
                 )
-                "CRM" -> CrmHubScreen(
+                "crm" -> CrmHubScreen(
                     session = session,
                     onNavigateToStudent = onNavigateToStudent,
                     onNavigateToParent = onNavigateToParent,
                     onNavigateToBatchRegistration = onNavigateToBatchRegistration,
                 )
-                "Pédagogie" -> AcademicsHubScreen(
+                "academics" -> AcademicsHubScreen(
                     session = session,
                     onNavigateToClassDetail = onNavigateToClassDetail,
                     onNavigateToSubjectsDirectory = onNavigateToSubjectsDirectory,
@@ -239,7 +264,7 @@ fun MainScreen(
                     onNavigateToHomeworkPush = onNavigateToHomeworkPush,
                     onNavigateToPromotionReview = onNavigateToPromotionReview,
                 )
-                "Finances" -> FinancialsHubScreen(
+                "financials" -> FinancialsHubScreen(
                     session = session,
                     onNavigateToCounterPayment = onNavigateToCounterPayment,
                     onNavigateToProofScanner = onNavigateToProofScanner,
@@ -249,7 +274,7 @@ fun MainScreen(
                     onNavigateToExpenseDetail = onNavigateToExpenseDetail,
                     onNavigateToPaymentDetail = onNavigateToPaymentDetail,
                 )
-                "Personnel" -> PersonnelHubScreen(
+                "personnel" -> PersonnelHubScreen(
                     session = session,
                     onNavigateToPersonnelDetail = onNavigateToPersonnelDetail,
                     onNavigateToReleve = onNavigateToReleve,
