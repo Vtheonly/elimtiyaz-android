@@ -280,6 +280,112 @@ class ExecutiveStatisticsTest {
     }
 
     // ══════════════════════════════════════════════════════════════════════
+    // T-453 — the POOLED all-categories waves + the non-wave summary
+    // (the T-447/STATS-401 mirrors — the exact-dinar parity object)
+    // ══════════════════════════════════════════════════════════════════════
+
+    @Test
+    fun `pooled waves - set-union family counts across categories (never the sum of counts)`() {
+        // p-1 owes BOTH tuition T1 AND transport T1 → ONE family in the pooled
+        // wave-1 row (summing per-category counts would double-count them —
+        // the §15.79 pooled-aggregate trap).
+        val pooled = deriveExecPooledTrancheWaves(
+            listOf(
+                ins("pw-1", "p-1", trancheNumber = 1, amountDue = 100_000, amountPaid = 0, status = "unpaid", dueDate = "2025-09-15"),
+                ins("pw-2", "p-1", category = "transport", trancheNumber = 1, amountDue = 20_000, amountPaid = 0, status = "unpaid", dueDate = "2025-09-15"),
+                ins("pw-3", "p-2", trancheNumber = 1, amountDue = 80_000, amountPaid = 80_000, status = "paid", dueDate = "2025-09-15"),
+            ),
+            now,
+        )
+        assertEquals(1, pooled.size)
+        val w1 = pooled[0]
+        assertEquals(1, w1.wave)
+        assertEquals(3, w1.installmentCount)
+        assertEquals(1, w1.settledCount)
+        assertEquals(2, w1.familyCount) // p-1 + p-2 — the SET union
+        assertEquals(1, w1.debtorFamilyCount) // p-1 only
+        assertEquals(1, w1.overdueDebtorFamilyCount) // p-1's rows are past due
+        assertEquals(200_000L, w1.dueTotal)
+        assertEquals(80_000L, w1.paidTotal)
+        assertEquals(120_000L, w1.remainingTotal)
+        assertEquals(40, w1.collectedPct) // round(80000/200000*100)
+        assertEquals(2, w1.perCategory.size) // tuition first, transport second
+        assertEquals("tuition", w1.perCategory[0].category)
+        assertEquals("transport", w1.perCategory[1].category)
+    }
+
+    @Test
+    fun `pooled waves - the reconciliation identity holds exactly, including the overCoverage leg`() {
+        // The mandate's "Total Due = Paid + Pending + Remaining" identity:
+        //   dueTotal + overCoverageTotal = paidTotal + pendingTotal + remainingTotal
+        // The over-covered row (paid > due) exercises the overCoverage leg.
+        val pooled = deriveExecPooledTrancheWaves(
+            listOf(
+                // over-covered: paid 250k of a 200k due → overCoverage 50k
+                ins("oc-1", "p-1", category = "transport", trancheNumber = 2, amountDue = 200_000, amountPaid = 250_000, status = "paid", dueDate = "2025-12-15"),
+                // normal row
+                ins("oc-2", "p-2", trancheNumber = 2, amountDue = 100_000, amountPaid = 40_000, status = "partial", dueDate = "2025-12-15"),
+                // pending coverage (uncleared cheque)
+                ins("oc-3", "p-3", trancheNumber = 2, amountDue = 50_000, amountPaid = 0, amountPending = 50_000, status = "pending_clearance", dueDate = "2025-12-15"),
+            ),
+            now,
+        )
+        assertEquals(1, pooled.size)
+        val w2 = pooled[0]
+        assertEquals(50_000L, w2.overCoverageTotal)
+        assertEquals(350_000L, w2.dueTotal)
+        assertEquals(290_000L, w2.paidTotal)
+        assertEquals(50_000L, w2.pendingTotal)
+        assertEquals(60_000L, w2.remainingTotal) // the over-covered and pending rows contribute 0
+        // settled: oc-1 (paid, and remaining clamps to 0) + oc-3 (pending coverage settles it)
+        assertEquals(2, w2.settledCount)
+        // THE identity — exact, per wave.
+        assertEquals(w2.dueTotal + w2.overCoverageTotal, w2.paidTotal + w2.pendingTotal + w2.remainingTotal)
+    }
+
+    @Test
+    fun `pooled waves - non-wave rows (FI) never reach the pool, and only waves with rows are returned`() {
+        val pooled = deriveExecPooledTrancheWaves(
+            listOf(
+                ins("fi-x", "p-1", trancheNumber = 0, amountDue = 500_000, amountPaid = 500_000, status = "paid", dueDate = "2025-09-15"),
+                ins("t3-x", "p-1", trancheNumber = 3, amountDue = 80_000, amountPaid = 0, status = "unpaid", dueDate = "2027-03-15"),
+            ),
+            now,
+        )
+        assertEquals(1, pooled.size) // wave 3 only — wave 1/2 have no rows, FI excluded
+        assertEquals(3, pooled[0].wave)
+        assertEquals(80_000L, pooled[0].dueTotal)
+        assertTrue(pooled[0].anyUnsettledFuture) // the 2026-03-15 row is future-dated
+        assertFalse(pooled[0].anyUnsettledOverdue)
+    }
+
+    @Test
+    fun `non-wave summary - the FI (tranche 0) disclosure grouped by kind x category`() {
+        val nw = deriveExecNonWaveSummary(
+            listOf(
+                ins("fi-1", "p-1", trancheNumber = 0, amountDue = 500_000, amountPaid = 500_000, status = "paid", dueDate = "2025-09-15"),
+                ins("fi-2", "p-2", trancheNumber = 0, amountDue = 600_000, amountPaid = 300_000, status = "partial", dueDate = "2025-09-15"),
+                // a legacy out-of-range row (the pre-T-425 phantom T4)
+                ins("t4-x", "p-2", trancheNumber = 4, amountDue = 80_000, amountPaid = 0, status = "unpaid", dueDate = "2026-06-15"),
+                // wave rows never reach the non-wave summary
+                ins("w-x", "p-1", trancheNumber = 1, amountDue = 100_000, amountPaid = 0, status = "unpaid", dueDate = "2025-09-15"),
+            ),
+            now,
+        )
+        assertEquals(2, nw.size)
+        // FI first (kind rank 0), then out_of_range
+        assertEquals(ExecNonWaveKind.FI, nw[0].kind)
+        assertEquals("tuition", nw[0].category)
+        assertEquals(2, nw[0].installmentCount)
+        assertEquals(1, nw[0].settledCount)
+        assertEquals(2, nw[0].familyCount)
+        assertEquals(1, nw[0].debtorFamilyCount)
+        assertEquals(300_000L, nw[0].remainingTotal)
+        assertEquals(ExecNonWaveKind.OUT_OF_RANGE, nw[1].kind)
+        assertEquals(80_000L, nw[1].remainingTotal)
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
     // 2. Discount erosion
     // ══════════════════════════════════════════════════════════════════════
 

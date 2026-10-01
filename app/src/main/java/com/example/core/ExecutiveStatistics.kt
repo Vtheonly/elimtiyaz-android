@@ -319,6 +319,335 @@ fun deriveExecTrancheWaves(
 }
 
 // ============================================================================
+// T-453 (T-447 / STATS-401 mirror, PARITY-006 item 7) — the POOLED
+// all-categories T1/T2/T3 waves + the non-wave summary. The mirror of the
+// desktop's canonical `src/domain/calc/payment/tranche-waves.ts`
+// (derivePooledTrancheWaves / deriveNonWaveSummary — the T-447 rounds).
+//
+// The reconciliation invariant every pooled row carries (the mandate's
+// "Total Due = Paid + Pending + Remaining", exact per row):
+//   dueTotal + overCoverageTotal = paidTotal + pendingTotal + remainingTotal
+// where overCoverageTotal = Σ per-row max(0, paid + pending − due) — the
+// uncleared+cleared funds exceeding the row's due (parent credit sitting
+// ON the row). Family counts are SET UNIONS across categories (a family
+// owing tuition T1 AND transport T1 counts ONCE — never the sum of
+// per-category counts, the double-count trap).
+// ============================================================================
+
+/** The per-(category × wave) stats row (the TrancheWaveStats mirror). */
+data class ExecWaveStatsRow(
+    val category: String,
+    val wave: Int,                 // 1 | 2 | 3
+    val installmentCount: Int,
+    val settledCount: Int,
+    val familyCount: Int,
+    val debtorFamilyCount: Int,
+    val overdueDebtorFamilyCount: Int,
+    val dueTotal: Long,            // centimes
+    val paidTotal: Long,
+    val pendingTotal: Long,
+    val remainingTotal: Long,
+    val dueDateMin: Long?,         // epoch ms (null when no row carries a date)
+    val dueDateMax: Long?,
+    val anyUnsettledOverdue: Boolean,
+    val anyUnsettledFuture: Boolean,
+)
+
+/** The POOLED per-wave statistics (the PooledTrancheWave mirror). */
+data class ExecPooledTrancheWave(
+    val wave: Int,                 // 1 | 2 | 3
+    val installmentCount: Int,
+    val settledCount: Int,
+    val familyCount: Int,          // SET UNION across categories
+    val debtorFamilyCount: Int,    // SET UNION across categories
+    val overdueDebtorFamilyCount: Int, // SET UNION across categories
+    val dueTotal: Long,            // centimes
+    val paidTotal: Long,
+    val pendingTotal: Long,
+    val remainingTotal: Long,
+    /** Σ per-row max(0, paid + pending − due) — the parent credit ON the rows. */
+    val overCoverageTotal: Long,
+    /** round(paidTotal / dueTotal × 100) — PARITY-001, never clamped. */
+    val collectedPct: Int,
+    val dueDateMin: Long?,
+    val dueDateMax: Long?,
+    val anyUnsettledOverdue: Boolean,
+    val anyUnsettledFuture: Boolean,
+    /**
+     * The wave's per-category breakdown (the canonical stats rows of THIS
+     * wave, stable order: tuition → transport → others, then category name).
+     * Every category with a row in the wave appears — the audit trail that
+     * no revenue category is silently excluded.
+     */
+    val perCategory: List<ExecWaveStatsRow>,
+)
+
+/** The non-wave row classes (the NonWaveKind mirror). */
+enum class ExecNonWaveKind { FI, UNNUMBERED, OUT_OF_RANGE }
+
+/** The non-wave (kind × category) group (the NonWaveCategoryStats mirror). */
+data class ExecNonWaveCategoryStat(
+    val kind: ExecNonWaveKind,
+    val category: String,
+    val installmentCount: Int,
+    val settledCount: Int,
+    val familyCount: Int,
+    val debtorFamilyCount: Int,
+    val overdueDebtorFamilyCount: Int,
+    val dueTotal: Long,            // centimes
+    val paidTotal: Long,
+    val pendingTotal: Long,
+    val remainingTotal: Long,
+    val overCoverageTotal: Long,
+    val dueDateMin: Long?,
+    val dueDateMax: Long?,
+    val anyUnsettledOverdue: Boolean,
+)
+
+/** The internal grouping accumulator (the WaveAcc mirror — never exported). */
+private open class WaveGroupAcc(
+    val category: String,
+    val wave: Int,
+) {
+    var installmentCount = 0
+    var settledCount = 0
+    val families = mutableSetOf<String>()
+    val debtorFamilies = mutableSetOf<String>()
+    val overdueDebtorFamilies = mutableSetOf<String>()
+    var dueTotal = 0L
+    var paidTotal = 0L
+    var pendingTotal = 0L
+    var remainingTotal = 0L
+    var overCoverageTotal = 0L
+    var dueDateMin: Long? = null
+    var dueDateMax: Long? = null
+    var anyUnsettledOverdue = false
+    var anyUnsettledFuture = false
+}
+
+/** The accumulateWaveRow mirror (rule 2 + rule 3 of the canonical doc). */
+private fun accumulateWaveGroupRow(acc: WaveGroupAcc, i: ExecInstallment, nowEpochMs: Long) {
+    acc.installmentCount += 1
+    acc.families.add(i.parentId)
+    acc.dueTotal += i.amountDue
+    acc.paidTotal += i.amountPaid
+    acc.pendingTotal += i.amountPending
+    val overCoverage = i.amountPaid + i.amountPending - i.amountDue
+    if (overCoverage > 0L) acc.overCoverageTotal += overCoverage
+    val dueTs = execTsOf(i.dueDate)
+    if (dueTs != null && (acc.dueDateMin == null || dueTs < acc.dueDateMin!!)) {
+        acc.dueDateMin = dueTs
+    }
+    if (dueTs != null && (acc.dueDateMax == null || dueTs > acc.dueDateMax!!)) {
+        acc.dueDateMax = dueTs
+    }
+    // Rule 3 — the INV-4 remaining over every row (settled rows add 0).
+    val remaining = execInstallmentRemaining(i.amountDue, i.amountPaid, i.amountPending, i.status)
+    acc.remainingTotal += remaining
+    // Rule 2 — the canonical settled predicate.
+    if (execIsInstallmentSettled(i.status, i.amountDue, i.amountPaid, i.amountPending)) {
+        acc.settledCount += 1
+    } else {
+        if (remaining > 0L) acc.debtorFamilies.add(i.parentId)
+        if (remaining > 0L && dueTs != null && dueTs < nowEpochMs) {
+            acc.overdueDebtorFamilies.add(i.parentId)
+        }
+        if (dueTs != null) {
+            if (dueTs < nowEpochMs) acc.anyUnsettledOverdue = true
+            else acc.anyUnsettledFuture = true
+        }
+    }
+}
+
+/** The groupWaves mirror: (category × wave 1..3) accumulators, non-wave rows excluded. */
+private fun groupWaveAccs(installments: List<ExecInstallment>, nowEpochMs: Long): LinkedHashMap<String, WaveGroupAcc> {
+    val byWave = LinkedHashMap<String, WaveGroupAcc>()
+    for (i in installments) {
+        val wave = i.trancheNumber
+        if (wave != 1 && wave != 2 && wave != 3) continue
+        val key = "${i.category}#$wave"
+        val acc = byWave.getOrPut(key) { WaveGroupAcc(i.category, wave) }
+        accumulateWaveGroupRow(acc, i, nowEpochMs)
+    }
+    return byWave
+}
+
+/** The accToStats mirror. */
+private fun waveGroupAccToStats(acc: WaveGroupAcc): ExecWaveStatsRow = ExecWaveStatsRow(
+    category = acc.category,
+    wave = acc.wave,
+    installmentCount = acc.installmentCount,
+    settledCount = acc.settledCount,
+    familyCount = acc.families.size,
+    debtorFamilyCount = acc.debtorFamilies.size,
+    overdueDebtorFamilyCount = acc.overdueDebtorFamilies.size,
+    dueTotal = acc.dueTotal,
+    paidTotal = acc.paidTotal,
+    pendingTotal = acc.pendingTotal,
+    remainingTotal = acc.remainingTotal,
+    dueDateMin = acc.dueDateMin,
+    dueDateMax = acc.dueDateMax,
+    anyUnsettledOverdue = acc.anyUnsettledOverdue,
+    anyUnsettledFuture = acc.anyUnsettledFuture,
+)
+
+/** The stable category order for breakdowns: tuition → transport → others. */
+private fun pooledCategoryRank(category: String): Int = when (category) {
+    "tuition" -> 0
+    "transport" -> 1
+    else -> 2
+}
+
+/**
+ * T-453 — the canonical POOLED T1/T2/T3 analysis (the derivePooledTrancheWaves
+ * mirror): every billing category's rows pooled per wave index — the object
+ * both the Statistics main wave cards and the Finance Tranches strip consume
+ * (each keeps its own PRESENTATION, never its own math). Only waves with at
+ * least one row are returned (honest-empty discipline); the presentation
+ * layers fill the fixed T1/T2/T3 slots when a wave has no rows.
+ */
+fun deriveExecPooledTrancheWaves(
+    installments: List<ExecInstallment>,
+    nowEpochMs: Long,
+): List<ExecPooledTrancheWave> {
+    val byWave = groupWaveAccs(installments, nowEpochMs)
+    val byIndex = HashMap<Int, MutableList<WaveGroupAcc>>()
+    for (acc in byWave.values) {
+        byIndex.getOrPut(acc.wave) { mutableListOf() }.add(acc)
+    }
+    return listOf(1, 2, 3)
+        .filter { byIndex.containsKey(it) }
+        .map { wave ->
+            val accs = byIndex.getValue(wave)
+            // SET UNIONS across categories — a family owing tuition T1 AND
+            // transport T1 is ONE family in the pooled row (summing
+            // per-category counts would double-count them).
+            val families = mutableSetOf<String>()
+            val debtorFamilies = mutableSetOf<String>()
+            val overdueDebtorFamilies = mutableSetOf<String>()
+            var installmentCount = 0
+            var settledCount = 0
+            var dueTotal = 0L
+            var paidTotal = 0L
+            var pendingTotal = 0L
+            var remainingTotal = 0L
+            var overCoverageTotal = 0L
+            var dueDateMin: Long? = null
+            var dueDateMax: Long? = null
+            var anyUnsettledOverdue = false
+            var anyUnsettledFuture = false
+            for (acc in accs) {
+                installmentCount += acc.installmentCount
+                settledCount += acc.settledCount
+                families.addAll(acc.families)
+                debtorFamilies.addAll(acc.debtorFamilies)
+                overdueDebtorFamilies.addAll(acc.overdueDebtorFamilies)
+                dueTotal += acc.dueTotal
+                paidTotal += acc.paidTotal
+                pendingTotal += acc.pendingTotal
+                remainingTotal += acc.remainingTotal
+                overCoverageTotal += acc.overCoverageTotal
+                if (acc.dueDateMin != null && (dueDateMin == null || acc.dueDateMin!! < dueDateMin!!)) {
+                    dueDateMin = acc.dueDateMin
+                }
+                if (acc.dueDateMax != null && (dueDateMax == null || acc.dueDateMax!! > dueDateMax!!)) {
+                    dueDateMax = acc.dueDateMax
+                }
+                anyUnsettledOverdue = anyUnsettledOverdue || acc.anyUnsettledOverdue
+                anyUnsettledFuture = anyUnsettledFuture || acc.anyUnsettledFuture
+            }
+            val perCategory = accs.map { waveGroupAccToStats(it) }.sortedWith(
+                compareBy({ pooledCategoryRank(it.category) }, { it.category }),
+            )
+            ExecPooledTrancheWave(
+                wave = wave,
+                installmentCount = installmentCount,
+                settledCount = settledCount,
+                familyCount = families.size,
+                debtorFamilyCount = debtorFamilies.size,
+                overdueDebtorFamilyCount = overdueDebtorFamilies.size,
+                dueTotal = dueTotal,
+                paidTotal = paidTotal,
+                pendingTotal = pendingTotal,
+                remainingTotal = remainingTotal,
+                overCoverageTotal = overCoverageTotal,
+                // PARITY-001 — the ONE percentage formula (round, never clamped):
+                // a pooled rate above 100% is honest (over-covered rows).
+                collectedPct = execSharePct(paidTotal, dueTotal),
+                dueDateMin = dueDateMin,
+                dueDateMax = dueDateMax,
+                anyUnsettledOverdue = anyUnsettledOverdue,
+                anyUnsettledFuture = anyUnsettledFuture,
+                perCategory = perCategory,
+            )
+        }
+}
+
+/** The nonWaveKindOf mirror (the ExecInstallment trancheNumber is never null — the live DB is NOT NULL 0..3 — so UNNUMBERED is the legacy-safety leg). */
+private fun execNonWaveKindOf(trancheNumber: Int): ExecNonWaveKind = when (trancheNumber) {
+    0 -> ExecNonWaveKind.FI
+    else -> ExecNonWaveKind.OUT_OF_RANGE
+}
+
+private val EXEC_NON_WAVE_KIND_RANK = mapOf(
+    ExecNonWaveKind.FI to 0,
+    ExecNonWaveKind.UNNUMBERED to 1,
+    ExecNonWaveKind.OUT_OF_RANGE to 2,
+)
+
+/**
+ * T-453 — the non-wave rows (tranche 0 / unnumbered / out-of-range — the rows
+ * rule 1 excludes from every wave), grouped by (kind × category) so the
+ * analysis surfaces them explicitly instead of silently dropping them: the
+ * registration fee (FI — category tuition, tranche 0) first, then unnumbered
+ * commitments, then legacy out-of-range rows (the pre-T-425 phantom T4).
+ * Only (kind × category) groups with at least one row are returned.
+ */
+fun deriveExecNonWaveSummary(
+    installments: List<ExecInstallment>,
+    nowEpochMs: Long,
+): List<ExecNonWaveCategoryStat> {
+    class NonWaveAcc(category: String, wave: Int, val kind: ExecNonWaveKind) : WaveGroupAcc(category, wave)
+
+    val groups = LinkedHashMap<String, NonWaveAcc>()
+    for (i in installments) {
+        val n = i.trancheNumber
+        if (n == 1 || n == 2 || n == 3) continue
+        val kind = execNonWaveKindOf(n)
+        val key = "$kind#${i.category}"
+        val acc = groups.getOrPut(key) { NonWaveAcc(i.category, 0, kind) }
+        accumulateWaveGroupRow(acc, i, nowEpochMs)
+    }
+    return groups.values
+        .map { acc ->
+            ExecNonWaveCategoryStat(
+                kind = acc.kind,
+                category = acc.category,
+                installmentCount = acc.installmentCount,
+                settledCount = acc.settledCount,
+                familyCount = acc.families.size,
+                debtorFamilyCount = acc.debtorFamilies.size,
+                overdueDebtorFamilyCount = acc.overdueDebtorFamilies.size,
+                dueTotal = acc.dueTotal,
+                paidTotal = acc.paidTotal,
+                pendingTotal = acc.pendingTotal,
+                remainingTotal = acc.remainingTotal,
+                overCoverageTotal = acc.overCoverageTotal,
+                dueDateMin = acc.dueDateMin,
+                dueDateMax = acc.dueDateMax,
+                anyUnsettledOverdue = acc.anyUnsettledOverdue,
+            )
+        }
+        .sortedWith(
+            compareBy(
+                { EXEC_NON_WAVE_KIND_RANK.getValue(it.kind) },
+                { pooledCategoryRank(it.category) },
+                { it.category },
+            ),
+        )
+}
+
+// ============================================================================
 // 2. Discount erosion (Le Taux d'Érosion des Remises)
 // ============================================================================
 
