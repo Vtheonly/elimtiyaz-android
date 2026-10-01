@@ -359,13 +359,50 @@ fun installmentRemaining(inst: StatsInstallment): Long =
     else (inst.amountDue - inst.amountPaid - inst.amountPending).coerceAtLeast(0L)
 
 /**
+ * T-452 (T-426 mirror) — the canonical DYNAMIC-overdue predicate
+ * (DATA-045, GitHub issues #24/#25): an installment is overdue when it is
+ * NOT settled, its due date is STRICTLY past, and it still owes money
+ * (`status !== "paid" && dueDate < now && remaining > 0` — the INV-4
+ * remaining family). Why DYNAMIC: the `status` STRING is a write-time
+ * snapshot that nothing on live data maintains as "overdue" (live
+ * census: statuses are paid/unpaid/partial — ZERO "overdue" rows while
+ * HUNDREDS of rows are dynamically overdue). Overdue-ness is a property
+ * of (due date, now, remaining) — it changes with the clock, so it is
+ * DERIVED, never read from the status string.
+ */
+fun isInstallmentOverdueStats(inst: StatsInstallment, nowEpochMs: Long): Boolean {
+    if (inst.status == "paid") return false
+    if (!isStrictlyPastIso(inst.dueDate, nowEpochMs)) return false
+    return installmentRemaining(inst) > 0L
+}
+
+/**
+ * T-452 (T-426 mirror) — true when the due date is STRICTLY before `now`
+ * (the desktop isStrictlyPast: equal timestamps are NOT past; a future
+ * T2/T3 tranche is "à échoir", never "en retard").
+ */
+fun isStrictlyPastIso(dueDateIso: String, nowEpochMs: Long): Boolean {
+    val dueMs = parseIsoInstantSafe(dueDateIso).toEpochMilli()
+    if (dueMs == 0L || dueMs == Instant.EPOCH.toEpochMilli()) return false
+    return dueMs < nowEpochMs
+}
+
+/**
  * The canonical aging derivation (desktop Supabase path, migration 0042
- * "canonical_overdue_asof_equivalence"): per-INSTALLMENT remaining, overdue
- * depth from the installment's REAL dueDate via daysBetweenFloor, families
- * counted DISTINCTLY per bucket. A family with tranches in two buckets
- * counts in BOTH bucket counts (the recovery funnel consumes exactly this
- * census). Not-yet-due installments land in 0_30 (daysBetweenFloor clamps
- * negative to 0 — documented desktop behavior).
+ * "canonical_overdue_asof_equivalence" + the T-426 DATA-046 guard):
+ * per-INSTALLMENT remaining, overdue depth from the installment's REAL
+ * dueDate via daysBetweenFloor, families counted DISTINCTLY per bucket.
+ * A family with tranches in two buckets counts in BOTH bucket counts (the
+ * recovery funnel consumes exactly this census).
+ *
+ * T-452 (T-426 / DATA-046, GitHub issues #24/#25 Track-2): only
+ * PAST-DUE rows age — a not-yet-due row (a future T2/T3 tranche) is
+ * "à échoir", NEVER aging: it is excluded from every bucket (the old
+ * behavior clamped its negative days into the 0_30 bucket via
+ * daysBetweenFloor, inflating the "current" receivable band — and the
+ * KPI's overdue-family count, which sums the buckets' debtorCount — with
+ * balances that are not late at all; the desktop production
+ * `debtByAgingForRange` fixed this with the `isStrictlyPast` guard).
  */
 fun deriveDebtAging(
     installments: List<StatsInstallment>,
@@ -376,6 +413,8 @@ fun deriveDebtAging(
     for (inst in installments) {
         val remaining = installmentRemaining(inst)
         if (remaining <= 0L) continue
+        // DATA-046: only strictly-past rows age.
+        if (!isStrictlyPastIso(inst.dueDate, nowEpochMs)) continue
         val days = daysBetweenFloor(inst.dueDate, nowEpochMs)
         val bucket = agingBucketFromDays(days)
         amountByBucket[bucket] = (amountByBucket[bucket] ?: 0L) + remaining
