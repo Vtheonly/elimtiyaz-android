@@ -1,42 +1,19 @@
 package com.example.ui.features.dashboard
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DoneAll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -45,25 +22,40 @@ import com.example.core.Result
 import com.example.domain.model.AppNotification
 import com.example.domain.repository.NotificationRepository
 import com.example.session.SessionManager
+import com.example.ui.designsystem.components.button.ElIconButton
+import com.example.ui.designsystem.components.display.ElAlertBanner
+import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.display.ElChip
+import com.example.ui.designsystem.components.display.ElChipVariant
+import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.feedback.ElLoadingBlock
+import com.example.ui.designsystem.components.nav.ElScaffold
+import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
  * Alerts inbox ViewModel — restores the pre-redesign `AlertsScreen`.
  *
- * - Full notification list, day-grouped.
+ * - Full notification list, priority-sorted (urgent → high → medium → low)
+ *   then by `createdAt` DESC.
  * - Filter chips by NotificationType.
  * - Tap → mark read + navigate to linked entity.
  * - "Tout marquer comme lu" bulk action.
- * - Sort by priority (urgent → high → medium → low) then by `createdAt` DESC.
+ *
+ * T-460 pass G-a (issue #3 F-02): an explicit [isLoaded] flag distinguishes
+ * "still loading" from "genuinely empty" — the inbox previously showed the
+ * empty state during the initial repository read.
  */
 @HiltViewModel
 class AlertsViewModel @Inject constructor(
@@ -77,13 +69,17 @@ class AlertsViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _isLoaded = MutableStateFlow(false)
+    val isLoaded: StateFlow<Boolean> = _isLoaded.asStateFlow()
+
     // Raw notifications — observeForSession requires a non-null session.
     // Fall back to observe() when session is null (still shows broadcasts).
     private val rawNotifications: StateFlow<List<AppNotification>> = sessionManager.state
         .let { sf -> sf.flatMapLatest { s -> if (s != null) notificationRepository.observeForSession(s) else notificationRepository.observe() } }
+        .onEach { _isLoaded.value = true }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    val notifications: StateFlow<List<AppNotification>> = kotlinx.coroutines.flow.combine(
+    val notifications: StateFlow<List<AppNotification>> = combine(
         rawNotifications, _typeFilter,
     ) { list, filter ->
         val filtered = if (filter == null) list else list.filter { it.type == filter }
@@ -122,16 +118,24 @@ private fun priorityRank(priority: String): Int = when (priority) {
     else -> 0
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * T-460 pass G-a (issue #3 F-06 + F-14): the raw-M3 inbox → the design
+ * system, rendered on the SAME [NotificationRow] language as the Dashboard
+ * hub's notifications section. Raw type codes no longer render as-is (the
+ * [notificationTypeMeta] French labels + icons + tones); "Non lu" is a tone
+ * tag, not colour-only text; the loading/empty states are tri-state.
+ */
 @Composable
 fun AlertsScreen(
     onBack: () -> Unit,
     onNavigateToEntity: (entityType: String, entityId: String) -> Unit,
     viewModel: AlertsViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
     val notifications by viewModel.notifications.collectAsState()
     val typeFilter by viewModel.typeFilter.collectAsState()
     val error by viewModel.error.collectAsState()
+    val isLoaded by viewModel.isLoaded.collectAsState()
 
     val typeFilters = listOf(
         null to "Tous",
@@ -145,95 +149,98 @@ fun AlertsScreen(
         "custom" to "Autres",
     )
 
-    Scaffold(
+    ElScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Alertes") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Retour") } },
+            ElTopBar(
+                title = "Alertes",
+                onBack = onBack,
                 actions = {
-                    IconButton(onClick = { viewModel.markAllRead() }) {
-                        Icon(Icons.Default.DoneAll, contentDescription = "Tout marquer comme lu")
-                    }
+                    ElIconButton(
+                        icon = Icons.Default.DoneAll,
+                        onClick = { viewModel.markAllRead() },
+                        contentDescription = "Tout marquer comme lu",
+                        tint = c.primary,
+                        background = androidx.compose.ui.graphics.Color.Transparent,
+                    )
                 },
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+        Column(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            error?.let { message ->
+                ElAlertBanner(
+                    title = message,
+                    severity = ElAlertSeverity.DANGER,
+                )
+            }
 
             // Filter chips row
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 typeFilters.take(6).forEach { (code, label) ->
-                    FilterChip(
+                    ElChip(
+                        text = label,
+                        variant = ElChipVariant.FILTER,
                         selected = typeFilter == code,
                         onClick = { viewModel.onTypeFilter(code) },
-                        label = { Text(label) },
                     )
                 }
             }
 
-            if (notifications.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text("Aucune alerte.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+            when {
+                !isLoaded -> {
+                    ElLoadingBlock(
+                        message = "Chargement des alertes…",
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(notifications) { notif ->
-                        AlertCard(
-                            notification = notif,
-                            onClick = {
-                                viewModel.markRead(notif.id)
-                                if (!notif.entityType.isNullOrEmpty() && !notif.entityId.isNullOrEmpty()) {
-                                    onNavigateToEntity(notif.entityType, notif.entityId)
-                                }
-                            },
-                        )
+                notifications.isEmpty() -> {
+                    ElEmptyState(
+                        icon = Icons.Default.DoneAll,
+                        title = "Aucune alerte",
+                        subtitle = "Les notifications de gestion apparaîtront ici.",
+                    )
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            horizontal = 16.dp,
+                            vertical = 8.dp,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(notifications, key = { it.id }) { notif ->
+                            val (typeLabel, typeIcon, typeTone) = notificationTypeMeta(notif.type)
+                            NotificationRow(
+                                title = notif.title,
+                                body = notif.body,
+                                icon = typeIcon,
+                                iconTint = c.primary,
+                                metaLabel = typeLabel,
+                                metaTone = if (notif.priority == "urgent" || notif.priority == "high") {
+                                    notificationPriorityTone(notif.priority)
+                                } else {
+                                    typeTone
+                                },
+                                timeLabel = notif.createdAt.take(10),
+                                unread = notif.readAt == null,
+                                onClick = {
+                                    viewModel.markRead(notif.id)
+                                    if (!notif.entityType.isNullOrEmpty() && !notif.entityId.isNullOrEmpty()) {
+                                        onNavigateToEntity(notif.entityType, notif.entityId)
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
             }
         }
     }
 }
-
-@Composable
-private fun AlertCard(notification: AppNotification, onClick: () -> Unit) {
-    val priorityColor = when (notification.priority) {
-        "urgent" -> MaterialTheme.colorScheme.error
-        "high" -> MaterialTheme.colorScheme.secondary
-        "medium" -> MaterialTheme.colorScheme.tertiary
-        else -> MaterialTheme.colorScheme.outline
-    }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick,
-        elevation = CardDefaults.cardElevation(1.dp),
-    ) {
-        Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.Top) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(priorityColor, shape = RoundedCornerShape(4.dp))
-                    .align(Alignment.Top),
-            )
-            Spacer(Modifier.size(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(notification.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text(notification.body, style = MaterialTheme.typography.bodySmall, maxLines = 3)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(notification.type, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.weight(1f))
-                    Text(notification.createdAt.take(10), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                }
-                if (notification.readAt == null) {
-                    Text("Non lu", style = MaterialTheme.typography.labelSmall, color = priorityColor)
-                }
-            }
-        }
-    }
-}
-
