@@ -1088,6 +1088,11 @@ object AndroidEquivalenceRunner {
                 val waves = com.example.core.deriveExecTrancheWaves(execInstallments, nowMs)
                 val erosion = com.example.core.deriveExecDiscountErosion(execLedger)
                 val triage = com.example.core.deriveExecDebtTriage(execInstallments, nowMs)
+                // (9) T-453 (T-447 mirror): the pooled all-categories waves +
+                // the non-wave summary — the corpus pins the exact-dinar parity
+                // object (set-union family counts, the overCoverage identity).
+                val pooledWaves = com.example.core.deriveExecPooledTrancheWaves(execInstallments, nowMs)
+                val nonWaveSummary = com.example.core.deriveExecNonWaveSummary(execInstallments, nowMs)
                 // (4) Family concentration + (5) transport + (6) services + (7) dynamics.
                 val concentration = com.example.core.deriveExecFamilyConcentration(
                     execInstallments, parentNames, execStudents, topN = topN, nowEpochMs = nowMs,
@@ -1268,6 +1273,73 @@ object AndroidEquivalenceRunner {
                         put("financialTensionCount", riskSummary.financialTensionCount)
                         put("healthyCount", riskSummary.healthyCount)
                         put("tripleCriticalPct", riskSummary.tripleCriticalPct)
+                    })
+                    // T-453 (T-447 mirror): the pooled + non-wave families — the
+                    // corpus key-set contract (money in centimes; the date bounds
+                    // are epoch-ms numbers, mirroring the desktop generator).
+                    put("pooledWaves", kotlinx.serialization.json.buildJsonArray {
+                        pooledWaves.forEach { p ->
+                            add(buildJsonObject {
+                                put("wave", p.wave)
+                                put("installmentCount", p.installmentCount)
+                                put("settledCount", p.settledCount)
+                                put("familyCount", p.familyCount)
+                                put("debtorFamilyCount", p.debtorFamilyCount)
+                                put("overdueDebtorFamilyCount", p.overdueDebtorFamilyCount)
+                                put("dueTotal", p.dueTotal)
+                                put("paidTotal", p.paidTotal)
+                                put("pendingTotal", p.pendingTotal)
+                                put("remainingTotal", p.remainingTotal)
+                                put("overCoverageTotal", p.overCoverageTotal)
+                                put("collectedPct", p.collectedPct)
+                                if (p.dueDateMin != null) put("dueDateMin", p.dueDateMin) else put("dueDateMin", kotlinx.serialization.json.JsonNull)
+                                if (p.dueDateMax != null) put("dueDateMax", p.dueDateMax) else put("dueDateMax", kotlinx.serialization.json.JsonNull)
+                                put("anyUnsettledOverdue", p.anyUnsettledOverdue)
+                                put("anyUnsettledFuture", p.anyUnsettledFuture)
+                                put("perCategory", kotlinx.serialization.json.buildJsonArray {
+                                    p.perCategory.forEach { c ->
+                                        add(buildJsonObject {
+                                            put("category", c.category)
+                                            put("wave", c.wave)
+                                            put("installmentCount", c.installmentCount)
+                                            put("settledCount", c.settledCount)
+                                            put("familyCount", c.familyCount)
+                                            put("debtorFamilyCount", c.debtorFamilyCount)
+                                            put("overdueDebtorFamilyCount", c.overdueDebtorFamilyCount)
+                                            put("dueTotal", c.dueTotal)
+                                            put("paidTotal", c.paidTotal)
+                                            put("pendingTotal", c.pendingTotal)
+                                            put("remainingTotal", c.remainingTotal)
+                                            if (c.dueDateMin != null) put("dueDateMin", c.dueDateMin) else put("dueDateMin", kotlinx.serialization.json.JsonNull)
+                                            if (c.dueDateMax != null) put("dueDateMax", c.dueDateMax) else put("dueDateMax", kotlinx.serialization.json.JsonNull)
+                                            put("anyUnsettledOverdue", c.anyUnsettledOverdue)
+                                            put("anyUnsettledFuture", c.anyUnsettledFuture)
+                                        })
+                                    }
+                                })
+                            })
+                        }
+                    })
+                    put("nonWaveSummary", kotlinx.serialization.json.buildJsonArray {
+                        nonWaveSummary.forEach { n ->
+                            add(buildJsonObject {
+                                put("kind", n.kind.name.lowercase())
+                                put("category", n.category)
+                                put("installmentCount", n.installmentCount)
+                                put("settledCount", n.settledCount)
+                                put("familyCount", n.familyCount)
+                                put("debtorFamilyCount", n.debtorFamilyCount)
+                                put("overdueDebtorFamilyCount", n.overdueDebtorFamilyCount)
+                                put("dueTotal", n.dueTotal)
+                                put("paidTotal", n.paidTotal)
+                                put("pendingTotal", n.pendingTotal)
+                                put("remainingTotal", n.remainingTotal)
+                                put("overCoverageTotal", n.overCoverageTotal)
+                                if (n.dueDateMin != null) put("dueDateMin", n.dueDateMin) else put("dueDateMin", kotlinx.serialization.json.JsonNull)
+                                if (n.dueDateMax != null) put("dueDateMax", n.dueDateMax) else put("dueDateMax", kotlinx.serialization.json.JsonNull)
+                                put("anyUnsettledOverdue", n.anyUnsettledOverdue)
+                            })
+                        }
                     })
                 }
             }
