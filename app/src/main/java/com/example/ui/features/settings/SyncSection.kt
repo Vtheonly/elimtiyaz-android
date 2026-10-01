@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,6 +24,7 @@ import com.example.ui.designsystem.components.button.ElButtonVariant
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.display.ElInfoRow
 import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.theme.ElTheme
 
 @Composable
 internal fun SyncSection(
@@ -37,6 +37,7 @@ internal fun SyncSection(
     savedKey: String = "",
     onSaveDbConfig: (String, String) -> Unit = { _, _ -> },
 ) {
+    val c = ElTheme.colors
     var showConfigDialog by remember { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -62,8 +63,8 @@ internal fun SyncSection(
                 syncState.lastError?.let {
                     Text(
                         text = "Erreur: $it",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
+                        style = ElTheme.typography.bodySmall,
+                        color = c.danger,
                     )
                 }
                 Spacer(Modifier.height(4.dp))

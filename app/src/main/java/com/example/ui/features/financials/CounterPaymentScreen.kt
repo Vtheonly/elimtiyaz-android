@@ -98,6 +98,7 @@ fun CounterPaymentScreen(
     initialStudentId: String? = null,
     viewModel: CounterPaymentViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
     val parents by viewModel.parents.collectAsState()
     val selectedParent by viewModel.selectedParent.collectAsState()
     val students by viewModel.students.collectAsState()
@@ -283,7 +284,7 @@ fun CounterPaymentScreen(
                     }
                     Text(
                         "Encaissement validé !",
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = ElTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
                     ElCard(modifier = Modifier.fillMaxWidth()) {
@@ -296,18 +297,18 @@ fun CounterPaymentScreen(
                         ) {
                             Text(
                                 "NUMÉRO DE REÇU",
-                                style = MaterialTheme.typography.labelMedium,
+                                style = ElTheme.typography.labelMedium,
                                 color = ElTheme.colors.textSecondary,
                             )
                             Text(
                                 receiptNumber ?: "—",
-                                style = MaterialTheme.typography.headlineSmall,
+                                style = ElTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = ElTheme.colors.primary,
                             )
                             Text(
                                 "Le grand livre et l'échéancier ont été mis à jour.",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = ElTheme.typography.bodySmall,
                                 color = ElTheme.colors.textSecondary,
                             )
                         }
@@ -381,10 +382,10 @@ fun CounterPaymentScreen(
                                 ElAvatar(initials = p.fullName, size = ElAvatarSize.M)
                                 Spacer(Modifier.width(12.dp))
                                 Column {
-                                    Text(p.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                    Text(p.fullName, style = ElTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                     Text(
                                         "Code : ${p.code} • Tél : ${p.phone}",
-                                        style = MaterialTheme.typography.bodySmall,
+                                        style = ElTheme.typography.bodySmall,
                                         color = ElTheme.colors.textSecondary,
                                     )
                                 }
@@ -402,14 +403,14 @@ fun CounterPaymentScreen(
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 "Solde restant dû pour cette famille : ${elMoneyFormat(outstanding)}",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = ElTheme.typography.bodySmall,
                                 color = ElTheme.colors.danger,
                                 fontWeight = FontWeight.SemiBold,
                             )
                         } else {
                             Text(
                                 "Famille à jour dans ses cotisations.",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = ElTheme.typography.bodySmall,
                                 color = ElTheme.colors.success,
                                 fontWeight = FontWeight.SemiBold,
                             )
@@ -465,12 +466,12 @@ fun CounterPaymentScreen(
                                 Column {
                                     Text(
                                         "Toute la famille (Paiement global)",
-                                        style = MaterialTheme.typography.titleMedium,
+                                        style = ElTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                     )
                                     Text(
                                         "Règlement général ventilé sur l'échéancier familial",
-                                        style = MaterialTheme.typography.bodySmall,
+                                        style = ElTheme.typography.bodySmall,
                                         color = ElTheme.colors.textSecondary,
                                     )
                                 }
@@ -486,7 +487,7 @@ fun CounterPaymentScreen(
                         ) {
                             Text(
                                 "Aucun enfant enregistré pour cette famille.",
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = ElTheme.typography.bodyMedium,
                             )
                             ElButton(
                                 text = "Continuer avec le compte famille (global)",
@@ -536,17 +537,17 @@ fun CounterPaymentScreen(
                                 colors = SliderDefaults.colors(
                                     thumbColor = ElTheme.colors.primary,
                                     activeTrackColor = ElTheme.colors.primary,
-                                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    inactiveTrackColor = c.surfaceVariant,
                                 ),
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                Text("0", style = MaterialTheme.typography.labelSmall, color = ElTheme.colors.textSecondary)
+                                Text("0", style = ElTheme.typography.labelSmall, color = ElTheme.colors.textSecondary)
                                 Text(
                                     elMoneyFormat(maxSliderAmount.toLong() * 100L),
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = ElTheme.typography.labelSmall,
                                     color = ElTheme.colors.textSecondary,
                                 )
                             }
@@ -554,7 +555,7 @@ fun CounterPaymentScreen(
 
                         Text(
                             "Raccourcis montants",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = ElTheme.typography.labelSmall,
                             color = ElTheme.colors.textSecondary,
                         )
                         FlowRow(
@@ -588,7 +589,7 @@ fun CounterPaymentScreen(
                     ) {
                         Text(
                             "Mode de règlement",
-                            style = MaterialTheme.typography.labelMedium,
+                            style = ElTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -640,7 +641,7 @@ fun CounterPaymentScreen(
                         Spacer(Modifier.height(4.dp))
                         Text(
                             "Catégorie de paiement",
-                            style = MaterialTheme.typography.labelMedium,
+                            style = ElTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
                         FlowRow(
@@ -729,10 +730,10 @@ private fun ParentPickCard(parent: Parent, onClick: () -> Unit) {
                 ElAvatar(initials = parent.fullName, size = ElAvatarSize.M)
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text(parent.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(parent.fullName, style = ElTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
                         "Code : ${parent.code} • Tél : ${parent.phone}",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = ElTheme.typography.bodySmall,
                         color = ElTheme.colors.textSecondary,
                     )
                 }
@@ -758,10 +759,10 @@ private fun StudentPickCard(student: Student, onClick: () -> Unit) {
                 ElAvatar(initials = student.fullName, size = ElAvatarSize.M)
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text(student.fullName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(student.fullName, style = ElTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
                         "Niveau : ${student.gradeLevel.uppercase()} • Matricule : ${student.code}",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = ElTheme.typography.bodySmall,
                         color = ElTheme.colors.textSecondary,
                     )
                 }
@@ -791,7 +792,7 @@ private fun BeneficiaryRecapCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         "Famille : ${parent.fullName}",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = ElTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
@@ -800,7 +801,7 @@ private fun BeneficiaryRecapCard(
                         } else {
                             "Bénéficiaire : Toute la famille (Paiement global)"
                         },
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = ElTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = if (selectedStudent != null) ElTheme.colors.success else ElTheme.colors.warning,
                     )
@@ -812,14 +813,14 @@ private fun BeneficiaryRecapCard(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "Solde restant dû : ${elMoneyFormat(outstanding)}",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = ElTheme.typography.bodySmall,
                     color = ElTheme.colors.danger,
                     fontWeight = FontWeight.SemiBold,
                 )
             } else {
                 Text(
                     "Famille à jour dans ses cotisations.",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = ElTheme.typography.bodySmall,
                     color = ElTheme.colors.success,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -841,14 +842,14 @@ private fun AllocationPreviewCard(
         ) {
             Text(
                 "Ventilation automatique en cascade (simulation)",
-                style = MaterialTheme.typography.titleSmall,
+                style = ElTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
             )
 
             if (preview.allocations.isEmpty()) {
                 Text(
                     "Aucune tranche éligible pour cette catégorie — le montant sera enregistré comme crédit.",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = ElTheme.typography.bodySmall,
                     color = c.textSecondary,
                 )
             } else {
@@ -865,7 +866,7 @@ private fun AllocationPreviewCard(
                         Column(Modifier.weight(1f)) {
                             Text(
                                 installmentLabels[allocation.installmentId] ?: "Tranche",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = ElTheme.typography.bodySmall,
                                 color = c.textPrimary,
                             )
                             Text(
@@ -874,13 +875,13 @@ private fun AllocationPreviewCard(
                                     allocation.cleared -> "Partielle"
                                     else -> "En attente d'encaissement"
                                 },
-                                style = MaterialTheme.typography.labelSmall,
+                                style = ElTheme.typography.labelSmall,
                                 color = c.textSecondary,
                             )
                         }
                         Text(
                             "+${elMoneyFormat(allocation.allocatedAmount, showCurrency = false)}",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = ElTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = c.primary,
                         )
@@ -891,7 +892,7 @@ private fun AllocationPreviewCard(
             if (preview.unallocatedAmount > 0L) {
                 Text(
                     "Crédit qui restera non affecté : ${elMoneyFormat(preview.unallocatedAmount)} (versé sur le compte famille)",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = ElTheme.typography.bodySmall,
                     color = c.warning,
                     fontWeight = FontWeight.SemiBold,
                 )

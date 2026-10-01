@@ -544,7 +544,7 @@ private fun AttendanceSegmentButton(
     }
 
     val contentColor = if (isSelected) {
-        if (status == AttendanceStatus.EXCUSED) Color(0xFF1A1D23) else Color.White
+        if (status == AttendanceStatus.EXCUSED) c.background else c.textOnColor
     } else {
         c.textSecondary.copy(alpha = 0.85f)
     }

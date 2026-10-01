@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +24,7 @@ import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.input.ElDropdown
 import com.example.ui.designsystem.components.input.ElDropdownOption
 import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.theme.ElTheme
 
 @Composable
 internal fun PreferencesSection(
@@ -34,6 +34,7 @@ internal fun PreferencesSection(
     onForceOffline: (Boolean) -> Unit,
     onLanguage: (String) -> Unit,
 ) {
+    val c = ElTheme.colors
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ElSectionHeader(title = "Préférences")
         ElCard(modifier = Modifier.fillMaxWidth()) {
@@ -67,7 +68,7 @@ internal fun PreferencesSection(
                     Icon(
                         imageVector = Icons.Default.Language,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = c.textSecondary,
                         modifier = Modifier.size(20.dp),
                     )
                     Spacer(Modifier.width(12.dp))

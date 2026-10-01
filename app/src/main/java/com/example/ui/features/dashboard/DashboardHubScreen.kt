@@ -144,8 +144,15 @@ fun DashboardHubScreen(
                         color = ElTheme.colors.textSecondary,
                     )
                 }
+                // T-460 pass H (issue #3 F-21): the school-year tag now derives from
+                // the academic-cycle convention (the INV-14 year-code rule) — the
+                // last hardcoded data point the audit found.
                 ElTag(
-                    text = "2025–2026",
+                    text = remember {
+                        val y = java.time.LocalDate.now().year
+                        val start = if (java.time.LocalDate.now().monthValue >= 9) y else y - 1
+                        "$start–${start + 1}"
+                    },
                     tone = ElTagTone.INFO,
                 )
             }

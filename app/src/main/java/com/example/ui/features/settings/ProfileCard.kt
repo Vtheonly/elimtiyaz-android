@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,9 +19,11 @@ import com.example.ui.designsystem.components.display.ElAvatar
 import com.example.ui.designsystem.components.display.ElAvatarSize
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.theme.ElTheme
 
 @Composable
 internal fun ProfileCard(session: Session?) {
+    val c = ElTheme.colors
     if (session == null) return
     ElCard(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -37,13 +38,13 @@ internal fun ProfileCard(session: Session?) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = session.displayName,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = c.textPrimary,
                 )
                 Text(
                     text = session.email,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = ElTheme.typography.bodySmall,
+                    color = c.textSecondary,
                 )
                 Spacer(Modifier.height(6.dp))
                 ElTag(

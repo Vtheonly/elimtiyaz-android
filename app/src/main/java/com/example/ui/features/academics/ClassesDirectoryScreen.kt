@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -135,12 +134,12 @@ fun ClassesDirectoryScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 klass.name,
-                                style = MaterialTheme.typography.titleMedium,
+                                style = ElTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
                                 "Professeur : ${klass.homeroomTeacherName ?: "Non assigné"} · Salle : ${klass.room ?: "—"}",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = ElTheme.typography.bodySmall,
                                 color = c.textSecondary,
                             )
                         }

@@ -17,7 +17,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -562,7 +561,7 @@ private fun Step2Children(
         ) {
             Text(
                 "Enfants à inscrire (${children.size})",
-                style = MaterialTheme.typography.titleMedium,
+                style = ElTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = c.textPrimary,
             )
@@ -604,7 +603,7 @@ private fun Step2Children(
                     ) {
                         Text(
                             "Fiche élève #${index + 1}",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = ElTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = c.primary,
                         )
@@ -718,12 +717,12 @@ private fun Step3Simulation(
         when {
             isLoading -> Text(
                 "Chargement des tarifs…",
-                style = MaterialTheme.typography.bodyMedium,
+                style = ElTheme.typography.bodyMedium,
                 color = c.textSecondary,
             )
             simulation == null -> Text(
                 "Aucune donnée de simulation.",
-                style = MaterialTheme.typography.bodyMedium,
+                style = ElTheme.typography.bodyMedium,
                 color = c.textSecondary,
             )
             else -> {
@@ -776,7 +775,7 @@ private fun Step4Validation(
             ) {
                 Text(
                     "Parent / Tuteur",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = ElTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
                 ElInfoRow(
@@ -813,7 +812,7 @@ private fun Step4Validation(
             ) {
                 Text(
                     "Élèves (${children.size})",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = ElTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
                 children.forEachIndexed { index, child ->
@@ -826,13 +825,13 @@ private fun Step4Validation(
                             Text(
                                 listOf(child.firstName, child.lastName).filter { it.isNotBlank() }
                                     .joinToString(" ").ifBlank { "Élève ${index + 1}" },
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = ElTheme.typography.bodyMedium,
                                 color = c.textPrimary,
                             )
                             if (child.birthDate.isNotBlank()) {
                                 Text(
                                     "Né(e) le ${child.birthDate}",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = ElTheme.typography.bodySmall,
                                     color = c.textSecondary,
                                 )
                             }
@@ -858,7 +857,7 @@ private fun Step4Validation(
                 ) {
                     Text(
                         "Facturation globale",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = ElTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
                     ElInfoRow(

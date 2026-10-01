@@ -12,7 +12,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -50,6 +49,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.example.ui.designsystem.theme.ElTheme
 
 /**
  * Expense submission form ViewModel.
@@ -296,7 +296,7 @@ fun ExpenseSubmitScreen(
                 ) {
                     Text(
                         "Workflow d'approbation",
-                        style = MaterialTheme.typography.titleSmall,
+                        style = ElTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                     )
                     Spacer(Modifier.height(4.dp))
@@ -304,7 +304,7 @@ fun ExpenseSubmitScreen(
                         "1. Soumise → 2. Approuvée → 3. Décaissée → 4. Justificatif téléversé.\n" +
                             "Règle de séparation des tâches : l'auto-approbation est strictement interdite (plan §08).\n" +
                             "Le justificatif est obligatoire avant clôture.",
-                        style = MaterialTheme.typography.bodySmall,
+                        style = ElTheme.typography.bodySmall,
                     )
                 }
             }

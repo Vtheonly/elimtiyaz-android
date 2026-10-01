@@ -259,25 +259,25 @@ fun ClassDetailScreen(
                     ) {
                         Text(
                             cls.name,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = ElTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
                             "Niveau : ${cls.level.uppercase()}",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = ElTheme.typography.bodySmall,
                             color = c.textSecondary,
                         )
                         cls.homeroomTeacherName?.let {
                             Text(
                                 "Prof principal : $it",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = ElTheme.typography.bodySmall,
                                 color = c.textSecondary,
                             )
                         }
                         cls.room?.let {
                             Text(
                                 "Salle : $it",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = ElTheme.typography.bodySmall,
                                 color = c.textSecondary,
                             )
                         }
@@ -305,16 +305,16 @@ fun ClassDetailScreen(
                                 val girlsPct = Math.round(girls.toDouble() / total * 100).toInt()
                                 Text(
                                     "Garçons : $boys ($boysPct%)",
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = ElTheme.typography.labelSmall,
                                     modifier = Modifier.weight(1f, fill = false),
                                 )
                                 Text(
                                     "Filles : $girls ($girlsPct%)",
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = ElTheme.typography.labelSmall,
                                 )
                                 if (roster.size > boys + girls) {
                                     val uns = roster.size - boys - girls
-                                    Text("Non spécifié : $uns", style = MaterialTheme.typography.labelSmall)
+                                    Text("Non spécifié : $uns", style = ElTheme.typography.labelSmall)
                                 }
                             }
                         }
@@ -326,7 +326,7 @@ fun ClassDetailScreen(
                 Text(
                     it,
                     color = c.danger,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = ElTheme.typography.bodySmall,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
@@ -363,12 +363,12 @@ fun ClassDetailScreen(
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             student.fullName,
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = ElTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Bold,
                                         )
                                         Text(
                                             "Matricule : ${student.code}",
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = ElTheme.typography.labelSmall,
                                             color = c.textSecondary,
                                         )
                                     }
@@ -400,7 +400,7 @@ fun ClassDetailScreen(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
                                             subj.name,
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = ElTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Bold,
                                             modifier = Modifier.weight(1f),
                                         )
@@ -408,18 +408,18 @@ fun ClassDetailScreen(
                                     }
                                     Text(
                                         "Code : ${subj.code} • Seuil : ${subj.passingGrade}/20",
-                                        style = MaterialTheme.typography.labelSmall,
+                                        style = ElTheme.typography.labelSmall,
                                         color = c.textSecondary,
                                     )
                                     Text(
                                         "Pondération : D1 ×${subj.coefficientDevoir1} · D2 ×${subj.coefficientDevoir2} · Examen ×${subj.coefficientExamen}",
-                                        style = MaterialTheme.typography.labelSmall,
+                                        style = ElTheme.typography.labelSmall,
                                         color = c.textSecondary,
                                     )
                                     if (subj.isExtracurricular) {
                                         Text(
                                             "Hors programme (non comptée dans la moyenne)",
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = ElTheme.typography.labelSmall,
                                             color = c.warning,
                                         )
                                     }
@@ -446,7 +446,7 @@ fun ClassDetailScreen(
                         ) {
                             Text(
                                 "Bilan hebdomadaire",
-                                style = MaterialTheme.typography.titleSmall,
+                                style = ElTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                             )
                             if (viewModel.canRollCall) {
@@ -493,7 +493,7 @@ fun ClassDetailScreen(
                                     ) {
                                         Text(
                                             rec.date,
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = ElTheme.typography.labelSmall,
                                             modifier = Modifier.weight(1f),
                                         )
                                         val (label, tone) = attendanceStatusLabel(rec.status)
@@ -502,7 +502,7 @@ fun ClassDetailScreen(
                                     rec.note?.let { note ->
                                         Text(
                                             note,
-                                            style = MaterialTheme.typography.labelSmall,
+                                            style = ElTheme.typography.labelSmall,
                                             color = c.textSecondary,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
@@ -531,7 +531,7 @@ fun ClassDetailScreen(
                         ) {
                             Text(
                                 "Dernières notes",
-                                style = MaterialTheme.typography.titleSmall,
+                                style = ElTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                             )
                             if (viewModel.canEnterGrades) {
@@ -567,7 +567,7 @@ fun ClassDetailScreen(
                                     classAvg,
                                     passingCount * 100.0 / computedAverages.size,
                                 ),
-                                style = MaterialTheme.typography.bodySmall,
+                                style = ElTheme.typography.bodySmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = if (classAvg >= 10.0) c.primary else c.danger,
                             )
@@ -584,24 +584,24 @@ fun ClassDetailScreen(
                                         ) {
                                             Text(
                                                 "${subject?.name ?: g.subjectId} • ${g.term}",
-                                                style = MaterialTheme.typography.labelSmall,
+                                                style = ElTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.SemiBold,
                                             )
                                             Text(
                                                 "Coef ${g.coefficient}",
-                                                style = MaterialTheme.typography.labelSmall,
+                                                style = ElTheme.typography.labelSmall,
                                                 color = c.textSecondary,
                                             )
                                         }
                                         Text(
                                             "D1 : ${g.devoir1 ?: "—"} · D2 : ${g.devoir2 ?: "—"} · Examen : ${g.examen ?: "—"}",
-                                            style = MaterialTheme.typography.bodySmall,
+                                            style = ElTheme.typography.bodySmall,
                                             color = c.textSecondary,
                                         )
                                         g.subjectAverage?.let { avg ->
                                             Text(
                                                 "Moyenne : %.1f / 20".format(avg),
-                                                style = MaterialTheme.typography.bodyMedium,
+                                                style = ElTheme.typography.bodyMedium,
                                                 fontWeight = FontWeight.Bold,
                                                 color = when {
                                                     avg >= 10.0 -> c.success
@@ -610,7 +610,7 @@ fun ClassDetailScreen(
                                             )
                                         } ?: Text(
                                             "Moyenne manquante",
-                                            style = MaterialTheme.typography.bodySmall,
+                                            style = ElTheme.typography.bodySmall,
                                             color = c.warning,
                                         )
                                     }
@@ -649,14 +649,14 @@ private fun StatusCountChip(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 count.toString(),
-                style = MaterialTheme.typography.titleMedium,
+                style = ElTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = color,
                 textAlign = TextAlign.Center,
             )
             Text(
                 label,
-                style = MaterialTheme.typography.labelSmall,
+                style = ElTheme.typography.labelSmall,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

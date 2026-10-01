@@ -635,11 +635,14 @@ fun DiscountErosionCard(
 // Debt triage — who to call today
 // ============================================================================
 
+// T-460 pass H (issue #3 F-20): the triage status colors now resolve from the
+// canonical chart palette (the pinned T-289 rule — chart/data colors come from
+// ElChartPalette, never ad-hoc hex maps).
 private val TRIAGE_COLORS = mapOf(
-    "not_due" to Color(0xFF94A3B8),
-    "current" to Color(0xFF10B981),
-    "reminder" to Color(0xFFEAB308),
-    "chronic" to Color(0xFFEF4444),
+    "not_due" to ElChartPalette.slate,
+    "current" to ElChartPalette.success,
+    "reminder" to ElChartPalette.warning,
+    "chronic" to ElChartPalette.danger,
 )
 
 /**
