@@ -59,6 +59,7 @@ import com.example.ui.components.ElTopBar
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
+import com.example.ui.theme.WarningOrange
 import com.example.ui.util.PhoneUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -185,17 +186,20 @@ fun DebtDashboardScreen(
                 }
             } else {
                 items(filtered) { debtor ->
-                    val bucketColor = when (debtor.bucket) {
-                        "0_30" -> PrimaryBlue
-                        "31_60" -> MaterialTheme.colorScheme.tertiary
-                        "61_90" -> MaterialTheme.colorScheme.secondary
+                    // T-457 (§15.1/§15.3): the canonical 4-tier status chip —
+                    // the tone mirrors the desktop's DEBT_AGING_STATUS_TONE
+                    // (green success · yellow warning · orange warning · red
+                    // danger); the §15.3 wording is IDENTICAL on every surface.
+                    val statusColor = when (debtor.statusLevel) {
+                        "green" -> SuccessGreen
+                        "yellow", "orange" -> WarningOrange
                         else -> DangerRed
                     }
                     ElCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onNavigateToParent(debtor.parentId) },
-                        accent = if (debtor.daysOverdue > 0) DangerRed else null,
+                        accent = if (debtor.statusLevel == "red") DangerRed else if (debtor.statusLevel == "green") null else WarningOrange,
                         compact = true,
                     ) {
                         Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
@@ -208,11 +212,23 @@ fun DebtDashboardScreen(
                                     Text(debtor.parentName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                                     Text("${debtor.studentCount} élève(s) rattaché(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                ElTag(text = debtor.bucket.replace("_", "–") + " j", color = bucketColor)
+                                // The §15.3 canonical label (INV-16d: never a bare
+                                // color — the explanation travels with the row).
+                                ElTag(text = debtor.statusLabel, color = statusColor)
                             }
                             Spacer(Modifier.height(8.dp))
                             ElInfoRow(label = "Téléphone", value = debtor.parentPhone)
                             ElInfoRow(label = "Montant dû", value = "${(debtor.outstandingAmount / 100).formatDzd()} DZD", valueColor = DangerRed)
+                            // INV-16d: the explanation is part of the contract —
+                            // the tier, the thresholds actually applied, the
+                            // payeur-actif annotation.
+                            if (debtor.statusExplanation.isNotBlank()) {
+                                Text(
+                                    debtor.statusExplanation,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = statusColor,
+                                )
+                            }
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),

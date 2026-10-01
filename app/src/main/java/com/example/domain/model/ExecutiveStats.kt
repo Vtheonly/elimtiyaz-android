@@ -189,6 +189,11 @@ data class ExecTriageSnapshot(
     val buckets: List<ExecTriageBucketItem> = emptyList(),
     val totalOutstanding: Long = 0L,
     val callList: List<ExecCallListEntryItem> = emptyList(),
+    /** T-457 (§15.1): the RED threshold actually applied by the derivation —
+     *  the call-list header renders "beyond RED" from THIS value, never a
+     *  hardcoded day count (the pre-T-457 stale "> 45 j" label bug). The
+     *  default is the documented seed (migration 0125: red 60). */
+    val redDays: Int = 60,
 )
 
 @Serializable

@@ -73,6 +73,7 @@ import com.example.ui.components.ModernSecondaryTabRow
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.SuccessGreen
+import com.example.ui.theme.WarningOrange
 import com.example.ui.theme.WarmGold
 import com.example.ui.util.PhoneUtils
 
@@ -130,7 +131,18 @@ internal fun CreancesTab(
             }
         } else {
             items(filtered) { debtor ->
-                ElCard(modifier = Modifier.fillMaxWidth(), accent = DangerRed, compact = true) {
+                // T-457 (§15.1/§15.3): the canonical 4-tier status tone
+                // (green success · yellow/orange warning · red danger).
+                val statusColor = when (debtor.statusLevel) {
+                    "green" -> SuccessGreen
+                    "yellow", "orange" -> WarningOrange
+                    else -> DangerRed
+                }
+                ElCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    accent = if (debtor.statusLevel == "red") DangerRed else if (debtor.statusLevel == "green") null else WarningOrange,
+                    compact = true,
+                ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -159,15 +171,22 @@ internal fun CreancesTab(
 
                         Spacer(Modifier.height(8.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                "Retard de ${debtor.daysOverdue} jours",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                                color = DangerRed,
-                            )
+                            // T-457: the §15.3 canonical label replaces the
+                            // bare days count as the row's status voice (the
+                            // days fact stays on the Debt Dashboard).
+                            ElTag(text = debtor.statusLabel, color = statusColor)
                             Text(
                                 "${(debtor.outstandingAmount / 100).formatDzd()} DZD",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 color = DangerRed,
+                            )
+                        }
+                        // INV-16d: the explanation is part of the contract.
+                        if (debtor.statusExplanation.isNotBlank()) {
+                            Text(
+                                debtor.statusExplanation,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = statusColor,
                             )
                         }
                     }

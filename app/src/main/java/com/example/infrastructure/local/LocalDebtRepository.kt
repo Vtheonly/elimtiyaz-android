@@ -7,7 +7,13 @@ import com.example.core.currentTermWindow
 import com.example.core.agingBucketFromDays
 import com.example.core.daysBetweenFloor
 import com.example.core.formatDzd
+import com.example.core.computeDebtAgingStatus
+import com.example.core.DebtAgingInstallmentFacts
+import com.example.core.DebtAgingPaymentFact
+import com.example.core.deriveDebtAgingStatusFactors
+import com.example.core.LedgerEntryType
 import com.example.core.LedgerEngine
+import com.example.core.PaymentStatus
 import com.example.core.StatsInstallment
 import com.example.core.installmentRemaining
 import com.example.domain.model.AcademicClass
@@ -136,9 +142,24 @@ class LocalDebtRepository @Inject constructor(
         // observeDebtByAging; the ledger-first/else-installment fallback is
         // GONE (it produced different numbers from the desktop — the exact
         // class of divergence the owner reported).
+        //
+        // T-457 (§15.1): every row additionally carries the canonical 4-TIER
+        // debt-status (computeDebtAgingStatus — the verbatim port of the
+        // desktop's debt-aging.ts evaluation, over the SAME factors the
+        // desktop's analysis derives: the INV-4 outstanding, the age of the
+        // oldest outstanding obligation, the last-payment inactivity, the
+        // subsequent-year payments). The §15.3 label wording + the INV-16d
+        // explanation travel WITH the row — a UI can never show a bare color.
         val nowEpochMs = System.currentTimeMillis()
         val installmentsByParent = installments
             .map { StatsInstallment(it.id, it.parentId, it.amountDue, it.amountPaid, it.amountPending, it.dueDate, it.status) }
+            .groupBy { it.parentId }
+        // The non-reversed payment entries per parent (§15: the payment-
+        // behavior replay source — the inactivity fact's origin).
+        val reversedIds = ledgerEntries.mapNotNull { it.reversesId }.toHashSet()
+        val paymentEntriesByParent = ledgerEntries
+            .filter { LedgerEntryType.fromCodeOrNull(it.type) == LedgerEntryType.PAYMENT && it.id !in reversedIds }
+            .map { DebtAgingPaymentFact(it.id, it.parentId, it.at) }
             .groupBy { it.parentId }
 
         parents.map { parent ->
@@ -153,6 +174,20 @@ class LocalDebtRepository @Inject constructor(
                 .filter { installmentRemaining(it) > 0L }
                 .maxOfOrNull { daysBetweenFloor(it.dueDate, nowEpochMs) } ?: 0L
 
+            // T-457: the canonical status over the derived factors.
+            val factors = deriveDebtAgingStatusFactors(
+                installments = parentInsts.map {
+                    DebtAgingInstallmentFacts(
+                        id = it.id, parentId = it.parentId, amountDue = it.amountDue,
+                        amountPaid = it.amountPaid, amountPending = it.amountPending,
+                        dueDate = it.dueDate, status = PaymentStatus.fromCodeOrDefault(it.status),
+                    )
+                },
+                paymentEntries = paymentEntriesByParent[parent.id] ?: emptyList(),
+                nowEpochMs = nowEpochMs,
+            )
+            val status = computeDebtAgingStatus(factors)
+
             DebtSummary(
                 parentId = parent.id,
                 parentName = parent.fullName,
@@ -162,6 +197,9 @@ class LocalDebtRepository @Inject constructor(
                 overdueAmount = overdueAmount,
                 daysOverdue = maxDays,
                 bucket = agingBucketFromDays(maxDays),
+                statusLevel = status.level.name.lowercase(),
+                statusLabel = status.labelFr,
+                statusExplanation = status.explanationFr,
             )
         }.filter { it.outstandingAmount > 0L }.sortedByDescending { it.outstandingAmount }
     }
