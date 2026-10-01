@@ -108,6 +108,20 @@ the generated `BuildConfig` fields come from the ROOT-level files only.
   `BuildConfig.java` = the plugin found NO root-level `.env` (or the committed
   root `.env.example`'s empty defaults won). It is NOT a `app/.env` problem.
 
+- **The T-456/T-457 test-writing lessons (128th session, 2026-10-02):**
+  (1) `NumberFormat(Locale.FRANCE)` groups with **U+202F (NARROW NO-BREAK
+  SPACE)** — not U+00A0, not a plain space — in BOTH the Robolectric and the
+  production JVMs. Any test asserting a rendered DZD amount string MUST build
+  the expected string with the same `formatDzd()` formatter (never a literal
+  "175 000" — a plain-space literal silently fails to match).
+  (2) JUnit4 backtick test names must stay JVM-identifier-legal: `.` and `§`
+  are ILLEGAL (the compiler accepts them; the class file generation fails
+  with "Name contains illegal characters"). Write `S15.3` as `S153`.
+  (3) Kotlin `List.take(n)` THROWS for negative n while the desktop TS
+  `filter(idx < n)` semantics silently return empty — the year-history
+  prior-years edge (no years with charges) — prefer `filterIndexed` when
+  porting a TS filter-with-index.
+
 - **T-284/T-285 (44th session, PARITY-002) — the dashboard-statistics mirror discipline:**
   every derived statistic (descriptive stats, bins, mixes, Pareto, aging census, funnel,
   collection rate, attendance) lives in `core/StatisticsEngine.kt` — the verbatim Kotlin mirror
