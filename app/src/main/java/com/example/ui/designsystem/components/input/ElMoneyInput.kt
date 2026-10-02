@@ -105,7 +105,7 @@ fun ElMoneyInput(
                     },
                     shape = ElFieldShape,
                 )
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = ElTheme.spacing.md),
         ) {
             Box(modifier = Modifier.weight(1f)) {
                 if (displayText.isEmpty()) {

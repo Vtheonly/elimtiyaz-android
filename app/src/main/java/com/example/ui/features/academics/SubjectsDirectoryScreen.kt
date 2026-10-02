@@ -295,13 +295,13 @@ fun SubjectsDirectoryScreen(
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(ElTheme.spacing.lg)) {
             error?.let {
                 ElAlertBanner(
                     title = "Erreur",
                     message = it,
                     severity = ElAlertSeverity.DANGER,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    modifier = Modifier.padding(bottom = ElTheme.spacing.sm),
                 )
             }
             message?.let {
@@ -309,12 +309,12 @@ fun SubjectsDirectoryScreen(
                     title = "Succès",
                     message = it,
                     severity = ElAlertSeverity.SUCCESS,
-                    modifier = Modifier.padding(bottom = 8.dp),
+                    modifier = Modifier.padding(bottom = ElTheme.spacing.sm),
                 )
             }
 
             // Vault §05.01 — domain split filter (Scolarite vs Clubs/Therapy).
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.padding(bottom = ElTheme.spacing.sm)) {
                 ElChip(text = "Tous domaines", variant = ElChipVariant.FILTER, selected = domainFilter == null, onClick = { viewModel.onDomainFilter(null) })
                 ElChip(text = "Scolarité", variant = ElChipVariant.FILTER, selected = domainFilter == "scolarite", onClick = { viewModel.onDomainFilter("scolarite") })
                 ElChip(text = "Clubs & Thérapie", variant = ElChipVariant.FILTER, selected = domainFilter == "extracurricular", onClick = { viewModel.onDomainFilter("extracurricular") })
@@ -328,17 +328,17 @@ fun SubjectsDirectoryScreen(
                 placeholder = "Nom, code matière…",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp),
+                    .padding(bottom = ElTheme.spacing.sm),
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.padding(bottom = ElTheme.spacing.md)) {
                 ElChip(text = "Tous", variant = ElChipVariant.FILTER, selected = levelFilter == null, onClick = { viewModel.onLevelFilter(null) })
                 ElChip(text = "Primaire", variant = ElChipVariant.FILTER, selected = levelFilter == "primaire", onClick = { viewModel.onLevelFilter("primaire") })
                 ElChip(text = "CEM", variant = ElChipVariant.FILTER, selected = levelFilter == "cem", onClick = { viewModel.onLevelFilter("cem") })
                 ElChip(text = "Lycée", variant = ElChipVariant.FILTER, selected = levelFilter == "lycee", onClick = { viewModel.onLevelFilter("lycee") })
             }
 
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                 if (filtered.isEmpty()) {
                     item {
                         // T-323: the filtered-empty state — the old screen showed
@@ -359,7 +359,7 @@ fun SubjectsDirectoryScreen(
                         modifier = Modifier.fillMaxWidth(),
                         size = ElCardSize.STANDARD,
                     ) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.md)) {
                             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                                 Text(
                                     subj.name,
@@ -382,7 +382,7 @@ fun SubjectsDirectoryScreen(
                                 color = c.textSecondary,
                             )
                             if (viewModel.canManage) {
-                                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth().padding(top = ElTheme.spacing.xs)) {
                                     // Vault §05.06 — coefficient edit (audited +
                                     // triggers the GPA recompute server-repo side).
                                     ElIconButton(
@@ -426,7 +426,7 @@ fun SubjectsDirectoryScreen(
         var extracurricularLabel by remember { mutableStateOf("Scolarité") }
         val domainOptions = listOf("Scolarité", "Hors programme (club / thérapie)")
         ElDialogShell(onDismissRequest = { showCreateDialog = false }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.xl), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                 Text(
                     "Nouvelle matière",
                     style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -445,7 +445,7 @@ fun SubjectsDirectoryScreen(
                 ElTextField(value = coefD2, onValueChange = { coefD2 = it.filter { ch -> ch.isDigit() || ch == '.' } }, label = "Coef. Devoir 2", modifier = Modifier.fillMaxWidth())
                 ElTextField(value = coefEx, onValueChange = { coefEx = it.filter { ch -> ch.isDigit() || ch == '.' } }, label = "Coef. Examen", modifier = Modifier.fillMaxWidth())
                 // Vault §05.07 — extracurricular toggle (clubs & therapy programs).
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                     domainOptions.forEach { opt ->
                         ElChip(
                             text = if (opt == "Scolarité") "Scolarité" else "Hors programme",
@@ -461,8 +461,8 @@ fun SubjectsDirectoryScreen(
                     style = ElTheme.typography.labelSmall,
                     color = ElTheme.colors.textSecondary,
                 )
-                Spacer(Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Spacer(Modifier.height(ElTheme.spacing.xs))
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                     ElButton(
                         text = "Annuler",
                         onClick = { showCreateDialog = false },
@@ -501,7 +501,7 @@ fun SubjectsDirectoryScreen(
         var coefD2 by remember(subj.id) { mutableStateOf(if (subj.coefficientDevoir2 == subj.coefficientDevoir2.toLong().toDouble()) "${subj.coefficientDevoir2.toLong()}" else "${subj.coefficientDevoir2}") }
         var coefEx by remember(subj.id) { mutableStateOf(if (subj.coefficientExamen == subj.coefficientExamen.toLong().toDouble()) "${subj.coefficientExamen.toLong()}" else "${subj.coefficientExamen}") }
         ElDialogShell(onDismissRequest = { editTarget = null }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.xl), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                 Text(
                     "Modifier — ${subj.name}",
                     style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -543,8 +543,8 @@ fun SubjectsDirectoryScreen(
                     style = ElTheme.typography.labelSmall,
                     color = ElTheme.colors.textSecondary,
                 )
-                Spacer(Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Spacer(Modifier.height(ElTheme.spacing.xs))
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                     ElButton(
                         text = "Annuler",
                         onClick = { editTarget = null },
@@ -576,7 +576,7 @@ fun SubjectsDirectoryScreen(
 
     archiveTarget?.let { subj ->
         ElDialogShell(onDismissRequest = { archiveTarget = null }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.xl), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                 Text(
                     "Archiver la matière",
                     style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -587,7 +587,7 @@ fun SubjectsDirectoryScreen(
                     style = ElTheme.typography.bodyMedium,
                     color = ElTheme.colors.textSecondary,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                     ElButton(
                         text = "Annuler",
                         onClick = { archiveTarget = null },

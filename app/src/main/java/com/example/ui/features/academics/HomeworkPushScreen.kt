@@ -147,8 +147,8 @@ fun HomeworkPushScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(ElTheme.spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
     ) {
         if (onBack != null) {
             ElTopBar(
@@ -199,7 +199,7 @@ fun HomeworkPushScreen(
         ElTextField(value = dueDate, onValueChange = { dueDate = it }, label = "Date de Rendu (AAAA-MM-JJ) *", modifier = Modifier.fillMaxWidth())
 
         ElCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -236,7 +236,7 @@ fun HomeworkPushScreen(
                         contentScale = ContentScale.Crop,
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                     ElButton(
                         text = "Caméra",
                         onClick = {

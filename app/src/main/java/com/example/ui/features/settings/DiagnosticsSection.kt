@@ -33,10 +33,10 @@ internal fun DiagnosticsSection(
     syncState: SyncState,
     appVersion: String,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
         ElSectionHeader(title = "Diagnostics")
         ElCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = if (online) Icons.Default.Cloud else Icons.Default.CloudOff,
@@ -44,14 +44,14 @@ internal fun DiagnosticsSection(
                         tint = if (online) ElTheme.colors.primary else ElTheme.colors.danger,
                         modifier = Modifier.size(20.dp),
                     )
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.md))
                     Text(
                         text = if (online) "En ligne" else "Hors ligne",
                         style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = if (online) ElTheme.colors.primary else ElTheme.colors.danger,
                     )
                 }
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(ElTheme.spacing.xs))
                 ElInfoRow(label = "Dernière sync", value = syncState.lastSyncAt?.take(19)?.replace("T", " ") ?: "—")
                 ElInfoRow(label = "Entrées en attente", value = syncState.pendingCount.toString())
                 ElInfoRow(label = "Version de l'app", value = appVersion)

@@ -177,11 +177,11 @@ fun ElSnackbar(
             verticalAlignment = Alignment.CenterVertically,
             modifier = modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.sm)
                 .clip(ElNotificationShape)
                 .background(c.surface)
                 .elShadow(ElTheme.elevation.high, ElNotificationShape)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = ElTheme.spacing.md),
         ) {
             Icon(
                 imageVector = icon,
@@ -197,13 +197,13 @@ fun ElSnackbar(
                 modifier = Modifier.weight(1f),
             )
             if (actionLabel != null && onAction != null) {
-                Spacer(Modifier.size(8.dp))
+                Spacer(Modifier.size(ElTheme.spacing.sm))
                 TextButton(onClick = onAction) {
                     Text(actionLabel, color = accent)
                 }
             }
             if (onDismiss != null) {
-                Spacer(Modifier.size(4.dp))
+                Spacer(Modifier.size(ElTheme.spacing.xs))
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Dismiss",

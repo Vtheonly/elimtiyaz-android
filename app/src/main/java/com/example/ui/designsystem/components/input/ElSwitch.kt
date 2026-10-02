@@ -55,14 +55,14 @@ fun ElSwitch(
 
     // Track dims — wider than tall, fully pill-rounded.
     val trackWidth = 52.dp
-    val trackHeight = 32.dp
-    val thumbDiameter = 24.dp
+    val trackHeight = ElTheme.spacing.xxl
+    val thumbDiameter = ElTheme.spacing.xl
     val trackPadding = (trackHeight - thumbDiameter) / 2
 
     // Animated thumb offset: 0 when unchecked, max when checked.
     val maxOffset = trackWidth - thumbDiameter - trackPadding * 2
     val thumbOffset by animateDpAsState(
-        targetValue = if (checked) maxOffset else 0.dp,
+        targetValue = if (checked) maxOffset else ElTheme.spacing.none,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium,

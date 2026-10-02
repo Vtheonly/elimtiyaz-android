@@ -55,7 +55,7 @@ internal fun TrancheWaveCard(
     val allZero = waves.all { it.due == 0L }
     if (allZero) {
         ElCard(modifier = modifier.fillMaxWidth(), variant = ElCardVariant.OUTLINED) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(ElTheme.spacing.lg)) {
                 Text(
                     text = "Vagues de Tranches (T1 / T2 / T3)",
                     color = c.textPrimary,
@@ -78,7 +78,7 @@ internal fun TrancheWaveCard(
     val nowEpochMs = System.currentTimeMillis()
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
             Text(
                 text = "Vagues de Tranches (T1 / T2 / T3)",
                 color = c.textPrimary,
@@ -92,7 +92,7 @@ internal fun TrancheWaveCard(
             )
 
             waves.forEach { w ->
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -105,7 +105,7 @@ internal fun TrancheWaveCard(
                                 style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                             )
                             if (w.isNextTarget) {
-                                Spacer(Modifier.width(8.dp))
+                                Spacer(Modifier.width(ElTheme.spacing.sm))
                                 Text(
                                     text = "cible",
                                     color = ElChartPalette.primary,
@@ -115,7 +115,7 @@ internal fun TrancheWaveCard(
                                             ElChartPalette.primary.copy(alpha = 0.14f),
                                             RoundedCornerShape(50),
                                         )
-                                        .padding(horizontal = 8.dp, vertical = 1.dp),
+                                        .padding(horizontal = ElTheme.spacing.sm, vertical = 1.dp),
                                 )
                             }
                         }
@@ -186,7 +186,7 @@ internal fun TrancheWaveCard(
             val t = totals
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 TrancheTotal("Total dû", "${((t?.totalDue ?: waves.sumOf { it.due }) / 100).formatDzd()} DA", c.textPrimary, Modifier.weight(1f))
                 TrancheTotal("Payé", "${((t?.totalPaid ?: waves.sumOf { it.paid }) / 100).formatDzd()} DA", ElChartPalette.success, Modifier.weight(1f))

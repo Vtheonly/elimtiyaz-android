@@ -26,6 +26,7 @@ import com.example.core.Permission
 import com.example.core.Role
 import com.example.core.Session
 import com.example.ui.designsystem.components.tabs.ElScrollableTabRow
+import com.example.ui.designsystem.theme.ElTheme
 
 @Composable
 fun PersonnelHubScreen(
@@ -64,7 +65,7 @@ fun PersonnelHubScreen(
             onSelected = { selectedTab = it },
         )
         Box(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.sm),
             contentAlignment = Alignment.TopStart,
         ) {
             when (selectedTab) {
@@ -104,7 +105,7 @@ private fun DriverRoutingEntry(onNavigateToRouting: () -> Unit, onNavigateToWork
             icon = Icons.Default.LocalShipping,
             fullWidth = true,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(ElTheme.spacing.sm))
         ElButton(
             text = "Moniteur de workflows",
             onClick = onNavigateToWorkflowMonitor,

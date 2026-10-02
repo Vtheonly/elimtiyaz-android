@@ -72,7 +72,7 @@ fun ElSearchBar(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth(focusScale)
-            .defaultMinSize(minHeight = 48.dp)
+            .defaultMinSize(minHeight = ElTheme.spacing.xxxl)
             .clip(ElPillShape)
             .background(c.surface)
             .border(
@@ -80,7 +80,7 @@ fun ElSearchBar(
                 color = if (isFocused) c.primary else c.outline,
                 shape = ElPillShape,
             )
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = ElTheme.spacing.lg, vertical = 10.dp),
     ) {
         // Leading icon (default = search).
         if (leadingIcon != null) {
@@ -121,7 +121,7 @@ fun ElSearchBar(
         if (trailingIcon != null) {
             trailingIcon()
         } else if (query.isNotEmpty()) {
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(ElTheme.spacing.sm))
             ClearButton(onClick = { onQueryChange("") })
         }
     }
@@ -133,7 +133,7 @@ private fun ClearButton(onClick: () -> Unit) {
     val c = ElTheme.colors
     Box(
         modifier = Modifier
-            .size(24.dp)
+            .size(ElTheme.spacing.xl)
             .clip(ElPillShape)
             .background(c.surfaceVariant)
             .pressClickable(

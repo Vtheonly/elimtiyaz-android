@@ -289,8 +289,8 @@ fun BatchRegistrationScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                        .padding(ElTheme.spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.lg),
                 ) {
                     error?.let {
                         ElAlertBanner(
@@ -366,7 +366,7 @@ fun BatchRegistrationScreen(
                     }
 
                     // Wizard controls
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                         if (currentStep > 1) {
                             ElButton(
                                 text = "Précédent",
@@ -398,7 +398,7 @@ fun BatchRegistrationScreen(
                             )
                         }
                     }
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.xl))
                 }
             }
         }
@@ -437,8 +437,8 @@ private fun Step1Parent(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
             ElSectionHeader(
                 title = "Renseignements du parent",
@@ -447,7 +447,7 @@ private fun Step1Parent(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 ElTextField(
                     value = parentFirstName,
@@ -467,7 +467,7 @@ private fun Step1Parent(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 ElDropdown(
                     options = stringOptions(RELATIONSHIPS),
@@ -555,7 +555,7 @@ private fun Step2Children(
     onUpdateChild: (Int, ChildFormState) -> Unit,
 ) {
     val c = ElTheme.colors
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -576,7 +576,7 @@ private fun Step2Children(
         }
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             modifier = Modifier.fillMaxWidth(),
         ) {
             children.forEachIndexed { index, child ->
@@ -595,8 +595,8 @@ private fun Step2Children(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                        .padding(ElTheme.spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -623,7 +623,7 @@ private fun Step2Children(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                     ) {
                         ElTextField(
                             value = child.firstName,
@@ -642,7 +642,7 @@ private fun Step2Children(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                     ) {
                         ElTextField(
                             value = child.birthDate,
@@ -710,7 +710,7 @@ private fun Step3Simulation(
     isLoading: Boolean,
 ) {
     val c = ElTheme.colors
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
         ElSectionHeader(
             title = "Facturation & simulation en direct",
             subtitle = "Calculée avec les tarifs officiels de l'établissement" +
@@ -760,7 +760,7 @@ private fun Step4Validation(
     simulation: BillingSimulation?,
 ) {
     val c = ElTheme.colors
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
         ElSectionHeader(
             title = "Validation & envoi",
             subtitle = "Vérifiez le récapitulatif avant l'enregistrement définitif",
@@ -772,8 +772,8 @@ private fun Step4Validation(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(ElTheme.spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 Text(
                     "Parent / Tuteur",
@@ -809,8 +809,8 @@ private fun Step4Validation(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(ElTheme.spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 Text(
                     "Élèves (${children.size})",
@@ -854,8 +854,8 @@ private fun Step4Validation(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .padding(ElTheme.spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                 ) {
                     Text(
                         "Facturation globale",

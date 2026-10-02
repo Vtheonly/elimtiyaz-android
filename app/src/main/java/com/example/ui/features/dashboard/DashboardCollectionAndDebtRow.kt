@@ -64,34 +64,34 @@ internal fun DashboardCollectionAndDebtRow(
     val context = LocalContext.current
     val toast = LocalElToast.current
 
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.lg)) {
         // ── Synthèse Décisionnelle IA ──
         ElCard(
             modifier = Modifier.fillMaxWidth(),
             background = ElTheme.colors.primaryContainer.copy(alpha = 0.25f),
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(ElTheme.spacing.lg)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.AutoAwesome,
                         contentDescription = null,
                         tint = ElTheme.colors.primary,
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(ElTheme.spacing.lg),
                     )
-                    Spacer(Modifier.size(8.dp))
+                    Spacer(Modifier.size(ElTheme.spacing.sm))
                     Text(
                         text = "Synthèse Décisionnelle IA",
                         style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         color = ElTheme.colors.primary,
                     )
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
                 Text(
                     text = "Suivi des relances : ${currentKpi.overdueFamiliesCount} familles en attente, dont ${currentKpi.recoveryFunnel.lastOrNull()?.count ?: 0} dossiers prioritaires.",
                     style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                     color = ElTheme.colors.textPrimary,
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(ElTheme.spacing.md))
                 ElButton(
                     text = "Accéder aux relances",
                     onClick = onNavigateToDebtDashboard,
@@ -104,7 +104,7 @@ internal fun DashboardCollectionAndDebtRow(
         // ── Taux de Recouvrement Annuel + Structure Impayé ──
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
             // Left: Annual Recovery Rate — computed by StatisticsEngine.collectionRatePct
             ElCard(modifier = Modifier.weight(1f)) {
@@ -121,7 +121,7 @@ internal fun DashboardCollectionAndDebtRow(
                         style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = ElTheme.colors.textPrimary,
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.sm))
 
                     if (revenueToDisplay > 0L || debtToDisplay > 0L) {
                         ElProgressRing(
@@ -139,7 +139,7 @@ internal fun DashboardCollectionAndDebtRow(
                         )
                     }
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.sm))
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -196,7 +196,7 @@ internal fun DashboardCollectionAndDebtRow(
                         style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = ElTheme.colors.textPrimary,
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.sm))
 
                     if (segments.isNotEmpty()) {
                         ElDonutChart(
@@ -219,7 +219,7 @@ internal fun DashboardCollectionAndDebtRow(
         // ── Entonnoir de Recouvrement (Recovery Funnel) — real census stages.
         if (currentKpi.recoveryFunnel.isNotEmpty()) {
             ElCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(ElTheme.spacing.lg)) {
                     val criticalPct = currentKpi.recoveryFunnel.last().sharePct
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -239,10 +239,10 @@ internal fun DashboardCollectionAndDebtRow(
                         color = ElTheme.colors.textSecondary,
                     )
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.md))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                     ) {
                         currentKpi.recoveryFunnel.forEach { stage ->
                             FunnelBox(
@@ -292,7 +292,7 @@ internal fun DashboardCollectionAndDebtRow(
                             )
                         }
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.sm))
 
                     debtAging.take(8).forEachIndexed { idx, debtor ->
                         val cum = pareto.getOrNull(idx)?.cumPercent
@@ -301,7 +301,7 @@ internal fun DashboardCollectionAndDebtRow(
                                 .fillMaxWidth()
                                 .clip(ElTheme.shapes.small)
                                 .clickable { onNavigateToParent(debtor.parentId) }
-                                .padding(vertical = 4.dp),
+                                .padding(vertical = ElTheme.spacing.xs),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
@@ -310,7 +310,7 @@ internal fun DashboardCollectionAndDebtRow(
                                     text = "#${idx + 1}",
                                     style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                     color = ElTheme.colors.textSecondary,
-                                    modifier = Modifier.width(24.dp),
+                                    modifier = Modifier.width(ElTheme.spacing.xl),
                                 )
                                 Column {
                                     Text(
@@ -335,7 +335,7 @@ internal fun DashboardCollectionAndDebtRow(
                                     text = "${(debtor.outstandingAmount / 100).formatDzd()} DA",
                                     style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                     color = ElTheme.colors.textPrimary,
-                                    modifier = Modifier.padding(end = 4.dp),
+                                    modifier = Modifier.padding(end = ElTheme.spacing.xs),
                                 )
                                 if (debtor.parentPhone.isNotBlank()) {
                                     ElIconButton(
@@ -369,7 +369,7 @@ private fun FunnelBox(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(color.copy(alpha = 0.12f))
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+            .padding(vertical = ElTheme.spacing.sm, horizontal = ElTheme.spacing.xs),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {

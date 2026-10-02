@@ -100,7 +100,7 @@ internal fun FieldTrailingIcon(
     Spacer(Modifier.width(10.dp))
     Box(
         modifier = Modifier
-            .size(24.dp)
+            .size(ElTheme.spacing.xl)
             .clip(ElFieldShape)
             .then(
                 if (enabled && onTrailingIconClick != null) {

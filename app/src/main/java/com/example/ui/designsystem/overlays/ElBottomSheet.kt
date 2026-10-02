@@ -74,7 +74,7 @@ fun ElBottomSheet(
                     indication = null,
                     onClick = {},  // swallow taps
                 )
-                .padding(bottom = 8.dp),
+                .padding(bottom = ElTheme.spacing.sm),
         ) {
             if (showHandle) SheetHandle()
             if (title != null) {
@@ -82,7 +82,7 @@ fun ElBottomSheet(
                     text = title,
                     color = c.textPrimary,
                     style = ElTheme.typography.titleLarge,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+                    modifier = Modifier.padding(horizontal = ElTheme.spacing.xl, vertical = ElTheme.spacing.xs),
                 )
             }
             content()
@@ -99,7 +99,7 @@ private fun ColumnScope.SheetHandle() {
             .padding(vertical = 10.dp)
             .align(Alignment.CenterHorizontally)
             .width(36.dp)
-            .height(4.dp)
+            .height(ElTheme.spacing.xs)
             .clip(ElSheetHandleShape)
             .background(c.outlineStrong),
     )

@@ -40,7 +40,7 @@ fun ElStatCard(
         onClick = onClick,
     ) {
         StatIcon(icon = icon, accentColor = accentColor)
-        Spacer(Modifier.size(8.dp))
+        Spacer(Modifier.size(ElTheme.spacing.sm))
         Text(
             text = label,
             color = colors.textSecondary,
@@ -48,7 +48,7 @@ fun ElStatCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Spacer(Modifier.size(4.dp))
+        Spacer(Modifier.size(ElTheme.spacing.xs))
         Text(
             text = value,
             color = colors.textPrimary,
@@ -57,7 +57,7 @@ fun ElStatCard(
             overflow = TextOverflow.Ellipsis,
         )
         if (trend != null) {
-            Spacer(Modifier.size(4.dp))
+            Spacer(Modifier.size(ElTheme.spacing.xs))
             Text(
                 text = trend,
                 color = if (trendPositive) colors.success else colors.danger,
@@ -75,7 +75,7 @@ private fun StatIcon(icon: ImageVector?, accentColor: Color) {
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
             .background(accentColor.copy(alpha = 0.12f))
-            .padding(8.dp),
+            .padding(ElTheme.spacing.sm),
     ) {
         Icon(
             imageVector = icon,

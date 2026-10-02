@@ -23,6 +23,7 @@ import com.example.ui.designsystem.components.display.ElBadge
 import com.example.ui.designsystem.components.display.ElBadgeStyle
 import com.example.ui.designsystem.components.display.ElBadgeTone
 import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.theme.ElTheme
 
 /**
  * Section (3) — Direct Operational Quick Actions.
@@ -46,7 +47,7 @@ internal fun DashboardQuickActionsRow(
     )
 
     LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
         modifier = Modifier.fillMaxWidth(),
     ) {
         item {

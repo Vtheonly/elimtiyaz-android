@@ -40,7 +40,7 @@ fun ElEmptyState(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 48.dp),
+            .padding(horizontal = ElTheme.spacing.xxl, vertical = ElTheme.spacing.xxxl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -88,8 +88,8 @@ private fun EmptyStateIcon(icon: ImageVector?) {
             imageVector = icon,
             contentDescription = null,
             tint = c.primary,
-            modifier = Modifier.size(32.dp),
+            modifier = Modifier.size(ElTheme.spacing.xxl),
         )
     }
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(ElTheme.spacing.lg))
 }

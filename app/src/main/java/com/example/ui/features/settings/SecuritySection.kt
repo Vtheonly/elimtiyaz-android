@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.theme.ElTheme
 
 @Composable
 internal fun SecuritySection(
@@ -21,10 +22,10 @@ internal fun SecuritySection(
     onOpenAuditLog: () -> Unit,
     onSignOut: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
         ElSectionHeader(title = "Sécurité")
         ElCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                 ActionRow(icon = Icons.Default.Lock, label = "Changer le mot de passe", onClick = onChangePassword)
                 ActionRow(icon = Icons.Default.History, label = "Journal d'audit", onClick = onOpenAuditLog)
                 ActionRow(icon = Icons.Default.Logout, label = "Se déconnecter", onClick = onSignOut, danger = true)

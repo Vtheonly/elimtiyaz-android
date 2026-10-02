@@ -45,7 +45,7 @@ internal fun DashboardRevenueChart(
     currentKpi: DashboardKpi,
     executive: ExecutiveStatsSnapshot,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
         // ── 1. Descriptive Financial Stats Row (Images 2 & 3) ──
         ElSectionHeader(
             title = "Analytique des Encaissements",
@@ -54,7 +54,7 @@ internal fun DashboardRevenueChart(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
         ) {
             AnalyticsMiniTile(
                 title = "PANIER MOYEN",
@@ -96,16 +96,16 @@ internal fun DashboardRevenueChart(
 
         // ── 3. Répartition par Catégorie (REAL data, kept) ──
         ElCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
                 Text(
                     text = "Répartition par poste d'encaissement",
                     style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     color = ElTheme.colors.textPrimary,
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
 
                 currentKpi.categoryBreakdown.forEach { item ->
-                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    Column(modifier = Modifier.padding(vertical = ElTheme.spacing.xs)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -121,7 +121,7 @@ internal fun DashboardRevenueChart(
                                 color = ElTheme.colors.primary,
                             )
                         }
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.xs))
                         ElLinearProgress(progress = (item.percentage / 100.0).toFloat())
                     }
                 }

@@ -86,13 +86,13 @@ fun LoginScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(24.dp),
+                .padding(ElTheme.spacing.xl),
             contentAlignment = Alignment.Center,
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.lg),
             ) {
                 // Brand logo
                 Box(
@@ -122,12 +122,12 @@ fun LoginScreen(
                     )
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
 
                 ElCard(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.lg),
                     ) {
                         Text(
                             "Connexion",
@@ -172,7 +172,7 @@ fun LoginScreen(
                                     .fillMaxWidth()
                                     .clip(ElTheme.shapes.small)
                                     .background(c.danger.copy(alpha = 0.1f))
-                                    .padding(12.dp),
+                                    .padding(ElTheme.spacing.md),
                             ) {
                                 Text(
                                     err,

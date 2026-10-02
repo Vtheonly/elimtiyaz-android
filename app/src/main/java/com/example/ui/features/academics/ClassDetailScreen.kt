@@ -252,11 +252,11 @@ fun ClassDetailScreen(
                 ElCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(ElTheme.spacing.lg),
                 ) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                     ) {
                         Text(
                             cls.name,
@@ -282,7 +282,7 @@ fun ClassDetailScreen(
                                 color = c.textSecondary,
                             )
                         }
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.sm))
                         // PARITY-003 — the desktop see-details-modal capacity
                         // GAUGE twin (semi-circle arc, tone: danger >=100 /
                         // gold >=80 / success; percent = round(count/cap*100))
@@ -328,7 +328,7 @@ fun ClassDetailScreen(
                     it,
                     color = c.danger,
                     style = ElTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier.padding(horizontal = ElTheme.spacing.lg),
                 )
             }
 
@@ -336,12 +336,12 @@ fun ClassDetailScreen(
                 tabs = tabs,
                 selectedIndex = selectedTab,
                 onSelected = { selectedTab = it },
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = ElTheme.spacing.lg),
             )
 
             when (selectedTab) {
                 0 -> if (isLoading) {
-                    ElLoadingBlock(modifier = Modifier.fillMaxWidth().padding(16.dp))
+                    ElLoadingBlock(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg))
                 } else if (roster.isEmpty()) {
                     ElEmptyState(
                         title = "Aucun élève",
@@ -349,8 +349,8 @@ fun ClassDetailScreen(
                     )
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxSize().padding(ElTheme.spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                     ) {
                         items(roster) { student ->
                             ElCard(
@@ -360,7 +360,7 @@ fun ClassDetailScreen(
                             ) {
                                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                     ElAvatar(initials = student.fullName, size = ElAvatarSize.S)
-                                    Spacer(Modifier.width(12.dp))
+                                    Spacer(Modifier.width(ElTheme.spacing.md))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             student.fullName,
@@ -389,14 +389,14 @@ fun ClassDetailScreen(
                     )
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxSize().padding(ElTheme.spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                     ) {
                         items(subjects) { subj ->
                             ElCard(modifier = Modifier.fillMaxWidth()) {
                                 Column(
                                     modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs),
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
@@ -439,7 +439,7 @@ fun ClassDetailScreen(
                         } else null,
                     )
                 } else {
-                    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                    Column(modifier = Modifier.fillMaxSize().padding(ElTheme.spacing.lg)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -459,12 +459,12 @@ fun ClassDetailScreen(
                                 )
                             }
                         }
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.sm))
                         // Weighted pills — the old unweighted Row overflowed on
                         // narrow screens (4 chips × intrinsic width).
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                         ) {
                             StatusCountChip(
                                 "Présents", weekStatusCounts["present"] ?: 0, c.primary,
@@ -483,8 +483,8 @@ fun ClassDetailScreen(
                                 modifier = Modifier.weight(1f),
                             )
                         }
-                        Spacer(Modifier.height(12.dp))
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Spacer(Modifier.height(ElTheme.spacing.md))
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                             // 7-day window × roster — cap at 40 records for scroll health.
                             items(weekAttendance.take(40)) { rec ->
                                 ElCard(modifier = Modifier.fillMaxWidth(), size = com.example.ui.designsystem.components.card.ElCardSize.COMPACT) {
@@ -524,7 +524,7 @@ fun ClassDetailScreen(
                         } else null,
                     )
                 } else {
-                    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                    Column(modifier = Modifier.fillMaxSize().padding(ElTheme.spacing.lg)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -544,7 +544,7 @@ fun ClassDetailScreen(
                                 )
                             }
                         }
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.sm))
                         // FIX (raw ids): rows showed raw subjectIds ("sub-math") —
                         // resolve real subject names + coefficients.
                         val subjectById = subjects.associateBy { it.id }
@@ -554,14 +554,14 @@ fun ClassDetailScreen(
                         val passingCount = computedAverages.count { it >= 10.0 }
                         val failing = computedAverages.count { it < 10.0 }
                         val missing = recentGrades.count { it.subjectAverage == null }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                             StatusCountChip("Évaluations", recentGrades.size, c.primary, modifier = Modifier.weight(1f))
                             StatusCountChip("≥ 10", passingCount, c.success, modifier = Modifier.weight(1f))
                             StatusCountChip("< 10", failing, c.danger, modifier = Modifier.weight(1f))
                             StatusCountChip("Manquantes", missing, c.textSecondary, modifier = Modifier.weight(1f))
                         }
                         if (computedAverages.isNotEmpty()) {
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(ElTheme.spacing.sm))
                             val classAvg = computedAverages.average()
                             Text(
                                 "Moyenne générale de la classe : %.2f / 20 • Réussite : %.0f%%".format(
@@ -573,8 +573,8 @@ fun ClassDetailScreen(
                                 color = if (classAvg >= 10.0) c.primary else c.danger,
                             )
                         }
-                        Spacer(Modifier.height(12.dp))
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Spacer(Modifier.height(ElTheme.spacing.md))
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                             items(recentGrades.take(30)) { g ->
                                 val subject = subjectById[g.subjectId]
                                 ElCard(modifier = Modifier.fillMaxWidth(), size = com.example.ui.designsystem.components.card.ElCardSize.COMPACT) {
@@ -644,7 +644,7 @@ private fun StatusCountChip(
     Box(
         modifier = modifier
             .background(color.copy(alpha = 0.1f), MaterialTheme.shapes.small)
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+            .padding(vertical = ElTheme.spacing.sm, horizontal = ElTheme.spacing.xs),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {

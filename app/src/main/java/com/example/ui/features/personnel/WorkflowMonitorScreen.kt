@@ -135,7 +135,7 @@ fun WorkflowMonitorScreen(
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(ElTheme.spacing.lg)) {
             error?.let {
                 ElAlertBanner(
                     title = it,
@@ -149,7 +149,7 @@ fun WorkflowMonitorScreen(
                     subtitle = "Les workflows sont déclenchés côté serveur. Les exécutions apparaîtront ici.",
                 )
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                     items(runs) { run ->
                         WorkflowRunCard(
                             run = run,
@@ -166,13 +166,13 @@ fun WorkflowMonitorScreen(
         // ElDialogShell (was a raw M3 AlertDialog) — the T-231 node_results
         // surface and the retry contract preserved verbatim.
         ElDialogShell(onDismissRequest = { viewModel.openDetail(null) }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.xl), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                 Text(
                     run.workflowName,
                     style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = ElTheme.colors.textPrimary,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(ElTheme.spacing.xs))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Statut : ", style = ElTheme.typography.bodySmall, color = ElTheme.colors.textSecondary)
                     WorkflowStatusChip(status = run.status)
@@ -183,7 +183,7 @@ fun WorkflowMonitorScreen(
                 run.durationMs?.let { Text("Durée : ${it}ms", style = ElTheme.typography.bodySmall, color = ElTheme.colors.textSecondary) }
                 run.actorName?.let { Text("Acteur : $it", style = ElTheme.typography.bodySmall, color = ElTheme.colors.textSecondary) }
                 run.errorMessage?.let {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.sm))
                     Text("Erreur : $it", style = ElTheme.typography.bodySmall, color = ElTheme.colors.danger)
                 }
                 // T-324 (UI-314): the T-231 decode populates nodeResults —
@@ -191,13 +191,13 @@ fun WorkflowMonitorScreen(
                 // The old "Journal" section was dead UI (the mapper never
                 // populated outputLog) and is removed.
                 if (run.nodeResults.isNotEmpty()) {
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.md))
                     Text(
                         "Étapes exécutées (${run.nodeResults.size})",
                         style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                         color = ElTheme.colors.textPrimary,
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.xs))
                     run.nodeResults.forEach { node ->
                         val (label, tone) = workflowNodeStatusLabel(node.status)
                         Row(
@@ -222,8 +222,8 @@ fun WorkflowMonitorScreen(
                         }
                     }
                 }
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Spacer(Modifier.height(ElTheme.spacing.md))
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                     if (viewModel.canRetry && run.status in setOf(WorkflowRunStatus.Failed, WorkflowRunStatus.Timeout)) {
                         ElButton(
                             text = "Réessayer",
@@ -257,7 +257,7 @@ private fun WorkflowRunCard(run: WorkflowRun, onClick: () -> Unit) {
         size = ElCardSize.STANDARD,
         onClick = onClick,
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     run.workflowName,
@@ -267,12 +267,12 @@ private fun WorkflowRunCard(run: WorkflowRun, onClick: () -> Unit) {
                 )
                 WorkflowStatusChip(status = run.status)
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(ElTheme.spacing.xs))
             Text("Déclencheur : ${run.trigger.displayFr}", style = ElTheme.typography.bodySmall, color = ElTheme.colors.textSecondary)
             Text("Début : ${run.startedAt}", style = ElTheme.typography.labelSmall, color = ElTheme.colors.textSecondary)
             run.durationMs?.let { Text("Durée : ${it}ms", style = ElTheme.typography.labelSmall, color = ElTheme.colors.textSecondary) }
             run.outputPreview?.let {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(ElTheme.spacing.xs))
                 Text(it, style = ElTheme.typography.bodySmall, color = ElTheme.colors.textPrimary, maxLines = 2)
             }
         }
@@ -289,10 +289,10 @@ private fun WorkflowStatusChip(status: WorkflowRunStatus) {
         WorkflowRunStatus.Failed -> ElTagTone.DANGER to ElTheme.colors.danger
         WorkflowRunStatus.Timeout -> ElTagTone.WARNING to ElTheme.colors.warning
     }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
         Box(
             modifier = Modifier
-                .size(8.dp)
+                .size(ElTheme.spacing.sm)
                 .background(tint, shape = androidx.compose.foundation.shape.CircleShape),
         )
         ElTag(text = status.displayFr, tone = tone, size = ElTagSize.SM)

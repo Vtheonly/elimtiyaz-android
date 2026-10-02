@@ -89,11 +89,11 @@ fun ElCheckbox(
                     )
                 } else Modifier
             )
-            .padding(vertical = 4.dp),
+            .padding(vertical = ElTheme.spacing.xs),
     ) {
         Box(
             modifier = Modifier
-                .size(24.dp)
+                .size(ElTheme.spacing.xl)
                 .scale(scale)
                 .pressScale(pressedScale = 0.92f, interactionSource = interaction)
                 .clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
@@ -180,11 +180,11 @@ fun ElRadioButton(
                     )
                 } else Modifier
             )
-            .padding(vertical = 4.dp),
+            .padding(vertical = ElTheme.spacing.xs),
     ) {
         Box(
             modifier = Modifier
-                .size(24.dp)
+                .size(ElTheme.spacing.xl)
                 .scale(scale)
                 .pressScale(pressedScale = 0.92f, interactionSource = interaction)
                 .clip(CircleShape)
@@ -194,7 +194,7 @@ fun ElRadioButton(
         ) {
             Box(
                 modifier = Modifier
-                    .size(12.dp)
+                    .size(ElTheme.spacing.md)
                     .clip(CircleShape)
                     .background(dotColor),
             )

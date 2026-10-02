@@ -52,7 +52,7 @@ fun ElTable(
 
         if (rows.isEmpty() && emptyState != null) {
             Box(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.xl),
                 contentAlignment = Alignment.Center,
             ) {
                 emptyState()

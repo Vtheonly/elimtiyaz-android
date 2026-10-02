@@ -144,7 +144,7 @@ fun EmployeeDirectoryScreen(
     val canManage = session.can(Permission.MANAGE_PERSONNEL) || viewModel.canManage
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
             ElSectionHeader(title = "Registre du Personnel (${personnel.size})")
 
             message?.let {
@@ -180,7 +180,7 @@ fun EmployeeDirectoryScreen(
                     subtitle = if (query.isBlank()) "Aucun employé dans cette catégorie." else "Aucun employé ne correspond à « $query ».",
                 )
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxSize()) {
                     items(filteredStaff) { staff ->
                         EmployeeCard(
                             staff = staff,
@@ -202,7 +202,7 @@ fun EmployeeDirectoryScreen(
                 onClick = { showCreateDialog = true },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(16.dp),
+                    .padding(ElTheme.spacing.lg),
                 contentDescription = "Ajouter un employé",
             )
         }
@@ -240,7 +240,7 @@ private fun EmployeeCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ElAvatar(initials = staff.fullName, size = ElAvatarSize.M)
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.md))
                     Column {
                         Text(
                             staff.fullName,
@@ -257,16 +257,16 @@ private fun EmployeeCard(
                 ElTag(text = roleDisplayLabel(staff.staffCategory), tone = ElTagTone.INFO, size = ElTagSize.MD)
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(ElTheme.spacing.sm))
             Text(
                 text = if (staff.phone.isNotBlank()) "Tél : ${staff.phone} • Embauché : ${staff.hireDate.take(10)}"
                        else "Embauché : ${staff.hireDate.take(10)}",
                 style = ElTheme.typography.bodySmall,
                 color = ElTheme.colors.textSecondary,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(ElTheme.spacing.md))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                 ElButton(
                     text = "Appeler",
                     onClick = { PhoneUtils.dial(context, staff.phone, toast) },
@@ -323,8 +323,8 @@ private fun CreateEmployeeDialog(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = ElTheme.spacing.xl, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
         ) {
             Text(
                 "Ajouter un employé",
@@ -336,8 +336,8 @@ private fun CreateEmployeeDialog(
 
                 Text("Rôle *", style = ElTheme.typography.labelMedium, color = ElTheme.colors.textPrimary)
                 androidx.compose.foundation.layout.FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                 ) {
                     STAFF_ROLE_OPTIONS.forEach { (code, label) ->
                         ElChip(
@@ -355,8 +355,8 @@ private fun CreateEmployeeDialog(
                 if (departments.isNotEmpty()) {
                     Text("Département", style = ElTheme.typography.labelMedium, color = ElTheme.colors.textPrimary)
                     androidx.compose.foundation.layout.FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                     ) {
                         ElChip(
                             text = "Aucun",
@@ -389,7 +389,7 @@ private fun CreateEmployeeDialog(
                 )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 ElButton(
                     text = "Annuler",

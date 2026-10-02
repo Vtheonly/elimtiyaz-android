@@ -64,7 +64,7 @@ fun ElInfoRow(
         ) {
             if (icon != null) {
                 icon()
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(ElTheme.spacing.sm))
             }
             Text(
                 text = label,
@@ -74,7 +74,7 @@ fun ElInfoRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(ElTheme.spacing.md))
         Text(
             text = value,
             color = valueTint,

@@ -56,14 +56,14 @@ internal fun InstallmentCard(
                 )
                 ElTag(text = statusText, tone = statusTone, size = ElTagSize.MD)
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(ElTheme.spacing.sm))
             ElInfoRow(label = "Échéance", value = installment.dueDate, valueTint = c.textPrimary)
             ElInfoRow(label = "Montant", value = "${(installment.amountDue / 100).formatDzd()} DZD", valueTint = c.textPrimary)
             ElInfoRow(label = "Payé", value = "${(installment.amountPaid / 100).formatDzd()} DZD", valueTint = c.success)
             ElInfoRow(label = "Restant", value = "${(installment.remaining / 100).formatDzd()} DZD", valueTint = if (installment.remaining > 0) c.danger else c.success)
 
             if (canMarkPaid) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
                 ElButton(
                     text = "Marquer comme payée",
                     onClick = onMarkPaid,

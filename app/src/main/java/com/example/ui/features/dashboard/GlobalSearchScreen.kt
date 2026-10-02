@@ -118,11 +118,11 @@ fun GlobalSearchScreen(
             )
 
             if (isSearching) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
                 Text("Recherche en cours…", style = ElTheme.typography.bodySmall, color = c.primary)
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(ElTheme.spacing.md))
 
             // T-460 pass H (issue #3 F-03): the honest no-results state (the screen
             // previously showed nothing at all for a non-blank query with no hits).
@@ -135,7 +135,7 @@ fun GlobalSearchScreen(
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 if (parents.isNotEmpty()) {
                     item {
@@ -157,7 +157,7 @@ fun GlobalSearchScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 ElAvatar(initials = parent.fullName, size = ElAvatarSize.M)
-                                Spacer(Modifier.width(12.dp))
+                                Spacer(Modifier.width(ElTheme.spacing.md))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(parent.fullName, style = ElTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = c.textPrimary)
                                     Text("${parent.code} • Tél: ${parent.phone}", style = ElTheme.typography.labelSmall, color = c.textSecondary)
@@ -170,7 +170,7 @@ fun GlobalSearchScreen(
 
                 if (students.isNotEmpty()) {
                     item {
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.sm))
                         Text(
                             "Élèves trouvés (${students.size})",
                             style = ElTheme.typography.titleSmall,
@@ -189,7 +189,7 @@ fun GlobalSearchScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 ElAvatar(initials = student.fullName, size = ElAvatarSize.M)
-                                Spacer(Modifier.width(12.dp))
+                                Spacer(Modifier.width(ElTheme.spacing.md))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(student.fullName, style = ElTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = c.textPrimary)
                                     Text("${student.code} • ${student.gradeLevel.uppercase()}", style = ElTheme.typography.labelSmall, color = c.textSecondary)
@@ -202,7 +202,7 @@ fun GlobalSearchScreen(
 
                 if (parents.isEmpty() && students.isEmpty() && query.isNotBlank() && !isSearching) {
                     item {
-                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.xxl), contentAlignment = Alignment.Center) {
                             Text("Aucun résultat pour « $query ».", style = ElTheme.typography.bodyMedium, color = c.textSecondary)
                         }
                     }

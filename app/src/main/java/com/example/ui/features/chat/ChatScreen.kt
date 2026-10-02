@@ -81,7 +81,7 @@ fun ChatScreen(
                             size = 22,
                             strokeWidth = 2,
                             color = c.primary,
-                            modifier = Modifier.padding(end = 12.dp),
+                            modifier = Modifier.padding(end = ElTheme.spacing.md),
                         )
                     }
                     ElIconButton(
@@ -113,7 +113,7 @@ fun ChatScreen(
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = ElTheme.spacing.sm),
             ) {
                 items(state.channels, key = { it.id }) { channel ->
                     ChannelRow(
@@ -143,7 +143,7 @@ private fun ChannelRow(channel: ChatChannel, unread: Int, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md)
             .clickable { onClick() },
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -162,7 +162,7 @@ private fun ChannelRow(channel: ChatChannel, unread: Int, onClick: () -> Unit) {
                 fontWeight = FontWeight.Bold,
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(ElTheme.spacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = channel.name,
@@ -189,7 +189,7 @@ private fun ChannelRow(channel: ChatChannel, unread: Int, onClick: () -> Unit) {
                     tone = ElBadgeTone.DANGER,
                     style = ElBadgeStyle.SOLID,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(ElTheme.spacing.xs))
             }
             channel.lastMessageAt?.let { ts ->
                 Text(

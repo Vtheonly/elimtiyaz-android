@@ -59,7 +59,7 @@ fun TeacherWorkspaceScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
     ) {
         ElGradientStatCard(
             title = "Mon espace",
@@ -83,7 +83,7 @@ fun TeacherWorkspaceScreen(
                 ) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -95,7 +95,7 @@ fun TeacherWorkspaceScreen(
                                         Icons.Default.School,
                                         contentDescription = null,
                                         tint = c.primary,
-                                        modifier = Modifier.padding(end = 8.dp),
+                                        modifier = Modifier.padding(end = ElTheme.spacing.sm),
                                     )
                                     Text(
                                         cls.name,
@@ -112,7 +112,7 @@ fun TeacherWorkspaceScreen(
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                         ) {
                             ElButton(
                                 text = "Appel",

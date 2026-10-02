@@ -42,7 +42,7 @@ fun ElProgressRing(
     progress: Float,
     modifier: Modifier = Modifier,
     size: Dp = 80.dp,
-    strokeWidth: Dp = 8.dp,
+    strokeWidth: Dp = ElTheme.spacing.sm,
     color: Color = ElTheme.colors.primary,
     label: String? = null,
 ) {

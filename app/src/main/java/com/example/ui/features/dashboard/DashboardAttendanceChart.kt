@@ -44,7 +44,7 @@ internal fun DashboardAttendanceChart(
     onNavigateToRollCall: (String) -> Unit,
     onNavigateToAcademics: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
         ElSectionHeader(
             title = "Vie Scolaire & Assiduité",
             subtitle = "Pointage quotidien et tendance hebdomadaire",
@@ -76,7 +76,7 @@ internal fun DashboardAttendanceChart(
                     )
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(ElTheme.spacing.md))
 
                 if (classStatuses.isEmpty()) {
                     Text(
@@ -91,21 +91,21 @@ internal fun DashboardAttendanceChart(
                                 .fillMaxWidth()
                                 .clip(ElTheme.shapes.small)
                                 .clickable { onNavigateToRollCall(classStatus.classId) }
-                                .padding(vertical = 4.dp, horizontal = 4.dp),
+                                .padding(vertical = ElTheme.spacing.xs, horizontal = ElTheme.spacing.xs),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
-                                        .size(8.dp)
+                                        .size(ElTheme.spacing.sm)
                                         .clip(CircleShape)
                                         .background(
                                             if (classStatus.isCompletedToday) ElTheme.colors.success
                                             else ElTheme.colors.outline
                                         ),
                                 )
-                                Spacer(Modifier.size(8.dp))
+                                Spacer(Modifier.size(ElTheme.spacing.sm))
                                 Column {
                                     Text(
                                         text = classStatus.className,
@@ -130,9 +130,9 @@ internal fun DashboardAttendanceChart(
                                         imageVector = Icons.Default.CheckCircle,
                                         contentDescription = null,
                                         tint = ElTheme.colors.success,
-                                        modifier = Modifier.size(16.dp),
+                                        modifier = Modifier.size(ElTheme.spacing.lg),
                                     )
-                                    Spacer(Modifier.size(4.dp))
+                                    Spacer(Modifier.size(ElTheme.spacing.xs))
                                     Text(
                                         text = "Validé",
                                         style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
@@ -150,19 +150,19 @@ internal fun DashboardAttendanceChart(
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(ElTheme.spacing.lg))
                 androidx.compose.material3.HorizontalDivider(
                     color = ElTheme.colors.outlineVariant,
                     thickness = 1.dp,
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(ElTheme.spacing.md))
 
                 Text(
                     text = "Taux de présence sur 7 jours (%.0f%% aujourd'hui)".format(attendanceRateToday),
                     style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     color = ElTheme.colors.textPrimary,
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
 
                 if (attendanceTrend.isNotEmpty()) {
                     ElLineChart(
@@ -176,7 +176,7 @@ internal fun DashboardAttendanceChart(
                         text = "Aucun appel enregistré ces 7 derniers jours.",
                         style = ElTheme.typography.bodySmall,
                         color = ElTheme.colors.textSecondary,
-                        modifier = Modifier.padding(vertical = 12.dp),
+                        modifier = Modifier.padding(vertical = ElTheme.spacing.md),
                     )
                 }
             }

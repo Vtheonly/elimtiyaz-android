@@ -43,7 +43,7 @@ internal fun DashboardKpiCardsRow(
     val revenueToShow = currentKpi.totalRevenue
 
     LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 2.dp),
     ) {
@@ -136,9 +136,9 @@ private fun OperationalKpiCard(
                 )
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(ElTheme.spacing.xxl)
                         .clip(RoundedCornerShape(8.dp))
-                        .padding(4.dp),
+                        .padding(ElTheme.spacing.xs),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -150,7 +150,7 @@ private fun OperationalKpiCard(
                 }
             }
 
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(ElTheme.spacing.xs))
             Text(
                 text = mainValue,
                 style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black),
@@ -164,7 +164,7 @@ private fun OperationalKpiCard(
                 color = ElTheme.colors.textPrimary,
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(ElTheme.spacing.sm))
             Text(
                 text = bottomLabel,
                 style = ElTheme.typography.labelSmall,

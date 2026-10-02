@@ -65,7 +65,7 @@ internal fun NotificationRow(
         size = ElCardSize.STANDARD,
         onClick = onClick,
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -74,9 +74,9 @@ internal fun NotificationRow(
                     imageVector = icon,
                     contentDescription = null,
                     tint = iconTint,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(ElTheme.spacing.lg),
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(ElTheme.spacing.sm))
                 Text(
                     text = title,
                     style = ElTheme.typography.titleSmall.copy(
@@ -88,7 +88,7 @@ internal fun NotificationRow(
                     modifier = Modifier.weight(1f),
                 )
                 metaLabel?.let { label ->
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.sm))
                     ElTag(
                         text = label,
                         tone = metaTone,
@@ -96,7 +96,7 @@ internal fun NotificationRow(
                     )
                 }
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(ElTheme.spacing.xs))
             Text(
                 text = body,
                 style = ElTheme.typography.bodySmall,
@@ -105,7 +105,7 @@ internal fun NotificationRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = ElTheme.spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (unread) {
@@ -114,7 +114,7 @@ internal fun NotificationRow(
                         tone = ElTagTone.DANGER,
                         size = ElTagSize.SM,
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.sm))
                 }
                 Spacer(Modifier.weight(1f))
                 timeLabel?.let { time ->
@@ -125,7 +125,7 @@ internal fun NotificationRow(
                     )
                 }
                 trailing?.let {
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.sm))
                     it()
                 }
             }

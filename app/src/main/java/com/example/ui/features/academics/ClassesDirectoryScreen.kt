@@ -87,7 +87,7 @@ fun ClassesDirectoryScreen(
 
     val canPromote = session.can(Permission.PROMOTE_STUDENT) || viewModel.canPromote
 
-    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
         ElSectionHeader(
             title = "Annuaire des classes",
             subtitle = "${classes.size} division${if (classes.size > 1) "s" else ""} active${if (classes.size > 1) "s" else ""}",
@@ -143,7 +143,7 @@ fun ClassesDirectoryScreen(
             )
             return@Column
         }
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxSize()) {
             items(filteredClasses) { klass ->
                 val fillRate = if (klass.capacity > 0) (klass.enrolledCount.toFloat() / klass.capacity * 100).toInt() else 0
                 ElCard(
@@ -166,7 +166,7 @@ fun ClassesDirectoryScreen(
                                 modifier = Modifier.size(20.dp),
                             )
                         }
-                        Spacer(Modifier.width(12.dp))
+                        Spacer(Modifier.width(ElTheme.spacing.md))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 klass.name,

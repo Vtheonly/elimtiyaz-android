@@ -131,12 +131,12 @@ fun DebtDashboardScreen(
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(innerPadding),
             contentPadding = PaddingValues(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
                 ) {
                     ElCard(modifier = Modifier.weight(1f), size = ElCardSize.COMPACT) {
                         Column {
@@ -160,7 +160,7 @@ fun DebtDashboardScreen(
             }
 
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                     // PARITY-002 (T-286): ALL five aging buckets are filterable
                     // (the 91–180 j chip was missing — the bucket holding ~46%
                     // of the real debt was unreachable).
@@ -229,7 +229,7 @@ fun DebtDashboardScreen(
                                 // color — the explanation travels with the row).
                                 ElTag(text = debtor.statusLabel, tone = statusTone, size = ElTagSize.MD)
                             }
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(ElTheme.spacing.sm))
                             ElInfoRow(label = "Téléphone", value = debtor.parentPhone, valueTint = c.textPrimary)
                             ElInfoRow(label = "Montant dû", value = "${(debtor.outstandingAmount / 100).formatDzd()} DZD", valueTint = c.danger)
                             // INV-16d: the explanation is part of the contract —
@@ -324,7 +324,7 @@ private fun YearHistoryDrawer(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = ElTheme.spacing.lg, vertical = 8.dp),
+                .padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.sm),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),

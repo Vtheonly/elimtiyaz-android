@@ -84,7 +84,7 @@ fun ElDonutChart(
             if (centerValue != null) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(horizontal = 8.dp),
+                    modifier = Modifier.padding(horizontal = ElTheme.spacing.sm),
                 ) {
                     Text(
                         text = centerValue,
@@ -110,14 +110,14 @@ fun ElDonutChart(
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(ElTheme.spacing.sm))
         Row(verticalAlignment = Alignment.CenterVertically) {
             segments.take(3).forEach { segment ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 4.dp),
+                    modifier = Modifier.padding(horizontal = ElTheme.spacing.xs),
                 ) {
-                    Canvas(modifier = Modifier.size(8.dp)) {
+                    Canvas(modifier = Modifier.size(ElTheme.spacing.sm)) {
                         drawRect(
                             color = segment.color,
                             topLeft = Offset(0f, 0f),
@@ -125,7 +125,7 @@ fun ElDonutChart(
                             style = Fill,
                         )
                     }
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.xs))
                     Text(
                         text = segment.label,
                         color = c.textSecondary,

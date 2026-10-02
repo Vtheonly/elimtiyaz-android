@@ -76,7 +76,7 @@ fun ElTextField(
                     fieldBorderColor(state, colors),
                     ElFieldShape,
                 )
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = ElTheme.spacing.md),
         ) {
             FieldLeadingIcon(icon = leadingIcon, isError = isError)
             FieldInput(

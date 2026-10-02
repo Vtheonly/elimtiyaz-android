@@ -88,23 +88,23 @@ fun ParentYearHistorySection(
 @Composable
 fun ParentYearHistoryBody(history: ParentYearHistory, modifier: Modifier = Modifier) {
     val c = ElTheme.colors
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = c.primary, modifier = Modifier.width(16.dp).height(16.dp))
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
+            Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = c.primary, modifier = Modifier.width(ElTheme.spacing.lg).height(ElTheme.spacing.lg))
             Text("Historique par Année Scolaire", style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
         }
 
         // ── The prior-years banner (the "old debt still owed" composition) ──
         if (history.priorYearOutstandingStillOwed > 0L) {
             ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.COMPACT) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(modifier = Modifier.padding(ElTheme.spacing.md), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                     Text("Dettes des années précédentes", style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = c.danger)
                     Text(
                         "${(history.priorYearOutstandingStillOwed / 100).formatDzd()} DZD",
                         style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = c.danger,
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                         history.priorYearsStillOwed.forEach { item ->
                             ElTag(text = "${item.academicYear} : ${(item.outstanding / 100).formatDzd()}", tone = ElTagTone.DANGER)
                         }
@@ -130,11 +130,11 @@ private fun YearHistoryCard(year: AcademicYearFinancialRecord) {
             .clickable { expanded = !expanded },
         size = ElCardSize.COMPACT,
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.md), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 Text(year.academicYear, style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
                 if (year.reEnrolledOwing) ElTag(text = "Réinscrit avec dette", tone = ElTagTone.WARNING)
@@ -147,7 +147,7 @@ private fun YearHistoryCard(year: AcademicYearFinancialRecord) {
                 )
             }
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Facturé : ${(year.totalCharged / 100).formatDzd()} DZD", style = ElTheme.typography.bodySmall)
                     Text("Payé : ${(year.totalPaidOnCharges / 100).formatDzd()} DZD", style = ElTheme.typography.bodySmall, color = c.success)
@@ -181,7 +181,7 @@ private fun YearHistoryCard(year: AcademicYearFinancialRecord) {
             }
 
             AnimatedVisibility(visible = expanded) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                     HorizontalDivider(color = c.outlineVariant)
                     ServicesDeLanneeBlock(year)
                     ChargesDeLanneeBlock(year)
@@ -199,14 +199,14 @@ private fun YearHistoryCard(year: AcademicYearFinancialRecord) {
 private fun ServicesDeLanneeBlock(year: AcademicYearFinancialRecord) {
     val c = ElTheme.colors
     if (year.serviceBreakdown.isEmpty()) return
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
         Text("Services de l'année (${year.serviceBreakdown.size})", style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
         year.serviceBreakdown.forEach { group ->
-            Column(modifier = Modifier.fillMaxWidth().padding(start = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(start = ElTheme.spacing.xs), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                 ) {
                     Text(
                         when (group.key) {
@@ -251,14 +251,14 @@ private fun ServicesDeLanneeBlock(year: AcademicYearFinancialRecord) {
 private fun ChargesDeLanneeBlock(year: AcademicYearFinancialRecord) {
     val c = ElTheme.colors
     if (year.charges.isEmpty()) return
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
         Text("Charges de l'année (${year.charges.size})", style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
         year.charges.forEach { charge ->
-            Column(modifier = Modifier.fillMaxWidth().padding(start = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(start = ElTheme.spacing.xs), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                 ) {
                     if (charge.trancheNumber in 1..3 && (charge.category == PaymentCategory.TUITION || charge.category == PaymentCategory.TRANSPORT)) {
                         ElTag(text = "T${charge.trancheNumber}", tone = ElTagTone.INFO)
@@ -295,14 +295,14 @@ private fun SettlementChip(settlement: YearChargeSettlement) {
 private fun PaiementsDeLanneeBlock(year: AcademicYearFinancialRecord) {
     val c = ElTheme.colors
     if (year.paymentsMadeInYear.isEmpty()) return
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
             Text("Paiements de l'année (${year.paymentsMadeInYear.size})", style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
             Text("Total ${(year.paymentsMadeInYearTotal / 100).formatDzd()} DZD", style = ElTheme.typography.labelMedium, color = c.success)
         }
         year.paymentsMadeInYear.forEach { p ->
-            Column(modifier = Modifier.fillMaxWidth().padding(start = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(start = ElTheme.spacing.xs), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                     Text(
                         p.receiptNumber ?: "Paiement",
                         style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
@@ -343,8 +343,8 @@ private fun PaiementsDeLanneeBlock(year: AcademicYearFinancialRecord) {
 private fun CrossYearSettlementsBlock(year: AcademicYearFinancialRecord) {
     val c = ElTheme.colors
     if (year.settlementsReceivedFromLaterYears.isEmpty()) return
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
             Text("Règlements reçus des années suivantes", style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold), color = c.warning)
             Text("${(year.settlementsReceivedFromLaterYearsTotal / 100).formatDzd()} DZD", style = ElTheme.typography.labelMedium, color = c.warning)
         }

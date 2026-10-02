@@ -73,7 +73,7 @@ private fun NavIcon(destination: ElNavDestination, selected: Boolean) {
                     .offset(x = 6.dp, y = (-4).dp)
                     .clip(CircleShape)
                     .background(c.danger)
-                    .padding(horizontal = 4.dp, vertical = 1.dp),
+                    .padding(horizontal = ElTheme.spacing.xs, vertical = 1.dp),
             ) {
                 Text(
                     text = destination.badge,

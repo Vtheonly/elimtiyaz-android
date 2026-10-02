@@ -58,7 +58,7 @@ internal fun DebtorsParetoCard(
     val paretoCut = pareto.indexOfFirst { it.cumPercent >= 80 }.let { if (it == -1) pareto.size else it + 1 }
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ElSectionHeader(
                     title = "Pareto des Débiteurs",
@@ -79,7 +79,7 @@ internal fun DebtorsParetoCard(
                 height = 172.dp,
             )
             // The interactive top-8 rows (click → parent; call preserved)
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                 pareto.forEachIndexed { i, datum ->
                     val debtor = debtors.firstOrNull { it.parentName == datum.name }
                     Row(
@@ -99,7 +99,7 @@ internal fun DebtorsParetoCard(
                                 text = "${i + 1}.",
                                 color = c.textMuted,
                                 style = ElTheme.textStyles.badge.copy(fontWeight = FontWeight.SemiBold),
-                                modifier = Modifier.width(16.dp),
+                                modifier = Modifier.width(ElTheme.spacing.lg),
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
@@ -122,7 +122,7 @@ internal fun DebtorsParetoCard(
                             style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                         )
                         if (debtor?.parentPhone?.isNotBlank() == true) {
-                            Spacer(Modifier.width(4.dp))
+                            Spacer(Modifier.width(ElTheme.spacing.xs))
                             val dialContext = androidx.compose.ui.platform.LocalContext.current
                             val dialToast = LocalElToast.current
                             // T-460 H2 (issue #3 F-10): the raw M3 IconButton →

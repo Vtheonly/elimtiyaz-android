@@ -135,8 +135,8 @@ internal fun AdjustAccountDialog(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = ElTheme.spacing.xl, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
             Text(
                 "Ajustement de compte",
@@ -165,8 +165,8 @@ internal fun AdjustAccountDialog(
             )
             Text("Motif *", style = ElTheme.typography.labelMedium)
             androidx.compose.foundation.layout.FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 ADJUSTMENT_MOTIFS.forEach { m ->
                     ElChip(text = m, variant = ElChipVariant.FILTER, selected = motif == m, onClick = { motif = m })
@@ -174,8 +174,8 @@ internal fun AdjustAccountDialog(
             }
             Text("Catégorie (débits uniquement)", style = ElTheme.typography.labelMedium)
             androidx.compose.foundation.layout.FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 ADJUSTMENT_CATEGORIES.forEach { (code, label) ->
                     ElChip(text = label, variant = ElChipVariant.FILTER, selected = category == code, onClick = { category = code })
@@ -188,7 +188,7 @@ internal fun AdjustAccountDialog(
                 singleLine = false,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                 ElButton(
                     text = "Annuler",
                     onClick = onDismiss,
@@ -266,8 +266,8 @@ internal fun AddChildDialog(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = ElTheme.spacing.xl, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
         ) {
             Text(
                 "Ajouter un enfant — $parentName",
@@ -281,7 +281,7 @@ internal fun AddChildDialog(
                 onValueChange = { birthDate = it ?: "" },
                 label = "Date de naissance *",
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                 genderOptions.forEach { opt ->
                     ElChip(text = opt, variant = ElChipVariant.FILTER, selected = genderLabel == opt, onClick = { genderLabel = opt })
                 }
@@ -317,7 +317,7 @@ internal fun AddChildDialog(
                 style = ElTheme.typography.labelSmall,
                 color = c.textSecondary,
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                 ElButton(
                     text = "Annuler",
                     onClick = onDismiss,

@@ -43,7 +43,7 @@ fun ElTag(
     val c = ElTheme.colors
     val (bg, fg) = tone.resolveColors(c)
 
-    val horizontalPadding = if (size == ElTagSize.SM) 8.dp else 12.dp
+    val horizontalPadding = if (size == ElTagSize.SM) ElTheme.spacing.sm else ElTheme.spacing.md
     val verticalPadding = if (size == ElTagSize.SM) 3.dp else 6.dp
     val fontSize = if (size == ElTagSize.SM) 10.sp else 12.sp
 
@@ -56,7 +56,7 @@ fun ElTag(
     ) {
         if (icon != null) {
             icon()
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(ElTheme.spacing.xs))
         }
         Text(
             text = text,
@@ -94,7 +94,7 @@ fun ElTag(
                 imageVector = icon,
                 contentDescription = null,
                 tint = fg,
-                modifier = Modifier.size(if (size == ElTagSize.SM) 12.dp else 14.dp),
+                modifier = Modifier.size(if (size == ElTagSize.SM) ElTheme.spacing.md else 14.dp),
             )
         },
     )

@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.core.Session
 import com.example.ui.designsystem.components.tabs.ElTabRow
+import com.example.ui.designsystem.theme.ElTheme
 
 @Composable
 fun CrmHubScreen(
@@ -38,7 +39,7 @@ fun CrmHubScreen(
             selectedIndex = selectedTab,
             onSelected = { selectedTab = it },
         )
-        Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.TopStart) {
+        Box(modifier = Modifier.fillMaxSize().padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.sm), contentAlignment = Alignment.TopStart) {
             when (selectedTab) {
                 0 -> ParentsDirectoryScreen(session = session, onParentClick = onNavigateToParent)
                 1 -> StudentRosterScreen(session = session, onStudentClick = onNavigateToStudent)

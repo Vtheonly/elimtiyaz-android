@@ -123,8 +123,8 @@ fun DashboardHubScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.lg),
         ) {
             // Header: Date & Session status
             Row(
@@ -137,7 +137,7 @@ fun DashboardHubScreen(
                         imageVector = Icons.Default.CalendarToday,
                         contentDescription = null,
                         tint = ElTheme.colors.textSecondary,
-                        modifier = Modifier.padding(end = 8.dp),
+                        modifier = Modifier.padding(end = ElTheme.spacing.sm),
                     )
                     Text(
                         text = todayFormatted,
@@ -298,7 +298,7 @@ fun DashboardHubScreen(
                 DemographicsCard(demographics = currentKpi.demographics)
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(ElTheme.spacing.lg))
         }
     }
 }

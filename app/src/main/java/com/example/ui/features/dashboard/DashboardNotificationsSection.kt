@@ -50,7 +50,7 @@ internal fun DashboardNotificationsSection(
     recentPayments: List<Payment>,
     onNavigateToFinancials: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
         ElSectionHeader(
             title = "Dernières Opérations & Journal",
             subtitle = "Encaissements récents et alertes opérationnelles",
@@ -73,20 +73,20 @@ internal fun DashboardNotificationsSection(
                         style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                         color = ElTheme.colors.textPrimary,
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.sm))
 
                     recentPayments.take(3).forEach { payment ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp),
+                                .padding(vertical = ElTheme.spacing.xs),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
-                                        .size(32.dp)
+                                        .size(ElTheme.spacing.xxl)
                                         .clip(CircleShape)
                                         .background(ElTheme.colors.success.copy(alpha = 0.12f)),
                                     contentAlignment = Alignment.Center,
@@ -95,10 +95,10 @@ internal fun DashboardNotificationsSection(
                                         imageVector = Icons.Default.Payments,
                                         contentDescription = null,
                                         tint = ElTheme.colors.success,
-                                        modifier = Modifier.size(16.dp),
+                                        modifier = Modifier.size(ElTheme.spacing.lg),
                                     )
                                 }
-                                Spacer(Modifier.size(8.dp))
+                                Spacer(Modifier.size(ElTheme.spacing.sm))
                                 Column {
                                     Text(
                                         text = payment.receiptNumber,
@@ -146,10 +146,10 @@ internal fun DashboardNotificationsSection(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
-                                    .size(32.dp)
+                                    .size(ElTheme.spacing.xxl)
                                     .clip(CircleShape)
                                     .background(bg)
-                                    .padding(8.dp),
+                                    .padding(ElTheme.spacing.sm),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
@@ -161,10 +161,10 @@ internal fun DashboardNotificationsSection(
                                     },
                                     contentDescription = null,
                                     tint = fg,
-                                    modifier = Modifier.size(16.dp),
+                                    modifier = Modifier.size(ElTheme.spacing.lg),
                                 )
                             }
-                            Spacer(Modifier.size(8.dp))
+                            Spacer(Modifier.size(ElTheme.spacing.sm))
                             Text(
                                 text = notif.title,
                                 color = ElTheme.colors.textPrimary,
@@ -172,7 +172,7 @@ internal fun DashboardNotificationsSection(
                                 modifier = Modifier.weight(1f),
                             )
                         }
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.xs))
                         Text(
                             text = notif.body,
                             color = ElTheme.colors.textSecondary,

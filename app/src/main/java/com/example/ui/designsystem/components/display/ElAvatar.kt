@@ -36,7 +36,7 @@ fun ElAvatar(
 ) {
     val c = ElTheme.colors
     val dp = avatarDp(size)
-    Box(modifier = modifier.size(dp + 4.dp), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier.size(dp + ElTheme.spacing.xs), contentAlignment = Alignment.Center) {
         AvatarSurface(
             imageUrl = imageUrl,
             initials = initials,

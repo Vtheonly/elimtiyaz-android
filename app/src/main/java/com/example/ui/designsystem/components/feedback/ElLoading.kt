@@ -68,13 +68,13 @@ fun ElLoadingBlock(
     message: String? = "Loading…",
 ) {
     Column(
-        modifier = modifier.padding(32.dp),
+        modifier = modifier.padding(ElTheme.spacing.xxl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
     ) {
         ElSpinner(size = 36)
         if (message != null) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(ElTheme.spacing.md))
             Text(
                 text = message,
                 color = ElTheme.colors.textSecondary,

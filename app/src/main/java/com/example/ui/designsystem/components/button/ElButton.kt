@@ -112,11 +112,11 @@ private fun ButtonContent(
     if (icon != null) {
         Icon(imageVector = icon, contentDescription = null, tint = contentColor,
             modifier = Modifier.size(iconSize.dp))
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(ElTheme.spacing.sm))
     }
     Text(text = text, color = contentColor, style = textStyle, maxLines = 1, overflow = TextOverflow.Ellipsis)
     if (iconEnd != null) {
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(ElTheme.spacing.sm))
         Icon(imageVector = iconEnd, contentDescription = null, tint = contentColor,
             modifier = Modifier.size(iconSize.dp))
     }

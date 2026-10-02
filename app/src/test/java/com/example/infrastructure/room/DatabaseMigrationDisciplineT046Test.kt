@@ -55,12 +55,12 @@ class DatabaseMigrationDisciplineT046Test {
 
     /**
      * The compiled @Database version. Every schema bump (T-039 → 13, …,
-     * T-340 → 15) must CONSCIOUSLY update this constant — that is the
-     * discipline this suite enforces (a bumped version without its migration
-     * registered in [buildDb] + DatabaseModule fails loud tests, never
-     * silently).
+     * T-340 → 15, T-348 → 16, T-102 v2 → 17) must CONSCIOUSLY update this
+     * constant — that is the discipline this suite enforces (a bumped
+     * version without its migration registered in [buildDb] +
+     * DatabaseModule fails loud tests, never silently).
      */
-    private val compiledVersion = 16
+    private val compiledVersion = 17
 
     @Before
     fun setUp() {
@@ -91,6 +91,7 @@ class DatabaseMigrationDisciplineT046Test {
             ElImtiyazDatabase.MIGRATION_13_14,
             ElImtiyazDatabase.MIGRATION_14_15,
             ElImtiyazDatabase.MIGRATION_15_16,
+            ElImtiyazDatabase.MIGRATION_16_17,
         )
         .allowMainThreadQueries()
         .build()

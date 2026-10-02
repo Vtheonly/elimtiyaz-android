@@ -93,7 +93,7 @@ fun ElInfoTip(
                         .clip(ElTooltipShape)
                         .background(c.inverseSurface)
                         .elShadow(ElTheme.elevation.low, ElTooltipShape)
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(horizontal = ElTheme.spacing.md, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Text(

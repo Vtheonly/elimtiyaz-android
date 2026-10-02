@@ -60,8 +60,8 @@ fun AuditLogScreen(
         topBar = { ElTopBar(title = "Journal d'audit", onBack = onBack) },
     ) { innerPadding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxSize().padding(innerPadding).padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
         ) {
             items(logs) { log ->
                 AuditLogCard(log, onClick = { selectedLog = log })
@@ -82,15 +82,15 @@ fun AuditLogScreen(
 private fun AuditLogCard(log: AuditLog, onClick: () -> Unit) {
     val c = ElTheme.colors
     ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.COMPACT, onClick = onClick) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
             Row {
                 Text(log.action, style = ElTheme.typography.labelLarge.copy(color = c.primary), modifier = Modifier.weight(1f))
                 Text(log.occurredAt.take(19).replace("T", " "), style = ElTheme.typography.labelSmall, color = c.textSecondary)
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(ElTheme.spacing.xs))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 Text(log.actorName, style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium), color = c.textPrimary)
                 log.actorRole?.let { role -> ElTag(text = role, tone = ElTagTone.INFO, size = ElTagSize.MD) }

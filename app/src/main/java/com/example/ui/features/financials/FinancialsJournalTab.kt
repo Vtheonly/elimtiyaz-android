@@ -37,7 +37,7 @@ internal fun JournalTab(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
     ) {
         item {
             ElSectionHeader(
@@ -81,7 +81,7 @@ internal fun JournalTab(
                     size = ElCardSize.STANDARD,
                     border = BorderStroke(ElTheme.borders.thin, accent.copy(alpha = 0.45f)),
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,

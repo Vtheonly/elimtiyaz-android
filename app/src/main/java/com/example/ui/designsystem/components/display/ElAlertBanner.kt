@@ -76,7 +76,7 @@ fun ElAlertBanner(
                 .fillMaxWidth()
                 .clip(ElCardShape)
                 .background(bg)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
         ) {
             Icon(
                 imageVector = icon,
@@ -84,7 +84,7 @@ fun ElAlertBanner(
                 tint = fg,
                 modifier = Modifier.size(22.dp),
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(ElTheme.spacing.md))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
@@ -92,7 +92,7 @@ fun ElAlertBanner(
                     style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                 )
                 if (message != null) {
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.xs))
                     Text(
                         text = message,
                         color = fg.copy(alpha = 0.85f),
@@ -104,8 +104,8 @@ fun ElAlertBanner(
                     TextButton(
                         onClick = onAction,
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                            horizontal = 0.dp,
-                            vertical = 0.dp,
+                            horizontal = ElTheme.spacing.none,
+                            vertical = ElTheme.spacing.none,
                         ),
                     ) {
                         Text(
@@ -117,7 +117,7 @@ fun ElAlertBanner(
                 }
             }
             if (onDismiss != null) {
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(ElTheme.spacing.sm))
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Dismiss",

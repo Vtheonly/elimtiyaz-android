@@ -34,7 +34,7 @@ fun ElTopBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 8.dp)
+            .padding(horizontal = ElTheme.spacing.sm, vertical = ElTheme.spacing.sm)
             .height(56.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -46,7 +46,7 @@ fun ElTopBar(
                 background = Color.Transparent,
                 tint = c.textPrimary,
             )
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(ElTheme.spacing.xs))
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(

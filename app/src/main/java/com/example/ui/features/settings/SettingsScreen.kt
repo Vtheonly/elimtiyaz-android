@@ -20,6 +20,7 @@ import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.nav.ElTopBar
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import com.example.ui.designsystem.theme.ElTheme
 
 @Composable
 fun SettingsScreen(
@@ -48,8 +49,8 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.lg),
         ) {
             ProfileCard(session = session)
 
@@ -84,7 +85,7 @@ fun SettingsScreen(
                 appVersion = viewModel.appVersion(),
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(ElTheme.spacing.sm))
         }
     }
 }

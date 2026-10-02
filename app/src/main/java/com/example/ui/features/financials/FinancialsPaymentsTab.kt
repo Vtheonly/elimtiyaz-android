@@ -59,12 +59,12 @@ internal fun PaymentsTab(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
     ) {
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
             ) {
                 MetricMiniCard("Aujourd'hui", "${(collectedToday / 100).formatDzd()} DZD", c.success, Modifier.weight(1f))
                 MetricMiniCard("Ce mois", "${(monthlyRevenue / 100).formatDzd()} DZD", c.primary, Modifier.weight(1f))
@@ -82,7 +82,7 @@ internal fun PaymentsTab(
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                 listOf(
                     null to "Tous",
                     "cash" to "Espèces",
@@ -107,7 +107,7 @@ internal fun PaymentsTab(
                     icon = Icons.Default.Payments,
                     title = "Aucun encaissement",
                     subtitle = "Aucun paiement enregistré pour ce filtre.",
-                    modifier = Modifier.padding(top = 24.dp),
+                    modifier = Modifier.padding(top = ElTheme.spacing.xl),
                 )
             }
         } else {
@@ -132,7 +132,7 @@ internal fun PaymentsTab(
                             ) {
                                 Icon(Icons.Default.Payment, contentDescription = null, tint = c.success, modifier = Modifier.size(20.dp))
                             }
-                            Spacer(Modifier.width(12.dp))
+                            Spacer(Modifier.width(ElTheme.spacing.md))
                             Column {
                                 Text(payment.receiptNumber, style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
                                 Text(

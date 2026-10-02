@@ -69,14 +69,14 @@ fun ElChip(
                     )
                 } else Modifier
             )
-            .padding(horizontal = 12.dp, vertical = 7.dp),
+            .padding(horizontal = ElTheme.spacing.md, vertical = 7.dp),
     ) {
         if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = fg,
-                modifier = Modifier.padding(end = 6.dp).size(16.dp),
+                modifier = Modifier.padding(end = 6.dp).size(ElTheme.spacing.lg),
             )
         }
         Text(text = text, color = fg, style = ElTheme.typography.labelMedium)
@@ -87,7 +87,7 @@ fun ElChip(
                 contentDescription = "Dismiss",
                 tint = fg,
                 modifier = Modifier
-                    .size(16.dp)
+                    .size(ElTheme.spacing.lg)
                     .clip(ElPillShape)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },

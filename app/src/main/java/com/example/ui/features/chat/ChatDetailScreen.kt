@@ -112,10 +112,10 @@ fun ChatDetailScreen(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        horizontal = 12.dp,
-                        vertical = 8.dp,
+                        horizontal = ElTheme.spacing.md,
+                        vertical = ElTheme.spacing.sm,
                     ),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                 ) {
                     items(state.messages, key = { it.id }) { message ->
                         MessageBubble(
@@ -133,13 +133,13 @@ fun ChatDetailScreen(
                     color = c.textSecondary,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.sm),
                 )
             } else {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = ElTheme.spacing.md, vertical = ElTheme.spacing.sm),
                     verticalAlignment = Alignment.Bottom,
                 ) {
                     ElTextField(
@@ -152,9 +152,9 @@ fun ChatDetailScreen(
                         singleLine = false,
                         enabled = !state.sending,
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.sm))
                     if (state.sending) {
-                        ElSpinner(size = 22, strokeWidth = 2, modifier = Modifier.width(24.dp))
+                        ElSpinner(size = 22, strokeWidth = 2, modifier = Modifier.width(ElTheme.spacing.xl))
                     } else {
                         ElIconButton(
                             icon = Icons.AutoMirrored.Filled.Send,
@@ -195,7 +195,7 @@ private fun MessageBubble(message: ChatMessage, own: Boolean) {
             },
             modifier = Modifier.widthIn(max = 300.dp),
         ) {
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Column(Modifier.padding(horizontal = ElTheme.spacing.md, vertical = ElTheme.spacing.sm)) {
                 Text(
                     text = message.body,
                     style = ElTheme.typography.bodyMedium,

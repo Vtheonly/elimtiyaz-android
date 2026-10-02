@@ -55,7 +55,7 @@ fun ElTabRow(
             .fillMaxWidth()
             .clip(ElPillShape)
             .background(c.surfaceVariant)
-            .padding(4.dp),
+            .padding(ElTheme.spacing.xs),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -119,8 +119,8 @@ fun ElScrollableTabRow(
             .testTag("el_scrollable_tab_row")
             .clip(ElPillShape)
             .background(ElTheme.colors.surfaceVariant)
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(ElTheme.spacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         itemsIndexed(tabs) { index, label ->
@@ -184,7 +184,7 @@ private fun TabItem(
             .clip(ElPillShape)
             .then(if (selected) Modifier.background(c.primaryBrush) else Modifier)
             .noRippleClickable(role = Role.Tab, onClick = onClick)
-            .padding(vertical = 10.dp, horizontal = 12.dp),
+            .padding(vertical = 10.dp, horizontal = ElTheme.spacing.md),
         contentAlignment = Alignment.Center,
     ) {
         Text(

@@ -39,11 +39,11 @@ fun ElDialogContent(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(24.dp),
+            .padding(ElTheme.spacing.xl),
     ) {
         if (icon != null) {
             DialogIcon(icon = icon)
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(ElTheme.spacing.lg))
         }
         Text(
             text = title,
@@ -51,14 +51,14 @@ fun ElDialogContent(
             style = ElTheme.typography.headlineSmall,
         )
         if (message != null) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(ElTheme.spacing.sm))
             Text(
                 text = message,
                 color = c.textSecondary,
                 style = ElTheme.typography.bodyMedium,
             )
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(ElTheme.spacing.xl))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
@@ -75,7 +75,7 @@ private fun DialogIcon(icon: ImageVector) {
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
             .background(c.primary.copy(alpha = 0.10f))
-            .padding(12.dp),
+            .padding(ElTheme.spacing.md),
     ) {
         Icon(
             imageVector = icon,

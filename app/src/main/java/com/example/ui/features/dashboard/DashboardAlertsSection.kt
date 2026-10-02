@@ -58,7 +58,7 @@ internal fun DashboardAlertsSection(
 
     if (alerts.isEmpty()) return
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
         ElSectionHeader(
             title = "Rappels & Notifications de gestion",
             subtitle = "${alerts.size} notification${if (alerts.size > 1) "s" else ""}",
@@ -103,7 +103,7 @@ internal fun DashboardAlertsSection(
                             size = ElButtonSize.SMALL,
                             icon = Icons.Default.Call,
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(ElTheme.spacing.sm))
                     }
                     ElButton(
                         text = alert.actionLabel ?: "Consulter",
