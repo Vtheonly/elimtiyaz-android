@@ -28,7 +28,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.core.formatDzd
 import com.example.domain.model.DashboardKpi
 import com.example.ui.designsystem.components.card.ElCard
@@ -154,10 +153,7 @@ private fun OperationalKpiCard(
             Spacer(Modifier.height(4.dp))
             Text(
                 text = mainValue,
-                style = ElTheme.textStyles.numeric.copy(
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Black,
-                ),
+                style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black),
                 color = accentColor,
             )
 

@@ -16,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.core.formatDzd
 import com.example.domain.model.TrancheStripTotalsItem
 import com.example.domain.model.TrancheWaveItem
@@ -89,7 +88,7 @@ internal fun TrancheWaveCard(
             Text(
                 text = "Base : toutes catégories de la sélection (parité exacte avec la carte « Vélocité » des Statistiques)",
                 color = c.textMuted,
-                style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                style = ElTheme.textStyles.chartMicro,
             )
 
             waves.forEach { w ->
@@ -103,17 +102,14 @@ internal fun TrancheWaveCard(
                             Text(
                                 text = w.label,
                                 color = if (w.isNextTarget) ElChartPalette.primary else c.textPrimary,
-                                style = ElTheme.typography.labelMedium.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 12.sp,
-                                ),
+                                style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                             )
                             if (w.isNextTarget) {
                                 Spacer(Modifier.width(6.dp))
                                 Text(
                                     text = "cible",
                                     color = ElChartPalette.primary,
-                                    style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                    style = ElTheme.textStyles.chartMicro,
                                     modifier = Modifier
                                         .background(
                                             ElChartPalette.primary.copy(alpha = 0.14f),
@@ -132,7 +128,7 @@ internal fun TrancheWaveCard(
                                 w.pct >= 90 -> ElChartPalette.success
                                 else -> c.textSecondary
                             },
-                            style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 13.sp),
+                            style = ElTheme.textStyles.numericSmall,
                         )
                     }
                     // The meter (progress bar; primary for the next target,
@@ -157,12 +153,12 @@ internal fun TrancheWaveCard(
                         Text(
                             text = "Encaissé : ${(w.paid / 100).formatDzd()} DA",
                             color = c.textMuted,
-                            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            style = ElTheme.textStyles.chartMicro,
                         )
                         Text(
                             text = "Dû : ${(w.due / 100).formatDzd()} DA",
                             color = c.textMuted,
-                            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            style = ElTheme.textStyles.chartMicro,
                         )
                     }
                     // T-432 (DATA-049): the tuition-isolated rate — the SAME
@@ -172,14 +168,14 @@ internal fun TrancheWaveCard(
                         Text(
                             text = "dont scolarité : ${w.tuitionPct}%",
                             color = c.textMuted,
-                            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            style = ElTheme.textStyles.chartMicro,
                         )
                     }
                     if (w.pending > 0L) {
                         Text(
                             text = "Dont en attente (chèque / virement) : ${(w.pending / 100).formatDzd()} DA",
                             color = ElChartPalette.warning,
-                            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            style = ElTheme.textStyles.chartMicro,
                         )
                     }
                 }
@@ -225,7 +221,7 @@ private fun StripDueLine(w: TrancheWaveItem, nowEpochMs: Long) {
     Text(
         text = text,
         color = if (claimsLateness) ElChartPalette.danger else c.textMuted,
-        style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+        style = ElTheme.textStyles.chartMicro,
     )
 }
 
@@ -261,12 +257,12 @@ private fun TrancheTotal(
         Text(
             text = label,
             color = ElTheme.colors.textMuted,
-            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+            style = ElTheme.textStyles.chartMicro,
         )
         Text(
             text = value,
             color = color,
-            style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+            style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
         )
     }
 }

@@ -21,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -85,7 +84,7 @@ private fun AuditLogCard(log: AuditLog, onClick: () -> Unit) {
     ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.COMPACT, onClick = onClick) {
         Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
             Row {
-                Text(log.action, style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, color = c.primary, fontSize = 13.sp), modifier = Modifier.weight(1f))
+                Text(log.action, style = ElTheme.typography.labelLarge.copy(color = c.primary), modifier = Modifier.weight(1f))
                 Text(log.occurredAt.take(19).replace("T", " "), style = ElTheme.typography.labelSmall, color = c.textSecondary)
             }
             Spacer(Modifier.height(4.dp))

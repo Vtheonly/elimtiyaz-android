@@ -46,7 +46,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
 import com.example.ui.designsystem.components.button.ElButton
@@ -360,10 +359,7 @@ fun RollCallScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         student.fullName,
-                                        style = ElTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 15.sp,
-                                        ),
+                                        style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                                         color = c.textPrimary,
                                     )
                                     Text(
@@ -381,10 +377,7 @@ fun RollCallScreen(
                                 ) {
                                     Text(
                                         text = statusLabel,
-                                        style = ElTheme.typography.labelSmall.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 11.sp,
-                                        ),
+                                        style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                         color = accentColor,
                                     )
                                 }
@@ -582,9 +575,8 @@ private fun AttendanceSegmentButton(
     ) {
         Text(
             text = status.label,
-            style = ElTheme.typography.labelSmall.copy(
+            style = ElTheme.typography.labelMedium.copy(
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                fontSize = 12.sp,
             ),
             color = contentColor,
             maxLines = 1,

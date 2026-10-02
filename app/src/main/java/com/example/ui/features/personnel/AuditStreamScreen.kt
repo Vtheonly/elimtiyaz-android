@@ -33,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
 import com.example.domain.model.AuditLog
@@ -87,11 +86,7 @@ fun AuditStreamScreen(
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(
                                 log.action,
-                                style = ElTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = c.primary,
-                                    fontSize = 14.sp,
-                                ),
+                                style = ElTheme.typography.titleSmall.copy(color = c.primary),
                             )
                             Text(
                                 log.occurredAt.take(19).replace("T", " "),

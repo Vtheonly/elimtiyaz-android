@@ -125,7 +125,7 @@ private fun StatCard(
                 Text(
                     text = title,
                     color = c.textMuted,
-                    style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 0.5.sp),
+                    style = ElTheme.textStyles.chartMicro.copy(letterSpacing = 0.5.sp),
                     maxLines = 1,
                 )
                 // T-458: the T-447 explainability glossary (presentation-only).
@@ -135,14 +135,14 @@ private fun StatCard(
             Text(
                 text = value,
                 color = color,
-                style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 15.sp),
+                style = ElTheme.textStyles.numericSmall,
                 maxLines = 1,
             )
             if (subtext != null) {
                 Text(
                     text = subtext,
                     color = c.textSecondary,
-                    style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                    style = ElTheme.textStyles.chartMicro,
                     maxLines = 1,
                 )
             }

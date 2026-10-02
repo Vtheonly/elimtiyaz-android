@@ -63,7 +63,7 @@ internal fun YoYComparisonCard(
                         Text(
                             text = deltaText,
                             color = deltaColor,
-                            style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, fontSize = 16.sp),
+                            style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         )
                     }
                 },
@@ -96,12 +96,12 @@ private fun YoYTotal(label: String, value: String, color: androidx.compose.ui.gr
         Text(
             text = label,
             color = c.textMuted,
-            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 0.4.sp),
+            style = ElTheme.textStyles.chartMicro.copy(letterSpacing = 0.4.sp),
         )
         Text(
             text = value,
             color = color,
-            style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 12.sp),
+            style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
         )
     }
 }

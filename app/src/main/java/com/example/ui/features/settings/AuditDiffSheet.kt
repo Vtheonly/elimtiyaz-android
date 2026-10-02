@@ -167,7 +167,7 @@ fun AuditDiffSheetContent(
                 ) {
                     Text(
                         if (showRaw) "▾" else "▸",
-                        fontSize = 12.sp,
+                        style = ElTheme.typography.labelMedium,
                         color = c.primary,
                     )
                     Spacer(Modifier.width(ElTheme.spacing.xs + 2.dp))
@@ -210,10 +210,7 @@ private fun ActorAttributionBlock(
     ) {
         Text(
             "OPÉRATEUR",
-            style = ElTheme.typography.labelSmall.copy(
-                fontSize = 10.sp,
-                color = c.textSecondary,
-            ),
+            style = ElTheme.textStyles.badge.copy(fontWeight = FontWeight.SemiBold, color = c.textSecondary),
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -371,9 +368,7 @@ fun DiffTable(rows: List<DiffRow>, modifier: Modifier = Modifier) {
 private fun TableHeaderText(text: String, modifier: Modifier = Modifier, color: androidx.compose.ui.graphics.Color) {
     Text(
         text.uppercase(),
-        style = ElTheme.typography.labelSmall.copy(
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
+        style = ElTheme.textStyles.badge.copy(
             letterSpacing = 0.4.sp,
         ),
         color = color,
@@ -414,7 +409,7 @@ fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
             Text(
                 row.field,
                 fontFamily = FontFamily.Monospace,
-                style = ElTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                style = ElTheme.typography.labelSmall,
                 color = c.textPrimary,
                 modifier = Modifier.testTag("audit_diff_field"),
             )
@@ -422,20 +417,13 @@ fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
                 Text(
                     row.path,
                     fontFamily = FontFamily.Monospace,
-                    style = ElTheme.typography.labelSmall.copy(
-                        fontSize = 9.sp,
-                        color = c.textSecondary.copy(alpha = 0.7f),
-                    ),
+                    style = ElTheme.textStyles.chartMicro.copy(color = c.textSecondary.copy(alpha = 0.7f)),
                     modifier = Modifier.testTag("audit_diff_row_path"),
                 )
             }
             Text(
                 kindLabel,
-                style = ElTheme.typography.labelSmall.copy(
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = accent,
-                ),
+                style = ElTheme.textStyles.chartMicro.copy(fontWeight = FontWeight.Medium, color = accent),
             )
         }
         // Column 2 — Avant (OLD value, RED struck). Added rows show the em-dash.
@@ -509,7 +497,6 @@ private fun ValueChip(
             text,
             fontFamily = FontFamily.Monospace,
             style = ElTheme.typography.labelSmall.copy(
-                fontSize = 11.sp,
                 color = color,
                 fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
                 textDecoration = if (struck) TextDecoration.LineThrough else TextDecoration.None,
@@ -570,7 +557,7 @@ private fun RawJsonBlock(label: String, raw: String?) {
         Text(
             raw,
             fontFamily = FontFamily.Monospace,
-            style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp),
+            style = ElTheme.textStyles.badge.copy(fontWeight = FontWeight.SemiBold),
             color = c.textSecondary,
         )
     }

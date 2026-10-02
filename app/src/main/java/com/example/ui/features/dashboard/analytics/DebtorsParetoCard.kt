@@ -19,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.core.ParetoDebtor
 import com.example.core.derivePareto
 import com.example.core.formatDzd
@@ -99,21 +98,21 @@ internal fun DebtorsParetoCard(
                             Text(
                                 text = "${i + 1}.",
                                 color = c.textMuted,
-                                style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                style = ElTheme.textStyles.badge.copy(fontWeight = FontWeight.SemiBold),
                                 modifier = Modifier.width(18.dp),
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = datum.name,
                                     color = c.textPrimary,
-                                    style = ElTheme.typography.labelMedium.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium),
+                                    style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
                                     maxLines = 1,
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 )
                                 Text(
                                     text = "cumul ${datum.cumPercent}%",
                                     color = ElChartPalette.gold,
-                                    style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                    style = ElTheme.textStyles.chartMicro,
                                 )
                             }
                         }

@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.domain.model.WeeklyRhythmItem
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.data.ElChartPalette
@@ -74,12 +73,12 @@ internal fun WeeklyOperatingRhythmCard(
                         Text(
                             text = r.day,
                             color = c.textSecondary,
-                            style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            style = ElTheme.textStyles.badge.copy(fontWeight = FontWeight.SemiBold),
                         )
                         Text(
                             text = "${compactDzd(r.total / 100)} DA",
                             color = c.textPrimary,
-                            style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Medium),
+                            style = ElTheme.textStyles.badge.copy(fontWeight = FontWeight.Medium),
                         )
                     }
                 }

@@ -24,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.core.formatDzd
 import com.example.domain.model.DashboardKpi
 import com.example.domain.model.ExecutiveStatsSnapshot
@@ -142,7 +141,7 @@ private fun AnalyticsMiniTile(
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = title,
-                style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold),
+                style = ElTheme.textStyles.chartMicro.copy(fontWeight = FontWeight.Bold),
                 color = ElTheme.colors.textSecondary,
                 maxLines = 1,
             )
@@ -155,7 +154,7 @@ private fun AnalyticsMiniTile(
             )
             Text(
                 text = subtext,
-                style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                style = ElTheme.textStyles.chartMicro,
                 color = ElTheme.colors.textMuted,
                 maxLines = 1,
             )

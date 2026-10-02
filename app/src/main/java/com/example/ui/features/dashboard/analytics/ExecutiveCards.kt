@@ -24,7 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.core.formatDzd
 import com.example.domain.model.ExecCallListEntryItem
 import com.example.domain.model.ExecConcentrationSnapshot
@@ -193,7 +192,7 @@ fun WaveVelocityCard(
                         Text(
                             text = "$globalPct% collecté global",
                             color = ElChartPalette.primary,
-                            style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
+                            style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         )
                         ElInfoTip(tip = "waveVelocity.collectedPct", size = 11)
                     }
@@ -202,7 +201,7 @@ fun WaveVelocityCard(
                             Text(
                                 text = "${(totalPending / 100).formatDzd()} DA en cours",
                                 color = ElChartPalette.info,
-                                style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp),
+                                style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                             )
                             ElInfoTip(tip = "waveVelocity.pending", size = 11)
                         }
@@ -211,7 +210,7 @@ fun WaveVelocityCard(
                         Text(
                             text = "${(totalRemaining / 100).formatDzd()} DA restant",
                             color = ElChartPalette.danger,
-                            style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, fontSize = 11.sp),
+                            style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                         )
                         ElInfoTip(tip = "waveVelocity.remaining", size = 11)
                     }
@@ -379,7 +378,7 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
                 )
                 Text(
                     text = title.second,
-                    style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    style = ElTheme.textStyles.badge.copy(fontWeight = FontWeight.SemiBold),
                     color = c.textSecondary,
                 )
                 if (dueRangeLabel != null) {
@@ -392,7 +391,7 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
                                     else -> ""
                                 }
                             } else "",
-                        style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        style = ElTheme.textStyles.badge.copy(fontWeight = FontWeight.SemiBold),
                         color = if (isOverdue && !isComplete) ElChartPalette.danger else c.textSecondary,
                     )
                 }
@@ -477,7 +476,7 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
             text = "Total dû ${(dueTotal / 100).formatDzd()} DA = Encaissé ${(paidTotal / 100).formatDzd()} DA + " +
                 "En cours ${(pendingTotal / 100).formatDzd()} DA + Reste dû ${(remainingTotal / 100).formatDzd()} DA" +
                 if (overCoverageTotal > 0L) " (+ ${(overCoverageTotal / 100).formatDzd()} DA couverts au-delà)" else "",
-            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+            style = ElTheme.textStyles.chartMicro,
             color = c.textMuted,
         )
 
@@ -500,14 +499,14 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
                     ) {
                         Text(
                             text = cat.categoryLabel,
-                            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            style = ElTheme.textStyles.chartMicro,
                             color = c.textSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = "$catPct%" + if (cat.remainingTotal > 0L) " · ${(cat.remainingTotal / 100).formatDzd()}" else "",
-                            style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 9.sp),
+                            style = ElTheme.textStyles.chartMicro.copy(fontWeight = FontWeight.SemiBold),
                             color = if (cat.remainingTotal > 0L) ElChartPalette.danger else c.textPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -529,7 +528,7 @@ private fun PooledMetric(
     Column(modifier = modifier) {
         Text(
             text = label,
-            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+            style = ElTheme.textStyles.chartMicro,
             color = ElTheme.colors.textMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -1307,7 +1306,7 @@ private fun RiskCountTile(count: Int, label: String, modifier: Modifier = Modifi
         )
         Text(
             text = label,
-            style = ElTheme.typography.labelSmall.copy(fontSize = 9.sp),
+            style = ElTheme.textStyles.chartMicro,
             color = ElTheme.colors.textSecondary,
             textAlign = TextAlign.Center,
             maxLines = 2,

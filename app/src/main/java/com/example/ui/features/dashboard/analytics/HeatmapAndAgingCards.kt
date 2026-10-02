@@ -14,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.core.formatDzd
 import com.example.domain.model.DebtAgingBucketItem
 import com.example.ui.designsystem.components.card.ElCard
@@ -96,13 +95,13 @@ internal fun AgingCompositionCard(
                             Text(
                                 text = b.label,
                                 color = c.textSecondary,
-                                style = ElTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                style = ElTheme.typography.labelSmall,
                             )
                         }
                         Text(
                             text = "${(b.amount / 100).formatDzd()} DA · ${b.debtorCount} fam. · ${b.sharePct}%",
                             color = c.textPrimary,
-                            style = ElTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+                            style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                         )
                     }
                 }

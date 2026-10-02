@@ -53,6 +53,20 @@ data class ElTextStyles(
         fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold,
         fontSize = 10.sp, lineHeight = 14.sp, letterSpacing = 0.5.sp,
     ),
+    /**
+     * Chart micro-label — the densest rendering tier (axis labels, wave-card
+     * meta lines, stat-strip captions).
+     *
+     * T-460 H2 (issue #3 F-19): added so the 21 chart-internal 9sp sites
+     * can source their size from a named style instead of raw sp literals
+     * (the sp gate: zero `fontSize = N.sp` in feature code). Sized to
+     * preserve the charts' density — snapping to badge (10sp) or
+     * labelSmall (11sp) would overflow the wave cards' tight rows.
+     */
+    val chartMicro: TextStyle = TextStyle(
+        fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium,
+        fontSize = 9.sp, lineHeight = 12.sp, letterSpacing = 0.3.sp,
+    ),
     /** Centered numeric — for stat blocks. */
     val statCentered: TextStyle = TextStyle(
         fontFamily = FontFamily.Default, fontWeight = FontWeight.Black,
