@@ -131,11 +131,6 @@ fun AppNavHost() {
                     onNavigateToTripHistory = { navController.navigate(Routes.TripHistory) },
                     onNavigateToSettings = { navController.navigate(Routes.Settings) },
                     onNavigateToAuditLog = { navController.navigate(Routes.AuditLog) },
-                    onSignOut = {
-                        navController.navigate(Routes.Login) {
-                            popUpTo(Routes.Main) { inclusive = true }
-                        }
-                    },
                 )
             }
 

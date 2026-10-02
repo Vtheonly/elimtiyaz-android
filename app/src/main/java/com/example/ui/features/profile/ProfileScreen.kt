@@ -193,8 +193,6 @@ fun ProfileScreen(
                             }
                         }
                         Spacer(Modifier.height(4.dp))
-                        s?.tenantId?.let { InfoLabel("Tenant", it) }
-                        s?.userId?.let { InfoLabel("User ID", it) }
                         sessionExpiresAt?.let { exp ->
                             val minutesLeft = ((exp - System.currentTimeMillis()) / 60_000L).coerceAtLeast(0)
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -370,11 +368,3 @@ fun ProfileScreen(
     }
 }
 
-@Composable
-private fun InfoLabel(label: String, value: String) {
-    val c = ElTheme.colors
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("$label :", style = ElTheme.typography.labelSmall, color = c.textSecondary)
-        Text(value, style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium), color = c.textPrimary)
-    }
-}
