@@ -34,6 +34,9 @@ import com.example.domain.model.ChatChannel
 import com.example.ui.designsystem.components.button.ElIconButton
 import com.example.ui.designsystem.components.display.ElAlertBanner
 import com.example.ui.designsystem.components.display.ElAlertSeverity
+import com.example.ui.designsystem.components.display.ElBadge
+import com.example.ui.designsystem.components.display.ElBadgeStyle
+import com.example.ui.designsystem.components.display.ElBadgeTone
 import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagSize
 import com.example.ui.designsystem.components.display.ElTagTone
@@ -113,7 +116,11 @@ fun ChatScreen(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
             ) {
                 items(state.channels, key = { it.id }) { channel ->
-                    ChannelRow(channel = channel, onClick = { onOpenChannel(channel) })
+                    ChannelRow(
+                        channel = channel,
+                        unread = state.unreadByChannel[channel.id] ?: 0,
+                        onClick = { onOpenChannel(channel) },
+                    )
                 }
             }
         }
@@ -131,7 +138,7 @@ private fun EmptyChannelsHint() {
 }
 
 @Composable
-private fun ChannelRow(channel: ChatChannel, onClick: () -> Unit) {
+private fun ChannelRow(channel: ChatChannel, unread: Int, onClick: () -> Unit) {
     val c = ElTheme.colors
     Row(
         modifier = Modifier
@@ -173,6 +180,17 @@ private fun ChannelRow(channel: ChatChannel, onClick: () -> Unit) {
             )
         }
         Column(horizontalAlignment = Alignment.End) {
+            // T-102 v2: the per-channel unread badge (derived from the Room
+            // cache; 0 = no badge — a cached 0 is honest, an offline cold
+            // start shows none rather than a fabricated count).
+            if (unread > 0) {
+                ElBadge(
+                    text = if (unread > 99) "99+" else unread.toString(),
+                    tone = ElBadgeTone.DANGER,
+                    style = ElBadgeStyle.SOLID,
+                )
+                Spacer(Modifier.height(4.dp))
+            }
             channel.lastMessageAt?.let { ts ->
                 Text(
                     text = relativeTime(ts),

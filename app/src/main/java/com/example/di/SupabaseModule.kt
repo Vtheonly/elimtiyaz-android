@@ -74,12 +74,15 @@ object SupabaseModule {
         com.example.infrastructure.sync.OnlineGate { detector.isOnline() }
 
     // ── T-102-follow-up / ANDR-CHAT-200: the chat repository ────────────────
-    // Chat is ONLINE-ONLY in v1 (no Room cache — deliberate scope decision,
-    // see the task entry): the repository talks to the canonical chat
-    // tables directly, so it is provided straight from the Supabase
-    // implementation (NOT routed through the Local*Repository layer).
+    // T-102 v2 (133rd session): the bound ChatRepository is the Room-caching
+    // decorator over the online-authoritative Supabase implementation
+    // (stale-while-error reads; sends stay online-only). Still NOT routed
+    // through the Local*Repository/sync-queue layer — chat never joins the
+    // queued-write path; the server is the system of record.
     @Provides @Singleton
     fun provideChatRepository(
         repo: com.example.infrastructure.supabase.SupabaseChatRepository,
-    ): com.example.domain.repository.ChatRepository = repo
+        db: com.example.infrastructure.room.ElImtiyazDatabase,
+    ): com.example.domain.repository.ChatRepository =
+        com.example.infrastructure.local.CachedChatRepository(repo, db.chatDao())
 }

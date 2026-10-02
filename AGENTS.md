@@ -43,9 +43,9 @@ app/src/test/          # unit + Robolectric tests (+ equivalence runner reading 
 - The Kotlin engines in `core/` are **mirrors** of the desktop canonical engine; behaviour changes must come from the hub's canonical implementation first, then port, then pass equivalence (`AgentGithubUplaod/docs/testing/cross-platform.md`).
 - The `supabase/migrations/` folder here is a stale partial copy — never apply it, never edit it, never treat it as schema truth (CROSS-003).
 - Two auth bypasses are the repository's most dangerous defects: offline-fallback SUPER_ADMIN sessions (SEC-101) and email-substring role inference (SEC-102). Fix task: T-002. *(Both closed 2026-08-29 by T-002 — fail-closed sign-in, server-side role resolution; see hub change-log.)*
-- **Chat (session 14, 2026-08-31):** chat is now a COMMITTED cross-platform feature (ADR-008, owner decision) and live on desktop + website + backend (migration 0061). This app has **NO chat UI at all** (only `USE_CHAT` / `MANAGE_CHAT_CHANNELS` permission constants in `core/Rbac.kt`) — a scope gap registered as ANDR-CHAT-200 / task T-102 in the hub. Do not assume chat exists here; building it (read-side + online sends first) or pruning the dead permission codes is the task.
+- **Chat (v1: 21st session 2026-09-02; v2: 133rd session 2026-10-02):** chat is a COMMITTED cross-platform feature (ADR-008, owner decision), live on desktop + website + backend since migration 0061. The Android app has the FULL v1 read-side + online sends (T-129: ChatScreen + ChatDetailScreen, RBAC-gated on USE_CHAT, the website's MessagesView semantics verbatim) and the v2 READ CACHE (Room schema v17: `chat_channels` + `chat_messages`; `CachedChatRepository` — stale-while-error reads, write-through sends/receipts, per-channel unread badges from the cache + the Messagerie quick-action badge). Every `SupabaseChatRepository` call routes through `NetworkTimeouts` (reads via `guard`, writes via `guardSyncPush` — the 37th-session IO-guard debt, closed). Sends stay ONLINE-ONLY by design (the 0051/0061 server triggers must see the caller's live JWT); channel creation stays desktop-only (ADR-008).
 - **FCM token lifecycle (session 8, 2026-08-30):** `register` and `deactivate` both go through caller-verified canonical RPCs (hub migration 0050 — `register_fcm_token` verifies auth.uid() owns p_user_id; `deactivate_fcm_tokens(p_user_id, p_platform)` is the shared sign-out path). `LocalAuthRepository.signOut` deactivates Android tokens BEFORE revoking the JWT — called directly on the provider, NOT via `FcmTokenRegistrar` (that injection would create a Hilt cycle: LocalAuthRepository → FcmTokenRegistrar → SessionManager → AuthRepository).
-- **Notifications read-path parity (session 27, 2026-09-05, T-172/NOTIF-200):** `pullNotifications` filters `dismissed_at IS NULL` as a TOP-LEVEL AND (before the or-block) — resolved server-side alerts must not enter Room. The overdue-alert lifecycle (hub ADR-013) resolves alerts when installments are paid. KNOWN GAP (hub task T-173): `NotificationEntity` has NO `dismissedAt` column, so rows cached locally BEFORE a server-side resolution linger in Room until role eviction — a future session must add the Room migration (and pull-side eviction), NOT a schema-less workaround.
+- **Notifications read-path parity (session 27, 2026-09-05, T-172/NOTIF-200):** `pullNotifications` filters `dismissed_at IS NULL` as a TOP-LEVEL AND (before the or-block) — resolved server-side alerts must not enter Room. The overdue-alert lifecycle (hub ADR-013) resolves alerts when installments are paid. The Room `dismissedAt` gap was CLOSED by T-181 (28th session): `NotificationEntity.dismissedAt` (migration v14) + the pull-side eviction of server-dismissed rows (`evictServerDismissed`) — rows cached locally BEFORE a server-side resolution are evicted on the next pull, desktop-parity semantics. The remaining T-173 part (a) — the overdue-alert VOLUME policy (digest vs per-installment, UNKNOWN-020) — is an owner-gated ADR decision, deliberately not taken unilaterally.
 
 ## 4. Before changing anything (mandatory)
 
@@ -317,9 +317,10 @@ the generated `BuildConfig` fields come from the ROOT-level files only.
   `SupabaseClientProvider.isConfigured()` also honours the runtime SharedPreferences
   override — a user configuring Supabase ONLY via Settings gets the demo sandbox
   (debug) instead of real auth. Fixing this changes SEC-101 semantics and needs its
-  own task. Same class of debt: `SupabaseChatRepository` methods call
-  `provider.postgrest` directly (no `withContext(IO)`) — post-warm this is jank-only,
-  not an ANR, but a future task should route them through the guard.
+  own task. Same class of debt — `SupabaseChatRepository` methods calling
+  `provider.postgrest` directly (no `withContext(IO)`) — CLOSED by T-102 v2
+  (133rd session): every call now routes through NetworkTimeouts (reads via
+  `guard`, sends/receipts via `guardSyncPush`).
 
 ## 9. Forbidden in this repository
 

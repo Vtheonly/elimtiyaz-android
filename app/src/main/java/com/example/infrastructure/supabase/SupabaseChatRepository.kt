@@ -3,6 +3,7 @@ package com.example.infrastructure.supabase
 import com.example.domain.model.ChatChannel
 import com.example.domain.model.ChatMessage
 import com.example.domain.repository.ChatRepository
+import com.example.core.Errors
 import com.example.core.Result
 import io.github.jan.supabase.postgrest.query.filter.FilterOperator
 import io.github.jan.supabase.postgrest.query.Order
@@ -104,13 +105,21 @@ private fun parseReadBy(element: JsonElement?): List<ChatMessage.ReadReceipt> {
 }
 
 /**
- * T-102-follow-up — the Supabase-backed chat repository (v1: online-only
- * reads + sends, verbatim port of the website MessagesView's semantics).
+ * T-102-follow-up — the Supabase-backed chat repository (online-authoritative;
+ * v1: reads + sends, 21st session; v2: IO-guard routing, 133rd session).
  *
  * Every query relies on RLS (the caller's JWT scopes rows to their own
  * channels); no client-side permission logic. The membership filter uses
  * PostgREST's array-contains (`cs`) on `member_ids` exactly like the
  * website's `.contains("member_ids", [profileId])`.
+ *
+ * T-102 v2 — every network call now runs through NetworkTimeouts (the
+ * 37th-session registered debt, closed): READS via [NetworkTimeouts.guard]
+ * (IO relocation + timeout; a null return maps to an honest timeout/offline
+ * error — the v2 cache decorator serves the last cached content in that
+ * case), SENDS + read-receipts via [NetworkTimeouts.guardSyncPush] (the
+ * CROSS-200 contract: a rejected write NEVER looks successful — the real
+ * exception propagates to Result.Err).
  */
 @Singleton
 class SupabaseChatRepository @Inject constructor(
@@ -119,113 +128,124 @@ class SupabaseChatRepository @Inject constructor(
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    override suspend fun channels(profileId: String): Result<List<ChatChannel>> = try {
-        val dtos = provider.postgrest.from("chat_channels").select {
-            filter {
-                filter("member_ids", FilterOperator.CS, listOf(profileId))
-                filter("archived_at", FilterOperator.IS, null)
-            }
-            // CHAT-104 (migration 0061): order by last activity, not
-            // updated_at; nulls last so never-messaged channels sink.
-            order("last_message_at", Order.DESCENDING, false)
-        }.decodeList<ChatChannelDto>()
-        Result.Ok(dtos.map { it.toDomain() })
-    } catch (e: Exception) {
-        Result.Err(com.example.core.Errors.fromException(e))
-    }
+    override suspend fun channels(profileId: String): Result<List<ChatChannel>> =
+        NetworkTimeouts.guard("chat.channels") {
+            val dtos = provider.postgrest.from("chat_channels").select {
+                filter {
+                    filter("member_ids", FilterOperator.CS, listOf(profileId))
+                    filter("archived_at", FilterOperator.IS, null)
+                }
+                // CHAT-104 (migration 0061): order by last activity, not
+                // updated_at; nulls last so never-messaged channels sink.
+                order("last_message_at", Order.DESCENDING, false)
+            }.decodeList<ChatChannelDto>()
+            dtos.map { it.toDomain() }
+        }?.let { Result.Ok(it) }
+            ?: Result.Err(Errors.timeout("chat.channels: offline, unconfigured or timed out"))
 
-    override suspend fun messages(channelId: String, limit: Int): Result<List<ChatMessage>> = try {
-        val dtos = provider.postgrest.from("chat_messages").select {
-            filter {
-                eq("channel_id", channelId)
-                filter("deleted_at", FilterOperator.IS, null)
-            }
-            order("sent_at", Order.ASCENDING, false)
-            limit(limit.toLong())
-        }.decodeList<ChatMessageDto>()
-        Result.Ok(dtos.map { it.toDomain() })
-    } catch (e: Exception) {
-        Result.Err(com.example.core.Errors.fromException(e))
-    }
+    override suspend fun messages(channelId: String, limit: Int): Result<List<ChatMessage>> =
+        NetworkTimeouts.guard("chat.messages") {
+            val dtos = provider.postgrest.from("chat_messages").select {
+                filter {
+                    eq("channel_id", channelId)
+                    filter("deleted_at", FilterOperator.IS, null)
+                }
+                order("sent_at", Order.ASCENDING, false)
+                limit(limit.toLong())
+            }.decodeList<ChatMessageDto>()
+            dtos.map { it.toDomain() }
+        }?.let { Result.Ok(it) }
+            ?: Result.Err(Errors.timeout("chat.messages: offline, unconfigured or timed out"))
 
-    override suspend fun unreadCount(profileId: String, window: Int): Result<Int> = try {
-        // Latest `window` messages across ALL the caller's channels (RLS
-        // scopes the rows), newest first, then count client-side — the
-        // website's documented WEAK-023 shape.
-        val dtos = provider.postgrest.from("chat_messages").select {
-            order("sent_at", Order.DESCENDING, false)
-            limit(window.toLong())
-        }.decodeList<ChatMessageDto>()
-        val unread = dtos.count { dto ->
-            dto.authorId != profileId && dto.toDomain().readBy.none { it.userId == profileId }
-        }
-        Result.Ok(unread)
-    } catch (e: Exception) {
-        Result.Err(com.example.core.Errors.fromException(e))
-    }
+    override suspend fun unreadCount(profileId: String, window: Int): Result<Int> =
+        NetworkTimeouts.guard("chat.unreadCount") {
+            // Latest `window` messages across ALL the caller's channels (RLS
+            // scopes the rows), newest first, then count client-side — the
+            // website's documented WEAK-023 shape.
+            val dtos = provider.postgrest.from("chat_messages").select {
+                order("sent_at", Order.DESCENDING, false)
+                limit(window.toLong())
+            }.decodeList<ChatMessageDto>()
+            dtos.count { dto ->
+                dto.authorId != profileId && dto.toDomain().readBy.none { it.userId == profileId }
+            }
+        }?.let { Result.Ok(it) }
+            ?: Result.Err(Errors.timeout("chat.unreadCount: offline, unconfigured or timed out"))
 
     override suspend fun send(
         channelId: String,
         authorProfileId: String,
         body: String,
     ): Result<ChatMessage> = try {
-        val row = buildJsonObject {
-            // The 0061 touch trigger maintains the channel's
-            // last_message_at/preview columns on insert.
-            put("channel_id", channelId)
-            put("author_id", authorProfileId)
-            put("body", body)
-            put("attachments", buildJsonArray { })
-            put("read_by", buildJsonArray {
-                add(buildJsonObject {
-                    put("user_id", authorProfileId)
-                    put("read_at", java.time.Instant.now().toString())
+        // guardSyncPush: a REJECTED insert must throw (CROSS-200) — never
+        // report a failed send as successful.
+        val sent = NetworkTimeouts.guardSyncPush("chat.send") {
+            val row = buildJsonObject {
+                // The 0061 touch trigger maintains the channel's
+                // last_message_at/preview columns on insert.
+                put("channel_id", channelId)
+                put("author_id", authorProfileId)
+                put("body", body)
+                put("attachments", buildJsonArray { })
+                put("read_by", buildJsonArray {
+                    add(buildJsonObject {
+                        put("user_id", authorProfileId)
+                        put("read_at", java.time.Instant.now().toString())
+                    })
                 })
-            })
+            }
+            val result = provider.postgrest.from("chat_messages").insert(row) {
+                // return the inserted row (with its server-generated id/sent_at)
+                select()
+            }
+            result.decodeAs<ChatMessageDto>().toDomain()
         }
-        val result = provider.postgrest.from("chat_messages").insert(row) {
-            // return the inserted row (with its server-generated id/sent_at)
-            select()
-        }
-        val sent = result.decodeAs<ChatMessageDto>()
-        Result.Ok(sent.toDomain())
+        sent?.let { Result.Ok(it) }
+            ?: Result.Err(Errors.offline("chat.send: Supabase not configured"))
+    } catch (e: com.example.infrastructure.supabase.SyncPushTimeoutException) {
+        Result.Err(Errors.timeout("chat.send: ${e.message}"))
     } catch (e: Exception) {
-        Result.Err(com.example.core.Errors.fromException(e))
+        Result.Err(Errors.fromException(e))
     }
 
     override suspend fun markRead(
         messages: List<ChatMessage>,
         profileId: String,
     ): Result<Int> = try {
+        // guardSyncPush: a rejected read-receipt update must throw
+        // (REALTIME-101 — never swallow read-receipt failures).
         var marked = 0
-        for (m in messages) {
-            if (m.isReadBy(profileId)) continue
-            val updatedReceipts = buildJsonArray {
-                m.readBy.forEach { r ->
+        NetworkTimeouts.guardSyncPush("chat.markRead") {
+            for (m in messages) {
+                if (m.isReadBy(profileId)) continue
+                val updatedReceipts = buildJsonArray {
+                    m.readBy.forEach { r ->
+                        add(buildJsonObject {
+                            put("user_id", r.userId)
+                            put("read_at", r.readAt)
+                        })
+                    }
                     add(buildJsonObject {
-                        put("user_id", r.userId)
-                        put("read_at", r.readAt)
+                        put("user_id", profileId)
+                        put("read_at", java.time.Instant.now().toString())
                     })
                 }
-                add(buildJsonObject {
-                    put("user_id", profileId)
-                    put("read_at", java.time.Instant.now().toString())
-                })
+                val patch = buildJsonObject {
+                    // 0051's append-only guard trigger enforces server-side
+                    // that only the caller's OWN entry is appended — a
+                    // rejected update throws here and surfaces.
+                    put("read_by", updatedReceipts)
+                }
+                provider.postgrest.from("chat_messages").update(patch) {
+                    filter { eq("id", m.id) }
+                }
+                marked++
             }
-            val patch = buildJsonObject {
-                // 0051's append-only guard trigger enforces server-side
-                // that only the caller's OWN entry is appended — a
-                // rejected update throws here and surfaces (REALTIME-101
-                // lesson: never swallow read-receipt failures).
-                put("read_by", updatedReceipts)
-            }
-            provider.postgrest.from("chat_messages").update(patch) {
-                filter { eq("id", m.id) }
-            }
-            marked++
         }
         Result.Ok(marked)
+    } catch (e: com.example.infrastructure.supabase.SyncPushTimeoutException) {
+        Result.Err(Errors.timeout("chat.markRead: ${e.message}"))
     } catch (e: Exception) {
-        Result.Err(com.example.core.Errors.fromException(e))
+        Result.Err(Errors.fromException(e))
     }
 }

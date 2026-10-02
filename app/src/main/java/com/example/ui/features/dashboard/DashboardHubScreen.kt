@@ -84,6 +84,7 @@ fun DashboardHubScreen(
     val analyticsSlice by viewModel.analyticsSlice.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val unreadMessages by viewModel.unreadMessages.collectAsState()
 
     var selectedViewTab by rememberSaveable { mutableIntStateOf(0) }
     val viewTabs = listOf("Vue d'ensemble", "Analytique")
@@ -187,6 +188,7 @@ fun DashboardHubScreen(
                     onNavigateToAcademics = onNavigateToAcademics,
                     onNavigateToDebtDashboard = onNavigateToDebtDashboard,
                     onNavigateToChat = onNavigateToChat,
+                    unreadMessages = unreadMessages,
                 )
 
                 // 3. Financial Flux — the wave staircase hero (T-340: the

@@ -174,6 +174,9 @@ tasks.withType<Test>().matching { it.name == "testReleaseUnitTest" }.configureEa
     excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT046GapTest")
     excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT181Test")
     excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT348Test")
+    // T-102 chat v2 (133rd session): same class — the debug-scoped Room
+    // schema assets are unreachable on release (the sourceSets rule below).
+    excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT102v2Test")
     excludeTestsMatching("com.example.ui.designsystem.ElScrollableTabRowTest")
     excludeTestsMatching("com.example.ui.designsystem.overlays.ElInfoTipTest")
     excludeTestsMatching("com.example.ui.designsystem.overlays.ElToastHostTest")
