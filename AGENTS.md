@@ -93,20 +93,26 @@ The secrets-gradle-plugin **2.0.1 resolves BOTH `propertiesFileName` (`.env`) an
 against `app/`. Bytecode + live-evidence verified: an `app/.env` is NEVER read;
 the generated `BuildConfig` fields come from the ROOT-level files only.
 
-- The committed ROOT `.env.example` intentionally ships `SUPABASE_ANON_KEY=`
-  and `SUPABASE_PUBLISHABLE_KEY=` EMPTY (template design) — those empty defaults
-  are what produce the bare `SUPABASE_ANON_KEY = ;` literals that fail
-  compilation (the AGENTS.md §11 hub quirk; the 22nd session diagnosed the
-  empty-values mechanism correctly but did not record the root-vs-app location).
-- **The fix, every session:** create a ROOT-level `.env` (gitignored — verified)
-  next to `gradle.properties` with the KEY values filled from the canonical
-  public publishable key (hub `docs/operations/credentials.md` §1; ADR-009 dual
-  acceptance — never service_role/sb_secret/sbp_ tokens). The re-runnable
-  provisioning recipe is `/home/z/my-project/scripts/android-env.sh` (container
-  resets wipe the toolchain; the script also re-creates this `.env` guidance).
+- The committed ROOT `.env.example` now ships the CURRENT live project's URL +
+  `sb_publishable_…` key in BOTH key slots (133rd session, 2026-10-02 —
+  ADR-009 public identifiers, the same values the website commits in
+  `public-config.ts`). A fresh clone therefore compiles AND boots against the
+  real backend with NO `.env` at all. Before that session the template carried
+  EMPTY key slots (plus the RETIRED project URL `hkvkefubghbbotgnteir` — the
+  project switched 2026-09-17, see hub credentials §1), and an empty slot
+  makes the plugin emit the bare `SUPABASE_ANON_KEY = ;` literal that fails
+  compilation — the exact failure the 133rd session's red baseline reproduced.
+- **The fix, every session (now IN THE REPO):** `./scripts/setup-env.sh`
+  creates/repairs the ROOT-level `.env` (gitignored — verified by the script
+  itself) with the canonical public values. It REFUSES to write secret-class
+  values (`sb_secret_…`, `sbp_…`, service_role — T-064/SEC-005), validates
+  the URL/key formats, and can probe the live backend (`--verify` —
+  auth/v1/health must return 200). `--check` validates an existing `.env`
+  without writing. The old container-only recipe
+  (`/home/z/my-project/scripts/android-env.sh`) is superseded.
 - Symptom → cause map for future agents: `SUPABASE_ANON_KEY = ;` in the generated
-  `BuildConfig.java` = the plugin found NO root-level `.env` (or the committed
-  root `.env.example`'s empty defaults won). It is NOT a `app/.env` problem.
+  `BuildConfig.java` = the plugin found NO root-level `.env`, or a root-level
+  `.env`/`.env.example` with an EMPTY key slot. It is NOT a `app/.env` problem.
 
 - **The ARCH-012 release-gate rot (130th session, 2026-10-02, T-460):** the
   `testReleaseUnitTest` exclusion list in `app/build.gradle.kts` (the
