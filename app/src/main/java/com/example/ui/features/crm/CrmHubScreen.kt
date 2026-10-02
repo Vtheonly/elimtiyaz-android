@@ -14,6 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.core.Session
+import com.example.domain.model.ChatChannelScope
+import com.example.ui.features.chat.ChatScreen
 import com.example.ui.designsystem.components.tabs.ElTabRow
 import com.example.ui.designsystem.theme.ElTheme
 
@@ -23,17 +25,20 @@ fun CrmHubScreen(
     onNavigateToStudent: (String) -> Unit,
     onNavigateToParent: (String) -> Unit,
     onNavigateToBatchRegistration: () -> Unit,
+    // T-463 / CHAT-300: opens a parent's PORTAL conversation (the Portail
+    // tab's channel rows → the ChatDetail destination).
+    onNavigateToPortalChat: (com.example.domain.model.ChatChannel) -> Unit = {},
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf("Parents", "Élèves", "Inscription")
+    val tabs = listOf("Parents", "Élèves", "Inscription", "Portail")
 
     BackHandler(enabled = selectedTab != 0) {
         selectedTab = 0
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // T-460 pass E: the DS segmented tab row (3 tabs fit the fixed row —
-        // the same tab language as the Dashboard/Academics hubs).
+        // T-460 pass E: the DS segmented tab row — now 4 tabs (T-463 added
+        // the Portail messenger tab; ElTabRow handles the wider set).
         ElTabRow(
             tabs = tabs,
             selectedIndex = selectedTab,
@@ -47,6 +52,15 @@ fun CrmHubScreen(
                     onSuccess = {
                         selectedTab = 0
                     },
+                )
+                // T-463 / CHAT-300: the PORTAL↔STAFF messenger — the
+                // parent/student conversations (ADR-012), kept strictly
+                // apart from the internal staff messenger.
+                3 -> ChatScreen(
+                    onBack = { selectedTab = 0 },
+                    onOpenChannel = onNavigateToPortalChat,
+                    scope = ChatChannelScope.PORTAL,
+                    topBarTitle = null,
                 )
             }
         }

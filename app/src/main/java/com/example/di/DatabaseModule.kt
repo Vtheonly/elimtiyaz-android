@@ -120,6 +120,9 @@ object DatabaseModule {
                 // (chat_channels + chat_messages) — pure CREATE TABLE, no
                 // backfill (v1 was online-only).
                 ElImtiyazDatabase.MIGRATION_16_17,
+                // T-463 / CHAT-300 (135th session): chat_channels.scope —
+                // the two chat systems separated in the read cache (v18).
+                ElImtiyazDatabase.MIGRATION_17_18,
             )
             // T-046 / ARCH-004: NO destructive fallback. A missing migration
             // now fails LOUDLY (IllegalStateException) instead of wiping the

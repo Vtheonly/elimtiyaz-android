@@ -113,6 +113,8 @@ fun MainScreen(
     onNavigateToReports: () -> Unit,
     onNavigateToAlerts: () -> Unit,
     onNavigateToChat: () -> Unit = {},
+    // T-463 / CHAT-300: open a PORTAL conversation (the CRM Portail tab).
+    onNavigateToChatDetail: (com.example.domain.model.ChatChannel) -> Unit = {},
     onNavigateToRouting: () -> Unit,
     onNavigateToRoutingMap: (String) -> Unit,
     onNavigateToTripHistory: () -> Unit,
@@ -242,6 +244,7 @@ fun MainScreen(
                     onNavigateToStudent = onNavigateToStudent,
                     onNavigateToParent = onNavigateToParent,
                     onNavigateToBatchRegistration = onNavigateToBatchRegistration,
+                    onNavigateToPortalChat = onNavigateToChatDetail,
                 )
                 "academics" -> AcademicsHubScreen(
                     session = session,

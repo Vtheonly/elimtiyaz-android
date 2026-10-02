@@ -18,6 +18,7 @@ import com.example.ui.features.academics.RollCallScreen
 import com.example.ui.features.academics.SubjectsDirectoryScreen
 import com.example.ui.features.auth.ChangePasswordModal
 import com.example.ui.features.auth.LoginScreen
+import com.example.domain.model.ChatChannelScope
 import com.example.ui.features.chat.ChatDetailScreen
 import com.example.ui.features.chat.ChatScreen
 import com.example.ui.features.crm.BatchRegistrationScreen
@@ -126,6 +127,18 @@ fun AppNavHost() {
                     onNavigateToReports = { navController.navigate(Routes.Reports) },
                     onNavigateToAlerts = { navController.navigate(Routes.Alerts) },
                     onNavigateToChat = { navController.navigate(Routes.Chat) },
+                    // T-463 / CHAT-300: the CRM Portail tab's conversation
+                    // rows open the ChatDetail destination (portal-tagged).
+                    onNavigateToChatDetail = { channel ->
+                        navController.navigate(
+                            Routes.ChatDetail(
+                                channelId = channel.id,
+                                name = channel.name,
+                                isAnnouncement = channel.isAnnouncement,
+                                isPortal = channel.isPortal,
+                            ),
+                        )
+                    },
                     onNavigateToRouting = { navController.navigate(Routes.Routing) },
                     onNavigateToRoutingMap = { id -> navController.navigate(Routes.RoutingMap(id)) },
                     onNavigateToTripHistory = { navController.navigate(Routes.TripHistory) },
@@ -374,9 +387,35 @@ fun AppNavHost() {
                                     channelId = channel.id,
                                     name = channel.name,
                                     isAnnouncement = channel.isAnnouncement,
+                                    isPortal = channel.isPortal,
                                 ),
                             )
                         },
+                        // T-463 / CHAT-300: the INTERNAL staff messenger.
+                        scope = ChatChannelScope.INTERNAL,
+                    )
+                }
+            }
+
+            // T-463 / CHAT-300: the PORTAL↔STAFF messenger — a separate
+            // destination for the parent/student conversations (the CRM
+            // "Portail" tab and any portal-chat deep links land here). The
+            // internal messenger stays at Routes.Chat; the two never mix.
+            composable<Routes.PortalChat> {
+                rbacGate(navController, Routes.PortalChat::class) {
+                    ChatScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenChannel = { channel ->
+                            navController.navigate(
+                                Routes.ChatDetail(
+                                    channelId = channel.id,
+                                    name = channel.name,
+                                    isAnnouncement = channel.isAnnouncement,
+                                    isPortal = channel.isPortal,
+                                ),
+                            )
+                        },
+                        scope = ChatChannelScope.PORTAL,
                     )
                 }
             }
@@ -388,6 +427,7 @@ fun AppNavHost() {
                         channelId = route.channelId,
                         channelName = route.name.ifBlank { "Conversation" },
                         isAnnouncement = route.isAnnouncement,
+                        isPortal = route.isPortal,
                         onBack = { navController.popBackStack() },
                     )
                 }

@@ -1,6 +1,7 @@
 package com.example.ui.features.chat
 
 import com.example.domain.model.ChatChannel
+import com.example.domain.model.ChatChannelScope
 import com.example.domain.model.ChatMessage
 import com.example.infrastructure.supabase.ChatChannelDto
 import com.example.infrastructure.supabase.ChatMessageDto
@@ -55,6 +56,72 @@ class ChatModelsTest {
         )
         assertTrue(dto.toDomain().isAnnouncement)
         assertFalse(dto.toDomain().isDirect)
+    }
+
+    // ── T-463 / CHAT-300: the two chat systems, separated ──────────────────
+
+    @Test
+    fun `T463 - a portal channel row maps with scope=portal and flags isPortal`() {
+        val row = """
+            {
+              "id": "c9", "tenant_id": "t1", "code": "dm-parent-admin", "name": "Administration",
+              "channel_type": "direct", "scope": "portal", "member_ids": ["u1", "u2"],
+              "description": null, "department_id": null, "archived_at": null,
+              "last_message_at": "2026-10-01T10:00:00Z",
+              "last_message_preview": "Merci",
+              "created_by": "u2", "created_at": "2026-09-30T09:00:00Z"
+            }
+        """.trimIndent()
+        val domain = json.decodeFromString(ChatChannelDto.serializer(), row).toDomain()
+        assertEquals("portal", domain.scope)
+        assertTrue(domain.isPortal)
+        assertEquals(ChatChannelScope.PORTAL, ChatChannelScope.fromWire(domain.scope))
+    }
+
+    @Test
+    fun `T463 - a pre-0135 row without scope degrades to internal (never crashes, never mislabels portal)`() {
+        val row = """
+            {
+              "id": "c10", "tenant_id": "t1", "code": "ch-staff", "name": "Equipe",
+              "channel_type": "group", "member_ids": ["u1", "u2"],
+              "description": null, "department_id": null, "archived_at": null,
+              "last_message_at": null, "last_message_preview": null,
+              "created_by": "u1", "created_at": "2026-08-31T09:00:00Z"
+            }
+        """.trimIndent()
+        val domain = json.decodeFromString(ChatChannelDto.serializer(), row).toDomain()
+        assertEquals("internal", domain.scope)
+        assertFalse(domain.isPortal)
+    }
+
+    @Test
+    fun `T463 - the scope split filter separates the two systems with zero overlap`() {
+        val internal = ChatChannel(
+            id = "i1", tenantId = "t1", code = "ch-i", name = "Interne",
+            channelType = "group", scope = "internal", memberIds = listOf("u1"),
+        )
+        val portal = ChatChannel(
+            id = "p1", tenantId = "t1", code = "dm-p", name = "Parent",
+            channelType = "direct", scope = "portal", memberIds = listOf("u1", "parent1"),
+        )
+        val all = listOf(internal, portal)
+
+        val internalList = all.filter { it.scope == ChatChannelScope.INTERNAL.wire }
+        val portalList = all.filter { it.scope == ChatChannelScope.PORTAL.wire }
+
+        assertEquals(listOf(internal), internalList)
+        assertEquals(listOf(portal), portalList)
+        // The two surfaces NEVER mix: the partition is exact.
+        assertTrue(internalList.none { it.isPortal })
+        assertTrue(portalList.all { it.isPortal })
+    }
+
+    @Test
+    fun `T463 - ChatChannelScope fromWire tolerates unknown values as internal`() {
+        assertEquals(ChatChannelScope.INTERNAL, ChatChannelScope.fromWire(null))
+        assertEquals(ChatChannelScope.INTERNAL, ChatChannelScope.fromWire("banana"))
+        assertEquals(ChatChannelScope.PORTAL, ChatChannelScope.fromWire("portal"))
+        assertEquals(ChatChannelScope.INTERNAL, ChatChannelScope.fromWire("internal"))
     }
 
     @Test

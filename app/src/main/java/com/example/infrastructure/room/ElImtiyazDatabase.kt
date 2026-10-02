@@ -54,7 +54,7 @@ import androidx.room.RoomDatabase
         ChatChannelEntity::class,
         ChatMessageEntity::class,
     ],
-    version = 17,
+    version = 18,
     // T-046-gap (session 18): schemas are exported from now on (ksp arg
     // room.schemaLocation → app/schemas/) so MigrationTestHelper upgrade
     // tests can pin every future schema bump. 12.json was backfilled from
@@ -552,6 +552,24 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
                 database.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_chat_messages_sentAt` " +
                         "ON `chat_messages` (`sentAt`)"
+                )
+            }
+        }
+
+        /**
+         * T-463 / CHAT-300 (135th session, 2026-10-03) — v17 → v18: the
+         * chat_channels READ cache gains the server-derived `scope` column
+         * ("internal" | "portal" — which chat system the channel belongs
+         * to, hub migration 0135). Purely additive: existing rows keep
+         * their cached content and read as 'internal' until the next
+         * online refresh overwrites them with the server's derived value
+         * (the cache is replace-style — the first refresh after the
+         * upgrade is authoritative).
+         */
+        val MIGRATION_17_18 = object : androidx.room.migration.Migration(17, 18) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE `chat_channels` ADD COLUMN `scope` TEXT NOT NULL DEFAULT 'internal'"
                 )
             }
         }

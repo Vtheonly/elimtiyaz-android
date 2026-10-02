@@ -59,6 +59,9 @@ fun ChatDetailScreen(
     channelName: String,
     isAnnouncement: Boolean,
     onBack: () -> Unit,
+    // T-463 / CHAT-300: parent/student conversations carry the Portail tag
+    // so the operator always knows which system they are in.
+    isPortal: Boolean = false,
     viewModel: ChatDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
@@ -82,6 +85,9 @@ fun ChatDetailScreen(
                 title = channelName,
                 onBack = onBack,
                 actions = {
+                    if (isPortal) {
+                        ElTag(text = "Portail — parent/élève", tone = ElTagTone.INFO, size = ElTagSize.SM)
+                    }
                     if (isAnnouncement) {
                         ElTag(text = "Annonce — lecture", tone = ElTagTone.INFO, size = ElTagSize.SM)
                     }
