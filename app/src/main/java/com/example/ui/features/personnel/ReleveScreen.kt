@@ -25,7 +25,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
 import com.example.domain.model.ReleveActivity
@@ -87,7 +86,7 @@ fun ReleveScreen(
                             Row(modifier = Modifier.fillMaxWidth()) {
                                 Text(
                                     entry.date,
-                                    style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
+                                    style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                                     color = c.textPrimary,
                                     modifier = Modifier.weight(1f),
                                 )
@@ -163,10 +162,7 @@ private fun ComplianceCard(
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 staff.fullName,
-                style = ElTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                ),
+                style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = c.textPrimary,
             )
             Spacer(Modifier.height(4.dp))

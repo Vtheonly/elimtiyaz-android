@@ -25,7 +25,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.core.derivePareto
 import com.example.core.ParetoDebtor
 import com.example.core.formatDzd
@@ -376,7 +375,7 @@ private fun FunnelBox(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(title, style = ElTheme.typography.labelSmall, color = ElTheme.colors.textSecondary)
             Text(value, style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = color)
-            Text(pct, style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp), color = color)
+            Text(pct, style = ElTheme.textStyles.badge.copy(fontWeight = FontWeight.SemiBold), color = color)
         }
     }
 }

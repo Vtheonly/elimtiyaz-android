@@ -20,7 +20,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
 import com.example.ui.designsystem.components.button.ElButton
@@ -100,14 +99,13 @@ fun TeacherWorkspaceScreen(
                                     )
                                     Text(
                                         cls.name,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
+                                        style = ElTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
                                         color = c.textPrimary,
                                     )
                                 }
                                 Text(
                                     "Salle : ${cls.room ?: "—"} · ${cls.enrolledCount} élèves · ${cls.academicYear}",
-                                    fontSize = 12.sp,
+                                    style = ElTheme.typography.bodySmall,
                                     color = c.textSecondary,
                                 )
                             }

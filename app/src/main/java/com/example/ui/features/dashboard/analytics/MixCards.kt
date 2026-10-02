@@ -20,7 +20,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.core.formatDzd
 import com.example.domain.model.CategoryRevenueItem
 import com.example.domain.model.MethodMixItem
@@ -92,12 +91,12 @@ internal fun MethodMixCard(
                         Text(
                             text = m.label,
                             color = c.textSecondary,
-                            style = ElTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                            style = ElTheme.typography.labelSmall,
                         )
                         Text(
                             text = "${(m.amount / 100).formatDzd()} DA · ${m.count} op. · ${m.percent}%",
                             color = c.textPrimary,
-                            style = ElTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+                            style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                         )
                     }
                 }
@@ -163,8 +162,7 @@ private fun MetricToggleLabel(label: String, active: Boolean, onClick: () -> Uni
     Text(
         text = label,
         color = if (active) ElChartPalette.primary else c.textMuted,
-        style = ElTheme.typography.labelSmall.copy(
-            fontSize = 10.sp,
+        style = ElTheme.textStyles.badge.copy(
             fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
         ),
         modifier = Modifier

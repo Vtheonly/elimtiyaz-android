@@ -22,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.core.paymentCategoryLabelFr
 import com.example.ui.designsystem.components.button.ElIconButton
 import com.example.ui.designsystem.components.data.ElChartPalette
@@ -78,7 +77,7 @@ internal fun AnalyticsSlicersBar(
                 Text(
                     text = "$sliceCount op. • ${compactDzd(sliceTotalDzd)} DA",
                     color = c.textMuted,
-                    style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    style = ElTheme.textStyles.badge.copy(fontWeight = FontWeight.SemiBold),
                 )
                 ElIconButton(
                     icon = Icons.Default.Refresh,
@@ -145,7 +144,7 @@ private fun AnalyticsFilterChip(
         Text(
             text = label,
             color = if (selected) c.textPrimary else c.textSecondary,
-            style = ElTheme.typography.labelMedium.copy(fontSize = 11.sp),
+            style = ElTheme.typography.labelSmall,
         )
     }
 }

@@ -36,7 +36,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Permission
 import com.example.core.Session
@@ -211,10 +210,7 @@ private fun EmployeeCard(
                     Column {
                         Text(
                             staff.fullName,
-                            style = ElTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.sp,
-                            ),
+                            style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                             color = ElTheme.colors.textPrimary,
                         )
                         Text(

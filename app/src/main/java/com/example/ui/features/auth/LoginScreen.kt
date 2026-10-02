@@ -36,7 +36,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.ui.designsystem.components.button.ElButton
 import com.example.ui.designsystem.components.card.ElCard
@@ -105,10 +104,7 @@ fun LoginScreen(
                 ) {
                     Text(
                         "EI",
-                        style = ElTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 32.sp,
-                        ),
+                        style = ElTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
                         color = c.textOnColor,
                     )
                 }
