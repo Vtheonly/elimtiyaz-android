@@ -82,7 +82,7 @@ fun AuditLogScreen(
 private fun AuditLogCard(log: AuditLog, onClick: () -> Unit) {
     val c = ElTheme.colors
     ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.COMPACT, onClick = onClick) {
-        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row {
                 Text(log.action, style = ElTheme.typography.labelLarge.copy(color = c.primary), modifier = Modifier.weight(1f))
                 Text(log.occurredAt.take(19).replace("T", " "), style = ElTheme.typography.labelSmall, color = c.textSecondary)
@@ -90,7 +90,7 @@ private fun AuditLogCard(log: AuditLog, onClick: () -> Unit) {
             Spacer(Modifier.height(4.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(log.actorName, style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium), color = c.textPrimary)
                 log.actorRole?.let { role -> ElTag(text = role, tone = ElTagTone.INFO, size = ElTagSize.MD) }

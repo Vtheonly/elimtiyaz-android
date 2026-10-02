@@ -290,7 +290,7 @@ fun BatchRegistrationScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     error?.let {
                         ElAlertBanner(
@@ -366,7 +366,7 @@ fun BatchRegistrationScreen(
                     }
 
                     // Wizard controls
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (currentStep > 1) {
                             ElButton(
                                 text = "Précédent",
@@ -576,7 +576,7 @@ private fun Step2Children(
         }
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
             children.forEachIndexed { index, child ->

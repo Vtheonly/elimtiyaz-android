@@ -131,12 +131,12 @@ fun DebtDashboardScreen(
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(innerPadding),
             contentPadding = PaddingValues(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     ElCard(modifier = Modifier.weight(1f), size = ElCardSize.COMPACT) {
                         Column {
@@ -160,7 +160,7 @@ fun DebtDashboardScreen(
             }
 
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     // PARITY-002 (T-286): ALL five aging buckets are filterable
                     // (the 91–180 j chip was missing — the bucket holding ~46%
                     // of the real debt was unreachable).

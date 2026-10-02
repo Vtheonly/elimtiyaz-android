@@ -74,7 +74,7 @@ internal fun RegistrationStepProgress(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             WIZARD_STEPS.forEachIndexed { index, (label, _) ->
@@ -100,7 +100,7 @@ internal fun RegistrationStepProgress(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .size(30.dp)
+                            .size(32.dp)
                             .clip(CircleShape)
                             .background(circleColor),
                     ) {
@@ -125,14 +125,14 @@ internal fun RegistrationStepProgress(
                         style = ElTheme.typography.labelLarge,
                         color = if (isCurrent) c.textPrimary else c.textSecondary,
                         fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier.padding(start = 6.dp),
+                        modifier = Modifier.padding(start = 8.dp),
                     )
                 }
                 if (index < WIZARD_STEPS.lastIndex) {
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .padding(horizontal = 6.dp)
+                            .padding(horizontal = 8.dp)
                             .height(2.dp)
                             .clip(CircleShape)
                             .background(if (stepNumber < currentStep) c.success else c.surfaceVariant),
@@ -170,7 +170,7 @@ internal fun RegistrationSuccessCard(
             .fillMaxWidth()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Spacer(Modifier.height(8.dp))
         Box(
@@ -221,7 +221,7 @@ internal fun RegistrationSuccessCard(
                     color = c.warning,
                     letterSpacing = 4.sp,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     ElButton(
                         text = "Copier",
                         onClick = onCopyCode,
@@ -289,7 +289,7 @@ internal fun SimulationGrandTotalCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -399,7 +399,7 @@ internal fun SimulationChildCard(
                                 .fillMaxWidth()
                                 .clip(ElTheme.shapes.small)
                                 .background(c.surfaceVariant)
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(label, style = ElTheme.typography.bodySmall, color = c.textSecondary)
@@ -428,13 +428,13 @@ internal fun AtomicTransactionBanner(modifier: Modifier = Modifier) {
             .background(c.successContainer)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(
             Icons.Default.VerifiedUser,
             contentDescription = null,
             tint = c.success,
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(24.dp),
         )
         Column {
             Text(

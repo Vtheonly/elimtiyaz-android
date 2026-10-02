@@ -58,7 +58,7 @@ internal fun DebtorsParetoCard(
     val paretoCut = pareto.indexOfFirst { it.cumPercent >= 80 }.let { if (it == -1) pareto.size else it + 1 }
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ElSectionHeader(
                     title = "Pareto des Débiteurs",
@@ -76,10 +76,10 @@ internal fun DebtorsParetoCard(
                         cumPercent = it.cumPercent.toFloat(),
                     )
                 },
-                height = 170.dp,
+                height = 172.dp,
             )
             // The interactive top-8 rows (click → parent; call preserved)
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 pareto.forEachIndexed { i, datum ->
                     val debtor = debtors.firstOrNull { it.parentName == datum.name }
                     Row(
@@ -99,7 +99,7 @@ internal fun DebtorsParetoCard(
                                 text = "${i + 1}.",
                                 color = c.textMuted,
                                 style = ElTheme.textStyles.badge.copy(fontWeight = FontWeight.SemiBold),
-                                modifier = Modifier.width(18.dp),
+                                modifier = Modifier.width(16.dp),
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(

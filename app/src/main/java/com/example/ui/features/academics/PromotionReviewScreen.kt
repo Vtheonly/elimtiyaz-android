@@ -112,14 +112,14 @@ fun PromotionReviewScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(horizontal = ElTheme.spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // ── Summary header ──────────────────────────────────────────
             ElCard(
                 modifier = Modifier.fillMaxWidth(),
                 border = BorderStroke(ElTheme.borders.thin, c.primary.copy(alpha = 0.45f)),
             ) {
-                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ElSectionHeader(title = "Étape 3 sur 4 — Revue avant exécution")
                     Text(
                         "La moyenne annuelle de chaque élève a été calculée (moteur canonique, " +
@@ -283,7 +283,7 @@ private fun PromotionCandidateRow(
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ElAvatar(initials = candidate.student.fullName, size = ElAvatarSize.M)
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(candidate.student.fullName, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                     Text(
@@ -295,7 +295,7 @@ private fun PromotionCandidateRow(
                 DecisionTag(candidate.decision)
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(
                     modifier = Modifier
                         .size(44.dp)
@@ -396,7 +396,7 @@ private fun OverrideDecisionDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
                 Text(
                     "Arbitrage — ${candidate.student.fullName}",

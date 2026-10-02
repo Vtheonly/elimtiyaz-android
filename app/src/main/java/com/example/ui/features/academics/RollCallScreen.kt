@@ -150,7 +150,7 @@ fun RollCallScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // ── 1. Paramètres de la séance Card ───────────────────────────────
             ElCard(modifier = Modifier.fillMaxWidth()) {
@@ -183,7 +183,7 @@ fun RollCallScreen(
                             .background(c.surfaceVariant.copy(alpha = 0.5f))
                             .border(1.dp, c.outline.copy(alpha = 0.2f), RoundedCornerShape(10.dp))
                             .clickable { showDatePicker = true }
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
@@ -194,7 +194,7 @@ fun RollCallScreen(
                                 tint = c.primary,
                                 modifier = Modifier.size(20.dp),
                             )
-                            Spacer(Modifier.width(10.dp))
+                            Spacer(Modifier.width(12.dp))
                             Column {
                                 Text(
                                     text = "Date de l'appel :",
@@ -216,7 +216,7 @@ fun RollCallScreen(
                     }
 
                     // Session Selector Chips
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             text = "Créneau horaire",
                             style = ElTheme.typography.labelSmall,
@@ -277,7 +277,7 @@ fun RollCallScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.weight(1f, fill = false),
                     ) {
@@ -373,7 +373,7 @@ fun RollCallScreen(
                                         .clip(ElPillShape)
                                         .background(accentColor.copy(alpha = 0.15f))
                                         .border(1.dp, accentColor.copy(alpha = 0.35f), ElPillShape)
-                                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                                        .padding(horizontal = 12.dp, vertical = 4.dp),
                                 ) {
                                     Text(
                                         text = statusLabel,
@@ -388,7 +388,7 @@ fun RollCallScreen(
                             // Sélecteur de statut segmenté
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 AttendanceStatus.values().forEach { st ->
                                     val isSelected = currentStatus == st
@@ -408,7 +408,7 @@ fun RollCallScreen(
 
                             // Panneau pour l'heure de retard
                             if (isLate) {
-                                Spacer(Modifier.height(10.dp))
+                                Spacer(Modifier.height(12.dp))
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier
@@ -422,7 +422,7 @@ fun RollCallScreen(
                                         Icons.Default.Schedule,
                                         contentDescription = null,
                                         tint = c.info,
-                                        modifier = Modifier.size(18.dp),
+                                        modifier = Modifier.size(16.dp),
                                     )
                                     Spacer(Modifier.width(8.dp))
                                     Text(
@@ -430,7 +430,7 @@ fun RollCallScreen(
                                         style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                                         color = c.textPrimary,
                                     )
-                                    Spacer(Modifier.width(10.dp))
+                                    Spacer(Modifier.width(12.dp))
                                     ElTextField(
                                         value = lateTimes[student.id] ?: "08:15",
                                         onValueChange = { lateTimes[student.id] = it },
@@ -561,7 +561,7 @@ private fun AttendanceSegmentButton(
 
     Box(
         modifier = modifier
-            .height(34.dp)
+            .height(36.dp)
             .clip(ElPillShape)
             .background(backgroundColor)
             .border(1.dp, borderColor, ElPillShape)
@@ -607,11 +607,11 @@ private fun AttendanceStatBadge(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(6.dp)
+                    .size(8.dp)
                     .clip(CircleShape)
                     .background(badgeColor),
             )
-            Spacer(Modifier.width(5.dp))
+            Spacer(Modifier.width(4.dp))
             Text(
                 text = "$count $label",
                 style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),

@@ -47,17 +47,17 @@ internal fun DepensesTab(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricMiniCard("Total engagé", "${(totalAmount / 100).formatDzd()} DZD", c.primary, Modifier.weight(1f))
                 MetricMiniCard("En attente", "$pendingCount demande(s)", if (pendingCount > 0) c.warning else c.success, Modifier.weight(1f))
             }
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
                     null to "Toutes",
                     "submitted" to "En attente",
@@ -100,7 +100,7 @@ internal fun DepensesTab(
                     size = ElCardSize.STANDARD,
                     onClick = { onExpenseClick(exp.id) },
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Text(exp.title, style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = c.textPrimary, modifier = Modifier.weight(1f))
                             ElTag(text = statusFr, tone = badgeTone, size = ElTagSize.MD)

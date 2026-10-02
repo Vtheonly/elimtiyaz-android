@@ -64,19 +64,19 @@ internal fun DashboardCollectionAndDebtRow(
     val context = LocalContext.current
     val toast = LocalElToast.current
 
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // ── Synthèse Décisionnelle IA ──
         ElCard(
             modifier = Modifier.fillMaxWidth(),
             background = ElTheme.colors.primaryContainer.copy(alpha = 0.25f),
         ) {
-            Column(modifier = Modifier.padding(14.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.AutoAwesome,
                         contentDescription = null,
                         tint = ElTheme.colors.primary,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(16.dp),
                     )
                     Spacer(Modifier.size(8.dp))
                     Text(
@@ -85,13 +85,13 @@ internal fun DashboardCollectionAndDebtRow(
                         color = ElTheme.colors.primary,
                     )
                 }
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
                     text = "Suivi des relances : ${currentKpi.overdueFamiliesCount} familles en attente, dont ${currentKpi.recoveryFunnel.lastOrNull()?.count ?: 0} dossiers prioritaires.",
                     style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                     color = ElTheme.colors.textPrimary,
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 ElButton(
                     text = "Accéder aux relances",
                     onClick = onNavigateToDebtDashboard,
@@ -104,7 +104,7 @@ internal fun DashboardCollectionAndDebtRow(
         // ── Taux de Recouvrement Annuel + Structure Impayé ──
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // Left: Annual Recovery Rate — computed by StatisticsEngine.collectionRatePct
             ElCard(modifier = Modifier.weight(1f)) {
@@ -126,14 +126,14 @@ internal fun DashboardCollectionAndDebtRow(
                     if (revenueToDisplay > 0L || debtToDisplay > 0L) {
                         ElProgressRing(
                             progress = rate,
-                            size = 90.dp,
+                            size = 92.dp,
                             color = ElTheme.colors.info,
                             label = "${currentKpi.collectionRatePct}%",
                         )
                     } else {
                         ElProgressRing(
                             progress = 0f,
-                            size = 90.dp,
+                            size = 92.dp,
                             color = ElTheme.colors.info,
                             label = "—",
                         )
@@ -196,12 +196,12 @@ internal fun DashboardCollectionAndDebtRow(
                         style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = ElTheme.colors.textPrimary,
                     )
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(8.dp))
 
                     if (segments.isNotEmpty()) {
                         ElDonutChart(
                             segments = segments,
-                            size = 90.dp,
+                            size = 92.dp,
                             centerLabel = "Encours",
                             centerValue = debtFormatted,
                         )
@@ -219,7 +219,7 @@ internal fun DashboardCollectionAndDebtRow(
         // ── Entonnoir de Recouvrement (Recovery Funnel) — real census stages.
         if (currentKpi.recoveryFunnel.isNotEmpty()) {
             ElCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(14.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     val criticalPct = currentKpi.recoveryFunnel.last().sharePct
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -239,7 +239,7 @@ internal fun DashboardCollectionAndDebtRow(
                         color = ElTheme.colors.textSecondary,
                     )
 
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(12.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -301,7 +301,7 @@ internal fun DashboardCollectionAndDebtRow(
                                 .fillMaxWidth()
                                 .clip(ElTheme.shapes.small)
                                 .clickable { onNavigateToParent(debtor.parentId) }
-                                .padding(vertical = 5.dp),
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {

@@ -185,15 +185,15 @@ fun StudentDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             student?.let { s ->
                 ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(14.dp),
+                            .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         ElAvatar(initials = s.fullName, size = ElAvatarSize.L)
@@ -219,12 +219,12 @@ fun StudentDetailScreen(
             when (selectedTab) {
                 0 -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     item {
                         student?.let { s ->
                             ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     ElSectionHeader(title = "Renseignements Généraux")
                                     ElInfoRow(label = "Date de naissance", value = s.birthDate)
                                     ElInfoRow(label = "Cycle scolaire", value = s.level.replaceFirstChar { it.uppercase() })
@@ -239,11 +239,11 @@ fun StudentDetailScreen(
                     item {
                         parent?.let { p ->
                             ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     ElSectionHeader(title = "Tuteur Légal / Parent")
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         ElAvatar(initials = p.fullName, size = ElAvatarSize.M)
-                                        Spacer(Modifier.width(10.dp))
+                                        Spacer(Modifier.width(12.dp))
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(p.fullName, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                                             Text("Code: ${p.code} • ${p.phone}", style = ElTheme.typography.bodySmall, color = c.textSecondary)
@@ -254,7 +254,7 @@ fun StudentDetailScreen(
                                         Box(
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .height(38.dp)
+                                                .height(40.dp)
                                                 .clip(com.example.ui.designsystem.theme.ElShapes.small)
                                                 .background(c.success)
                                                 .clickable { PhoneUtils.dial(context, p.phone, toast) },
@@ -262,14 +262,14 @@ fun StudentDetailScreen(
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(Icons.Default.Call, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                                Spacer(Modifier.width(6.dp))
+                                                Spacer(Modifier.width(8.dp))
                                                 Text("Appeler", color = Color.White, style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                                             }
                                         }
                                         Box(
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .height(38.dp)
+                                                .height(40.dp)
                                                 .clip(com.example.ui.designsystem.theme.ElShapes.small)
                                                 .background(c.success)
                                                 .clickable { PhoneUtils.openWhatsApp(context, p.whatsapp ?: p.phone, toast = toast) },
@@ -277,7 +277,7 @@ fun StudentDetailScreen(
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(Icons.Default.Whatsapp, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                                Spacer(Modifier.width(6.dp))
+                                                Spacer(Modifier.width(8.dp))
                                                 Text("WhatsApp", color = Color.White, style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
                                             }
                                         }
@@ -290,7 +290,7 @@ fun StudentDetailScreen(
                     if (siblings.isNotEmpty()) {
                         item {
                             ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     ElSectionHeader(title = "Fratrie inscrite (${siblings.size})")
                                     siblings.forEach { sib ->
                                         Row(
@@ -315,7 +315,7 @@ fun StudentDetailScreen(
 
                 1 -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     item {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -391,9 +391,9 @@ fun StudentDetailScreen(
                                         )
                                     }
                                 }
-                                Spacer(Modifier.height(10.dp))
+                                Spacer(Modifier.height(12.dp))
                                 ElLinearProgress(progress = ((gpa ?: 0.0) / 20.0).toFloat())
-                                Spacer(Modifier.height(10.dp))
+                                Spacer(Modifier.height(12.dp))
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -412,7 +412,7 @@ fun StudentDetailScreen(
                     item {
                         if (termGpas.values.any { it != null }) {
                             ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                                Column(modifier = Modifier.padding(14.dp)) {
+                                Column(modifier = Modifier.padding(16.dp)) {
                                     Text("Progression de l'année", style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                                     Spacer(Modifier.height(8.dp))
                                     Row(
@@ -434,7 +434,7 @@ fun StudentDetailScreen(
                                                             else -> c.surfaceVariant.copy(alpha = 0.5f)
                                                         },
                                                     )
-                                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                                    .padding(horizontal = 16.dp, vertical = 12.dp),
                                             ) {
                                                 Text(
                                                     t,
@@ -463,7 +463,7 @@ fun StudentDetailScreen(
 
                     item {
                         if (bestSubject != null || weakestSubject != null) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 bestSubject?.let { (name, avg) ->
                                     SubjectHighlightCard(
                                         label = "Point fort",
@@ -522,7 +522,7 @@ fun StudentDetailScreen(
 
                         item {
                             ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                                Column(modifier = Modifier.padding(14.dp)) {
+                                Column(modifier = Modifier.padding(16.dp)) {
                                     Text(
                                         "Bulletin officiel — $selectedTerm",
                                         style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
@@ -533,7 +533,7 @@ fun StudentDetailScreen(
                                         style = ElTheme.typography.bodySmall,
                                         color = c.textSecondary,
                                     )
-                                    Spacer(Modifier.height(10.dp))
+                                    Spacer(Modifier.height(12.dp))
                                     com.example.ui.designsystem.components.button.ElButton(
                                         text = if (bulletinBusy) "Génération…" else "Générer le bulletin $selectedTerm",
                                         onClick = { viewModel.generateBulletin(studentId, selectedTerm) },
@@ -549,11 +549,11 @@ fun StudentDetailScreen(
 
                 2 -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     item {
                         ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                            Column(modifier = Modifier.padding(14.dp)) {
+                            Column(modifier = Modifier.padding(16.dp)) {
                                 ElSectionHeader(title = "Bilan des présences")
                                 Spacer(Modifier.height(8.dp))
                                 Row(
@@ -601,7 +601,7 @@ fun StudentDetailScreen(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(10.dp),
+                                        .padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                 ) {
@@ -621,7 +621,7 @@ fun StudentDetailScreen(
 
                 3 -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     item {
                         val studentDue = familySummary?.totalCharged ?: 0L
@@ -631,13 +631,13 @@ fun StudentDetailScreen(
                         val ownPaid = installments.sumOf { it.amountPaid }
 
                         ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                            Column(modifier = Modifier.padding(14.dp)) {
+                            Column(modifier = Modifier.padding(16.dp)) {
                                 ElSectionHeader(title = "Finances — part de cet élève")
-                                Spacer(Modifier.height(6.dp))
+                                Spacer(Modifier.height(8.dp))
                                 ElInfoRow(label = "Tranches de cet élève (dû)", value = "${(ownDue / 100).formatDzd()} DZD")
                                 ElInfoRow(label = "Tranches de cet élève (payé)", value = "${(ownPaid / 100).formatDzd()} DZD", valueTint = c.success)
 
-                                Spacer(Modifier.height(10.dp))
+                                Spacer(Modifier.height(12.dp))
                                 ElButton(
                                     text = "Encaisser pour cet élève",
                                     onClick = { student?.let { s -> onNavigateToCounter(s.parentId, s.id) } },
@@ -646,7 +646,7 @@ fun StudentDetailScreen(
                                     fullWidth = true,
                                 )
 
-                                Spacer(Modifier.height(10.dp))
+                                Spacer(Modifier.height(12.dp))
                                 ElSectionHeader(title = "Solde familial consolidé (tous enfants)")
                                 Spacer(Modifier.height(4.dp))
                                 ElInfoRow(label = "Total scolarité & transport", value = "${(studentDue / 100).formatDzd()} DZD")
@@ -687,7 +687,7 @@ fun StudentDetailScreen(
 
                     if (payments.isNotEmpty()) {
                         item {
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(8.dp))
                             Text("Reçus d'encaissements", style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                         }
                         items(payments) { p ->
@@ -744,7 +744,7 @@ fun StudentDetailScreen(
                     .verticalScroll(rememberScrollState())
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
                     "Modifier l'élève",

@@ -52,7 +52,7 @@ internal fun YoYComparisonCard(
     }
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ElSectionHeader(
                 title = "Comparatif Annuel",
                 subtitle = "Encaissé N vs N−1 (mêmes mois)",
@@ -81,7 +81,7 @@ internal fun YoYComparisonCard(
                         secondary = (it.previous / 100).toFloat(),
                     )
                 },
-                height = 170.dp,
+                height = 172.dp,
                 primaryLabel = "N",
                 secondaryLabel = "N−1",
             )

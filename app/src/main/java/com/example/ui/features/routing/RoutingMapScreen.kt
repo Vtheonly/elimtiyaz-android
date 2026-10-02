@@ -341,7 +341,7 @@ fun RoutingMapScreen(
                     size = com.example.ui.designsystem.components.card.ElCardSize.STANDARD,
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             androidx.compose.material3.Icon(Icons.Default.LocationOn, contentDescription = null, tint = c.primary)
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Arrêt ${currentStopIndex + 1} / ${stops.size}", style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)

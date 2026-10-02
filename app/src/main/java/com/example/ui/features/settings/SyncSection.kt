@@ -43,7 +43,7 @@ internal fun SyncSection(
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ElSectionHeader(title = "Synchronisation")
         ElCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ElInfoRow(
                     label = "État",
                     value = if (syncState.isRunning) "Synchronisation en cours…" else "Prêt",

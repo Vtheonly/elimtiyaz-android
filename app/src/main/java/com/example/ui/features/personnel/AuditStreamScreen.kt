@@ -97,7 +97,7 @@ fun AuditStreamScreen(
                         Spacer(Modifier.height(4.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
                                 log.actorName,
@@ -122,7 +122,7 @@ fun AuditStreamScreen(
                             )
                         }
 
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Code, contentDescription = null, tint = c.primary, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))

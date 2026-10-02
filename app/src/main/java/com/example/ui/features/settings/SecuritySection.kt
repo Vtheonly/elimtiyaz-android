@@ -24,7 +24,7 @@ internal fun SecuritySection(
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ElSectionHeader(title = "Sécurité")
         ElCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ActionRow(icon = Icons.Default.Lock, label = "Changer le mot de passe", onClick = onChangePassword)
                 ActionRow(icon = Icons.Default.History, label = "Journal d'audit", onClick = onOpenAuditLog)
                 ActionRow(icon = Icons.Default.Logout, label = "Se déconnecter", onClick = onSignOut, danger = true)

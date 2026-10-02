@@ -277,13 +277,13 @@ fun SubjectsDirectoryScreen(
             }
 
             // Vault §05.01 — domain split filter (Scolarite vs Clubs/Therapy).
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
                 ElChip(text = "Tous domaines", variant = ElChipVariant.FILTER, selected = domainFilter == null, onClick = { viewModel.onDomainFilter(null) })
                 ElChip(text = "Scolarité", variant = ElChipVariant.FILTER, selected = domainFilter == "scolarite", onClick = { viewModel.onDomainFilter("scolarite") })
                 ElChip(text = "Clubs & Thérapie", variant = ElChipVariant.FILTER, selected = domainFilter == "extracurricular", onClick = { viewModel.onDomainFilter("extracurricular") })
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
                 ElChip(text = "Tous", variant = ElChipVariant.FILTER, selected = levelFilter == null, onClick = { viewModel.onLevelFilter(null) })
                 ElChip(text = "Primaire", variant = ElChipVariant.FILTER, selected = levelFilter == "primaire", onClick = { viewModel.onLevelFilter("primaire") })
                 ElChip(text = "CEM", variant = ElChipVariant.FILTER, selected = levelFilter == "cem", onClick = { viewModel.onLevelFilter("cem") })
@@ -374,7 +374,7 @@ fun SubjectsDirectoryScreen(
         var extracurricularLabel by remember { mutableStateOf("Scolarité") }
         val domainOptions = listOf("Scolarité", "Hors programme (club / thérapie)")
         ElDialogShell(onDismissRequest = { showCreateDialog = false }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     "Nouvelle matière",
                     style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -393,7 +393,7 @@ fun SubjectsDirectoryScreen(
                 ElTextField(value = coefD2, onValueChange = { coefD2 = it.filter { ch -> ch.isDigit() || ch == '.' } }, label = "Coef. Devoir 2", modifier = Modifier.fillMaxWidth())
                 ElTextField(value = coefEx, onValueChange = { coefEx = it.filter { ch -> ch.isDigit() || ch == '.' } }, label = "Coef. Examen", modifier = Modifier.fillMaxWidth())
                 // Vault §05.07 — extracurricular toggle (clubs & therapy programs).
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     domainOptions.forEach { opt ->
                         ElChip(
                             text = if (opt == "Scolarité") "Scolarité" else "Hors programme",
@@ -449,7 +449,7 @@ fun SubjectsDirectoryScreen(
         var coefD2 by remember(subj.id) { mutableStateOf(if (subj.coefficientDevoir2 == subj.coefficientDevoir2.toLong().toDouble()) "${subj.coefficientDevoir2.toLong()}" else "${subj.coefficientDevoir2}") }
         var coefEx by remember(subj.id) { mutableStateOf(if (subj.coefficientExamen == subj.coefficientExamen.toLong().toDouble()) "${subj.coefficientExamen.toLong()}" else "${subj.coefficientExamen}") }
         ElDialogShell(onDismissRequest = { editTarget = null }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     "Modifier — ${subj.name}",
                     style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -524,7 +524,7 @@ fun SubjectsDirectoryScreen(
 
     archiveTarget?.let { subj ->
         ElDialogShell(onDismissRequest = { archiveTarget = null }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     "Archiver la matière",
                     style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),

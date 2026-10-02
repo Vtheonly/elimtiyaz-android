@@ -328,7 +328,7 @@ fun PersonnelDetailScreen(
                                 Text(p.position, style = ElTheme.typography.bodySmall, color = c.textSecondary)
                                 Text("Catégorie : ${p.staffCategory}", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                                 // T-324: humanized status label (was the raw code).
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Text("Statut :", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                                     ElTag(
                                         text = personnelStatusLabel(p.status),
@@ -361,7 +361,7 @@ fun PersonnelDetailScreen(
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Default.Schedule, contentDescription = null, tint = c.primary, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Schedule, contentDescription = null, tint = c.primary, modifier = Modifier.size(16.dp))
                             Text("Heures cette semaine", style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
                         }
                         Spacer(Modifier.height(8.dp))
@@ -441,7 +441,7 @@ fun PersonnelDetailScreen(
         val salaryCentimes = salaryDzd.replace(" ", "").toLongOrNull()?.let { it * 100L }
 
         ElDialogShell(onDismissRequest = { showEditDialog = false }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     "Modifier l'employé",
                     style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -492,7 +492,7 @@ fun PersonnelDetailScreen(
     if (showDeleteDialog && personnel != null) {
         val p = personnel!!
         ElDialogShell(onDismissRequest = { showDeleteDialog = false }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     "Retirer ${p.fullName} ?",
                     style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -546,7 +546,7 @@ private fun DayBarChart(perDay: Map<DayOfWeek, Double>) {
     val maxHours = (perDay.values.maxOrNull() ?: 0.0).coerceAtLeast(1.0)
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
         days.forEachIndexed { idx, day ->

@@ -172,7 +172,7 @@ private fun ComplianceCard(
                 color = c.textSecondary,
             )
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -184,7 +184,7 @@ private fun ComplianceCard(
                     color = complianceColor,
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             ElLinearProgress(progress = compliance / 100f)
         }
     }

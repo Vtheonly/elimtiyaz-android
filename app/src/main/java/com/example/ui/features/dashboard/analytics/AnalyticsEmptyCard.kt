@@ -23,7 +23,7 @@ import com.example.ui.designsystem.theme.ElTheme
 internal fun AnalyticsEmptyCard(title: String, subtitle: String? = null) {
     val c = ElTheme.colors
     ElCard(modifier = Modifier.fillMaxWidth(), variant = ElCardVariant.OUTLINED) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = title,
                 color = c.textPrimary,

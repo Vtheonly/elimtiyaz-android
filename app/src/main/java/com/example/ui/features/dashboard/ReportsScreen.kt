@@ -232,7 +232,7 @@ fun ReportsScreen(
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(report.icon, contentDescription = null, tint = c.primary, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(10.dp))
+                            Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(report.title, style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                                 Spacer(Modifier.height(2.dp))
@@ -245,7 +245,7 @@ fun ReportsScreen(
                                 size = ElTagSize.SM,
                             )
                         }
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(12.dp))
                         if (allowed) {
                             ElButton(
                                 text = "Générer le PDF",

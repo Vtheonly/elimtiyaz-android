@@ -74,7 +74,7 @@ internal fun DashboardKpiCardsRow(
                 bottomLabel = "${currentKpi.totalOperationsCount} opérations enregistrées",
                 icon = Icons.Default.AccountBalance,
                 accentColor = ElTheme.colors.success,
-                modifier = Modifier.width(215.dp),
+                modifier = Modifier.width(216.dp),
             )
         }
 
@@ -92,7 +92,7 @@ internal fun DashboardKpiCardsRow(
                 bottomLabel = "Dettes de scolarité & transport",
                 icon = Icons.Default.AccountBalanceWallet,
                 accentColor = ElTheme.colors.primaryAccent,
-                modifier = Modifier.width(215.dp),
+                modifier = Modifier.width(216.dp),
             )
         }
 
@@ -136,7 +136,7 @@ private fun OperationalKpiCard(
                 )
                 Box(
                     modifier = Modifier
-                        .size(30.dp)
+                        .size(32.dp)
                         .clip(RoundedCornerShape(8.dp))
                         .padding(4.dp),
                     contentAlignment = Alignment.Center,
@@ -164,7 +164,7 @@ private fun OperationalKpiCard(
                 color = ElTheme.colors.textPrimary,
             )
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             Text(
                 text = bottomLabel,
                 style = ElTheme.typography.labelSmall,

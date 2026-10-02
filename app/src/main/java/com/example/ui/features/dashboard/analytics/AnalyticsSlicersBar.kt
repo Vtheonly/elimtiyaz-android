@@ -50,7 +50,7 @@ internal fun AnalyticsSlicersBar(
 ) {
     val c = ElTheme.colors
 
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.padding(horizontal = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -61,7 +61,7 @@ internal fun AnalyticsSlicersBar(
                     imageVector = Icons.Default.FilterAlt,
                     contentDescription = null,
                     tint = c.textSecondary,
-                    modifier = Modifier.padding(end = 6.dp),
+                    modifier = Modifier.padding(end = 8.dp),
                 )
                 Text(
                     text = "Segmentation",
@@ -93,7 +93,7 @@ internal fun AnalyticsSlicersBar(
             Triple("check", "Chèque", ElChartPalette.gold),
             Triple("transfer", "Virement", ElChartPalette.cyan),
         )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(methods) { (code, label, color) ->
                 AnalyticsFilterChip(
                     label = label,
@@ -106,7 +106,7 @@ internal fun AnalyticsSlicersBar(
 
         // Category chips — the engine's presentCategories (FR-sorted)
         if (presentCategories.size > 1) {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(presentCategories) { code ->
                     AnalyticsFilterChip(
                         label = paymentCategoryLabelFr(code),
@@ -139,7 +139,7 @@ private fun AnalyticsFilterChip(
                 },
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         Text(
             text = label,

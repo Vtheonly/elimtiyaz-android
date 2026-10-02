@@ -122,7 +122,7 @@ fun DashboardHubScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Header: Date & Session status
@@ -136,7 +136,7 @@ fun DashboardHubScreen(
                         imageVector = Icons.Default.CalendarToday,
                         contentDescription = null,
                         tint = ElTheme.colors.textSecondary,
-                        modifier = Modifier.padding(end = 6.dp),
+                        modifier = Modifier.padding(end = 8.dp),
                     )
                     Text(
                         text = todayFormatted,

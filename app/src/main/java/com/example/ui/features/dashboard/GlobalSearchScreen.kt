@@ -118,11 +118,11 @@ fun GlobalSearchScreen(
             )
 
             if (isSearching) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Text("Recherche en cours…", style = ElTheme.typography.bodySmall, color = c.primary)
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
 
             // T-460 pass H (issue #3 F-03): the honest no-results state (the screen
             // previously showed nothing at all for a non-blank query with no hits).

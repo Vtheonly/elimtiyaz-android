@@ -96,7 +96,7 @@ internal fun DashboardRevenueChart(
 
         // ── 3. Répartition par Catégorie (REAL data, kept) ──
         ElCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 Text(
                     text = "Répartition par poste d'encaissement",
                     style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),

@@ -55,7 +55,7 @@ internal fun AgingCompositionCard(
     }
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ElSectionHeader(
                     title = "Composition de l'Encours",
@@ -91,7 +91,7 @@ internal fun AgingCompositionCard(
                             ) {
                                 drawRect(color = ElChartPalette.agingColors[b.bucket] ?: ElChartPalette.slate)
                             }
-                            Spacer(Modifier.width(6.dp))
+                            Spacer(Modifier.width(8.dp))
                             Text(
                                 text = b.label,
                                 color = c.textSecondary,

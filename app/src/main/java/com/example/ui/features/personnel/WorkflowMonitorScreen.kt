@@ -166,7 +166,7 @@ fun WorkflowMonitorScreen(
         // ElDialogShell (was a raw M3 AlertDialog) — the T-231 node_results
         // surface and the retry contract preserved verbatim.
         ElDialogShell(onDismissRequest = { viewModel.openDetail(null) }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     run.workflowName,
                     style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -191,7 +191,7 @@ fun WorkflowMonitorScreen(
                 // The old "Journal" section was dead UI (the mapper never
                 // populated outputLog) and is removed.
                 if (run.nodeResults.isNotEmpty()) {
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(12.dp))
                     Text(
                         "Étapes exécutées (${run.nodeResults.size})",
                         style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),

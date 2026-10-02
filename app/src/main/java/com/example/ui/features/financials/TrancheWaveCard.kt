@@ -78,7 +78,7 @@ internal fun TrancheWaveCard(
     val nowEpochMs = System.currentTimeMillis()
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 text = "Vagues de Tranches (T1 / T2 / T3)",
                 color = c.textPrimary,
@@ -105,7 +105,7 @@ internal fun TrancheWaveCard(
                                 style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                             )
                             if (w.isNextTarget) {
-                                Spacer(Modifier.width(6.dp))
+                                Spacer(Modifier.width(8.dp))
                                 Text(
                                     text = "cible",
                                     color = ElChartPalette.primary,
@@ -115,7 +115,7 @@ internal fun TrancheWaveCard(
                                             ElChartPalette.primary.copy(alpha = 0.14f),
                                             RoundedCornerShape(50),
                                         )
-                                        .padding(horizontal = 6.dp, vertical = 1.dp),
+                                        .padding(horizontal = 8.dp, vertical = 1.dp),
                                 )
                             }
                         }

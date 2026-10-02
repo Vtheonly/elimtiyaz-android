@@ -256,7 +256,7 @@ fun ClassDetailScreen(
                 ) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
                             cls.name,
@@ -360,7 +360,7 @@ fun ClassDetailScreen(
                             ) {
                                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                     ElAvatar(initials = student.fullName, size = ElAvatarSize.S)
-                                    Spacer(Modifier.width(10.dp))
+                                    Spacer(Modifier.width(12.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             student.fullName,
@@ -464,7 +464,7 @@ fun ClassDetailScreen(
                         // narrow screens (4 chips × intrinsic width).
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             StatusCountChip(
                                 "Présents", weekStatusCounts["present"] ?: 0, c.primary,
@@ -554,7 +554,7 @@ fun ClassDetailScreen(
                         val passingCount = computedAverages.count { it >= 10.0 }
                         val failing = computedAverages.count { it < 10.0 }
                         val missing = recentGrades.count { it.subjectAverage == null }
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             StatusCountChip("Évaluations", recentGrades.size, c.primary, modifier = Modifier.weight(1f))
                             StatusCountChip("≥ 10", passingCount, c.success, modifier = Modifier.weight(1f))
                             StatusCountChip("< 10", failing, c.danger, modifier = Modifier.weight(1f))

@@ -103,7 +103,7 @@ fun InstallmentScheduleScreen(
                 .fillMaxSize()
                 .padding(padding),
             contentPadding = PaddingValues(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (selectedParent == null) {
                 item {
@@ -145,7 +145,7 @@ fun InstallmentScheduleScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 ElAvatar(initials = p.fullName, size = ElAvatarSize.M)
-                                Spacer(Modifier.width(10.dp))
+                                Spacer(Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(p.fullName, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
                                     Text("Code : ${p.code} • Tél : ${p.phone}", style = ElTheme.typography.bodySmall, color = c.textSecondary)
@@ -168,9 +168,9 @@ fun InstallmentScheduleScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Retour à la liste",
                             tint = c.primary,
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(16.dp),
                         )
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(
                             text = "Retour à la liste des familles",
                             style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),

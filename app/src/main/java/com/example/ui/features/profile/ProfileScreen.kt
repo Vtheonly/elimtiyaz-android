@@ -167,8 +167,8 @@ fun ProfileScreen(
                     modifier = Modifier.fillMaxWidth(),
                     size = ElCardSize.STANDARD,
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             ElAvatar(
                                 initials = s?.displayName?.take(2)?.uppercase(),
                                 icon = null,
@@ -197,12 +197,12 @@ fun ProfileScreen(
                         s?.userId?.let { InfoLabel("User ID", it) }
                         sessionExpiresAt?.let { exp ->
                             val minutesLeft = ((exp - System.currentTimeMillis()) / 60_000L).coerceAtLeast(0)
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Icon(
                                     Icons.Default.Schedule,
                                     contentDescription = null,
                                     tint = if (minutesLeft < 30) c.danger else c.textSecondary,
-                                    modifier = Modifier.size(14.dp),
+                                    modifier = Modifier.size(16.dp),
                                 )
                                 Text(
                                     "Session expire dans : ${minutesLeft}min",
@@ -223,7 +223,7 @@ fun ProfileScreen(
                 ) {
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Lock, contentDescription = null, tint = c.primary, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = c.primary, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 "Permissions",
@@ -236,21 +236,21 @@ fun ProfileScreen(
                                 color = c.textSecondary,
                             )
                         }
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(12.dp))
                         ElLinearProgress(
                             progress = if (viewModel.permissionTotal > 0) permissionCount.toFloat() / viewModel.permissionTotal else 0f,
                         )
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(12.dp))
                         FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             s?.permissions?.take(12)?.forEach { p ->
                                 ElTag(text = p.code, tone = ElTagTone.NEUTRAL, size = ElTagSize.SM)
                             }
                         }
                         if ((s?.permissions?.size ?: 0) > 12) {
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(8.dp))
                             Text(
                                 "… et ${(s?.permissions?.size ?: 0) - 12} de plus",
                                 style = ElTheme.typography.labelSmall,
@@ -271,7 +271,7 @@ fun ProfileScreen(
                             "Gouvernance du mot de passe",
                             style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         )
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(12.dp))
                         ElButton(
                             text = "Modifier mon mot de passe",
                             onClick = onChangePassword,
@@ -373,7 +373,7 @@ fun ProfileScreen(
 @Composable
 private fun InfoLabel(label: String, value: String) {
     val c = ElTheme.colors
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("$label :", style = ElTheme.typography.labelSmall, color = c.textSecondary)
         Text(value, style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium), color = c.textPrimary)
     }
