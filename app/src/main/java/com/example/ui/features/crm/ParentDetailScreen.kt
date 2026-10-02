@@ -26,14 +26,10 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Whatsapp
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -62,11 +58,14 @@ import com.example.ui.designsystem.components.display.ElAvatarSize
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
 import com.example.ui.designsystem.components.button.ElIconButton
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.overlays.ElDialogShell
 import com.example.ui.util.PhoneUtils
 
 @Composable
@@ -723,41 +722,57 @@ fun ParentDetailScreen(
         var occupation by remember { mutableStateOf(p.occupation ?: "") }
         var address by remember { mutableStateOf(p.address ?: "") }
 
-        AlertDialog(
-            onDismissRequest = { showEditDialog = false },
-            title = { Text("Modifier le parent") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Prénom") }, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Nom") }, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Téléphone") }, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = occupation, onValueChange = { occupation = it }, label = { Text("Profession") }, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Adresse") }, modifier = Modifier.fillMaxWidth())
-                    Text("Code ${p.code} — non modifiable.", style = ElTheme.typography.labelSmall, color = c.textSecondary)
+        // T-460 H2 (issue #3 F-10): the raw AlertDialog → the DS dialog shell
+        // (ElDialogShell + ElTextField + ElButton). The updateParent contract
+        // and every label preserved.
+        ElDialogShell(onDismissRequest = { showEditDialog = false }) {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    "Modifier le parent",
+                    style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = c.textPrimary,
+                )
+                ElTextField(value = firstName, onValueChange = { firstName = it }, label = "Prénom", modifier = Modifier.fillMaxWidth())
+                ElTextField(value = lastName, onValueChange = { lastName = it }, label = "Nom", modifier = Modifier.fillMaxWidth())
+                ElTextField(value = phone, onValueChange = { phone = it }, label = "Téléphone", modifier = Modifier.fillMaxWidth())
+                ElTextField(value = email, onValueChange = { email = it }, label = "Email", modifier = Modifier.fillMaxWidth())
+                ElTextField(value = occupation, onValueChange = { occupation = it }, label = "Profession", modifier = Modifier.fillMaxWidth())
+                ElTextField(value = address, onValueChange = { address = it }, label = "Adresse", singleLine = false, modifier = Modifier.fillMaxWidth())
+                Text("Code ${p.code} — non modifiable.", style = ElTheme.typography.labelSmall, color = c.textSecondary)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ElButton(
+                        text = "Annuler",
+                        onClick = { showEditDialog = false },
+                        variant = ElButtonVariant.GHOST,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ElButton(
+                        text = "Enregistrer",
+                        onClick = {
+                            viewModel.updateParent(
+                                parentId = p.id,
+                                firstName = firstName.trim(),
+                                lastName = lastName.trim(),
+                                phone = phone.trim(),
+                                email = email.trim().ifBlank { null },
+                                occupation = occupation.trim().ifBlank { null },
+                                address = address.trim().ifBlank { null },
+                            )
+                            showEditDialog = false
+                        },
+                        enabled = firstName.isNotBlank() && lastName.isNotBlank() && phone.isNotBlank(),
+                        variant = ElButtonVariant.PRIMARY,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.updateParent(
-                            parentId = p.id,
-                            firstName = firstName.trim(),
-                            lastName = lastName.trim(),
-                            phone = phone.trim(),
-                            email = email.trim().ifBlank { null },
-                            occupation = occupation.trim().ifBlank { null },
-                            address = address.trim().ifBlank { null },
-                        )
-                        showEditDialog = false
-                    },
-                    enabled = firstName.isNotBlank() && lastName.isNotBlank() && phone.isNotBlank(),
-                ) { Text("Enregistrer") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEditDialog = false }) { Text("Annuler") }
-            },
-        )
+            }
+        }
     }
 
     if (showAdjustDialog && parent != null) {

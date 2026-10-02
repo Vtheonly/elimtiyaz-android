@@ -26,14 +26,10 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Whatsapp
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -60,10 +56,14 @@ import com.example.ui.designsystem.components.display.ElChipVariant
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.input.ElDatePicker
+import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.overlays.ElDialogShell
 import com.example.ui.util.PhoneUtils
 
 private val ADJUSTMENT_MOTIFS = listOf(
@@ -127,73 +127,89 @@ internal fun AdjustAccountDialog(
     val amountDzd = amountText.replace(" ", "").replace(",", ".").toDoubleOrNull()
     val validAmount = amountDzd != null && amountDzd != 0.0
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Ajustement de compte") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    if (outstanding != null) "Solde en cours : ${(outstanding / 100).formatDzd()} DZD" else "Solde en cours : —",
-                    style = ElTheme.typography.bodySmall,
-                    color = c.textSecondary,
+    // T-460 H2 (issue #3 F-10): the raw AlertDialog → the DS dialog shell
+    // (ElDialogShell + ElTextField + ElButton). The signed-amount semantics,
+    // the motif/category chips and the reason composition preserved.
+    ElDialogShell(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                "Ajustement de compte",
+                style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = c.textPrimary,
+            )
+            Text(
+                if (outstanding != null) "Solde en cours : ${(outstanding / 100).formatDzd()} DZD" else "Solde en cours : —",
+                style = ElTheme.typography.bodySmall,
+                color = c.textSecondary,
+            )
+            ElTextField(
+                value = amountText,
+                onValueChange = { raw ->
+                    amountText = raw.filter { it.isDigit() || it == '-' }.take(12)
+                },
+                label = "Montant signé (DZD) *",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "Positif = débit (pénalité / majoration) · Négatif = crédit (remise / avoir)",
+                style = ElTheme.typography.labelSmall,
+                color = c.textSecondary,
+            )
+            Text("Motif *", style = ElTheme.typography.labelMedium)
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                ADJUSTMENT_MOTIFS.forEach { m ->
+                    ElChip(text = m, variant = ElChipVariant.FILTER, selected = motif == m, onClick = { motif = m })
+                }
+            }
+            Text("Catégorie (débits uniquement)", style = ElTheme.typography.labelMedium)
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                ADJUSTMENT_CATEGORIES.forEach { (code, label) ->
+                    ElChip(text = label, variant = ElChipVariant.FILTER, selected = category == code, onClick = { category = code })
+                }
+            }
+            ElTextField(
+                value = note,
+                onValueChange = { note = it },
+                label = "Note (optionnel)",
+                singleLine = false,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                ElButton(
+                    text = "Annuler",
+                    onClick = onDismiss,
+                    variant = ElButtonVariant.GHOST,
+                    modifier = Modifier.weight(1f),
                 )
-                OutlinedTextField(
-                    value = amountText,
-                    onValueChange = { raw ->
-                        amountText = raw.filter { it.isDigit() || it == '-' }.take(12)
+                ElButton(
+                    text = "Appliquer",
+                    onClick = {
+                        val dzd = amountText.replace(" ", "").replace(",", ".").toDoubleOrNull() ?: 0.0
+                        val centimes = kotlin.math.round(dzd * 100).toLong()
+                        val reason = if (note.isNotBlank()) "$motif — ${note.trim()}" else motif
+                        onConfirm(centimes, category, reason)
                     },
-                    label = { Text("Montant signé (DZD) *") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    "Positif = débit (pénalité / majoration) · Négatif = crédit (remise / avoir)",
-                    style = ElTheme.typography.labelSmall,
-                    color = c.textSecondary,
-                )
-                Text("Motif *", style = ElTheme.typography.labelMedium)
-                androidx.compose.foundation.layout.FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    ADJUSTMENT_MOTIFS.forEach { m ->
-                        ElChip(text = m, variant = ElChipVariant.FILTER, selected = motif == m, onClick = { motif = m })
-                    }
-                }
-                Text("Catégorie (débits uniquement)", style = ElTheme.typography.labelMedium)
-                androidx.compose.foundation.layout.FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    ADJUSTMENT_CATEGORIES.forEach { (code, label) ->
-                        ElChip(text = label, variant = ElChipVariant.FILTER, selected = category == code, onClick = { category = code })
-                    }
-                }
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
-                    label = { Text("Note (optionnel)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
+                    enabled = !busy && validAmount,
+                    variant = ElButtonVariant.PRIMARY,
+                    modifier = Modifier.weight(1f),
                 )
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val dzd = amountText.replace(" ", "").replace(",", ".").toDoubleOrNull() ?: 0.0
-                    val centimes = kotlin.math.round(dzd * 100).toLong()
-                    val reason = if (note.isNotBlank()) "$motif — ${note.trim()}" else motif
-                    onConfirm(centimes, category, reason)
-                },
-                enabled = !busy && validAmount,
-            ) { Text("Appliquer") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Annuler") }
-        },
-    )
+        }
+    }
 }
 
 internal fun categoryFrenchLabel(category: PaymentCategory): String = when (category) {
@@ -242,63 +258,83 @@ internal fun AddChildDialog(
     val cycle = com.example.core.academicLevelForGradeCode(gradeLevel)
     val cycleClasses = classes.filter { it.level == cycle }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Ajouter un enfant — $parentName") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Prénom *") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Nom") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = birthDate, onValueChange = { birthDate = it }, label = { Text("Date de naissance (AAAA-MM-JJ) *") }, modifier = Modifier.fillMaxWidth())
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    genderOptions.forEach { opt ->
-                        ElChip(text = opt, variant = ElChipVariant.FILTER, selected = genderLabel == opt, onClick = { genderLabel = opt })
-                    }
+    // T-460 H2 (issue #3 F-10): the raw AlertDialog → the DS dialog shell.
+    // The parent-first dependency note, gender chips and the class-cycle
+    // filtering logic preserved verbatim.
+    ElDialogShell(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                "Ajouter un enfant — $parentName",
+                style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = c.textPrimary,
+            )
+            ElTextField(value = firstName, onValueChange = { firstName = it }, label = "Prénom *", modifier = Modifier.fillMaxWidth())
+            ElTextField(value = lastName, onValueChange = { lastName = it }, label = "Nom", modifier = Modifier.fillMaxWidth())
+            ElDatePicker(
+                value = birthDate.takeIf { it.isNotBlank() },
+                onValueChange = { birthDate = it ?: "" },
+                label = "Date de naissance *",
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                genderOptions.forEach { opt ->
+                    ElChip(text = opt, variant = ElChipVariant.FILTER, selected = genderLabel == opt, onClick = { genderLabel = opt })
                 }
+            }
+            com.example.ui.designsystem.components.input.ElDropdown(
+                label = "Niveau scolaire",
+                selectedValue = gradeLevel,
+                options = com.example.core.GRADE_LEVEL_CODES.map { code ->
+                    com.example.ui.designsystem.components.input.ElDropdownOption(
+                        value = code,
+                        label = code,
+                    )
+                },
+                onSelected = { option ->
+                    gradeLevel = option.value
+                    className = "Aucune"
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (gradeLevel.isNotBlank() && cycleClasses.isNotEmpty()) {
                 com.example.ui.designsystem.components.input.ElDropdown(
-                    label = "Niveau scolaire",
-                    selectedValue = gradeLevel,
-                    options = com.example.core.GRADE_LEVEL_CODES.map { code ->
-                        com.example.ui.designsystem.components.input.ElDropdownOption(
-                            value = code,
-                            label = code,
-                        )
+                    label = "Classe (optionnel)",
+                    selectedValue = className,
+                    options = (listOf("Aucune") + cycleClasses.map { it.name }).map { name ->
+                        com.example.ui.designsystem.components.input.ElDropdownOption(value = name, label = name)
                     },
-                    onSelected = { option ->
-                        gradeLevel = option.value
-                        className = "Aucune"
-                    },
+                    onSelected = { option -> className = option.value },
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (gradeLevel.isNotBlank() && cycleClasses.isNotEmpty()) {
-                    com.example.ui.designsystem.components.input.ElDropdown(
-                        label = "Classe (optionnel)",
-                        selectedValue = className,
-                        options = (listOf("Aucune") + cycleClasses.map { it.name }).map { name ->
-                            com.example.ui.designsystem.components.input.ElDropdownOption(value = name, label = name)
-                        },
-                        onSelected = { option -> className = option.value },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-                Text(
-                    "L'élève sera rattaché à ce parent (dépendance parent-first). La facturation est générée selon la tarification du niveau.",
-                    style = ElTheme.typography.labelSmall,
-                    color = c.textSecondary,
+            }
+            Text(
+                "L'élève sera rattaché à ce parent (dépendance parent-first). La facturation est générée selon la tarification du niveau.",
+                style = ElTheme.typography.labelSmall,
+                color = c.textSecondary,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                ElButton(
+                    text = "Annuler",
+                    onClick = onDismiss,
+                    variant = ElButtonVariant.GHOST,
+                    modifier = Modifier.weight(1f),
+                )
+                ElButton(
+                    text = "Ajouter",
+                    onClick = {
+                        val classId = cycleClasses.firstOrNull { it.name == className }?.id
+                        onConfirm(firstName.trim(), lastName.trim(), birthDate.trim(), genderCode, gradeLevel, classId)
+                    },
+                    enabled = !busy && firstName.isNotBlank() && birthDate.isNotBlank() && gradeLevel.isNotBlank(),
+                    variant = ElButtonVariant.PRIMARY,
+                    modifier = Modifier.weight(1f),
                 )
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val classId = cycleClasses.firstOrNull { it.name == className }?.id
-                    onConfirm(firstName.trim(), lastName.trim(), birthDate.trim(), genderCode, gradeLevel, classId)
-                },
-                enabled = !busy && firstName.isNotBlank() && birthDate.isNotBlank() && gradeLevel.isNotBlank(),
-            ) { Text("Ajouter") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Annuler") }
-        },
-    )
+        }
+    }
 }

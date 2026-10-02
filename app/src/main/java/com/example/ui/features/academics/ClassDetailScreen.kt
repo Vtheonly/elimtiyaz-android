@@ -55,6 +55,7 @@ import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.button.ElButton
 import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.button.ElIconButton
 import com.example.ui.designsystem.components.feedback.ElEmptyState
 import com.example.ui.designsystem.components.feedback.ElLoadingBlock
 import com.example.ui.designsystem.components.nav.ElScaffold
@@ -218,28 +219,28 @@ fun ClassDetailScreen(
                 onBack = onBack,
                 actions = {
                     if (viewModel.canRollCall) {
-                        androidx.compose.material3.IconButton(onClick = { onNavigateToRollCall(viewModel.classId) }) {
-                            androidx.compose.material3.Icon(
-                                Icons.Default.FactCheck,
-                                contentDescription = "Faire l'appel",
-                            )
-                        }
+                        ElIconButton(
+                            icon = Icons.Default.FactCheck,
+                            onClick = { onNavigateToRollCall(viewModel.classId) },
+                            contentDescription = "Faire l'appel",
+                            background = androidx.compose.ui.graphics.Color.Transparent,
+                        )
                     }
                     if (viewModel.canEnterGrades) {
-                        androidx.compose.material3.IconButton(onClick = { onNavigateToGradeEntry(viewModel.classId) }) {
-                            androidx.compose.material3.Icon(
-                                Icons.Default.EditNote,
-                                contentDescription = "Saisir les notes",
-                            )
-                        }
+                        ElIconButton(
+                            icon = Icons.Default.EditNote,
+                            onClick = { onNavigateToGradeEntry(viewModel.classId) },
+                            contentDescription = "Saisir les notes",
+                            background = androidx.compose.ui.graphics.Color.Transparent,
+                        )
                     }
                     if (viewModel.canAssignHomework) {
-                        androidx.compose.material3.IconButton(onClick = { onNavigateToHomeworkPush(viewModel.classId) }) {
-                            androidx.compose.material3.Icon(
-                                Icons.Default.AddTask,
-                                contentDescription = "Diffuser un devoir",
-                            )
-                        }
+                        ElIconButton(
+                            icon = Icons.Default.AddTask,
+                            onClick = { onNavigateToHomeworkPush(viewModel.classId) },
+                            contentDescription = "Diffuser un devoir",
+                            background = androidx.compose.ui.graphics.Color.Transparent,
+                        )
                     }
                 },
             )

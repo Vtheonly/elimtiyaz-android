@@ -18,19 +18,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Whatsapp
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -82,12 +80,17 @@ import com.example.ui.designsystem.components.display.ElAlertSeverity
 import com.example.ui.designsystem.components.display.ElAvatar
 import com.example.ui.designsystem.components.display.ElInfoRow
 import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.button.ElIconButton
 import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.input.ElDatePicker
+import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.designsystem.components.tabs.ElScrollableTabRow
+import com.example.ui.designsystem.overlays.ElDialogShell
 import com.example.ui.util.PhoneUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -165,9 +168,12 @@ fun StudentDetailScreen(
                 onBack = onBack,
                 actions = {
                     if (student != null) {
-                        IconButton(onClick = { showEditDialog = true }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Modifier l'élève")
-                        }
+                        ElIconButton(
+                            icon = Icons.Default.Edit,
+                            onClick = { showEditDialog = true },
+                            contentDescription = "Modifier l'élève",
+                            background = androidx.compose.ui.graphics.Color.Transparent,
+                        )
                     }
                 },
             )
@@ -727,46 +733,72 @@ fun StudentDetailScreen(
         var gradeLevel by remember { mutableStateOf(s.gradeLevel) }
         var medicalNotes by remember { mutableStateOf(s.medicalNotes ?: "") }
 
-        AlertDialog(
-            onDismissRequest = { showEditDialog = false },
-            title = { Text("Modifier l'élève") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Prénom") }, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Nom") }, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(value = birthDate, onValueChange = { birthDate = it }, label = { Text("Date de naissance (AAAA-MM-JJ)") }, modifier = Modifier.fillMaxWidth())
-                    com.example.ui.designsystem.components.input.ElDropdown(
-                        label = "Niveau scolaire",
-                        selectedValue = gradeLevel,
-                        options = GRADE_LEVEL_CODES.map { code ->
-                            com.example.ui.designsystem.components.input.ElDropdownOption(value = code, label = code)
-                        },
-                        onSelected = { option -> gradeLevel = option.value },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(value = medicalNotes, onValueChange = { medicalNotes = it }, label = { Text("Notes médicales") }, modifier = Modifier.fillMaxWidth())
-                    Text("Matricule ${s.code} — non modifiable.", style = ElTheme.typography.labelSmall, color = c.textSecondary)
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.updateStudent(
-                            studentId = s.id,
-                            firstName = firstName.trim(),
-                            lastName = lastName.trim(),
-                            birthDate = birthDate.trim(),
-                            gradeLevel = gradeLevel,
-                            medicalNotes = medicalNotes.trim().ifBlank { null },
-                        )
-                        showEditDialog = false
+        // T-460 H2 (issue #3 F-10): the raw AlertDialog → the DS dialog shell
+        // (ElDialogShell + ElTextField + ElDatePicker + ElButton). The
+        // updateStudent contract and every label preserved.
+        ElDialogShell(onDismissRequest = { showEditDialog = false }) {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    "Modifier l'élève",
+                    style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = c.textPrimary,
+                )
+                ElTextField(value = firstName, onValueChange = { firstName = it }, label = "Prénom", modifier = Modifier.fillMaxWidth())
+                ElTextField(value = lastName, onValueChange = { lastName = it }, label = "Nom", modifier = Modifier.fillMaxWidth())
+                ElDatePicker(
+                    value = birthDate.takeIf { it.isNotBlank() },
+                    onValueChange = { birthDate = it ?: "" },
+                    label = "Date de naissance",
+                )
+                com.example.ui.designsystem.components.input.ElDropdown(
+                    label = "Niveau scolaire",
+                    selectedValue = gradeLevel,
+                    options = GRADE_LEVEL_CODES.map { code ->
+                        com.example.ui.designsystem.components.input.ElDropdownOption(value = code, label = code)
                     },
-                    enabled = firstName.isNotBlank() && lastName.isNotBlank(),
-                ) { Text("Enregistrer") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEditDialog = false }) { Text("Annuler") }
-            },
-        )
+                    onSelected = { option -> gradeLevel = option.value },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                ElTextField(
+                    value = medicalNotes,
+                    onValueChange = { medicalNotes = it },
+                    label = "Notes médicales",
+                    singleLine = false,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text("Matricule ${s.code} — non modifiable.", style = ElTheme.typography.labelSmall, color = c.textSecondary)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ElButton(
+                        text = "Annuler",
+                        onClick = { showEditDialog = false },
+                        variant = ElButtonVariant.GHOST,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ElButton(
+                        text = "Enregistrer",
+                        onClick = {
+                            viewModel.updateStudent(
+                                studentId = s.id,
+                                firstName = firstName.trim(),
+                                lastName = lastName.trim(),
+                                birthDate = birthDate.trim(),
+                                gradeLevel = gradeLevel,
+                                medicalNotes = medicalNotes.trim().ifBlank { null },
+                            )
+                            showEditDialog = false
+                        },
+                        enabled = firstName.isNotBlank() && lastName.isNotBlank(),
+                        variant = ElButtonVariant.PRIMARY,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
     }
 }

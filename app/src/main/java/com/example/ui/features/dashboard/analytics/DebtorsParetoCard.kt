@@ -13,7 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,6 +25,7 @@ import com.example.core.derivePareto
 import com.example.core.formatDzd
 import com.example.domain.model.DebtSummary
 import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.button.ElIconButton
 import com.example.ui.designsystem.components.data.ElChartPalette
 import com.example.ui.designsystem.components.data.ElParetoChart
 import com.example.ui.designsystem.components.data.ElParetoPoint
@@ -124,15 +124,20 @@ internal fun DebtorsParetoCard(
                         if (debtor?.parentPhone?.isNotBlank() == true) {
                             Spacer(Modifier.width(4.dp))
                             val dialContext = androidx.compose.ui.platform.LocalContext.current
-                            IconButton(onClick = {
-                                com.example.ui.util.PhoneUtils.dial(dialContext, debtor.parentPhone)
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Default.Call,
-                                    contentDescription = "Appeler ${datum.name}",
-                                    tint = ElChartPalette.primary,
-                                )
-                            }
+                            // T-460 H2 (issue #3 F-10): the raw M3 IconButton →
+                            // the DS ElIconButton (explicit contentDescription
+                            // preserved — the audit's A-4 rule).
+                            ElIconButton(
+                                icon = Icons.Default.Call,
+                                onClick = {
+                                    com.example.ui.util.PhoneUtils.dial(dialContext, debtor.parentPhone)
+                                },
+                                contentDescription = "Appeler ${datum.name}",
+                                tint = ElChartPalette.primary,
+                                background = androidx.compose.ui.graphics.Color.Transparent,
+                                size = 36,
+                                iconSize = 18,
+                            )
                         }
                     }
                 }
