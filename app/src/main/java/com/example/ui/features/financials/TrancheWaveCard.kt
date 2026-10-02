@@ -1,6 +1,7 @@
 package com.example.ui.features.financials
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -125,20 +127,25 @@ internal fun TrancheWaveCard(
                             text = "${w.pct}%",
                             color = when {
                                 w.isNextTarget -> ElChartPalette.primary
-                                w.pct >= 90 -> ElChartPalette.success
+                                // T-462 (UI-327): the semantic success (the
+                                // dark-softened Emerald400), never the chart
+                                // palette's saturated #10B981 as bare text.
+                                w.pct >= 90 -> c.success
                                 else -> c.textSecondary
                             },
                             style = ElTheme.textStyles.numericSmall,
                         )
                     }
                     // The meter (progress bar; primary for the next target,
-                    // success ≥90, muted otherwise — the desktop tones; the
-                    // bar itself caps at 100 by construction).
+                    // semantic success ≥90, muted otherwise — the desktop
+                    // tones; the bar itself caps at 100 by construction).
+                    // T-462 (UI-327): the ≥90 fill resolves through the
+                    // theme's semantic layer, not the chart palette.
                     ElLinearProgress(
                         progress = w.pct.coerceIn(0, 100) / 100f,
                         gradient = when {
                             w.isNextTarget -> listOf(ElChartPalette.primary, ElChartPalette.primaryDeep)
-                            w.pct >= 90 -> listOf(ElChartPalette.success, ElChartPalette.success)
+                            w.pct >= 90 -> listOf(c.success, c.success)
                             else -> listOf(c.surfaceVariant, c.surfaceVariant)
                         },
                     )
@@ -174,7 +181,10 @@ internal fun TrancheWaveCard(
                     if (w.pending > 0L) {
                         Text(
                             text = "Dont en attente (chèque / virement) : ${(w.pending / 100).formatDzd()} DA",
-                            color = ElChartPalette.warning,
+                            // T-462 (UI-327): the semantic warning (the
+                            // dark-softened Tangerine400), not the chart
+                            // palette's saturated #F59E0B.
+                            color = c.warning,
                             style = ElTheme.textStyles.chartMicro,
                         )
                     }
@@ -183,15 +193,20 @@ internal fun TrancheWaveCard(
 
             // Totals row (the desktop 4-cell block — the canonical strip
             // totals over the WHOLE selection, non-wave/FI rows included).
+            // T-462 (UI-327): the four cells render in the same soft tile
+            // language as the pooled meters' metric grid (tint + hairline
+            // border) and every status value resolves through the semantic
+            // layer — the closing row reads as a calm ledger, not four
+            // floating neon numbers.
             val t = totals
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 TrancheTotal("Total dû", "${((t?.totalDue ?: waves.sumOf { it.due }) / 100).formatDzd()} DA", c.textPrimary, Modifier.weight(1f))
-                TrancheTotal("Payé", "${((t?.totalPaid ?: waves.sumOf { it.paid }) / 100).formatDzd()} DA", ElChartPalette.success, Modifier.weight(1f))
-                TrancheTotal("Reste", "${((t?.totalRemaining ?: ((t?.totalDue ?: waves.sumOf { it.due }) - (t?.totalPaid ?: waves.sumOf { it.paid }) - waves.sumOf { it.pending }).coerceAtLeast(0L)) / 100).formatDzd()} DA", ElChartPalette.danger, Modifier.weight(1f))
-                TrancheTotal("En retard", "${t?.overdueCount ?: 0}", ElChartPalette.warning, Modifier.weight(1f))
+                TrancheTotal("Payé", "${((t?.totalPaid ?: waves.sumOf { it.paid }) / 100).formatDzd()} DA", c.success, Modifier.weight(1f))
+                TrancheTotal("Reste", "${((t?.totalRemaining ?: ((t?.totalDue ?: waves.sumOf { it.due }) - (t?.totalPaid ?: waves.sumOf { it.paid }) - waves.sumOf { it.pending }).coerceAtLeast(0L)) / 100).formatDzd()} DA", c.danger, Modifier.weight(1f))
+                TrancheTotal("En retard", "${t?.overdueCount ?: 0}", c.warning, Modifier.weight(1f))
             }
         }
     }
@@ -220,7 +235,9 @@ private fun StripDueLine(w: TrancheWaveItem, nowEpochMs: Long) {
     }
     Text(
         text = text,
-        color = if (claimsLateness) ElChartPalette.danger else c.textMuted,
+        // T-462 (UI-327): the semantic danger (Rose400) for the
+        // days-late verdict — never the chart palette as bare text.
+        color = if (claimsLateness) c.danger else c.textMuted,
         style = ElTheme.textStyles.chartMicro,
     )
 }
@@ -253,10 +270,24 @@ private fun TrancheTotal(
     color: androidx.compose.ui.graphics.Color,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier) {
+    val c = ElTheme.colors
+    // T-462 (UI-327): the desktop twin's 4-cell closing block gains the
+    // metric-tile treatment (soft tint + hairline border) — the totals
+    // stop floating and the key numbers lead by size and weight.
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(c.surfaceVariant.copy(alpha = 0.4f))
+            .border(
+                width = 1.dp,
+                color = c.outlineVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(10.dp),
+            )
+            .padding(horizontal = ElTheme.spacing.sm, vertical = ElTheme.spacing.sm),
+    ) {
         Text(
             text = label,
-            color = ElTheme.colors.textMuted,
+            color = c.textMuted,
             style = ElTheme.textStyles.chartMicro,
         )
         Text(
