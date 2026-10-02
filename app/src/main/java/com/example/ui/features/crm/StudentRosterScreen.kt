@@ -1,6 +1,5 @@
 package com.example.ui.features.crm
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,6 +52,7 @@ import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.feedback.ElEmptyState
 import com.example.ui.designsystem.components.feedback.ElSpinner
 import com.example.ui.designsystem.components.input.ElSearchBar
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -132,6 +132,7 @@ fun StudentRosterScreen(
 ) {
     val c = ElTheme.colors
     val context = LocalContext.current
+    val toast = LocalElToast.current
     val query by viewModel.query.collectAsState()
     val students by viewModel.students.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
@@ -140,7 +141,7 @@ fun StudentRosterScreen(
 
     LaunchedEffect(syncMessage) {
         syncMessage?.let {
-            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            toast.showInfo(it)
             viewModel.clearMessage()
         }
     }

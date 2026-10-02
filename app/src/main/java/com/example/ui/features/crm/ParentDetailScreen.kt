@@ -56,6 +56,7 @@ import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.card.ElCardSize
 import com.example.ui.designsystem.components.display.ElAvatarSize
 import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.designsystem.components.button.ElButton
 import com.example.ui.designsystem.components.button.ElButtonVariant
@@ -91,6 +92,7 @@ fun ParentDetailScreen(
     val ledgerEntries by viewModel.ledgerEntries.collectAsState()
     val pdfFile by viewModel.pdfFile.collectAsState()
     val context = LocalContext.current
+    val toast = LocalElToast.current
     val c = ElTheme.colors
 
     var showEditDialog by remember { mutableStateOf(false) }
@@ -112,11 +114,7 @@ fun ParentDetailScreen(
             }
             context.startActivity(Intent.createChooser(shareIntent, "Partager le relevé"))
         } catch (e: Exception) {
-            android.widget.Toast.makeText(
-                context,
-                "Impossible de partager le PDF.",
-                android.widget.Toast.LENGTH_SHORT,
-            ).show()
+            toast.showError("Impossible de partager le PDF.")
         }
         viewModel.consumePdf()
     }
@@ -178,7 +176,7 @@ fun ParentDetailScreen(
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
-                                        onClick = { PhoneUtils.dial(context, p.phone) },
+                                        onClick = { PhoneUtils.dial(context, p.phone, toast) },
                                     ),
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -197,7 +195,7 @@ fun ParentDetailScreen(
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
-                                        onClick = { PhoneUtils.openWhatsApp(context, p.whatsapp ?: p.phone) },
+                                        onClick = { PhoneUtils.openWhatsApp(context, p.whatsapp ?: p.phone, toast = toast) },
                                     ),
                                 contentAlignment = Alignment.Center,
                             ) {

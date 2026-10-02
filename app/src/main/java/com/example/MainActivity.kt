@@ -20,6 +20,7 @@ import com.example.infrastructure.notifications.EXTRA_DEEPLINK_TYPE
 import com.example.infrastructure.notifications.NOTIFICATION_CLICK_ACTION
 import com.example.infrastructure.notifications.NotificationDeepLink
 import com.example.ui.designsystem.theme.ElImtiyazTheme
+import com.example.ui.designsystem.overlays.ElToastHost
 import com.example.ui.navigation.AppNavHost
 import com.example.ui.permissions.PermissionState
 import com.example.ui.permissions.rememberNotificationPermissionState
@@ -50,19 +51,27 @@ class MainActivity : ComponentActivity() {
                 }
 
                 // Centered Responsive Container (Full screen on phones, framed on tablets/Waydroid)
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color(0xFF0F0F14)),
-                    contentAlignment = Alignment.Center,
-                ) {
+                //
+                // T-460 H2 (issue #3 F-18): ElToastHost wraps the nav host — the
+                // app-scoped toast layer (the desktop ToastProvider pattern:
+                // transient feedback rendered ABOVE navigation, so a toast fired
+                // right before a pop — the ExpenseSubmit submit case — survives it,
+                // exactly like android.widget.Toast did).
+                ElToastHost {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .widthIn(max = 480.dp)
-                            .clipToBounds(),
+                            .background(Color(0xFF0F0F14)),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        AppNavHost()
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .widthIn(max = 480.dp)
+                                .clipToBounds(),
+                        ) {
+                            AppNavHost()
+                        }
                     }
                 }
             }

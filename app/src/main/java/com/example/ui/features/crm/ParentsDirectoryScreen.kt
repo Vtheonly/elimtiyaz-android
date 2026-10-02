@@ -47,6 +47,7 @@ import com.example.ui.designsystem.components.feedback.ElEmptyState
 import com.example.ui.designsystem.components.input.ElSearchBar
 import com.example.ui.designsystem.foundation.pressClickable
 import com.example.ui.designsystem.theme.ElTheme
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.util.PhoneUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -107,6 +108,7 @@ fun ParentsDirectoryScreen(
     val parents by viewModel.parents.collectAsState()
     val error by viewModel.error.collectAsState()
     val context = LocalContext.current
+    val toast = LocalElToast.current
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Context strip — the count lives here instead of the search label
@@ -163,11 +165,11 @@ fun ParentsDirectoryScreen(
                     ParentCard(
                         parent = parent,
                         onClick = { onParentClick(parent.id) },
-                        onCall = { PhoneUtils.dial(context, parent.phone) },
+                        onCall = { PhoneUtils.dial(context, parent.phone, toast) },
                         onWhatsApp = {
                             // whatsapp column falls back to the main phone at
                             // registration time (batchRegister), so try it first.
-                            PhoneUtils.openWhatsApp(context, parent.whatsapp ?: parent.phone)
+                            PhoneUtils.openWhatsApp(context, parent.whatsapp ?: parent.phone, toast = toast)
                         },
                     )
                 }

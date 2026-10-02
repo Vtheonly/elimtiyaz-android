@@ -3,7 +3,6 @@ package com.example.ui.features.academics
 import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -54,6 +53,7 @@ import com.example.ui.designsystem.components.input.ElDropdown
 import com.example.ui.designsystem.components.input.ElDropdownOption
 import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import java.io.File
 import java.time.LocalDate
@@ -71,6 +71,7 @@ fun HomeworkPushScreen(
     val busy by viewModel.busy.collectAsState()
     val message by viewModel.message.collectAsState()
     val context = LocalContext.current
+    val toast = LocalElToast.current
     val c = ElTheme.colors
 
     var selectedClassId by remember { mutableStateOf<String?>(initialClassId) }
@@ -108,10 +109,10 @@ fun HomeworkPushScreen(
                 capturedPhotoUri = uri
                 cameraLauncher.launch(uri)
             } catch (e: Exception) {
-                Toast.makeText(context, "Erreur caméra : ${e.message}", Toast.LENGTH_LONG).show()
+                toast.showError("Erreur caméra : ${e.message}")
             }
         } else {
-            Toast.makeText(context, "Permission caméra requise pour photographier le tableau", Toast.LENGTH_SHORT).show()
+            toast.showWarning("Permission caméra requise pour photographier le tableau")
         }
     }
 
@@ -249,7 +250,7 @@ fun HomeworkPushScreen(
                                     capturedPhotoUri = uri
                                     cameraLauncher.launch(uri)
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "Erreur caméra : ${e.message}", Toast.LENGTH_LONG).show()
+                                    toast.showError("Erreur caméra : ${e.message}")
                                 }
                             } else {
                                 cameraPermissionLauncher.launch(Manifest.permission.CAMERA)

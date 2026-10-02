@@ -176,6 +176,7 @@ tasks.withType<Test>().matching { it.name == "testReleaseUnitTest" }.configureEa
     excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT348Test")
     excludeTestsMatching("com.example.ui.designsystem.ElScrollableTabRowTest")
     excludeTestsMatching("com.example.ui.designsystem.overlays.ElInfoTipTest")
+    excludeTestsMatching("com.example.ui.designsystem.overlays.ElToastHostTest")
     excludeTestsMatching("com.example.ui.features.financials.ParentYearHistorySectionTest")
     excludeTestsMatching("com.example.ui.features.settings.AuditDiffSheetTest")
   }
