@@ -96,7 +96,7 @@ private fun DialogSurface(
     )
     Box(
         modifier = modifier
-            .padding(horizontal = 24.dp)
+            .padding(horizontal = ElTheme.spacing.xl)
             .fillMaxWidth()
             .wrapContentHeight()
             .scale(0.92f + (scale - 0.92f))

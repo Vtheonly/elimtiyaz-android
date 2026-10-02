@@ -58,17 +58,17 @@ internal fun CreancesTab(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
     ) {
         item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                 MetricMiniCard("Créances totales", "${(outstandingDebt / 100).formatDzd()} DZD", c.primary, Modifier.weight(1f))
                 MetricMiniCard("En retard", "${(totalOverdue / 100).formatDzd()} DZD", c.danger, Modifier.weight(1f))
             }
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                 listOf(
                     null to "Toutes",
                     "0_30" to "0-30j",
@@ -151,7 +151,7 @@ internal fun CreancesTab(
                             }
                         }
 
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.sm))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             // T-457: the §15.3 canonical label replaces the
                             // bare days count as the row's status voice (the

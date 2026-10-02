@@ -41,7 +41,7 @@ fun ElNavRail(
             .width(80.dp)
             .fillMaxHeight()
             .background(c.surface)
-            .padding(vertical = 16.dp),
+            .padding(vertical = ElTheme.spacing.lg),
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -66,8 +66,8 @@ private fun RailItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
         modifier = Modifier
-            .padding(vertical = 8.dp)
-            .size(width = 64.dp, height = 56.dp)
+            .padding(vertical = ElTheme.spacing.sm)
+            .size(width = ElTheme.spacing.huge, height = 56.dp)
             .clip(CircleShape)
             .then(if (selected) Modifier.background(c.primary.copy(alpha = 0.10f)) else Modifier)
             .noRippleClickable(role = Role.Tab, onClick = onNavigate)

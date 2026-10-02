@@ -57,7 +57,7 @@ fun ElParetoChart(
     val maxAmount = points.maxOfOrNull { it.amount }?.takeIf { it > 0f } ?: 1f
 
     Column(modifier = modifier) {
-        Canvas(modifier = Modifier.height(height).padding(start = 4.dp, end = 4.dp, top = 4.dp)) {
+        Canvas(modifier = Modifier.height(height).padding(start = ElTheme.spacing.xs, end = ElTheme.spacing.xs, top = ElTheme.spacing.xs)) {
             val chartHeight = size.height
             val n = points.size.coerceAtLeast(1)
             val slot = size.width / n
@@ -116,7 +116,7 @@ fun ElParetoChart(
         }
 
         // X labels (top-N debtor short names)
-        Row(modifier = Modifier.padding(horizontal = 4.dp)) {
+        Row(modifier = Modifier.padding(horizontal = ElTheme.spacing.xs)) {
             points.forEach { p ->
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     Text(
@@ -132,14 +132,14 @@ fun ElParetoChart(
         }
 
         // Legend
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(ElTheme.spacing.xs))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
-                Canvas(modifier = Modifier.width(8.dp).height(8.dp)) { drawRect(color = barColor) }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = ElTheme.spacing.xs)) {
+                Canvas(modifier = Modifier.width(ElTheme.spacing.sm).height(ElTheme.spacing.sm)) { drawRect(color = barColor) }
                 Spacer(Modifier.width(3.dp))
                 Text("Encours", color = c.textSecondary, style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp), maxLines = 1)
             }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = ElTheme.spacing.xs)) {
                 Canvas(modifier = Modifier.width(10.dp).height(3.dp)) { drawRect(color = cumColor) }
                 Spacer(Modifier.width(3.dp))
                 Text("Cumul %", color = c.textSecondary, style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp), maxLines = 1)
@@ -184,7 +184,7 @@ fun ElStackedRatioBar(
                 )
             }
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(ElTheme.spacing.xs))
         Row(modifier = Modifier.fillMaxWidth()) {
             segments.forEach { seg ->
                 val fraction = seg.value / total

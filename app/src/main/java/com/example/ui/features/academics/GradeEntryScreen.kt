@@ -128,7 +128,7 @@ fun GradeEntryScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.lg),
     ) {
         if (onBack != null) {
             ElTopBar(
@@ -142,7 +142,7 @@ fun GradeEntryScreen(
         ElCard(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -157,7 +157,7 @@ fun GradeEntryScreen(
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                     listOf("T1", "T2", "T3").forEach { t ->
                         ElChip(
                             text = "Trimestre $t",
@@ -206,7 +206,7 @@ fun GradeEntryScreen(
             ElCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
                 ) {
                     ElSectionHeader(
                         title = "Statistiques de classe",
@@ -307,7 +307,7 @@ fun GradeEntryScreen(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             ElAvatar(initials = student.fullName, size = ElAvatarSize.M)
-                            Spacer(Modifier.width(12.dp))
+                            Spacer(Modifier.width(ElTheme.spacing.md))
                             Column {
                                 Text(
                                     text = student.fullName,
@@ -378,8 +378,8 @@ fun GradeEntryScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = ElTheme.spacing.xl, vertical = ElTheme.spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
             ) {
                 Column {
                     Text(
@@ -440,7 +440,7 @@ fun GradeEntryScreen(
                                     else -> c.danger.copy(alpha = 0.15f)
                                 },
                             )
-                            .padding(12.dp),
+                            .padding(ElTheme.spacing.md),
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -456,10 +456,10 @@ fun GradeEntryScreen(
                             )
                         }
                     }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                 ) {
                     ElButton(
                         text = "Enregistrer",

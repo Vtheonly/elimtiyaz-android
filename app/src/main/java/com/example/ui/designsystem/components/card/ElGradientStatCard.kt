@@ -120,7 +120,7 @@ fun ElGradientStatCard(
                 overflow = TextOverflow.Ellipsis,
             )
             if (subtitle != null) {
-                Spacer(Modifier.size(4.dp))
+                Spacer(Modifier.size(ElTheme.spacing.xs))
                 Text(
                     text = subtitle,
                     color = Color.White.copy(alpha = 0.85f),

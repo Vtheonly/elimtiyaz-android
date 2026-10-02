@@ -62,13 +62,13 @@ fun ElSectionHeader(
                 }
             }
             if (trailing != null) {
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(ElTheme.spacing.md))
                 trailing()
             }
         }
 
         if (divider) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(ElTheme.spacing.sm))
             androidx.compose.material3.HorizontalDivider(
                 thickness = ElTheme.borders.thin,
                 color = c.outlineVariant,

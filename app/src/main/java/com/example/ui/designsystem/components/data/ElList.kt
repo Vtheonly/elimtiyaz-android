@@ -67,7 +67,7 @@ fun ElListItem(
                 } else Modifier
             )
             .then(if (selected) Modifier.background(c.primary.copy(alpha = 0.08f)) else Modifier)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ListLeading(
@@ -103,7 +103,7 @@ private fun ListLeading(
                 size = ElAvatarSize.S,
                 accentColor = tint,
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(ElTheme.spacing.md))
         }
         icon != null -> {
             Box(
@@ -120,7 +120,7 @@ private fun ListLeading(
                     modifier = Modifier.size(18.dp),
                 )
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(ElTheme.spacing.md))
         }
     }
 }
@@ -159,11 +159,11 @@ private fun ListTrailing(
 ) {
     val c = ElTheme.colors
     if (badge != null) {
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(ElTheme.spacing.sm))
         ElBadge(text = badge, tone = ElBadgeTone.PRIMARY, style = ElBadgeStyle.SOLID)
     }
     if (text != null) {
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(ElTheme.spacing.sm))
         Text(
             text = text,
             color = c.textMuted,
@@ -171,7 +171,7 @@ private fun ListTrailing(
         )
     }
     if (icon != null) {
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(ElTheme.spacing.sm))
         Icon(
             imageVector = icon,
             contentDescription = null,
@@ -185,7 +185,7 @@ private fun ListTrailing(
 @Composable
 private fun ListDivider() {
     val c = ElTheme.colors
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(ElTheme.spacing.md))
     Box(
         modifier = Modifier
             .fillMaxWidth()

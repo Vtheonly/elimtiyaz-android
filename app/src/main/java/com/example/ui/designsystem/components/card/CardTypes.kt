@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.dp
 import com.example.ui.designsystem.theme.ElCardShape
 import com.example.ui.designsystem.theme.ElCardShapeSmall
 import androidx.compose.ui.graphics.Shape
+import com.example.ui.designsystem.theme.ElTheme
 
 /** Visual variant of an [ElCard]. */
 enum class ElCardVariant {
@@ -24,11 +25,13 @@ enum class ElCardVariant {
 /** Size bucket of an [ElCard] — controls interior padding. */
 enum class ElCardSize { COMPACT, STANDARD, COMFORTABLE }
 
-/** Resolves an [ElCardSize] to interior padding. */
+/** Resolves an [ElCardSize] to interior padding. F-19(a): the token read
+ *  requires a composable context (the size→token resolver pattern). */
+@androidx.compose.runtime.Composable
 internal fun cardPadding(size: ElCardSize): PaddingValues = when (size) {
-    ElCardSize.COMPACT     -> PaddingValues(12.dp)
-    ElCardSize.STANDARD    -> PaddingValues(16.dp)
-    ElCardSize.COMFORTABLE -> PaddingValues(24.dp)
+    ElCardSize.COMPACT     -> PaddingValues(ElTheme.spacing.md)
+    ElCardSize.STANDARD    -> PaddingValues(ElTheme.spacing.lg)
+    ElCardSize.COMFORTABLE -> PaddingValues(ElTheme.spacing.xl)
 }
 
 /** Picks the default shape for a card based on its size. */

@@ -207,9 +207,9 @@ fun ExpenseSubmitScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(ElTheme.spacing.lg)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
             error?.let {
                 ElAlertBanner(
@@ -224,8 +224,8 @@ fun ExpenseSubmitScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                        .padding(ElTheme.spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
                 ) {
                     ElSectionHeader(title = "Informations de la dépense")
 
@@ -293,15 +293,15 @@ fun ExpenseSubmitScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                        .padding(ElTheme.spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs),
                 ) {
                     Text(
                         "Workflow d'approbation",
                         style = ElTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.xs))
                     Text(
                         "1. Soumise → 2. Approuvée → 3. Décaissée → 4. Justificatif téléversé.\n" +
                             "Règle de séparation des tâches : l'auto-approbation est strictement interdite (plan §08).\n" +
@@ -311,7 +311,7 @@ fun ExpenseSubmitScreen(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(ElTheme.spacing.sm))
 
             ElButton(
                 text = if (isSubmitting) "Soumission…" else "Soumettre la dépense",
@@ -332,7 +332,7 @@ fun ExpenseSubmitScreen(
                 fullWidth = true,
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(ElTheme.spacing.xl))
         }
     }
 }

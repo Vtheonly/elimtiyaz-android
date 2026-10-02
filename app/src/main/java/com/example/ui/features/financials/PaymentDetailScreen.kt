@@ -316,8 +316,8 @@ fun PaymentDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
             // Hero card — icon, receipt number, amount, humanized status
             ElCard(modifier = Modifier.fillMaxWidth()) {
@@ -326,7 +326,7 @@ fun PaymentDetailScreen(
                         .fillMaxWidth()
                         .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                 ) {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -371,8 +371,8 @@ fun PaymentDetailScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .padding(ElTheme.spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                 ) {
                     ElSectionHeader(title = "Détails de l'opération", divider = false)
                     ElInfoRow(label = "Méthode", value = paymentMethodLabel(p.method.name))
@@ -446,8 +446,8 @@ fun PaymentDetailScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = ElTheme.spacing.xl, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
             ) {
                 Text(
                     "Rembourser le reçu ${payment!!.receiptNumber}",
@@ -468,7 +468,7 @@ fun PaymentDetailScreen(
                     singleLine = false,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                     ElButton(
                         text = "Annuler",
                         onClick = { showRefundDialog = false },

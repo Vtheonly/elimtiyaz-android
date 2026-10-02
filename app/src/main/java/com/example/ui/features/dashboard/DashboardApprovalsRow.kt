@@ -39,7 +39,7 @@ internal fun DashboardApprovalsRow(
     onNavigateToFinancials: () -> Unit,
     onNavigateToDebtDashboard: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
         ElSectionHeader(
             title = "Files d'Attente & Approbations",
             subtitle = "Opérations administratives et compensations en attente",
@@ -47,7 +47,7 @@ internal fun DashboardApprovalsRow(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
             // ── Left: Pending Check Deposit / Clearance ──────────────────────
             ElCard(modifier = Modifier.weight(1f)) {
@@ -62,9 +62,9 @@ internal fun DashboardApprovalsRow(
                                 imageVector = Icons.Default.Payment,
                                 contentDescription = null,
                                 tint = ElTheme.colors.info,
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(ElTheme.spacing.lg),
                             )
-                            Spacer(Modifier.size(8.dp))
+                            Spacer(Modifier.size(ElTheme.spacing.sm))
                             Text(
                                 text = "Chèques",
                                 style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -77,7 +77,7 @@ internal fun DashboardApprovalsRow(
                         )
                     }
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.sm))
                     Text(
                         text = "${(currentKpi.pendingChecksAmount / 100).formatDzd()} DA",
                         style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -89,7 +89,7 @@ internal fun DashboardApprovalsRow(
                         color = ElTheme.colors.textSecondary,
                     )
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.md))
                     ElButton(
                         text = "Voir chèques",
                         onClick = onNavigateToFinancials,
@@ -113,9 +113,9 @@ internal fun DashboardApprovalsRow(
                                 imageVector = Icons.Default.ReceiptLong,
                                 contentDescription = null,
                                 tint = ElTheme.colors.warning,
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(ElTheme.spacing.lg),
                             )
-                            Spacer(Modifier.size(8.dp))
+                            Spacer(Modifier.size(ElTheme.spacing.sm))
                             Text(
                                 text = "Dépenses",
                                 style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -128,7 +128,7 @@ internal fun DashboardApprovalsRow(
                         )
                     }
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.sm))
                     Text(
                         text = "${(currentKpi.pendingExpensesAmount / 100).formatDzd()} DA",
                         style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -140,7 +140,7 @@ internal fun DashboardApprovalsRow(
                         color = ElTheme.colors.textSecondary,
                     )
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.md))
                     ElButton(
                         text = "Examiner",
                         onClick = onNavigateToFinancials,

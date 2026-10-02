@@ -110,8 +110,8 @@ fun TripHistoryScreen(
             }
             else -> {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxSize().padding(padding).padding(ElTheme.spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                 ) {
                     items(trips) { trip ->
                         ElCard(
@@ -119,7 +119,7 @@ fun TripHistoryScreen(
                             size = ElCardSize.STANDARD,
                             onClick = { viewModel.select(trip) },
                         ) {
-                            Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                            Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.md)) {
                                 Text("Véhicule : ${trip.vehicleId}", style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
                                 Text("Début : ${trip.startedAt}", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                                 trip.endedAt?.let { Text("Fin : $it", style = ElTheme.typography.labelSmall, color = c.textSecondary) }
@@ -136,7 +136,7 @@ fun TripHistoryScreen(
 
     selected?.let { trip ->
         ElDialogShell(onDismissRequest = { viewModel.select(null) }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.xl), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                 Text(
                     "Tournée du ${trip.startedAt.take(10)}",
                     style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -149,7 +149,7 @@ fun TripHistoryScreen(
                 Text("Arrêts : ${trip.stopsCompleted}/${trip.stopsPlanned}", style = ElTheme.typography.bodySmall, color = c.textSecondary)
                 Text("Distance : %.2f km".format(trip.totalDistanceKm), style = ElTheme.typography.bodySmall, color = c.textSecondary)
                 trip.notes?.let { Text("Notes : $it", style = ElTheme.typography.bodySmall, color = c.textSecondary) }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
                 ElButton(
                     text = "Fermer",
                     onClick = { viewModel.select(null) },

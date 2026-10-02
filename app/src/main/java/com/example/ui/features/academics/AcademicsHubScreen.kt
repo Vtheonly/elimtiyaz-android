@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.core.Session
 import com.example.ui.designsystem.components.tabs.ElTabRow
+import com.example.ui.designsystem.theme.ElTheme
 
 /**
  * Academics hub — restores navigation callbacks to drill into class detail + subjects directory.
@@ -49,7 +50,7 @@ fun AcademicsHubScreen(
             onSelected = { selectedTab = it },
         )
         Box(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.sm),
             contentAlignment = Alignment.TopStart,
         ) {
             when (selectedTab) {

@@ -27,14 +27,14 @@ internal fun ProfileCard(session: Session?) {
     if (session == null) return
     ElCard(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ElAvatar(
                 initials = session.displayName.take(2).uppercase(),
                 size = ElAvatarSize.L,
             )
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(ElTheme.spacing.lg))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = session.displayName,
@@ -46,7 +46,7 @@ internal fun ProfileCard(session: Session?) {
                     style = ElTheme.typography.bodySmall,
                     color = c.textSecondary,
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
                 ElTag(
                     text = roleLabel(session.role),
                     tone = roleTone(session.role),

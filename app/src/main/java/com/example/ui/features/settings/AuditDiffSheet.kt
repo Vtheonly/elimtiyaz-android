@@ -205,8 +205,8 @@ private fun ActorAttributionBlock(
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
             .background(c.surfaceVariant.copy(alpha = 0.08f))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(ElTheme.spacing.md),
+        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
     ) {
         Text(
             "OPÉRATEUR",
@@ -215,13 +215,13 @@ private fun ActorAttributionBlock(
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
             Icon(
                 Icons.Default.Person,
                 contentDescription = null,
                 tint = c.primary,
-                modifier = Modifier.width(16.dp).height(16.dp),
+                modifier = Modifier.width(ElTheme.spacing.lg).height(ElTheme.spacing.lg),
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -246,7 +246,7 @@ private fun ActorAttributionBlock(
                     Icons.Default.Shield,
                     contentDescription = null,
                     tint = c.primary,
-                    modifier = Modifier.width(16.dp).height(16.dp),
+                    modifier = Modifier.width(ElTheme.spacing.lg).height(ElTheme.spacing.lg),
                 )
                 Spacer(Modifier.width(ElTheme.spacing.xs))
                 ElTag(
@@ -354,7 +354,7 @@ fun DiffTable(rows: List<DiffRow>, modifier: Modifier = Modifier) {
         rows.forEachIndexed { index, row ->
             if (index > 0) {
                 HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 0.dp),
+                    modifier = Modifier.padding(horizontal = ElTheme.spacing.none),
                     thickness = ElTheme.borders.hairline,
                     color = c.outlineVariant.copy(alpha = 0.5f),
                 )
@@ -372,7 +372,7 @@ private fun TableHeaderText(text: String, modifier: Modifier = Modifier, color: 
             letterSpacing = 0.4.sp,
         ),
         color = color,
-        modifier = modifier.padding(horizontal = 12.dp),
+        modifier = modifier.padding(horizontal = ElTheme.spacing.md),
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
@@ -396,14 +396,14 @@ fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .testTag("audit_diff_row_${row.path}")
             .background(accent.copy(alpha = 0.04f))
-            .padding(vertical = 8.dp),
+            .padding(vertical = ElTheme.spacing.sm),
         verticalAlignment = Alignment.Top,
     ) {
         // Column 1 — Champ (short label primary, full dotted path caption).
         Column(
             modifier = Modifier
                 .weight(0.30f)
-                .padding(horizontal = 12.dp),
+                .padding(horizontal = ElTheme.spacing.md),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
@@ -430,7 +430,7 @@ fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .weight(0.35f)
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = ElTheme.spacing.sm),
             contentAlignment = Alignment.TopStart,
         ) {
             if (row.kind != FieldDiffKind.ADDED) {
@@ -454,7 +454,7 @@ fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .weight(0.35f)
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = ElTheme.spacing.sm),
             contentAlignment = Alignment.TopStart,
         ) {
             if (row.kind != FieldDiffKind.REMOVED) {
@@ -491,7 +491,7 @@ private fun ValueChip(
         modifier = modifier
             .clip(RoundedCornerShape(4.dp))
             .background(color.copy(alpha = 0.10f))
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+            .padding(horizontal = ElTheme.spacing.sm, vertical = 3.dp),
     ) {
         Text(
             text,

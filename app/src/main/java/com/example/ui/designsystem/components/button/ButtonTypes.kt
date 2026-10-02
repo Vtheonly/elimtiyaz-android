@@ -24,11 +24,13 @@ enum class ElButtonVariant {
 /** Size bucket of an [ElButton]. */
 enum class ElButtonSize { SMALL, MEDIUM, LARGE }
 
-/** Resolves an [ElButtonSize] to interior padding. */
+/** Resolves an [ElButtonSize] to interior padding. F-19(a): the token read
+ *  requires a composable context (the size→token resolver pattern). */
+@androidx.compose.runtime.Composable
 internal fun buttonPadding(size: ElButtonSize): PaddingValues = when (size) {
-    ElButtonSize.SMALL  -> PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-    ElButtonSize.MEDIUM -> PaddingValues(horizontal = 18.dp, vertical = 12.dp)
-    ElButtonSize.LARGE  -> PaddingValues(horizontal = 24.dp, vertical = 16.dp)
+    ElButtonSize.SMALL  -> PaddingValues(horizontal = ElTheme.spacing.md, vertical = ElTheme.spacing.sm)
+    ElButtonSize.MEDIUM -> PaddingValues(horizontal = 18.dp, vertical = ElTheme.spacing.md)
+    ElButtonSize.LARGE  -> PaddingValues(horizontal = ElTheme.spacing.xl, vertical = ElTheme.spacing.lg)
 }
 
 /** Resolves an [ElButtonSize] to its label text style. */
@@ -47,8 +49,9 @@ internal fun buttonIconSize(size: ElButtonSize): Int = when (size) {
 }
 
 /** Resolves an [ElButtonSize] to its minimum touch-target height. */
+@androidx.compose.runtime.Composable
 internal fun buttonMinHeight(size: ElButtonSize) = when (size) {
-    ElButtonSize.SMALL  -> 32.dp
+    ElButtonSize.SMALL  -> ElTheme.spacing.xxl
     ElButtonSize.MEDIUM -> 44.dp
     ElButtonSize.LARGE  -> 56.dp
 }

@@ -87,16 +87,16 @@ private fun ToastBody(
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md)
             .fillMaxWidth()
             .clip(ElNotificationShape)
             .background(c.surface)
             .elShadow(ElTheme.elevation.high, ElNotificationShape)
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = ElTheme.spacing.md, vertical = ElTheme.spacing.md),
     ) {
         Box(
             modifier = Modifier
-                .size(width = 4.dp, height = 24.dp)
+                .size(width = ElTheme.spacing.xs, height = ElTheme.spacing.xl)
                 .clip(ElNotificationShape)
                 .background(accent),
         )

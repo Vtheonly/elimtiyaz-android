@@ -337,11 +337,11 @@ fun RoutingMapScreen(
             // Bottom sheet with current stop info
             currentStop?.let { stop ->
                 com.example.ui.designsystem.components.card.ElCard(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg),
                     size = com.example.ui.designsystem.components.card.ElCardSize.STANDARD,
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                             androidx.compose.material3.Icon(Icons.Default.LocationOn, contentDescription = null, tint = c.primary)
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Arrêt ${currentStopIndex + 1} / ${stops.size}", style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
@@ -349,13 +349,13 @@ fun RoutingMapScreen(
                                 Text(stop.address, style = ElTheme.typography.bodySmall, color = c.textSecondary)
                             }
                         }
-                        Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Spacer(Modifier.height(ElTheme.spacing.sm))
+                        Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                             Text("Distance : %.2f km".format(distanceRemaining), style = ElTheme.typography.labelSmall, color = c.textSecondary)
                             Text("ETA : %.0f min".format(etaMin), style = ElTheme.typography.labelSmall, color = c.textSecondary)
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Spacer(Modifier.height(ElTheme.spacing.md))
+                        Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                             com.example.ui.designsystem.components.button.ElButton(
                                 text = "Avancer",
                                 onClick = { viewModel.advanceStop() },
@@ -376,14 +376,14 @@ fun RoutingMapScreen(
             }
 
             // Stop list (scrollable)
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                 items(stops) { stop ->
                     val idx = stops.indexOf(stop)
                     com.example.ui.designsystem.components.card.ElCard(
                         modifier = Modifier.fillMaxWidth(),
                         size = com.example.ui.designsystem.components.card.ElCardSize.COMPACT,
                     ) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
                             Text("#${idx + 1}", style = ElTheme.typography.labelSmall, color = c.textSecondary, modifier = Modifier.weight(0.2f))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(stop.studentName, style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)

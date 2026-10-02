@@ -55,7 +55,7 @@ internal fun AgingCompositionCard(
     }
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ElSectionHeader(
                     title = "Composition de l'Encours",
@@ -73,10 +73,10 @@ internal fun AgingCompositionCard(
                         color = ElChartPalette.agingColors[it.bucket] ?: ElChartPalette.slate,
                     )
                 },
-                height = 24.dp,
+                height = ElTheme.spacing.xl,
             )
             Spacer(Modifier.height(2.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                 present.forEach { b ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -86,12 +86,12 @@ internal fun AgingCompositionCard(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             androidx.compose.foundation.Canvas(
                                 modifier = Modifier
-                                    .width(8.dp)
-                                    .height(8.dp),
+                                    .width(ElTheme.spacing.sm)
+                                    .height(ElTheme.spacing.sm),
                             ) {
                                 drawRect(color = ElChartPalette.agingColors[b.bucket] ?: ElChartPalette.slate)
                             }
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(ElTheme.spacing.sm))
                             Text(
                                 text = b.label,
                                 color = c.textSecondary,

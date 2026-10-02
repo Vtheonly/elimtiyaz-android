@@ -35,10 +35,10 @@ internal fun PreferencesSection(
     onLanguage: (String) -> Unit,
 ) {
     val c = ElTheme.colors
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
         ElSectionHeader(title = "Préférences")
         ElCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                 ToggleRow(
                     icon = Icons.Default.DarkMode,
                     label = "Mode sombre",
@@ -60,7 +60,7 @@ internal fun PreferencesSection(
                     checked = settings.forceOffline,
                     onCheckedChange = onForceOffline,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(ElTheme.spacing.xs))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -71,7 +71,7 @@ internal fun PreferencesSection(
                         tint = c.textSecondary,
                         modifier = Modifier.size(20.dp),
                     )
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.md))
                     Box(modifier = Modifier.weight(1f)) {
                         ElDropdown(
                             label = "Langue",

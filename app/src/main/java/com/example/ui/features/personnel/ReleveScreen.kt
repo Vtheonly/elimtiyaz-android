@@ -49,7 +49,7 @@ fun ReleveScreen(
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
     ) {
         if (onBack != null) {
             ElTopBar(
@@ -96,7 +96,7 @@ fun ReleveScreen(
                                     color = c.primary,
                                 )
                             }
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(ElTheme.spacing.xs))
                             Text(
                                 buildString {
                                     append("Durée : ${entry.durationMinutes ?: 0} min")
@@ -165,14 +165,14 @@ private fun ComplianceCard(
                 style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = c.textPrimary,
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(ElTheme.spacing.xs))
             Text(
                 "%.1f / $target Heures Effectuées".format(loggedHours),
                 style = ElTheme.typography.bodySmall,
                 color = c.textSecondary,
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(ElTheme.spacing.md))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -184,7 +184,7 @@ private fun ComplianceCard(
                     color = complianceColor,
                 )
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(ElTheme.spacing.sm))
             ElLinearProgress(progress = compliance / 100f)
         }
     }

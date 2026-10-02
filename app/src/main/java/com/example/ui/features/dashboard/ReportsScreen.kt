@@ -190,8 +190,8 @@ fun ReportsScreen(
         snackbarHost = { ElSnackbarHost(hostState = snackbarHostState) },
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
             item {
                 ElCard(
@@ -200,19 +200,19 @@ fun ReportsScreen(
                     onClick = onNavigateToAuditLog,
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Journal d'audit", style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(ElTheme.spacing.xs))
                             Text(
                                 "Redirige vers le journal d'audit complet (SuperAdmin / FinancialOfficer).",
                                 style = ElTheme.typography.bodySmall,
                                 color = c.textSecondary,
                             )
                         }
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(ElTheme.spacing.sm))
                         ElButton(
                             text = "Ouvrir le journal",
                             onClick = onNavigateToAuditLog,
@@ -229,23 +229,23 @@ fun ReportsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     size = ElCardSize.STANDARD,
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(report.icon, contentDescription = null, tint = c.primary, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(12.dp))
+                            Spacer(Modifier.width(ElTheme.spacing.md))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(report.title, style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                                 Spacer(Modifier.height(2.dp))
                                 Text(report.description, style = ElTheme.typography.bodySmall, color = c.textSecondary)
                             }
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(ElTheme.spacing.sm))
                             ElTag(
                                 text = report.format,
                                 tone = ElTagTone.NEUTRAL,
                                 size = ElTagSize.SM,
                             )
                         }
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.md))
                         if (allowed) {
                             ElButton(
                                 text = "Générer le PDF",

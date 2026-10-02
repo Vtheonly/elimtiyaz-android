@@ -245,8 +245,8 @@ fun CounterPaymentScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.lg),
         ) {
             // Dismissible error banner — visible on ALL steps (T-321).
             error?.let {
@@ -264,10 +264,10 @@ fun CounterPaymentScreen(
                 val p = selectedParent!!
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.lg),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.lg))
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -291,9 +291,9 @@ fun CounterPaymentScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
+                                .padding(ElTheme.spacing.lg),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                         ) {
                             Text(
                                 "NUMÉRO DE REÇU",
@@ -370,8 +370,8 @@ fun CounterPaymentScreen(
 
                 ElCard(modifier = Modifier.fillMaxWidth()) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(ElTheme.spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -380,7 +380,7 @@ fun CounterPaymentScreen(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                 ElAvatar(initials = p.fullName, size = ElAvatarSize.M)
-                                Spacer(Modifier.width(12.dp))
+                                Spacer(Modifier.width(ElTheme.spacing.md))
                                 Column {
                                     Text(p.fullName, style = ElTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                     Text(
@@ -400,7 +400,7 @@ fun CounterPaymentScreen(
                         }
 
                         if (outstanding > 0) {
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(ElTheme.spacing.xs))
                             Text(
                                 "Solde restant dû pour cette famille : ${elMoneyFormat(outstanding)}",
                                 style = ElTheme.typography.bodySmall,
@@ -459,10 +459,10 @@ fun CounterPaymentScreen(
                                         Icons.Default.Group,
                                         contentDescription = null,
                                         tint = ElTheme.colors.warning,
-                                        modifier = Modifier.size(24.dp),
+                                        modifier = Modifier.size(ElTheme.spacing.xl),
                                     )
                                 }
-                                Spacer(Modifier.width(12.dp))
+                                Spacer(Modifier.width(ElTheme.spacing.md))
                                 Column {
                                     Text(
                                         "Toute la famille (Paiement global)",
@@ -482,8 +482,8 @@ fun CounterPaymentScreen(
                 } else {
                     ElCard(modifier = Modifier.fillMaxWidth()) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(ElTheme.spacing.lg),
+                            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                         ) {
                             Text(
                                 "Aucun enfant enregistré pour cette famille.",
@@ -515,8 +515,8 @@ fun CounterPaymentScreen(
 
                 ElCard(modifier = Modifier.fillMaxWidth()) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(ElTheme.spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
                     ) {
                         ElSectionHeader(title = "Montant à encaisser")
 
@@ -559,8 +559,8 @@ fun CounterPaymentScreen(
                             color = ElTheme.colors.textSecondary,
                         )
                         FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
+                            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                         ) {
                             listOf(5_000L, 10_000L, 20_000L, 50_000L, 100_000L).forEach { preset ->
                                 ElChip(
@@ -584,15 +584,15 @@ fun CounterPaymentScreen(
 
                 ElCard(modifier = Modifier.fillMaxWidth()) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(ElTheme.spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
                     ) {
                         Text(
                             "Mode de règlement",
                             style = ElTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                             listOf(
                                 PaymentMethod.CASH to "Espèces",
                                 PaymentMethod.CHECK to "Chèque",
@@ -638,15 +638,15 @@ fun CounterPaymentScreen(
                             )
                         }
 
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.xs))
                         Text(
                             "Catégorie de paiement",
                             style = ElTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
                         FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
+                            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                         ) {
                             listOf(
                                 PaymentCategory.TUITION to "Scolarité",
@@ -728,7 +728,7 @@ private fun ParentPickCard(parent: Parent, onClick: () -> Unit) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 ElAvatar(initials = parent.fullName, size = ElAvatarSize.M)
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(ElTheme.spacing.md))
                 Column {
                     Text(parent.fullName, style = ElTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
@@ -757,7 +757,7 @@ private fun StudentPickCard(student: Student, onClick: () -> Unit) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 ElAvatar(initials = student.fullName, size = ElAvatarSize.M)
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(ElTheme.spacing.md))
                 Column {
                     Text(student.fullName, style = ElTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
@@ -781,8 +781,8 @@ private fun BeneficiaryRecapCard(
 ) {
     ElCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -810,7 +810,7 @@ private fun BeneficiaryRecapCard(
             }
 
             if (outstanding > 0) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(ElTheme.spacing.xs))
                 Text(
                     "Solde restant dû : ${elMoneyFormat(outstanding)}",
                     style = ElTheme.typography.bodySmall,
@@ -837,8 +837,8 @@ private fun AllocationPreviewCard(
     val c = ElTheme.colors
     ElCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
         ) {
             Text(
                 "Ventilation automatique en cascade (simulation)",
@@ -859,7 +859,7 @@ private fun AllocationPreviewCard(
                             .fillMaxWidth()
                             .clip(MaterialTheme.shapes.small)
                             .background(c.surfaceVariant)
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                            .padding(horizontal = ElTheme.spacing.md, vertical = ElTheme.spacing.sm),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

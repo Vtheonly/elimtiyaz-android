@@ -74,7 +74,7 @@ internal fun RegistrationStepProgress(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             WIZARD_STEPS.forEachIndexed { index, (label, _) ->
@@ -100,7 +100,7 @@ internal fun RegistrationStepProgress(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .size(32.dp)
+                            .size(ElTheme.spacing.xxl)
                             .clip(CircleShape)
                             .background(circleColor),
                     ) {
@@ -109,7 +109,7 @@ internal fun RegistrationStepProgress(
                                 Icons.Default.Check,
                                 contentDescription = "Étape $stepNumber terminée",
                                 tint = contentColor,
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(ElTheme.spacing.lg),
                             )
                         } else {
                             Text(
@@ -125,14 +125,14 @@ internal fun RegistrationStepProgress(
                         style = ElTheme.typography.labelLarge,
                         color = if (isCurrent) c.textPrimary else c.textSecondary,
                         fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier.padding(start = 8.dp),
+                        modifier = Modifier.padding(start = ElTheme.spacing.sm),
                     )
                 }
                 if (index < WIZARD_STEPS.lastIndex) {
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .padding(horizontal = 8.dp)
+                            .padding(horizontal = ElTheme.spacing.sm)
                             .height(2.dp)
                             .clip(CircleShape)
                             .background(if (stepNumber < currentStep) c.success else c.surfaceVariant),
@@ -142,7 +142,7 @@ internal fun RegistrationStepProgress(
         }
         ElLinearProgress(
             progress = currentStep / WIZARD_STEPS.size.toFloat(),
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.padding(horizontal = ElTheme.spacing.lg),
             height = 4,
         )
     }
@@ -168,11 +168,11 @@ internal fun RegistrationSuccessCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(ElTheme.spacing.lg),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.lg),
     ) {
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(ElTheme.spacing.sm))
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
@@ -204,9 +204,9 @@ internal fun RegistrationSuccessCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(ElTheme.spacing.lg),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 Text(
                     "CODE D'ACTIVATION PORTAIL",
@@ -221,7 +221,7 @@ internal fun RegistrationSuccessCard(
                     color = c.warning,
                     letterSpacing = 4.sp,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                     ElButton(
                         text = "Copier",
                         onClick = onCopyCode,
@@ -243,8 +243,8 @@ internal fun RegistrationSuccessCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(ElTheme.spacing.lg),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 Text(
                     "Récapitulatif",
@@ -288,8 +288,8 @@ internal fun SimulationGrandTotalCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -333,8 +333,8 @@ internal fun SimulationChildCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -392,14 +392,14 @@ internal fun SimulationChildCard(
             }
 
             if (billing.tranchePreview.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                     billing.tranchePreview.forEach { (label, amount) ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(ElTheme.shapes.small)
                                 .background(c.surfaceVariant)
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                                .padding(horizontal = ElTheme.spacing.md, vertical = ElTheme.spacing.sm),
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(label, style = ElTheme.typography.bodySmall, color = c.textSecondary)
@@ -426,15 +426,15 @@ internal fun AtomicTransactionBanner(modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .clip(ElTheme.shapes.medium)
             .background(c.successContainer)
-            .padding(12.dp),
+            .padding(ElTheme.spacing.md),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
     ) {
         Icon(
             Icons.Default.VerifiedUser,
             contentDescription = null,
             tint = c.success,
-            modifier = Modifier.size(24.dp),
+            modifier = Modifier.size(ElTheme.spacing.xl),
         )
         Column {
             Text(

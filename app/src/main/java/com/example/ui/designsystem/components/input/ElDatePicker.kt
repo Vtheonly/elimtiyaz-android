@@ -108,7 +108,7 @@ fun ElDatePicker(
                     role = Role.DropdownList,
                     onClick = { open = true },
                 )
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = ElTheme.spacing.md),
         ) {
             Text(
                 text = displayText.ifBlank { "Select date…" },
@@ -132,19 +132,19 @@ fun ElDatePicker(
         ElDialogShell(
             onDismissRequest = { open = false },
         ) {
-            Column(modifier = Modifier.padding(vertical = 16.dp)) {
+            Column(modifier = Modifier.padding(vertical = ElTheme.spacing.lg)) {
                 DatePicker(state = datePickerState)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = ElTheme.spacing.lg),
                     horizontalArrangement = Arrangement.End,
                 ) {
                     TextButton(onClick = { open = false }) {
                         Text("Cancel", color = c.textSecondary)
                     }
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.sm))
                     TextButton(
                         onClick = {
                             datePickerState.selectedDateMillis?.let { millis ->

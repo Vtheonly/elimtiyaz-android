@@ -55,18 +55,18 @@ fun ElFab(
             )
             .alpha(alpha)
             .padding(
-                horizontal = if (label != null) 18.dp else 0.dp,
-                vertical = if (label != null) 16.dp else 0.dp,
+                horizontal = if (label != null) 18.dp else ElTheme.spacing.none,
+                vertical = if (label != null) ElTheme.spacing.lg else ElTheme.spacing.none,
             ),
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = colors.textOnColor,
-            modifier = Modifier.size(24.dp),
+            modifier = Modifier.size(ElTheme.spacing.xl),
         )
         if (label != null) {
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(ElTheme.spacing.sm))
             Text(
                 text = label,
                 color = colors.textOnColor,

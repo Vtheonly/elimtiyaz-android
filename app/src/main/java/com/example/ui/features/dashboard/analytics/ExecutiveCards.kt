@@ -169,9 +169,9 @@ fun WaveVelocityCard(
     val hasAnyRow = pooledWaves.isNotEmpty() || nonWave.isNotEmpty()
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
             // ── Header ──
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                 Text(
                     text = "Vélocité de Recouvrement par Vague Saisonnière",
                     style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -187,7 +187,7 @@ fun WaveVelocityCard(
                 color = c.textSecondary,
             )
             if (hasAnyRow) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
                             text = "$globalPct% collecté global",
@@ -224,7 +224,7 @@ fun WaveVelocityCard(
                     style = ElTheme.typography.bodySmall,
                     color = c.textSecondary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = ElTheme.spacing.xl),
                 )
             } else {
                 // ── The MAIN pooled T1/T2/T3 grid ──
@@ -361,8 +361,8 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(c.surfaceVariant.copy(alpha = 0.35f))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(ElTheme.spacing.md),
+        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
     ) {
         // Header: title + status badge
         Row(
@@ -424,14 +424,14 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(8.dp)
+                .height(ElTheme.spacing.sm)
                 .clip(RoundedCornerShape(50))
                 .background(c.surfaceVariant),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(collectedPct.coerceIn(0, 100) / 100f)
-                    .height(8.dp)
+                    .height(ElTheme.spacing.sm)
                     .clip(RoundedCornerShape(50))
                     .background(meterColor),
             )
@@ -439,11 +439,11 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
 
         // The 2×3 metric grid — the mandate's Total Due = Paid + Pending +
         // Remaining identity verifiable at a glance.
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
             PooledMetric("FACTURÉ", "${(dueTotal / 100).formatDzd()} DA", c.textPrimary, Modifier.weight(1f))
             PooledMetric("ENCAISSÉ", "${(paidTotal / 100).formatDzd()} DA", ElChartPalette.success, Modifier.weight(1f))
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
             PooledMetric(
                 "EN COURS",
                 "${(pendingTotal / 100).formatDzd()} DA",
@@ -457,7 +457,7 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
                 Modifier.weight(1f),
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
             // T-427 (DATA-048b): the sub-label is PHASE-DRIVEN — an overdue
             // wave counts its actually-late families; a future wave's owing
             // families are "à échoir" / "non soldées".
@@ -486,7 +486,7 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
         if (perCategory.isNotEmpty()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs),
             ) {
                 perCategory.forEach { cat ->
                     val catPct = if (cat.dueTotal > 0L) com.example.core.execSharePct(cat.paidTotal, cat.dueTotal) else 0
@@ -495,7 +495,7 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
                             .weight(1f)
                             .clip(RoundedCornerShape(6.dp))
                             .background(c.surfaceVariant.copy(alpha = 0.5f))
-                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                            .padding(horizontal = ElTheme.spacing.sm, vertical = 3.dp),
                     ) {
                         Text(
                             text = cat.categoryLabel,
@@ -569,7 +569,7 @@ fun DiscountErosionCard(
     modifier: Modifier = Modifier,
 ) {
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
             Text(
                 text = "Érosion des Remises",
                 style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -584,7 +584,7 @@ fun DiscountErosionCard(
                 style = ElTheme.typography.bodySmall,
                 color = ElTheme.colors.textSecondary,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(ElTheme.spacing.md))
 
             if (erosion.remiseCount == 0) {
                 Text(
@@ -592,7 +592,7 @@ fun DiscountErosionCard(
                     style = ElTheme.typography.bodySmall,
                     color = ElTheme.colors.textSecondary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = ElTheme.spacing.lg),
                 )
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -601,14 +601,14 @@ fun DiscountErosionCard(
                         style = ElTheme.typography.displaySmall.copy(fontWeight = FontWeight.Black),
                         color = ElTheme.colors.danger,
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.sm))
                     Text(
                         text = "du tarif affiché\n(brut reconstruit)",
                         style = ElTheme.typography.labelSmall,
                         color = ElTheme.colors.textSecondary,
                     )
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(ElTheme.spacing.md))
                 ExecStatRow("Remises brutes", "${(erosion.remiseTotal / 100).formatDzd()} DA")
                 if (erosion.cancelCount > 0) {
                     ExecStatRow("Annulations (double remise)", "−${(erosion.cancelTotal / 100).formatDzd()} DA")
@@ -616,9 +616,9 @@ fun DiscountErosionCard(
                 ExecStatRow("Remises nettes", "${(erosion.netRemiseTotal / 100).formatDzd()} DA")
                 ExecStatRow("Charges brutes", "${(erosion.grossCharges / 100).formatDzd()} DA")
                 ExecStatRow("Tarif affiché (reconstruit)", "${(erosion.stickerTotal / 100).formatDzd()} DA")
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
                 HorizontalDivider(color = ElTheme.colors.outlineVariant, thickness = 1.dp)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
                 ExecStatRow("Remise moyenne", "${(erosion.averageRemise / 100).formatDzd()} DA")
                 ExecStatRow(
                     "Amplitude",
@@ -656,8 +656,8 @@ fun DebtTriageCard(
 ) {
     val chronic = triage.buckets.firstOrNull { it.bucket == "chronic" }
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                 Text(
                     text = "Triage des Créances — Qui Appeler Aujourd'hui",
                     style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -679,7 +679,7 @@ fun DebtTriageCard(
                 style = ElTheme.typography.bodySmall,
                 color = ElTheme.colors.textSecondary,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(ElTheme.spacing.md))
 
             if (triage.totalOutstanding == 0L) {
                 Text(
@@ -687,7 +687,7 @@ fun DebtTriageCard(
                     style = ElTheme.typography.bodySmall,
                     color = ElTheme.colors.textSecondary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = ElTheme.spacing.lg),
                 )
             } else {
                 triage.buckets.forEach { b ->
@@ -697,11 +697,11 @@ fun DebtTriageCard(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(8.dp)
+                                .size(ElTheme.spacing.sm)
                                 .clip(CircleShape)
                                 .background(TRIAGE_COLORS[b.bucket] ?: ElTheme.colors.info),
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(ElTheme.spacing.sm))
                         Text(
                             text = b.label,
                             style = ElTheme.typography.labelMedium,
@@ -716,26 +716,26 @@ fun DebtTriageCard(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(8.dp)
+                                .height(ElTheme.spacing.sm)
                                 .clip(RoundedCornerShape(50))
                                 .background(ElTheme.colors.surfaceVariant),
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth(b.share.coerceIn(0, 100) / 100f)
-                                    .height(8.dp)
+                                    .height(ElTheme.spacing.sm)
                                     .clip(RoundedCornerShape(50))
                                     .background(TRIAGE_COLORS[b.bucket] ?: ElTheme.colors.info),
                             )
                         }
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(ElTheme.spacing.sm))
                         Text(
                             text = "${(b.amount / 100).formatDzd()} DA",
                             style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                             color = ElTheme.colors.textPrimary,
                             textAlign = TextAlign.End,
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(ElTheme.spacing.sm))
                         Text(
                             text = "${b.familyCount} fam.",
                             style = ElTheme.typography.labelSmall,
@@ -745,13 +745,13 @@ fun DebtTriageCard(
                 }
 
                 if (triage.callList.isNotEmpty()) {
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.md))
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .background(ElTheme.colors.dangerContainer.copy(alpha = 0.35f))
-                            .padding(12.dp),
+                            .padding(ElTheme.spacing.md),
                     ) {
                         Text(
                             // T-457 (§15.1 INV-16f): the "beyond RED" number
@@ -766,7 +766,7 @@ fun DebtTriageCard(
                             modifier = Modifier.weight(1f, fill = false),
                         )
                         ElInfoTip(tip = "triage.callList", size = 11)
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.xs))
                         triage.callList.forEach { f ->
                             CallListRow(f)
                         }
@@ -797,7 +797,7 @@ private fun CallListRow(f: ExecCallListEntryItem) {
             style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
             color = ElTheme.colors.danger,
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(ElTheme.spacing.sm))
         Text(
             text = "${f.worstDaysOverdue} j",
             style = ElTheme.typography.labelSmall,
@@ -821,7 +821,7 @@ fun FamilyConcentrationCard(
     modifier: Modifier = Modifier,
 ) {
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
             Text(
                 text = "Concentration des Créances par Famille",
                 style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -836,7 +836,7 @@ fun FamilyConcentrationCard(
                 style = ElTheme.typography.bodySmall,
                 color = ElTheme.colors.textSecondary,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(ElTheme.spacing.md))
 
             if (concentration.debtorFamilyCount == 0) {
                 Text(
@@ -844,7 +844,7 @@ fun FamilyConcentrationCard(
                     style = ElTheme.typography.bodySmall,
                     color = ElTheme.colors.textSecondary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = ElTheme.spacing.lg),
                 )
             } else {
                 // Header row
@@ -853,7 +853,7 @@ fun FamilyConcentrationCard(
                     Text("Enf.", style = ElTheme.typography.labelSmall, color = ElTheme.colors.textSecondary, textAlign = TextAlign.End, modifier = Modifier.width(36.dp))
                     Text("Encours", style = ElTheme.typography.labelSmall, color = ElTheme.colors.textSecondary, textAlign = TextAlign.End, modifier = Modifier.width(88.dp))
                     Text("Part", style = ElTheme.typography.labelSmall, color = ElTheme.colors.textSecondary, textAlign = TextAlign.End, modifier = Modifier.width(44.dp))
-                    Text("Retard", style = ElTheme.typography.labelSmall, color = ElTheme.colors.textSecondary, textAlign = TextAlign.End, modifier = Modifier.width(48.dp))
+                    Text("Retard", style = ElTheme.typography.labelSmall, color = ElTheme.colors.textSecondary, textAlign = TextAlign.End, modifier = Modifier.width(ElTheme.spacing.xxxl))
                 }
                 concentration.topFamilies.forEach { f ->
                     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -891,13 +891,13 @@ fun FamilyConcentrationCard(
                             style = ElTheme.typography.labelSmall,
                             color = ElTheme.colors.textSecondary,
                             textAlign = TextAlign.End,
-                            modifier = Modifier.width(48.dp),
+                            modifier = Modifier.width(ElTheme.spacing.xxxl),
                         )
                     }
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
                 HorizontalDivider(color = ElTheme.colors.outlineVariant, thickness = 1.dp)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(
                         text = "Total top ${concentration.topFamilies.size}",
@@ -930,7 +930,7 @@ fun TransportYieldCard(
     modifier: Modifier = Modifier,
 ) {
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
             Text(
                 text = "Rendement du Transport Scolaire",
                 style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -945,7 +945,7 @@ fun TransportYieldCard(
                 style = ElTheme.typography.bodySmall,
                 color = ElTheme.colors.textSecondary,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(ElTheme.spacing.md))
 
             if (transport.riders == 0) {
                 Text(
@@ -953,11 +953,11 @@ fun TransportYieldCard(
                     style = ElTheme.typography.bodySmall,
                     color = ElTheme.colors.textSecondary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = ElTheme.spacing.lg),
                 )
             } else {
                 transport.routes.forEach { r ->
-                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = ElTheme.spacing.xs)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -976,7 +976,7 @@ fun TransportYieldCard(
                                 style = ElTheme.typography.labelSmall,
                                 color = ElTheme.colors.textSecondary,
                             )
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(ElTheme.spacing.sm))
                             Text(
                                 text = "${r.collectedPct}%",
                                 style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
@@ -996,7 +996,7 @@ fun TransportYieldCard(
                     }
                 }
                 if (transport.unresolvedRawValues.isNotEmpty()) {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.sm))
                     Text(
                         text = "Valeurs non résolues : ${transport.unresolvedRawValues.joinToString(", ")}",
                         style = ElTheme.typography.labelSmall,
@@ -1022,7 +1022,7 @@ fun ServiceYieldCard(
     modifier: Modifier = Modifier,
 ) {
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
             Text(
                 text = "Rendement des Services Spécialisés",
                 style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -1037,7 +1037,7 @@ fun ServiceYieldCard(
                 style = ElTheme.typography.bodySmall,
                 color = ElTheme.colors.textSecondary,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(ElTheme.spacing.md))
 
             if (services.isEmpty()) {
                 Text(
@@ -1045,12 +1045,12 @@ fun ServiceYieldCard(
                     style = ElTheme.typography.bodySmall,
                     color = ElTheme.colors.textSecondary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = ElTheme.spacing.lg),
                 )
             } else {
                 services.forEach { s ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = ElTheme.spacing.xs),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -1067,7 +1067,7 @@ fun ServiceYieldCard(
                             style = ElTheme.typography.labelSmall,
                             color = ElTheme.colors.textSecondary,
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(ElTheme.spacing.sm))
                         Text(
                             text = "${(s.revenue / 100).formatDzd()} DA",
                             style = ElTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
@@ -1095,7 +1095,7 @@ fun EnrollmentDynamicsCard(
     modifier: Modifier = Modifier,
 ) {
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
             Text(
                 text = "Dynamique des Inscriptions",
                 style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -1112,7 +1112,7 @@ fun EnrollmentDynamicsCard(
                 style = ElTheme.typography.bodySmall,
                 color = ElTheme.colors.textSecondary,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(ElTheme.spacing.md))
 
             if (dynamics.totalStudents == 0) {
                 Text(
@@ -1120,7 +1120,7 @@ fun EnrollmentDynamicsCard(
                     style = ElTheme.typography.bodySmall,
                     color = ElTheme.colors.textSecondary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = ElTheme.spacing.lg),
                 )
             } else {
                 dynamics.familySizes.forEach { fs ->
@@ -1137,7 +1137,7 @@ fun EnrollmentDynamicsCard(
                     }
                 }
                 if (dynamics.multiChildFamilyCount > 0) {
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.xs))
                     Text(
                         text = "${dynamics.multiChildFamilyCount} familles multi-enfants (${dynamics.multiChildFamilyPct}%)",
                         style = ElTheme.typography.labelSmall,
@@ -1146,16 +1146,16 @@ fun EnrollmentDynamicsCard(
                 }
 
                 if (dynamics.imbalances.isNotEmpty()) {
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.md))
                     HorizontalDivider(color = ElTheme.colors.outlineVariant, thickness = 1.dp)
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.sm))
                     Text(
                         text = "DÉSÉQUILIBRES DE SECTIONS",
                         style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = ElTheme.colors.warning,
                     )
                     dynamics.imbalances.forEach { imb ->
-                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = ElTheme.spacing.xs)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1207,7 +1207,7 @@ fun TripleRiskSummaryCard(
     val tripleStudents = profiles.filter { it.riskCategory == "triple_critical" }.take(8)
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
             Text(
                 text = "Radar Triple Risque — Décrochage",
                 style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -1218,7 +1218,7 @@ fun TripleRiskSummaryCard(
                 style = ElTheme.typography.bodySmall,
                 color = ElTheme.colors.textSecondary,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(ElTheme.spacing.md))
 
             if (total == 0) {
                 Text(
@@ -1226,7 +1226,7 @@ fun TripleRiskSummaryCard(
                     style = ElTheme.typography.bodySmall,
                     color = ElTheme.colors.textSecondary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = ElTheme.spacing.md),
                 )
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1235,22 +1235,22 @@ fun TripleRiskSummaryCard(
                         style = ElTheme.typography.displaySmall.copy(fontWeight = FontWeight.Black),
                         color = ElTheme.colors.danger,
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.sm))
                     Text(
                         text = "élèves en risque critique\n(${summary.tripleCriticalPct}% de $total évalués)",
                         style = ElTheme.typography.labelSmall,
                         color = ElTheme.colors.textSecondary,
                     )
                 }
-                Spacer(Modifier.height(12.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Spacer(Modifier.height(ElTheme.spacing.md))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                     RiskCountTile(summary.academicAlertCount, "Moyenne < 10", Modifier.weight(1f))
                     RiskCountTile(summary.attendanceAlertCount, "Absences ≥ 3", Modifier.weight(1f))
                     RiskCountTile(summary.financialTensionCount, "Créance famille", Modifier.weight(1f))
                     RiskCountTile(summary.healthyCount, "Profils réguliers", Modifier.weight(1f))
                 }
                 if (tripleStudents.isNotEmpty()) {
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.md))
                     tripleStudents.forEach { p ->
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
@@ -1270,13 +1270,13 @@ fun TripleRiskSummaryCard(
                                 style = ElTheme.typography.labelSmall,
                                 color = ElTheme.colors.textSecondary,
                             )
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(ElTheme.spacing.sm))
                             Text(
                                 text = "${p.unexcusedAbsences}a",
                                 style = ElTheme.typography.labelSmall,
                                 color = ElTheme.colors.textSecondary,
                             )
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(ElTheme.spacing.sm))
                             Text(
                                 text = "${(p.debtAmount / 100).formatDzd()} DA",
                                 style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
@@ -1296,7 +1296,7 @@ private fun RiskCountTile(count: Int, label: String, modifier: Modifier = Modifi
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(ElTheme.colors.surfaceVariant.copy(alpha = 0.5f))
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+            .padding(vertical = ElTheme.spacing.sm, horizontal = ElTheme.spacing.xs),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
@@ -1328,7 +1328,7 @@ fun ExecutiveDashboard(
     snapshot: ExecutiveStatsSnapshot,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
         TripleRiskSummaryCard(summary = snapshot.riskSummary, profiles = snapshot.riskRadar)
         // T-454 (PARITY-007): the FULL T-447 pooled form — the pooled grid +
         // the « Hors Tranches » section + the per-category detail.

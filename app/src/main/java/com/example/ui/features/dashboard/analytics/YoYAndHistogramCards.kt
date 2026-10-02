@@ -52,12 +52,12 @@ internal fun YoYComparisonCard(
     }
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
             ElSectionHeader(
                 title = "Comparatif Annuel",
                 subtitle = "Encaissé N vs N−1 (mêmes mois)",
                 trailing = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                         // T-458: the T-447 explainability glossary (presentation-only).
                         ElInfoTip(tip = "yoy.card")
                         Text(
@@ -68,7 +68,7 @@ internal fun YoYComparisonCard(
                     }
                 },
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                 YoYTotal("N", compactDzd(yoy.totalCurrent / 100) + " DA", ElChartPalette.primaryDeep)
                 YoYTotal("N−1", compactDzd(yoy.totalPrevious / 100) + " DA", ElChartPalette.slate)
                 YoYTotal("Écart", deltaText, deltaColor)

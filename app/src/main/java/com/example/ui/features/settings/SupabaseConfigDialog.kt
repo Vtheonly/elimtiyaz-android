@@ -59,14 +59,14 @@ internal fun SupabaseConfigDialog(
     var keyVisible by remember { mutableStateOf(false) }
 
     ElDialogShell(onDismissRequest = onDismiss) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.xl), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Default.CloudSync,
                     contentDescription = null,
                     tint = c.primary,
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(ElTheme.spacing.sm))
                 Text(
                     "Connexion Base de Données",
                     style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -112,7 +112,7 @@ internal fun SupabaseConfigDialog(
                 color = c.textSecondary,
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                 ElButton(
                     text = "Annuler",
                     onClick = onDismiss,

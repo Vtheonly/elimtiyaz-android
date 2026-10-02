@@ -45,7 +45,7 @@ internal fun TableBodyRow(
                         )
                     } else Modifier
                 )
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             row.cells.forEachIndexed { cellIndex, cell ->
@@ -69,7 +69,7 @@ internal fun TableBodyRow(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = ElTheme.spacing.lg)
                     .height(1.dp)
                     .background(c.outlineVariant),
             )

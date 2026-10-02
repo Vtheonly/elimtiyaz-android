@@ -168,7 +168,7 @@ fun AlertsScreen(
     ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
         ) {
             error?.let { message ->
                 ElAlertBanner(
@@ -179,8 +179,8 @@ fun AlertsScreen(
 
             // Filter chips row
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.xs),
+                horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 typeFilters.take(6).forEach { (code, label) ->
                     ElChip(
@@ -210,10 +210,10 @@ fun AlertsScreen(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                            horizontal = 16.dp,
-                            vertical = 8.dp,
+                            horizontal = ElTheme.spacing.lg,
+                            vertical = ElTheme.spacing.sm,
                         ),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                     ) {
                         items(notifications, key = { it.id }) { notif ->
                             val (typeLabel, typeIcon, typeTone) = notificationTypeMeta(notif.type)

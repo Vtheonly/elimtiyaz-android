@@ -146,8 +146,8 @@ fun ProfileScreen(
         },
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
             item {
                 val s = session
@@ -167,8 +167,8 @@ fun ProfileScreen(
                     modifier = Modifier.fillMaxWidth(),
                     size = ElCardSize.STANDARD,
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                             ElAvatar(
                                 initials = s?.displayName?.take(2)?.uppercase(),
                                 icon = null,
@@ -192,15 +192,15 @@ fun ProfileScreen(
                                 }
                             }
                         }
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.xs))
                         sessionExpiresAt?.let { exp ->
                             val minutesLeft = ((exp - System.currentTimeMillis()) / 60_000L).coerceAtLeast(0)
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                                 Icon(
                                     Icons.Default.Schedule,
                                     contentDescription = null,
                                     tint = if (minutesLeft < 30) c.danger else c.textSecondary,
-                                    modifier = Modifier.size(16.dp),
+                                    modifier = Modifier.size(ElTheme.spacing.lg),
                                 )
                                 Text(
                                     "Session expire dans : ${minutesLeft}min",
@@ -219,10 +219,10 @@ fun ProfileScreen(
                     modifier = Modifier.fillMaxWidth(),
                     size = ElCardSize.STANDARD,
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Lock, contentDescription = null, tint = c.primary, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(8.dp))
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = c.primary, modifier = Modifier.size(ElTheme.spacing.lg))
+                            Spacer(Modifier.width(ElTheme.spacing.sm))
                             Text(
                                 "Permissions",
                                 style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
@@ -234,21 +234,21 @@ fun ProfileScreen(
                                 color = c.textSecondary,
                             )
                         }
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.md))
                         ElLinearProgress(
                             progress = if (viewModel.permissionTotal > 0) permissionCount.toFloat() / viewModel.permissionTotal else 0f,
                         )
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.md))
                         FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
+                            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                         ) {
                             s?.permissions?.take(12)?.forEach { p ->
                                 ElTag(text = p.code, tone = ElTagTone.NEUTRAL, size = ElTagSize.SM)
                             }
                         }
                         if ((s?.permissions?.size ?: 0) > 12) {
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(ElTheme.spacing.sm))
                             Text(
                                 "… et ${(s?.permissions?.size ?: 0) - 12} de plus",
                                 style = ElTheme.typography.labelSmall,
@@ -264,12 +264,12 @@ fun ProfileScreen(
                     modifier = Modifier.fillMaxWidth(),
                     size = ElCardSize.STANDARD,
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
                         Text(
                             "Gouvernance du mot de passe",
                             style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         )
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.md))
                         ElButton(
                             text = "Modifier mon mot de passe",
                             onClick = onChangePassword,
@@ -286,12 +286,12 @@ fun ProfileScreen(
                     modifier = Modifier.fillMaxWidth(),
                     size = ElCardSize.STANDARD,
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
                         Text(
                             "Activité récente (10 dernières actions)",
                             style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         )
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.sm))
                         if (recentActivity.isEmpty()) {
                             Text(
                                 "Aucune activité.",
@@ -300,7 +300,7 @@ fun ProfileScreen(
                             )
                         } else {
                             recentActivity.forEach { entry ->
-                                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                Column(modifier = Modifier.padding(vertical = ElTheme.spacing.xs)) {
                                     Text(
                                         "${entry.action} • ${entry.entityType}/${entry.entityId.take(8)}",
                                         style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
@@ -333,8 +333,8 @@ fun ProfileScreen(
     if (showSignOutConfirm) {
         ElDialogShell(onDismissRequest = { showSignOutConfirm = false }) {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.xl),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
             ) {
                 Text(
                     "Se déconnecter ?",
@@ -346,7 +346,7 @@ fun ProfileScreen(
                     style = ElTheme.typography.bodyMedium,
                     color = c.textSecondary,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                     ElButton(
                         text = "Annuler",
                         onClick = { showSignOutConfirm = false },

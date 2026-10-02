@@ -41,7 +41,7 @@ fun ElBadge(
             .clip(ElPillShape)
             .background(bg)
             .then(if (borderColor != null) Modifier.border(1.dp, borderColor, ElPillShape) else Modifier)
-            .padding(horizontal = 8.dp, vertical = 3.dp),
+            .padding(horizontal = ElTheme.spacing.sm, vertical = 3.dp),
     ) {
         if (dot) {
             Row(
@@ -57,7 +57,7 @@ fun ElBadge(
                 imageVector = icon,
                 contentDescription = null,
                 tint = fg,
-                modifier = Modifier.padding(end = 4.dp).size(12.dp),
+                modifier = Modifier.padding(end = ElTheme.spacing.xs).size(ElTheme.spacing.md),
             )
         }
         Text(

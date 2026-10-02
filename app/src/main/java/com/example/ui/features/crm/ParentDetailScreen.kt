@@ -149,24 +149,24 @@ fun ParentDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(ElTheme.spacing.lg)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.lg),
         ) {
             error?.let { Text(it, color = c.danger) }
 
             parent?.let { p ->
                 ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             ElAvatar(initials = p.fullName, size = ElAvatarSize.L)
-                            Spacer(Modifier.width(12.dp))
+                            Spacer(Modifier.width(ElTheme.spacing.md))
                             Column {
                                 Text(p.fullName, style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
                                 Text(p.code, style = ElTheme.typography.bodyMedium, color = c.textSecondary)
                             }
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
@@ -181,8 +181,8 @@ fun ParentDetailScreen(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Call, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(8.dp))
+                                    Icon(Icons.Default.Call, contentDescription = null, tint = Color.White, modifier = Modifier.size(ElTheme.spacing.lg))
+                                    Spacer(Modifier.width(ElTheme.spacing.sm))
                                     Text("Appeler", color = Color.White, style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                                 }
                             }
@@ -200,8 +200,8 @@ fun ParentDetailScreen(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Whatsapp, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(8.dp))
+                                    Icon(Icons.Default.Whatsapp, contentDescription = null, tint = Color.White, modifier = Modifier.size(ElTheme.spacing.lg))
+                                    Spacer(Modifier.width(ElTheme.spacing.sm))
                                     Text("WhatsApp", color = Color.White, style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                                 }
                             }
@@ -210,9 +210,9 @@ fun ParentDetailScreen(
                 }
 
                 ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                         ElSectionHeader(title = "Contact")
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.xs))
                         ElInfoRow(label = "Code", value = p.code)
                         ElInfoRow(label = "Téléphone", value = p.phone)
                         p.whatsapp?.takeIf { it.isNotBlank() && it != p.phone }?.let {
@@ -240,9 +240,9 @@ fun ParentDetailScreen(
 
             summary?.let { s ->
                 ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                         ElSectionHeader(title = "Finances")
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.xs))
                         ElInfoRow(label = "Total facturé", value = "${(s.totalCharged / 100).formatDzd()} DZD")
                         ElInfoRow(label = "Total payé", value = "${(s.totalPaid / 100).formatDzd()} DZD", valueTint = c.success)
                         ElInfoRow(label = "Solde", value = "${(s.totalOutstanding / 100).formatDzd()} DZD")
@@ -250,8 +250,8 @@ fun ParentDetailScreen(
                             ElInfoRow(label = "En retard", value = "${(s.totalOverdue / 100).formatDzd()} DZD", valueTint = c.danger)
                         }
 
-                        Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Spacer(Modifier.height(ElTheme.spacing.sm))
+                        Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                             ElButton(
                                 text = "Encaisser",
                                 onClick = { parent?.id?.let { onNavigateToCounter(it, null) } },
@@ -300,7 +300,7 @@ fun ParentDetailScreen(
             billingBreakdown?.let { bd ->
                 if (bd.byChild.isNotEmpty() && bd.totalBilled > 0L) {
                     ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -323,7 +323,7 @@ fun ParentDetailScreen(
                                 )
                             }
                             bd.byChild.forEach { childBd ->
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -426,7 +426,7 @@ fun ParentDetailScreen(
                                 }
                             }
 
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(ElTheme.spacing.xs))
                             Text(
                                 "Par service :",
                                 style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
@@ -456,12 +456,12 @@ fun ParentDetailScreen(
                                 }
                             }
 
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(ElTheme.spacing.sm))
                             val recon = bd.reconciliation
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 4.dp),
+                                    .padding(top = ElTheme.spacing.xs),
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
                             ) {
                                 Text(
@@ -501,7 +501,7 @@ fun ParentDetailScreen(
 
             if (classifiedAdjustments.isNotEmpty()) {
                 ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                         ElSectionHeader(title = "Ajustements (${classifiedAdjustments.size})")
                         classifiedAdjustments.forEach { adj ->
                             val isCredit = adj.kind == "credit"
@@ -516,9 +516,9 @@ fun ParentDetailScreen(
                                     .fillMaxWidth()
                                     .clip(com.example.ui.designsystem.theme.ElShapes.small)
                                     .background(c.surfaceVariant.copy(alpha = 0.4f))
-                                    .padding(12.dp),
+                                    .padding(ElTheme.spacing.md),
                             ) {
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -549,7 +549,7 @@ fun ParentDetailScreen(
             }
 
             ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -576,10 +576,10 @@ fun ParentDetailScreen(
                                     indication = null,
                                     onClick = { onOpenStudent(kid.id) },
                                 )
-                                .padding(vertical = 4.dp),
+                                .padding(vertical = ElTheme.spacing.xs),
                         ) {
                             ElAvatar(initials = kid.fullName, size = ElAvatarSize.S)
-                            Spacer(Modifier.width(12.dp))
+                            Spacer(Modifier.width(ElTheme.spacing.md))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(kid.fullName, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
                                 Text(kid.gradeLevel, style = ElTheme.typography.bodySmall, color = c.textSecondary)
@@ -601,7 +601,7 @@ fun ParentDetailScreen(
                     .sortedBy { it.first }
                 if (activeServices.isNotEmpty()) {
                     ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                             ElSectionHeader(title = "Services actifs (${activeServices.size})")
                             activeServices.forEach { (studentId, category, remaining) ->
                                 Row(
@@ -632,7 +632,7 @@ fun ParentDetailScreen(
                 .take(5)
             if (upcoming.isNotEmpty()) {
                 ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                         ElSectionHeader(title = "Échéancier (${installments.count { it.status != com.example.core.PaymentStatus.PAID }} en cours)")
                         upcoming.forEach { inst ->
                             val statusTone = when (inst.status.name) {
@@ -663,7 +663,7 @@ fun ParentDetailScreen(
             if (payments.isNotEmpty()) {
                 val recent = payments.sortedByDescending { it.collectedAt }.take(10)
                 ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                         ElSectionHeader(title = "Historique des paiements (${payments.size})")
                         recent.forEach { pay ->
                             Row(
@@ -728,8 +728,8 @@ fun ParentDetailScreen(
                 modifier = Modifier
                     .verticalScroll(rememberScrollState())
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = ElTheme.spacing.xl, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
             ) {
                 Text(
                     "Modifier le parent",
@@ -743,7 +743,7 @@ fun ParentDetailScreen(
                 ElTextField(value = occupation, onValueChange = { occupation = it }, label = "Profession", modifier = Modifier.fillMaxWidth())
                 ElTextField(value = address, onValueChange = { address = it }, label = "Adresse", singleLine = false, modifier = Modifier.fillMaxWidth())
                 Text("Code ${p.code} — non modifiable.", style = ElTheme.typography.labelSmall, color = c.textSecondary)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                     ElButton(
                         text = "Annuler",
                         onClick = { showEditDialog = false },

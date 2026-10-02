@@ -53,7 +53,7 @@ internal fun DemographicsCard(
     }
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
             ElSectionHeader(
                 title = "Démographie",
                 subtitle = "$totalStudents élèves actifs",
@@ -67,7 +67,7 @@ internal fun DemographicsCard(
                         color = c.textSecondary,
                         style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.sm))
                     Box(contentAlignment = Alignment.Center) {
                         ElDonutChart(
                             segments = demographics.gender.mapIndexed { i, g ->
@@ -93,7 +93,7 @@ internal fun DemographicsCard(
                         color = c.textSecondary,
                         style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.xs))
                     ElBarChart(
                         data = demographics.grade.take(14).map {
                             ElBarChartItem(label = it.label, value = it.count.toFloat(), color = ElChartPalette.primary)
@@ -111,7 +111,7 @@ internal fun DemographicsCard(
                         color = c.textSecondary,
                         style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.xs))
                     ElBarChart(
                         data = demographics.age.map {
                             ElBarChartItem(label = it.label, value = it.count.toFloat(), color = ElChartPalette.cyan)

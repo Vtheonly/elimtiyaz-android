@@ -45,7 +45,7 @@ internal fun WeeklyOperatingRhythmCard(
     }
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
             ElSectionHeader(
                 title = "Rythme d'Encaissement Hebdomadaire",
                 subtitle = "Volume journalier au guichet (Dimanche à Jeudi)",

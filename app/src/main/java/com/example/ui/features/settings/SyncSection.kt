@@ -40,10 +40,10 @@ internal fun SyncSection(
     val c = ElTheme.colors
     var showConfigDialog by remember { mutableStateOf(false) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
         ElSectionHeader(title = "Synchronisation")
         ElCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                 ElInfoRow(
                     label = "État",
                     value = if (syncState.isRunning) "Synchronisation en cours…" else "Prêt",
@@ -67,7 +67,7 @@ internal fun SyncSection(
                         color = c.danger,
                     )
                 }
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(ElTheme.spacing.xs))
                 ElButton(
                     text = if (syncState.isRunning) "…" else "Synchroniser maintenant",
                     onClick = onSyncNow,

@@ -154,7 +154,7 @@ fun ProofScannerScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Box(
                                 modifier = Modifier
-                                    .size(64.dp)
+                                    .size(ElTheme.spacing.huge)
                                     .clip(CircleShape)
                                     .background(c.primary.copy(alpha = 0.1f)),
                                 contentAlignment = Alignment.Center,
@@ -162,11 +162,11 @@ fun ProofScannerScreen(
                                 Icon(
                                     Icons.Default.CameraAlt,
                                     contentDescription = null,
-                                    modifier = Modifier.size(32.dp),
+                                    modifier = Modifier.size(ElTheme.spacing.xxl),
                                     tint = c.primary,
                                 )
                             }
-                            Spacer(Modifier.height(12.dp))
+                            Spacer(Modifier.height(ElTheme.spacing.md))
                             Text("Aperçu de la pièce", style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), color = c.textPrimary)
                             Text(
                                 "Chèque, virement bancaire ou reçu de dépense",

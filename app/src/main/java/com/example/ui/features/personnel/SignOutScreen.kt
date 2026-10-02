@@ -53,13 +53,13 @@ fun SignOutScreen(session: Session, onNavigateToProfile: () -> Unit) {
     val c = ElTheme.colors
     Column(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
     ) {
         ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
             ) {
                 ElAvatar(
                     initials = session.displayName.take(2).uppercase(),
@@ -75,7 +75,7 @@ fun SignOutScreen(session: Session, onNavigateToProfile: () -> Unit) {
                     session.email?.let { email ->
                         Text(email, style = ElTheme.typography.bodySmall, color = c.textSecondary)
                     }
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.sm))
                     ElTag(
                         text = roleLabel(session.role),
                         tone = ElTagTone.INFO,

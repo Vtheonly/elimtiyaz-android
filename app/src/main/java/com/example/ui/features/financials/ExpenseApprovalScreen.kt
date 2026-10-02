@@ -243,8 +243,8 @@ fun ExpenseApprovalScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
             error?.let {
                 ElAlertBanner(
@@ -290,7 +290,7 @@ fun ExpenseApprovalScreen(
                         subtitle = "Les demandes soumises apparaîtront ici.",
                     )
                 } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                         items(expenses) { expense ->
                             ExpenseCard(
                                 expense = expense,
@@ -315,8 +315,8 @@ fun ExpenseApprovalScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = ElTheme.spacing.xl, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
             ) {
                 Text(
                     "Rejeter la dépense ${exp.requestCode}",
@@ -336,7 +336,7 @@ fun ExpenseApprovalScreen(
                     singleLine = false,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                     ElButton(
                         text = "Annuler",
                         onClick = { rejectTarget = null },
@@ -370,8 +370,8 @@ fun ExpenseApprovalScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = ElTheme.spacing.xl, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
             ) {
                 Text(
                     "Téléverser le justificatif",
@@ -406,7 +406,7 @@ fun ExpenseApprovalScreen(
                         icon = Icons.Default.UploadFile,
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                     ElButton(
                         text = "Annuler",
                         onClick = { settleTarget = null },
@@ -453,14 +453,14 @@ private fun ExpenseDetailView(
     onNavigateToProofScanner: (() -> Unit)?,
 ) {
     val c = ElTheme.colors
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
         item {
             ElCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .padding(ElTheme.spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -480,7 +480,7 @@ private fun ExpenseDetailView(
                     if (expense.description.isNotBlank()) {
                         Text(expense.description, style = ElTheme.typography.bodySmall)
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.xs))
                     ElInfoRow(label = "Montant", value = elMoneyFormat(expense.amount))
                     ElInfoRow(
                         label = "Demandeur",
@@ -509,10 +509,10 @@ private fun ExpenseDetailView(
 
         // ── Actions (gated by status AND session permissions) ────────────
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                 when (expense.status) {
                     "submitted" -> {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                             ElButton(
                                 text = "Approuver",
                                 onClick = onApprove,
@@ -587,8 +587,8 @@ private fun ExpenseTimeline(expense: Expense) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
         ) {
             ElSectionHeader(title = "Cycle de vie")
             stages.forEachIndexed { idx, (label, at, by) ->
@@ -601,7 +601,7 @@ private fun ExpenseTimeline(expense: Expense) {
                         imageVector = if (active) Icons.Default.Check else Icons.Default.Schedule,
                         contentDescription = null,
                         tint = if (active) ElTheme.colors.success else ElTheme.colors.textSecondary,
-                        modifier = Modifier.padding(end = 8.dp),
+                        modifier = Modifier.padding(end = ElTheme.spacing.sm),
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -619,11 +619,11 @@ private fun ExpenseTimeline(expense: Expense) {
                     }
                 }
                 if (idx < stages.lastIndex) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(ElTheme.spacing.xs))
                 }
             }
             if (expense.status == "rejected") {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(ElTheme.spacing.sm))
                 Text(
                     "Rejetée${expense.approvalNote?.let { " : $it" } ?: ""}",
                     style = ElTheme.typography.bodySmall,
@@ -647,8 +647,8 @@ private fun ExpenseCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -683,8 +683,8 @@ private fun ExpenseCard(
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(Modifier.height(ElTheme.spacing.sm))
+            Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                 when (expense.status) {
                     "submitted" -> {
                         ElButton(text = "Approuver", onClick = onApprove, variant = ElButtonVariant.TONAL, size = ElButtonSize.SMALL)

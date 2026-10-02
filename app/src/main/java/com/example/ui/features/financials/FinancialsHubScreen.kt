@@ -21,6 +21,7 @@ import com.example.core.Session
 import com.example.ui.designsystem.components.button.ElFab
 import com.example.ui.designsystem.components.tabs.ElScrollableTabRow
 import com.example.ui.features.financials.FinancialsHubViewModel
+import com.example.ui.designsystem.theme.ElTheme
 
 @Composable
 fun FinancialsHubScreen(
@@ -119,7 +120,7 @@ fun FinancialsHubScreen(
                 onClick = onNavigateToExpenseSubmit,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(16.dp),
+                    .padding(ElTheme.spacing.lg),
                 contentDescription = "Nouvelle dépense",
             )
         }

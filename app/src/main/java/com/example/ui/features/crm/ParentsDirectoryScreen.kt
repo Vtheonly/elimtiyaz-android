@@ -116,15 +116,15 @@ fun ParentsDirectoryScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 12.dp),
+                .padding(bottom = ElTheme.spacing.md),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
             Icon(
                 Icons.Default.FamilyRestroom,
                 contentDescription = null,
                 tint = ElTheme.colors.primary,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(ElTheme.spacing.xl),
             )
             Text(
                 "${parents.size} ${if (parents.size > 1) "familles enregistrées" else "famille enregistrée"}",
@@ -141,11 +141,11 @@ fun ParentsDirectoryScreen(
             placeholder = "Nom, prénom, téléphone, code…",
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 12.dp),
+                .padding(bottom = ElTheme.spacing.md),
         )
 
         error?.let { err ->
-            Text(err, color = c.danger, modifier = Modifier.padding(8.dp))
+            Text(err, color = c.danger, modifier = Modifier.padding(ElTheme.spacing.sm))
         }
 
         if (parents.isEmpty()) {
@@ -153,13 +153,13 @@ fun ParentsDirectoryScreen(
                 icon = Icons.Default.Person,
                 title = "Aucun parent trouvé",
                 subtitle = if (query.isBlank()) "Aucun parent enregistré." else "Aucun parent ne correspond à « $query ».",
-                modifier = Modifier.padding(top = 32.dp),
+                modifier = Modifier.padding(top = ElTheme.spacing.xxl),
             )
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
             ) {
                 items(parents, key = { it.id }) { parent ->
                     ParentCard(
@@ -196,7 +196,7 @@ private fun ParentCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ElAvatar(initials = parent.fullName, size = ElAvatarSize.M)
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(ElTheme.spacing.md))
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -207,7 +207,7 @@ private fun ParentCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.sm))
                     parent.relationship?.let { relationship ->
                         ElTag(text = relationship.replaceFirstChar { it.uppercase() }, tone = ElTagTone.INFO)
                     }
@@ -223,7 +223,7 @@ private fun ParentCard(
                     color = c.textSecondary,
                 )
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(ElTheme.spacing.sm))
             QuickActionCircle(
                 icon = Icons.Default.Call,
                 contentDescription = "Appeler ${parent.fullName}",
@@ -231,7 +231,7 @@ private fun ParentCard(
                 tint = c.success,
                 onClick = onCall,
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(ElTheme.spacing.sm))
             QuickActionCircle(
                 icon = Icons.Default.Forum,
                 contentDescription = "Message WhatsApp à ${parent.fullName}",

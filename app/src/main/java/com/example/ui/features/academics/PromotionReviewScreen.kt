@@ -112,14 +112,14 @@ fun PromotionReviewScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(horizontal = ElTheme.spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
             // ── Summary header ──────────────────────────────────────────
             ElCard(
                 modifier = Modifier.fillMaxWidth(),
                 border = BorderStroke(ElTheme.borders.thin, c.primary.copy(alpha = 0.45f)),
             ) {
-                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                     ElSectionHeader(title = "Étape 3 sur 4 — Revue avant exécution")
                     Text(
                         "La moyenne annuelle de chaque élève a été calculée (moteur canonique, " +
@@ -128,10 +128,10 @@ fun PromotionReviewScreen(
                         style = ElTheme.typography.bodySmall,
                         color = c.textSecondary,
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.xs))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                     ) {
                         SummaryStat("Promus", approved, c.success, Modifier.weight(1f))
                         SummaryStat("Redoublants", retained, c.danger, Modifier.weight(1f))
@@ -163,7 +163,7 @@ fun PromotionReviewScreen(
                 // ── Step 3: the review queue ────────────────────────────
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                 ) {
                     items(candidates, key = { it.student.id }) { candidate ->
                         PromotionCandidateRow(
@@ -173,14 +173,14 @@ fun PromotionReviewScreen(
                     }
                     item {
                         if (canPromote && candidates.isNotEmpty()) {
-                            Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(ElTheme.spacing.xs))
                             ElButton(
                                 text = if (isExecuting) "Exécution…" else "Exécuter la promotion ($approved promus / $retained redoublants)",
                                 onClick = { showExecuteConfirm = true },
                                 enabled = !isExecuting,
                                 fullWidth = true,
                             )
-                            Spacer(Modifier.height(12.dp))
+                            Spacer(Modifier.height(ElTheme.spacing.md))
                         } else if (!canPromote) {
                             Text(
                                 "Permission manquante : PROMOTE_STUDENT.",
@@ -216,8 +216,8 @@ fun PromotionReviewScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = ElTheme.spacing.xl, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
             ) {
                 Text(
                     "Exécuter la promotion — ${klass?.name ?: ""}",
@@ -232,7 +232,7 @@ fun PromotionReviewScreen(
                     style = ElTheme.typography.bodySmall,
                     color = c.textSecondary,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                     ElButton(
                         text = "Exécuter",
                         onClick = {
@@ -280,10 +280,10 @@ private fun PromotionCandidateRow(
             else -> BorderStroke(ElTheme.borders.thin, c.danger.copy(alpha = 0.45f))
         },
     ) {
-        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ElAvatar(initials = candidate.student.fullName, size = ElAvatarSize.M)
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(ElTheme.spacing.md))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(candidate.student.fullName, style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
                     Text(
@@ -295,7 +295,7 @@ private fun PromotionCandidateRow(
                 DecisionTag(candidate.decision)
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                 Box(
                     modifier = Modifier
                         .size(44.dp)
@@ -325,7 +325,7 @@ private fun PromotionCandidateRow(
                         style = ElTheme.typography.labelSmall,
                         color = c.textSecondary,
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(ElTheme.spacing.xs))
                     ElLinearProgress(progress = ((gpa ?: 0.0) / 20.0).toFloat())
                 }
             }
@@ -357,7 +357,7 @@ private fun SummaryStat(label: String, count: Int, color: androidx.compose.ui.gr
         modifier = modifier
             .clip(ElTheme.shapes.small)
             .background(color.copy(alpha = 0.10f))
-            .padding(vertical = 8.dp),
+            .padding(vertical = ElTheme.spacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text("$count", style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = color)
@@ -395,8 +395,8 @@ private fun OverrideDecisionDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = ElTheme.spacing.xl, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
                 Text(
                     "Arbitrage — ${candidate.student.fullName}",
@@ -413,7 +413,7 @@ private fun OverrideDecisionDialog(
                     color = c.textSecondary,
                 )
                 Text("Nouvelle décision", style = ElTheme.typography.labelMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                     ElChip(
                         text = "Promouvoir",
                         variant = ElChipVariant.ASSIST,
@@ -441,7 +441,7 @@ private fun OverrideDecisionDialog(
                 )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 ElButton(
                     text = "Réinitialiser",

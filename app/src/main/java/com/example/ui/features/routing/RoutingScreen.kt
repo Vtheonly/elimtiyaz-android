@@ -179,7 +179,7 @@ fun RoutingScreen(
             )
         },
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
             error?.let {
                 ElAlertBanner(
                     title = it,
@@ -188,7 +188,7 @@ fun RoutingScreen(
             }
 
             // Shift filter
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                 listOf(RoutingShift.Morning, RoutingShift.Afternoon, RoutingShift.Both).forEach { shift ->
                     ElChip(
                         text = shift.displayFr,
@@ -215,7 +215,7 @@ fun RoutingScreen(
                     )
                 }
                 else -> {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                         items(vehicles) { vehicle ->
                             VehicleCard(
                                 vehicle = vehicle,
@@ -240,7 +240,7 @@ fun RoutingScreen(
                         modifier = Modifier.fillMaxWidth(),
                         size = ElCardSize.COMPACT,
                     ) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.sm)) {
                             Text("Véhicule : ${trip.vehicleId}", style = ElTheme.typography.bodySmall, color = c.textPrimary)
                             Text("Début : ${trip.startedAt}", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                             Text("Arrêts : ${trip.stopsCompleted}/${trip.stopsPlanned}", style = ElTheme.typography.labelSmall, color = c.textSecondary)
@@ -265,8 +265,8 @@ private fun VehicleCard(
         modifier = Modifier.fillMaxWidth(),
         size = ElCardSize.STANDARD,
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(ElTheme.spacing.lg)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
                 androidx.compose.material3.Icon(Icons.Default.LocalShipping, contentDescription = null, tint = c.primary)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(vehicle.plate, style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
@@ -274,14 +274,14 @@ private fun VehicleCard(
                     Text("Chauffeur : ${vehicle.driverName ?: "Sans chauffeur"}", style = ElTheme.typography.labelSmall, color = c.textSecondary)
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(ElTheme.spacing.sm))
             optimised?.let { route ->
                 Text("Arrêts : ${route.stops.size}", style = ElTheme.typography.bodySmall, color = c.textPrimary)
                 Text("Distance : %.2f km".format(route.totalDistanceKm), style = ElTheme.typography.bodySmall, color = c.textPrimary)
                 Text("Durée : %.0f min".format(route.totalDurationMin), style = ElTheme.typography.bodySmall, color = c.textPrimary)
             }
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(Modifier.height(ElTheme.spacing.md))
+            Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                 ElButton(
                     text = if (optimised == null) "Optimiser" else "Re-optimiser",
                     onClick = onOptimise,

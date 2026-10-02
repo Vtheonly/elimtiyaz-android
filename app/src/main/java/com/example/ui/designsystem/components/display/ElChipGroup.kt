@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.ui.designsystem.theme.ElTheme
 
 /**
  * Chip group — lays out multiple filter chips with consistent spacing.
@@ -23,8 +24,8 @@ fun ElChipGroup(
 ) {
     FlowRow(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
     ) {
         chips.forEachIndexed { index, (label, selected) ->
             ElChip(

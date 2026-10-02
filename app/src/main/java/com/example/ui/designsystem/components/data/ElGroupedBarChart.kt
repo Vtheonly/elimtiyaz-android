@@ -54,7 +54,7 @@ fun ElGroupedBarChart(
     val maxVal = pairs.maxOfOrNull { maxOf(it.primary, it.secondary) }?.takeIf { it > 0f } ?: 1f
 
     Column(modifier = modifier) {
-        Canvas(modifier = Modifier.height(height).padding(start = 4.dp, end = 4.dp, top = 4.dp)) {
+        Canvas(modifier = Modifier.height(height).padding(start = ElTheme.spacing.xs, end = ElTheme.spacing.xs, top = ElTheme.spacing.xs)) {
             val chartHeight = size.height
             val n = pairs.size.coerceAtLeast(1)
             val slot = size.width / n
@@ -95,7 +95,7 @@ fun ElGroupedBarChart(
             }
         }
 
-        Row(modifier = Modifier.padding(horizontal = 4.dp)) {
+        Row(modifier = Modifier.padding(horizontal = ElTheme.spacing.xs)) {
             pairs.forEachIndexed { i, g ->
                 val show = pairs.size <= 6 || i == 0 || i == pairs.size / 2 || i == pairs.size - 1
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -110,15 +110,15 @@ fun ElGroupedBarChart(
             }
         }
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(ElTheme.spacing.xs))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
-                Canvas(modifier = Modifier.width(8.dp).height(8.dp)) { drawRect(color = secondaryColor) }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = ElTheme.spacing.xs)) {
+                Canvas(modifier = Modifier.width(ElTheme.spacing.sm).height(ElTheme.spacing.sm)) { drawRect(color = secondaryColor) }
                 Spacer(Modifier.width(3.dp))
                 Text(secondaryLabel, color = c.textSecondary, style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp), maxLines = 1)
             }
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
-                Canvas(modifier = Modifier.width(8.dp).height(8.dp)) { drawRect(color = primaryColor) }
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = ElTheme.spacing.xs)) {
+                Canvas(modifier = Modifier.width(ElTheme.spacing.sm).height(ElTheme.spacing.sm)) { drawRect(color = primaryColor) }
                 Spacer(Modifier.width(3.dp))
                 Text(primaryLabel, color = c.textSecondary, style = ElTheme.typography.labelSmall.copy(fontSize = 10.sp), maxLines = 1)
             }

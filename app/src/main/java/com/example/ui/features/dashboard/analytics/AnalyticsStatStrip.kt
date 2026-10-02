@@ -45,7 +45,7 @@ internal fun AnalyticsStatStrip(
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
     ) {
         StatCard(
             title = "OPÉRATIONS",
@@ -74,7 +74,7 @@ internal fun AnalyticsStatStrip(
     }
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
     ) {
         StatCard(
             title = "MÉDIANE",
@@ -120,7 +120,7 @@ private fun StatCard(
         variant = com.example.ui.designsystem.components.card.ElCardVariant.OUTLINED,
         elevation = null,
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(ElTheme.spacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = title,
@@ -131,7 +131,7 @@ private fun StatCard(
                 // T-458: the T-447 explainability glossary (presentation-only).
                 if (tip != null) ElInfoTip(tip = tip, size = 10)
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(ElTheme.spacing.xs))
             Text(
                 text = value,
                 color = color,

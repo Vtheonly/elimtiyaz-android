@@ -109,8 +109,8 @@ internal fun TranchesTab(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
+        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
     ) {
         // PARITY-003 — the global T1/T2/T3 collection-health meters (the
         // desktop installment-schedule-tab twin; engine-derived values).
@@ -158,7 +158,7 @@ internal fun TranchesTab(
                     ) {
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             ElAvatar(initials = p.fullName, size = ElAvatarSize.S)
-                            Spacer(Modifier.width(12.dp))
+                            Spacer(Modifier.width(ElTheme.spacing.md))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     p.fullName,
@@ -182,7 +182,7 @@ internal fun TranchesTab(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onSelectParent("") }
-                        .padding(vertical = 4.dp),
+                        .padding(vertical = ElTheme.spacing.xs),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -190,7 +190,7 @@ internal fun TranchesTab(
                         contentDescription = null,
                         tint = c.primary,
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.sm))
                     Text(
                         "Retour à la liste des familles",
                         style = ElTheme.typography.bodyMedium,
@@ -205,8 +205,8 @@ internal fun TranchesTab(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                            .padding(ElTheme.spacing.lg),
+                        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -231,7 +231,7 @@ internal fun TranchesTab(
                             )
                         }
 
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.xs))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Progression de scolarité", style = ElTheme.typography.labelSmall)
                             Text(
@@ -262,7 +262,7 @@ internal fun TranchesTab(
                             color = if (remainingDebt > 0) c.danger else c.success,
                         )
 
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.sm))
                         ElButton(
                             text = "Encaisser un paiement pour cette famille",
                             onClick = { onNavigateToCounter(selectedParent.id, null) },
@@ -303,7 +303,7 @@ internal fun TranchesTab(
                     ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.COMPACT) {
                         Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -336,8 +336,8 @@ internal fun TranchesTab(
                             )
 
                             if (inst.status != PaymentStatus.PAID) {
-                                Spacer(Modifier.height(4.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Spacer(Modifier.height(ElTheme.spacing.xs))
+                                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
                                     ElButton(
                                         text = "Encaisser au guichet",
                                         onClick = { onNavigateToCounter(selectedParent.id, inst.studentId) },
@@ -367,8 +367,8 @@ internal fun TranchesTab(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = ElTheme.spacing.xl, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
             ) {
                 Text(
                     "Valider la tranche comme payée ?",
@@ -381,7 +381,7 @@ internal fun TranchesTab(
                     style = ElTheme.typography.bodySmall,
                     color = c.textSecondary,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                     ElButton(
                         text = "Annuler",
                         onClick = { markPaidTarget = null },

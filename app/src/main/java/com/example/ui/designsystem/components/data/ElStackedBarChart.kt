@@ -56,7 +56,7 @@ fun ElStackedBarChart(
     } ?: emptyList()
 
     androidx.compose.foundation.layout.Column(modifier = modifier) {
-        Canvas(modifier = Modifier.height(height).padding(start = 4.dp, end = 4.dp, top = 4.dp)) {
+        Canvas(modifier = Modifier.height(height).padding(start = ElTheme.spacing.xs, end = ElTheme.spacing.xs, top = ElTheme.spacing.xs)) {
             val chartHeight = size.height
             val n = groups.size.coerceAtLeast(1)
             val slot = size.width / n
@@ -97,7 +97,7 @@ fun ElStackedBarChart(
         }
 
         // X labels row
-        Row(modifier = Modifier.padding(horizontal = 4.dp)) {
+        Row(modifier = Modifier.padding(horizontal = ElTheme.spacing.xs)) {
             groups.forEach { g ->
                 androidx.compose.foundation.layout.Box(
                     modifier = Modifier.weight(1f),
@@ -116,12 +116,12 @@ fun ElStackedBarChart(
 
         // Legend (the series names — Espèces / Chèque / Virement)
         if (seriesLabels.isNotEmpty()) {
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(ElTheme.spacing.xs))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val seriesColors = groups.firstOrNull()?.segments?.map { it.color } ?: emptyList<Color>()
                 seriesLabels.forEachIndexed { i, label ->
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
-                        Canvas(modifier = Modifier.width(8.dp).height(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = ElTheme.spacing.xs)) {
+                        Canvas(modifier = Modifier.width(ElTheme.spacing.sm).height(ElTheme.spacing.sm)) {
                             drawRect(color = seriesColors.getOrElse(i) { c.primary })
                         }
                         Spacer(Modifier.width(3.dp))

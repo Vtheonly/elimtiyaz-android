@@ -110,8 +110,8 @@ fun ChangePasswordModal(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = ElTheme.spacing.xl, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
         ) {
             Text(
                 "Changer le mot de passe",
@@ -144,7 +144,7 @@ fun ChangePasswordModal(
             )
 
             val strength = passwordStrength(new)
-            Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(top = ElTheme.spacing.xs)) {
                 StrengthRow("8 caractères minimum", strength.minLength)
                 StrengthRow("Une lettre minuscule", strength.hasLower)
                 StrengthRow("Une lettre majuscule", strength.hasUpper)
@@ -161,7 +161,7 @@ fun ChangePasswordModal(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             ) {
                 ElButton(
                     text = if (state.isLoading) "..." else "Changer",
@@ -193,13 +193,13 @@ private fun StrengthRow(label: String, met: Boolean) {
             if (met) Icons.Default.Check else Icons.Default.Close,
             contentDescription = null,
             tint = if (met) c.primary else c.outline,
-            modifier = Modifier.height(16.dp),
+            modifier = Modifier.height(ElTheme.spacing.lg),
         )
         Text(
             label,
             style = ElTheme.typography.bodySmall,
             color = if (met) c.primary else c.textSecondary,
-            modifier = Modifier.padding(start = 8.dp),
+            modifier = Modifier.padding(start = ElTheme.spacing.sm),
         )
     }
 }

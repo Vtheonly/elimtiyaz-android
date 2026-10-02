@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 import com.example.ui.designsystem.components.button.ElButton
 import com.example.ui.designsystem.components.button.ElButtonSize
 import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.theme.ElTheme
 
 /**
  * Confirmation dialog — destructive or neutral. Pre-built for the most common
@@ -44,7 +45,7 @@ fun ElConfirmationDialog(
                     variant = ElButtonVariant.GHOST,
                     size = ElButtonSize.MEDIUM,
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(ElTheme.spacing.sm))
                 ElButton(
                     text = confirmLabel,
                     onClick = {

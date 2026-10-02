@@ -52,7 +52,7 @@ fun AuditStreamScreen(
     val logs by viewModel.logs.collectAsState()
     var selectedAuditLog by remember { mutableStateOf<AuditLog?>(null) }
 
-    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
         ElSectionHeader(
             title = "Journal d'Audit (${logs.size})",
             // T-460: the legacy actionText/onAction pair → the DS trailing
@@ -75,7 +75,7 @@ fun AuditStreamScreen(
             return@Column
         }
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxSize()) {
             items(logs) { log ->
                 ElCard(
                     modifier = Modifier.fillMaxWidth(),
@@ -94,10 +94,10 @@ fun AuditStreamScreen(
                                 color = c.textSecondary,
                             )
                         }
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.xs))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
                         ) {
                             Text(
                                 log.actorName,
@@ -122,10 +122,10 @@ fun AuditStreamScreen(
                             )
                         }
 
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(ElTheme.spacing.sm))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Code, contentDescription = null, tint = c.primary, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
+                            Icon(Icons.Default.Code, contentDescription = null, tint = c.primary, modifier = Modifier.size(ElTheme.spacing.lg))
+                            Spacer(Modifier.width(ElTheme.spacing.xs))
                             Text("Voir le diff par champ", style = ElTheme.typography.labelSmall, color = c.primary)
                         }
                     }

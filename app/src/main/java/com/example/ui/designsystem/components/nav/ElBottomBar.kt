@@ -33,8 +33,8 @@ fun ElBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(horizontal = 8.dp, vertical = 8.dp)
-                .height(64.dp),
+                .padding(horizontal = ElTheme.spacing.sm, vertical = ElTheme.spacing.sm)
+                .height(ElTheme.spacing.huge),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             destinations.forEach { dest ->

@@ -150,35 +150,35 @@ fun StudentRosterScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 12.dp),
+                .padding(bottom = ElTheme.spacing.md),
             shape = RoundedCornerShape(12.dp),
             color = c.surfaceVariant.copy(alpha = 0.5f),
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(12.dp)
+                            .size(ElTheme.spacing.md)
                             .clip(CircleShape)
                             .background(
                                 if (isConfigured) c.primary
                                 else c.textMuted,
                             ),
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.sm))
                     Icon(
                         Icons.Default.School,
                         contentDescription = null,
                         tint = ElTheme.colors.primary,
                         modifier = Modifier.size(20.dp),
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(ElTheme.spacing.sm))
                     Text(
                         text = "${students.size} élève${if (students.size > 1) "s" else ""}",
                         style = ElTheme.typography.titleMedium,
@@ -216,7 +216,7 @@ fun StudentRosterScreen(
             placeholder = "Nom, prénom, matricule…",
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 12.dp),
+                .padding(bottom = ElTheme.spacing.md),
         )
 
         if (students.isEmpty()) {
@@ -224,13 +224,13 @@ fun StudentRosterScreen(
                 icon = Icons.Default.Person,
                 title = "Aucun élève trouvé",
                 subtitle = if (query.isBlank()) "Aucun élève inscrit." else "Aucun élève ne correspond à « $query ».",
-                modifier = Modifier.padding(top = 32.dp),
+                modifier = Modifier.padding(top = ElTheme.spacing.xxl),
             )
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
             ) {
                 items(students, key = { it.id }) { student ->
                     ElCard(
@@ -243,7 +243,7 @@ fun StudentRosterScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             ElAvatar(initials = student.fullName, size = ElAvatarSize.M)
-                            Spacer(Modifier.width(12.dp))
+                            Spacer(Modifier.width(ElTheme.spacing.md))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     student.fullName,

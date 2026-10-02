@@ -61,7 +61,7 @@ internal fun DropdownTrigger(
                 role = Role.DropdownList,
                 onClick = onOpen,
             )
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = ElTheme.spacing.md),
     ) {
         if (selectedIcon != null) {
             Icon(
@@ -105,7 +105,7 @@ internal fun DropdownPopup(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = ElTheme.spacing.xl)
                 .clip(ElFieldShape)
                 .background(c.surface)
                 .border(ElTheme.borders.thin, c.outline, ElFieldShape),
@@ -140,7 +140,7 @@ internal fun DropdownOptionRow(
                 indication = null,
                 onClick = onSelect,
             )
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = ElTheme.spacing.md),
     ) {
         if (option.icon != null) {
             Icon(

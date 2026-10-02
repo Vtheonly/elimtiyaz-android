@@ -89,7 +89,7 @@ private fun ContextMenuItemRow(item: ElContextMenuItem, onDismiss: () -> Unit) {
                     onDismiss()
                 },
             )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
     ) {
         if (item.icon != null) {
             Icon(
@@ -98,7 +98,7 @@ private fun ContextMenuItemRow(item: ElContextMenuItem, onDismiss: () -> Unit) {
                 tint = if (item.destructive) c.danger else c.textSecondary,
                 modifier = Modifier.size(18.dp),
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(ElTheme.spacing.md))
         }
         Text(
             text = item.label,
@@ -116,8 +116,8 @@ private fun ContextMenuDivider() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .size(width = 0.dp, height = 1.dp)
+            .padding(horizontal = ElTheme.spacing.lg)
+            .size(width = ElTheme.spacing.none, height = 1.dp)
             .background(c.outlineVariant),
     )
 }

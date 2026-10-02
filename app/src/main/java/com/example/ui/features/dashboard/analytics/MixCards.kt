@@ -60,8 +60,8 @@ internal fun MethodMixCard(
 
     ElCard(modifier = modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(ElTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             ElSectionHeader(title = "Mode de Paiement", subtitle = "Encaissé par méthode")
@@ -82,7 +82,7 @@ internal fun MethodMixCard(
                 }
             }
             // Full per-method table (the desktop tooltip rows)
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                 methodMix.forEach { m ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -126,7 +126,7 @@ internal fun CategoryMixCard(
     var byAmount by remember { mutableStateOf(true) }
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
             ElSectionHeader(
                 title = "Postes d'Encaissement",
                 subtitle = "Classement par montant",
@@ -134,7 +134,7 @@ internal fun CategoryMixCard(
                     // The Montant / Nb op. metric toggle (desktop convention)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         MetricToggleLabel("Montant", byAmount) { byAmount = true }
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(ElTheme.spacing.sm))
                         MetricToggleLabel("Nb op.", !byAmount) { byAmount = false }
                     }
                 },
@@ -167,6 +167,6 @@ private fun MetricToggleLabel(label: String, active: Boolean, onClick: () -> Uni
         ),
         modifier = Modifier
             .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 2.dp),
+            .padding(horizontal = ElTheme.spacing.xs, vertical = 2.dp),
     )
 }

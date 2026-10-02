@@ -44,7 +44,7 @@ internal fun TableHeader(
         modifier = Modifier
             .fillMaxWidth()
             .background(c.surfaceVariant)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         columns.forEachIndexed { index, col ->
@@ -99,7 +99,7 @@ private fun TableColumnHeader(
             modifier = Modifier.weight(1f, fill = false),
         )
         if (column.sortable && isSorted) {
-            Spacer(Modifier.size(4.dp))
+            Spacer(Modifier.size(ElTheme.spacing.xs))
             Icon(
                 imageVector = if (sortAscending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
                 contentDescription = null,
