@@ -1,6 +1,7 @@
 package com.example.ui.features.dashboard
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material.icons.Icons
@@ -12,16 +13,22 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.ui.designsystem.components.button.ElButton
 import com.example.ui.designsystem.components.button.ElButtonSize
 import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.display.ElBadge
+import com.example.ui.designsystem.components.display.ElBadgeStyle
+import com.example.ui.designsystem.components.display.ElBadgeTone
 import com.example.ui.designsystem.components.display.ElSectionHeader
 
 /**
  * Section (3) — Direct Operational Quick Actions.
  * Fast shortcuts for daily administrative and financial actions.
+ * T-102 v2 (133rd session): the Messagerie action carries the unread badge
+ * (the live windowed count; 0 = no badge — never a fabricated count).
  */
 @Composable
 internal fun DashboardQuickActionsRow(
@@ -31,6 +38,7 @@ internal fun DashboardQuickActionsRow(
     onNavigateToAcademics: () -> Unit,
     onNavigateToDebtDashboard: () -> Unit,
     onNavigateToChat: () -> Unit = {},
+    unreadMessages: Int = 0,
 ) {
     ElSectionHeader(
         title = "Actions Rapides",
@@ -87,13 +95,23 @@ internal fun DashboardQuickActionsRow(
             )
         }
         item {
-            ElButton(
-                text = "Messagerie",
-                onClick = onNavigateToChat,
-                variant = ElButtonVariant.OUTLINED,
-                size = ElButtonSize.MEDIUM,
-                icon = Icons.Default.Forum,
-            )
+            Box {
+                ElButton(
+                    text = "Messagerie",
+                    onClick = onNavigateToChat,
+                    variant = ElButtonVariant.OUTLINED,
+                    size = ElButtonSize.MEDIUM,
+                    icon = Icons.Default.Forum,
+                )
+                if (unreadMessages > 0) {
+                    ElBadge(
+                        text = if (unreadMessages > 99) "99+" else unreadMessages.toString(),
+                        tone = ElBadgeTone.DANGER,
+                        style = ElBadgeStyle.SOLID,
+                        modifier = Modifier.align(Alignment.TopEnd),
+                    )
+                }
+            }
         }
     }
 }

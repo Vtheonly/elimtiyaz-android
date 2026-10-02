@@ -17,13 +17,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * T-102-follow-up — the channel-list side of the Android chat (v1).
+ * T-102-follow-up — the channel-list side of the Android chat
+ * (v1: 21st session; v2: 133rd — unread badges from the Room cache).
  *
  * Loads the signed-in staff member's channels on open, then refreshes on
  * realtime chat events (T-069's manager, the tableEvents bus) while the
- * screen is visible. Online-only by design (v1 scope decision, recorded
- * in the task entry): a load failure surfaces as [ChatListState.error] —
- * the operator sees the truth, never a silent empty list.
+ * screen is visible. Since v2 the repository is the Room-caching
+ * decorator: an online load failure with cached history serves the cache
+ * (Result.Ok) — only a cold offline start surfaces [ChatListState.error]
+ * (the operator sees the truth, never a silent empty list).
  */
 @HiltViewModel
 class ChatViewModel @Inject constructor(
@@ -36,6 +38,9 @@ class ChatViewModel @Inject constructor(
         val loading: Boolean = false,
         val channels: List<ChatChannel> = emptyList(),
         val error: String? = null,
+        // v2: per-channel unread badge counts (from the Room cache; empty
+        // offline cold start = no badges — never fabricated counts).
+        val unreadByChannel: Map<String, Int> = emptyMap(),
     )
 
     private val _state = MutableStateFlow(ChatListState())
@@ -56,10 +61,14 @@ class ChatViewModel @Inject constructor(
             _state.value = _state.value.copy(loading = true, error = null)
             when (val result = chatRepository.channels(s.userId)) {
                 is Result.Ok -> {
-                    _state.value = ChatListState(loading = false, channels = result.value)
+                    _state.value = ChatListState(
+                        loading = false,
+                        channels = result.value,
+                        unreadByChannel = chatRepository.unreadByChannel(s.userId),
+                    )
                 }
                 is Result.Err -> {
-                    _state.value = ChatListState(
+                    _state.value = _state.value.copy(
                         loading = false,
                         channels = _state.value.channels, // keep stale content visible
                         error = result.error.userMessage,

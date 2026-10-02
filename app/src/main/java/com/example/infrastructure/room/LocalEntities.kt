@@ -4,6 +4,14 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 /**
  * Local source-of-truth entities — Room is the PRIMARY store for this build.
@@ -613,3 +621,140 @@ data class WorkflowRunEntity(
     val resultJson: String?,
     val errorMessage: String?,
 )
+
+// ═══════════════════════════════════════════════════════════════════════════
+// T-102 chat v2 (133rd session) — the Room cache for the canonical chat
+// tables. Chat stays ONLINE-AUTHORITATIVE (sends are online-only, the
+// server is the system of record); these tables are a READ cache so the
+// channel list and conversation history survive cold starts offline and
+// load instantly (the v1 deferral, closed — see the T-129 scope note).
+// ═══════════════════════════════════════════════════════════════════════════
+
+@Entity(tableName = "chat_channels", indices = [Index("lastMessageAt")])
+data class ChatChannelEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val code: String,
+    val name: String,
+    val channelType: String,
+    // uuid[] joined with "," (uuids are hex+hyphen — the round trip is exact).
+    val memberIdsJoined: String,
+    val description: String? = null,
+    val departmentId: String? = null,
+    val archivedAt: String? = null,
+    val lastMessageAt: String? = null,
+    val lastMessagePreview: String? = null,
+    val createdBy: String? = null,
+    val createdAt: String? = null,
+) {
+    val memberIds: List<String>
+        get() = if (memberIdsJoined.isEmpty()) emptyList() else memberIdsJoined.split(",")
+
+    fun toDomain() = com.example.domain.model.ChatChannel(
+        id = id,
+        tenantId = tenantId,
+        code = code,
+        name = name,
+        channelType = channelType,
+        memberIds = memberIds,
+        description = description,
+        departmentId = departmentId,
+        archivedAt = archivedAt,
+        lastMessageAt = lastMessageAt,
+        lastMessagePreview = lastMessagePreview,
+        createdBy = createdBy,
+        createdAt = createdAt,
+    )
+
+    companion object {
+        fun fromDomain(c: com.example.domain.model.ChatChannel) = ChatChannelEntity(
+            id = c.id,
+            tenantId = c.tenantId,
+            code = c.code,
+            name = c.name,
+            channelType = c.channelType,
+            memberIdsJoined = c.memberIds.joinToString(","),
+            description = c.description,
+            departmentId = c.departmentId,
+            archivedAt = c.archivedAt,
+            lastMessageAt = c.lastMessageAt,
+            lastMessagePreview = c.lastMessagePreview,
+            createdBy = c.createdBy,
+            createdAt = c.createdAt,
+        )
+    }
+}
+
+@Entity(
+    tableName = "chat_messages",
+    indices = [Index("channelId"), Index("sentAt")],
+)
+data class ChatMessageEntity(
+    @PrimaryKey val id: String,
+    val tenantId: String,
+    val channelId: String,
+    val authorId: String,
+    val body: String,
+    val sentAt: String,
+    // The read-receipt jsonb, stored as the server's compact JSON text
+    // (the T-310 pattern: stringify on write, parse on read — a malformed
+    // row degrades to "unread", never crashes the chat screen).
+    val readByJson: String,
+    val deletedAt: String? = null,
+    val editedAt: String? = null,
+    val parentMessageId: String? = null,
+) {
+    fun toDomain(): com.example.domain.model.ChatMessage {
+        val receipts = runCatching {
+            val arr = Json.parseToJsonElement(readByJson.ifBlank { "[]" }).jsonArray
+            arr.mapNotNull { el ->
+                runCatching {
+                    val obj = el.jsonObject
+                    com.example.domain.model.ChatMessage.ReadReceipt(
+                        userId = obj["user_id"]?.jsonPrimitive?.content ?: return@mapNotNull null,
+                        readAt = obj["read_at"]?.jsonPrimitive?.content ?: "",
+                    )
+                }.getOrNull()
+            }
+        }.getOrDefault(emptyList())
+        return com.example.domain.model.ChatMessage(
+            id = id,
+            tenantId = tenantId,
+            channelId = channelId,
+            authorId = authorId,
+            body = body,
+            sentAt = sentAt,
+            readBy = receipts,
+            deletedAt = deletedAt,
+            editedAt = editedAt,
+            parentMessageId = parentMessageId,
+        )
+    }
+
+    companion object {
+        fun fromDomain(m: com.example.domain.model.ChatMessage): ChatMessageEntity {
+            val json = buildJsonArray {
+                m.readBy.forEach { r ->
+                    add(
+                        buildJsonObject {
+                            put("user_id", r.userId)
+                            put("read_at", r.readAt)
+                        }
+                    )
+                }
+            }
+            return ChatMessageEntity(
+                id = m.id,
+                tenantId = m.tenantId,
+                channelId = m.channelId,
+                authorId = m.authorId,
+                body = m.body,
+                sentAt = m.sentAt,
+                readByJson = json.toString(),
+                deletedAt = m.deletedAt,
+                editedAt = m.editedAt,
+                parentMessageId = m.parentMessageId,
+            )
+        }
+    }
+}

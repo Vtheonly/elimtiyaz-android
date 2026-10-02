@@ -5,23 +5,22 @@ import com.example.domain.model.ChatChannel
 import com.example.domain.model.ChatMessage
 
 /**
- * T-102-follow-up / ANDR-CHAT-200 — the Android chat READ-SIDE + ONLINE
- * SENDS repository (v1, 21st session 2026-09-02).
+ * T-102-follow-up / ANDR-CHAT-200 — the Android chat repository
+ * (v1: 21st session 2026-09-02; v2: 133rd session 2026-10-02).
  *
  * Scope decisions (recorded in the task entry):
- *   - READ + SEND are ONLINE-ONLY in v1: the canonical chat tables are
- *     live on the backend since migration 0061 and the desktop + website
- *     are live; the Android v1 mirrors the website's MessagesView
- *     semantics verbatim (channels by membership, ordering by
- *     last_message_at, messages asc, send = direct insert, markRead =
- *     append own read_by entry). NO Room cache: a Room schema bump (v11 →
- *     v12 + explicit migration + MigrationTestHelper, per the ARCH-004
- *     discipline) is deliberately deferred — offline chat history is a
- *     v2 decision, not a guess.
+ *   - The SERVER is the system of record; RLS scopes every query to the
+ *     caller's visible rows. SENDS are ONLINE-ONLY forever (a queued send
+ *     would need server-side channel-membership checks at drain time that
+ *     the 0051/0061 triggers cannot give).
+ *   - v2 added the Room READ cache (schema v17, the T-129 deferral closed):
+ *     reads succeed online → the cache is refreshed; reads fail offline →
+ *     the last cached content is served (Result.Ok) so the channel list
+ *     and history survive cold starts; an EMPTY cache surfaces the honest
+ *     Result.Err. The bound implementation is the caching decorator
+ *     (CachedChatRepository) over the Supabase repository.
  *   - Channel CREATION is staff-only by design (ADR-008: parents see the
  *     channels staff open) — this repository does NOT create channels.
- *   - The server remains the system of record; RLS scopes every query to
- *     the caller's visible rows.
  */
 interface ChatRepository {
 
@@ -46,6 +45,16 @@ interface ChatRepository {
      * 500-message window).
      */
     suspend fun unreadCount(profileId: String, window: Int = 500): Result<Int>
+
+    /**
+     * Per-channel unread counts derived from the LOCAL cache (v2): a
+     * message is unread when it was not authored by [profileId] and has no
+     * [profileId] entry in its read-receipt array. Default = no badges —
+     * the caching decorator overrides this with the cache-derived map;
+     * a cache-less implementation serves nothing (the online windowed
+     * [unreadCount] remains the global source).
+     */
+    suspend fun unreadByChannel(profileId: String): Map<String, Int> = emptyMap()
 
     /**
      * Send a message to [channelId] (online only — failures surface as

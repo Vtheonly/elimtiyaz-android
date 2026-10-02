@@ -62,6 +62,8 @@ class DashboardViewModel @Inject constructor(
     private val dashboardRepository: DashboardRepository,
     private val paymentRepository: PaymentRepository,
     notificationRepository: NotificationRepository,
+    private val chatRepository: com.example.domain.repository.ChatRepository,
+    private val sessionManager: com.example.session.SessionManager,
 ) : ViewModel() {
 
     // PARITY-002: the loading placeholder is HONEST — all-zero, no fabricated
@@ -156,6 +158,13 @@ class DashboardViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // T-102 v2 (133rd session): the Messagerie quick-action unread badge.
+    // The windowed global count is a LIVE query (WEAK-023's server-side
+    // window semantics); offline/Err → stays at the last known value, and
+    // 0 renders no badge (never a fabricated count).
+    private val _unreadMessages = MutableStateFlow(0)
+    val unreadMessages: StateFlow<Int> = _unreadMessages.asStateFlow()
+
     init {
         refresh()
     }
@@ -173,6 +182,18 @@ class DashboardViewModel @Inject constructor(
                 _error.value = null
             } finally {
                 _isLoading.value = false
+            }
+        }
+        refreshUnreadMessages()
+    }
+
+    /** T-102 v2 — the Messagerie badge count (live query; Err keeps the last value). */
+    private fun refreshUnreadMessages() {
+        val s = sessionManager.state.value ?: return
+        viewModelScope.launch {
+            when (val r = chatRepository.unreadCount(s.userId)) {
+                is Result.Ok -> _unreadMessages.value = r.value
+                is Result.Err -> Unit // keep the last known count; 0 renders no badge
             }
         }
     }

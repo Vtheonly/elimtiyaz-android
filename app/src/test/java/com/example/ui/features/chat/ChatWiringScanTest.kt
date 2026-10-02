@@ -11,12 +11,17 @@ import java.io.File
  * Pins the structural decisions a unit test cannot reach:
  *   1. the routes exist and are RBAC-gated on USE_CHAT;
  *   2. the AppNavHost wires both screens through rbacGate;
- *   3. the DI binds ChatRepository to the Supabase implementation (NOT the
- *      Local* layer — chat is online-only v1);
- *   4. the dashboard exposes the Messagerie quick action;
+ *   3. the DI binds ChatRepository to the Room-caching decorator over the
+ *      Supabase implementation (v2: stale-while-error reads, online-only
+ *      sends) — still NOT the Local*Repository/sync-queue layer;
+ *   4. the dashboard exposes the Messagerie quick action (+ the v2 unread
+ *      badge);
  *   5. NO channel-creation UI exists on Android (ADR-008: staff create
  *      channels from the desktop's parent-detail drawer; the Android app
- *      is read + reply only, same as the parent portal).
+ *      is read + reply only, same as the parent portal);
+ *   6. the Supabase repository keeps the canonical website query
+ *      semantics AND routes every call through NetworkTimeouts (the v2
+ *      IO-guard fix — the 37th-session registered debt, closed).
  */
 class ChatWiringScanTest {
 
@@ -53,18 +58,22 @@ class ChatWiringScanTest {
     }
 
     @Test
-    fun `DI binds ChatRepository to the Supabase implementation`() {
+    fun `DI binds ChatRepository to the caching decorator over the Supabase implementation`() {
         val di = read("com/example/di/SupabaseModule.kt")
-        assertTrue(di.contains("fun provideChatRepository"))
-        assertTrue(di.contains("SupabaseChatRepository"))
+        assertTrue("v2: the bound repository is the Room-caching decorator", di.contains("CachedChatRepository"))
+        assertTrue("the online-authoritative half is the Supabase implementation", di.contains("SupabaseChatRepository"))
+        assertTrue("the decorator receives the Room chat DAO", di.contains("db.chatDao()"))
     }
 
     @Test
-    fun `the dashboard exposes the Messagerie quick action`() {
+    fun `the dashboard exposes the Messagerie quick action with the unread badge`() {
         val quick = read("com/example/ui/features/dashboard/DashboardQuickActionsRow.kt")
         assertTrue(quick.contains("\"Messagerie\""))
+        assertTrue("v2: the unread badge rides the quick action", quick.contains("unreadMessages"))
+        assertTrue(quick.contains("ElBadge"))
         val hub = read("com/example/ui/features/dashboard/DashboardHubScreen.kt")
         assertTrue(hub.contains("onNavigateToChat"))
+        assertTrue(hub.contains("unreadMessages = unreadMessages"))
         val main = read("com/example/ui/features/main/MainScreen.kt")
         assertTrue(main.contains("onNavigateToChat: () -> Unit"))
     }
@@ -92,5 +101,17 @@ class ChatWiringScanTest {
         // send = direct insert; markRead = append own receipt (0051)
         assertTrue(repo.contains("from(\"chat_messages\").insert(row)"))
         assertTrue(repo.contains("update(patch)"))
+    }
+
+    @Test
+    fun `every SupabaseChatRepository call routes through NetworkTimeouts (the v2 IO-guard)`() {
+        val repo = read("com/example/infrastructure/supabase/SupabaseChatRepository.kt")
+        // reads: guard (IO relocation + timeout; null → honest Err)
+        assertTrue(repo.contains("NetworkTimeouts.guard(\"chat.channels\")"))
+        assertTrue(repo.contains("NetworkTimeouts.guard(\"chat.messages\")"))
+        assertTrue(repo.contains("NetworkTimeouts.guard(\"chat.unreadCount\")"))
+        // writes: guardSyncPush (CROSS-200 — a rejected write never looks successful)
+        assertTrue(repo.contains("NetworkTimeouts.guardSyncPush(\"chat.send\")"))
+        assertTrue(repo.contains("NetworkTimeouts.guardSyncPush(\"chat.markRead\")"))
     }
 }

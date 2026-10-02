@@ -50,8 +50,11 @@ import androidx.room.RoomDatabase
         ClassSubjectEntity::class,
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
+        // T-102 chat v2 (133rd session) — the chat READ cache (v17)
+        ChatChannelEntity::class,
+        ChatMessageEntity::class,
     ],
-    version = 16,
+    version = 17,
     // T-046-gap (session 18): schemas are exported from now on (ksp arg
     // room.schemaLocation → app/schemas/) so MigrationTestHelper upgrade
     // tests can pin every future schema bump. 12.json was backfilled from
@@ -89,6 +92,9 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
     abstract fun classSubjectDao(): ClassSubjectDao
     abstract fun releveEntryDao(): ReleveEntryDao
     abstract fun workflowRunDao(): WorkflowRunDao
+
+    // T-102 chat v2 (133rd session) — the chat READ cache
+    abstract fun chatDao(): ChatDao
 
     companion object {
         /**
@@ -507,6 +513,45 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
                 )
                 database.execSQL(
                     "ALTER TABLE subjects ADD COLUMN coefficientCc REAL NOT NULL DEFAULT 0.0"
+                )
+            }
+        }
+
+        /**
+         * T-102 chat v2 (133rd session, ANDR-CHAT-200 residual): the chat
+         * READ cache — chat_channels + chat_messages. Pure CREATE TABLE (a
+         * first-population cache, no backfill possible or needed: v1 was
+         * online-only, so no pre-existing chat rows exist locally). The
+         * server remains the system of record; sends stay online-only.
+         */
+        val MIGRATION_16_17 = object : androidx.room.migration.Migration(16, 17) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `chat_channels` (`id` TEXT NOT NULL, " +
+                        "`tenantId` TEXT NOT NULL, `code` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`channelType` TEXT NOT NULL, `memberIdsJoined` TEXT NOT NULL, " +
+                        "`description` TEXT, `departmentId` TEXT, `archivedAt` TEXT, " +
+                        "`lastMessageAt` TEXT, `lastMessagePreview` TEXT, `createdBy` TEXT, " +
+                        "`createdAt` TEXT, PRIMARY KEY(`id`))"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_chat_channels_lastMessageAt` " +
+                        "ON `chat_channels` (`lastMessageAt`)"
+                )
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `chat_messages` (`id` TEXT NOT NULL, " +
+                        "`tenantId` TEXT NOT NULL, `channelId` TEXT NOT NULL, " +
+                        "`authorId` TEXT NOT NULL, `body` TEXT NOT NULL, `sentAt` TEXT NOT NULL, " +
+                        "`readByJson` TEXT NOT NULL, `deletedAt` TEXT, `editedAt` TEXT, " +
+                        "`parentMessageId` TEXT, PRIMARY KEY(`id`))"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_chat_messages_channelId` " +
+                        "ON `chat_messages` (`channelId`)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_chat_messages_sentAt` " +
+                        "ON `chat_messages` (`sentAt`)"
                 )
             }
         }

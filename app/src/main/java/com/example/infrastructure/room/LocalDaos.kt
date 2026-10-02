@@ -673,3 +673,35 @@ interface WorkflowRunDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<WorkflowRunEntity>)
 }
+/**
+ * T-102 chat v2 (133rd session) — the chat READ cache. Chat is
+ * online-authoritative; these queries serve the offline/cold-start path.
+ * Replace-style writes keep the cache honest (the fresh server pull IS the
+ * caller's full channel set; RLS scopes it to the signed-in user).
+ */
+@Dao
+interface ChatDao {
+    @Query("SELECT * FROM chat_channels ORDER BY lastMessageAt IS NULL, lastMessageAt DESC")
+    suspend fun channels(): List<ChatChannelEntity>
+
+    @Query("SELECT * FROM chat_messages WHERE channelId = :channelId ORDER BY sentAt ASC LIMIT :limit")
+    suspend fun messages(channelId: String, limit: Int = 200): List<ChatMessageEntity>
+
+    @Query("SELECT * FROM chat_messages")
+    suspend fun allMessages(): List<ChatMessageEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertChannels(rows: List<ChatChannelEntity>)
+
+    @Query("DELETE FROM chat_channels")
+    suspend fun clearChannels()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertMessages(rows: List<ChatMessageEntity>)
+
+    @Query("DELETE FROM chat_messages WHERE channelId = :channelId")
+    suspend fun clearMessages(channelId: String)
+
+    @Query("DELETE FROM chat_messages")
+    suspend fun clearAllMessages()
+}
