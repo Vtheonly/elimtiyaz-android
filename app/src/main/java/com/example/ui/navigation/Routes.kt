@@ -84,7 +84,15 @@ object Routes {
         val channelId: String,
         val name: String = "",
         val isAnnouncement: Boolean = false,
+        // T-463 / CHAT-300: the portal tag for parent/student conversations
+        // (the two chat systems are labelled, never mixed).
+        val isPortal: Boolean = false,
     ) : Route
+
+    // T-463 / CHAT-300: the PORTAL↔STAFF messenger (parents/élèves
+    // conversations — the CRM "Portail" tab). The internal staff messenger
+    // stays at [Chat]; the two systems are separate surfaces.
+    @Serializable object PortalChat : Route
 
     // Settings
     @Serializable object Settings : Route
@@ -118,6 +126,8 @@ val RoutePermissions: Map<KClass<out Route>, Permission> = mapOf(
     // Chat (T-102-follow-up): staff chat access — USE_CHAT (core/Rbak.kt)
     Routes.Chat::class to Permission.USE_CHAT,
     Routes.ChatDetail::class to Permission.USE_CHAT,
+    // T-463 / CHAT-300: the portal messenger rides the same chat permission.
+    Routes.PortalChat::class to Permission.USE_CHAT,
 
     // CRM detail routes
     Routes.StudentDetail::class to Permission.VIEW_ROSTER,

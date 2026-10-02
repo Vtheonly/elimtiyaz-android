@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.domain.model.ChatChannel
+import com.example.domain.model.ChatChannelScope
 import com.example.ui.designsystem.components.button.ElIconButton
 import com.example.ui.designsystem.components.display.ElAlertBanner
 import com.example.ui.designsystem.components.display.ElAlertSeverity
@@ -56,6 +57,11 @@ import java.time.temporal.ChronoUnit
  * files; the send path lives in ChatDetail). Channel rows show the channel
  * name, and a last-activity timestamp when present.
  *
+ * T-463 / CHAT-300: the TWO chat systems are separate surfaces — [scope]
+ * selects which one this screen shows (INTERNAL = the staff workplace
+ * messenger; PORTAL = the parent/student conversations, embedded in the
+ * CRM hub). The two lists are NEVER mixed.
+ *
  * T-460 pass G-c (issue #3 F-06): the raw-M3 chrome → the design system
  * (ElScaffold/ElTopBar, the DS spinner in the top bar, ElAlertBanner for
  * errors, ElEmptyState for the empty case). The ADR-008 read-side contract
@@ -65,15 +71,20 @@ import java.time.temporal.ChronoUnit
 fun ChatScreen(
     onBack: () -> Unit,
     onOpenChannel: (ChatChannel) -> Unit,
+    scope: ChatChannelScope = ChatChannelScope.INTERNAL,
+    /** Hub-tab embeds pass null — no top bar (the hub owns the chrome). */
+    topBarTitle: String? = "Messagerie",
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val c = ElTheme.colors
     val state by viewModel.state.collectAsState()
+    // T-463 / CHAT-300: ONLY this scope's channels — never mixed.
+    val scopedChannels = state.channels.filter { it.scope == scope.wire }
 
     ElScaffold(
         topBar = {
-            ElTopBar(
-                title = "Messagerie",
+            if (topBarTitle != null) ElTopBar(
+                title = if (scope == ChatChannelScope.PORTAL) "Messagerie Portail" else topBarTitle,
                 onBack = onBack,
                 actions = {
                     if (state.loading) {
@@ -107,15 +118,15 @@ fun ChatScreen(
                 )
             }
 
-            if (!state.loading && state.channels.isEmpty() && state.error == null) {
-                EmptyChannelsHint()
+            if (!state.loading && scopedChannels.isEmpty() && state.error == null) {
+                EmptyChannelsHint(scope)
             }
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = ElTheme.spacing.sm),
             ) {
-                items(state.channels, key = { it.id }) { channel ->
+                items(scopedChannels, key = { it.id }) { channel ->
                     ChannelRow(
                         channel = channel,
                         unread = state.unreadByChannel[channel.id] ?: 0,
@@ -128,12 +139,19 @@ fun ChatScreen(
 }
 
 @Composable
-private fun EmptyChannelsHint() {
+private fun EmptyChannelsHint(scope: ChatChannelScope) {
     ElEmptyState(
         icon = Icons.Default.Refresh,
         title = "Aucune conversation",
-        subtitle = "Les conversations sont ouvertes par le personnel depuis le bureau " +
-            "(fiche parent → Messager). Les parents y répondent depuis le portail.",
+        subtitle = when (scope) {
+            // T-463 / CHAT-300: each system explains ITS own flow.
+            ChatChannelScope.PORTAL ->
+                "Les conversations avec les parents et élèves du portail apparaissent ici. " +
+                    "Ouvrez-en une depuis une fiche parent (bouton Messager)."
+            ChatChannelScope.INTERNAL ->
+                "Les canaux internes du personnel sont ouverts depuis la Messagerie du bureau " +
+                    "(l'application de bureau ou mobile du personnel)."
+        },
     )
 }
 

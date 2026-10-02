@@ -33,6 +33,9 @@ data class ChatChannelDto(
     @SerialName("code") val code: String,
     @SerialName("name") val name: String,
     @SerialName("channel_type") val channelType: String,
+    // T-463 / CHAT-300 (0135): which chat system — server-derived. Absent
+    // on pre-0135 rows (impossible after the live backfill) → internal.
+    @SerialName("scope") val scope: String? = null,
     @SerialName("member_ids") val memberIds: List<String> = emptyList(),
     @SerialName("description") val description: String? = null,
     @SerialName("department_id") val departmentId: String? = null,
@@ -48,6 +51,7 @@ data class ChatChannelDto(
         code = code,
         name = name,
         channelType = channelType,
+        scope = scope ?: "internal",
         memberIds = memberIds,
         description = description,
         departmentId = departmentId,

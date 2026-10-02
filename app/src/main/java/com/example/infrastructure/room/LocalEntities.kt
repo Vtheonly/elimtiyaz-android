@@ -637,6 +637,10 @@ data class ChatChannelEntity(
     val code: String,
     val name: String,
     val channelType: String,
+    // T-463 / CHAT-300 (0135, schema v18): which chat system this channel
+    // belongs to — "internal" | "portal" (server-derived; the Room cache
+    // stores the server's value verbatim).
+    val scope: String = "internal",
     // uuid[] joined with "," (uuids are hex+hyphen — the round trip is exact).
     val memberIdsJoined: String,
     val description: String? = null,
@@ -656,6 +660,7 @@ data class ChatChannelEntity(
         code = code,
         name = name,
         channelType = channelType,
+        scope = scope,
         memberIds = memberIds,
         description = description,
         departmentId = departmentId,
@@ -673,6 +678,7 @@ data class ChatChannelEntity(
             code = c.code,
             name = c.name,
             channelType = c.channelType,
+            scope = c.scope,
             memberIdsJoined = c.memberIds.joinToString(","),
             description = c.description,
             departmentId = c.departmentId,
