@@ -15,29 +15,28 @@ import java.io.File
  * A signed-out device kept receiving push notifications when the user signed
  * out from the Profile screen.
  *
- * This source-anchored suite pins the fixed order: BOTH sign-out surfaces
- * (ProfileViewModel and MainScreen's ViewModel) must call
- * authRepository.signOut() before clearing the local session.
+ * T-460 pass J (F-11, the session-surface consolidation) UPDATED this pin:
+ * the Personnel hub's "Session" tab is now a REDIRECT to ProfileScreen (no
+ * sign-out path of its own), so the canonical-path population is exactly
+ * {ProfileViewModel, SettingsViewModel}. The MainScreen assertion flipped
+ * from "must define signOut()" to "must NOT define signOut()" — the guard
+ * against a third parallel path growing back.
  */
 class ProfileSignOutCanonicalPathT460Test {
 
-    private fun profileScreenSource(): String {
+    private fun source(relPath: String): String {
         val cwd = File(System.getProperty("user.dir") ?: ".")
         val candidates = listOf(
-            File(cwd, "src/main/java/com/example/ui/features/profile/ProfileScreen.kt"),
-            File(cwd.parentFile ?: cwd, "src/main/java/com/example/ui/features/profile/ProfileScreen.kt"),
+            File(cwd, "src/main/java/com/example/$relPath"),
+            File(cwd.parentFile ?: cwd, "src/main/java/com/example/$relPath"),
         )
         return candidates.first { it.exists() }.readText()
     }
 
-    private fun mainScreenSource(): String {
-        val cwd = File(System.getProperty("user.dir") ?: ".")
-        val candidates = listOf(
-            File(cwd, "src/main/java/com/example/ui/features/main/MainScreen.kt"),
-            File(cwd.parentFile ?: cwd, "src/main/java/com/example/ui/features/main/MainScreen.kt"),
-        )
-        return candidates.first { it.exists() }.readText()
-    }
+    private fun profileScreenSource() = source("ui/features/profile/ProfileScreen.kt")
+    private fun mainScreenSource() = source("ui/features/main/MainScreen.kt")
+    private fun settingsViewModelSource() = source("ui/features/settings/SettingsViewModel.kt")
+    private fun signOutScreenSource() = source("ui/features/personnel/SignOutScreen.kt")
 
     @Test
     fun `ProfileViewModel sign-out deactivates FCM before clearing the session`() {
@@ -62,13 +61,39 @@ class ProfileSignOutCanonicalPathT460Test {
     }
 
     @Test
-    fun `MainScreen's sign-out keeps the same canonical order (the two paths must not diverge again)`() {
-        val src = mainScreenSource()
+    fun `SettingsViewModel sign-out keeps the same canonical order`() {
+        val src = settingsViewModelSource()
         val signOutIdx = src.indexOf("fun signOut(")
-        assertTrue("MainScreen's ViewModel must define signOut()", signOutIdx >= 0)
+        assertTrue("SettingsViewModel must define signOut()", signOutIdx >= 0)
         val body = src.substring(signOutIdx, minOf(signOutIdx + 600, src.length))
         val authCall = body.indexOf("authRepository.signOut()")
         val sessionClear = body.indexOf("sessionManager.setSession(null)")
         assertTrue(authCall in 0 until sessionClear)
+    }
+
+    @Test
+    fun `MainScreen has NO sign-out path of its own (the F-11 consolidation - the Personnel tab redirects)`() {
+        val src = mainScreenSource()
+        assertTrue(
+            "MainScreen's ViewModel must not define signOut() — the single session surface is ProfileScreen (issue #3 F-11); a third parallel path must not grow back",
+            "fun signOut(" !in src,
+        )
+    }
+
+    @Test
+    fun `the SignOutScreen redirect targets the Profile surface and carries no sign-out of its own`() {
+        val src = signOutScreenSource()
+        assertTrue(
+            "SignOutScreen must navigate to the Profile surface (the consolidation's redirect contract)",
+            "onNavigateToProfile" in src,
+        )
+        assertTrue(
+            "SignOutScreen must not define a sign-out path (the single sign-out lives on ProfileScreen; the docblock's canonical-path description is fine)",
+            "onSignOut" !in src && "fun signOut(" !in src,
+        )
+        assertTrue(
+            "the redirect shows the FRENCH role label (not the raw role code — the F-11 vocabulary fix)",
+            "roleLabel(session.role)" in src,
+        )
     }
 }

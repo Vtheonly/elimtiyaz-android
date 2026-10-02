@@ -35,7 +35,7 @@ fun PersonnelHubScreen(
     onNavigateToWorkflowMonitor: () -> Unit = {},
     onNavigateToAuditLog: () -> Unit,
     onNavigateToRouting: () -> Unit = {},
-    onSignOut: () -> Unit,
+    onNavigateToProfile: () -> Unit = {},
     onNavigateToRollCall: (String) -> Unit = {},
     onNavigateToGradeEntry: (String) -> Unit = {},
 ) {
@@ -48,7 +48,7 @@ fun PersonnelHubScreen(
         add("Activité")
         add("Audit")
         if (session.can(Permission.ACCESS_DRIVER_MODE)) add("Tournées")
-        add("Déconnexion")
+        add("Session")
     }
 
     BackHandler(enabled = selectedTab != 0) {
@@ -85,8 +85,10 @@ fun PersonnelHubScreen(
                         onNavigateToRouting = onNavigateToRouting,
                         onNavigateToWorkflowMonitor = onNavigateToWorkflowMonitor,
                     )
-                    "Déconnexion" -> SignOutScreen(session, onSignOut = onSignOut)
-                    else -> SignOutScreen(session, onSignOut = onSignOut)
+                    // T-460 pass J (F-11): the session tab is now a redirect
+                    // to the single Profile surface (owner decision).
+                    "Session" -> SignOutScreen(session, onNavigateToProfile = onNavigateToProfile)
+                    else -> SignOutScreen(session, onNavigateToProfile = onNavigateToProfile)
                 }
             }
         }

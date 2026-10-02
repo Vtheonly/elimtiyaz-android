@@ -21,11 +21,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.example.core.Permission
 import com.example.core.Role
 import com.example.core.Session
-import com.example.domain.repository.AuthRepository
 import com.example.infrastructure.notifications.NotificationDeepLink
 import com.example.session.SessionManager
 import com.example.ui.designsystem.components.button.ElIconButton
@@ -43,23 +41,14 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val authRepository: AuthRepository,
     private val sessionManager: SessionManager,
 ) : ViewModel() {
 
     val session = sessionManager.state
 
-    fun signOut(onComplete: () -> Unit) {
-        viewModelScope.launch {
-            authRepository.signOut()
-            sessionManager.setSession(null)
-            onComplete()
-        }
-    }
 }
 
 /**
@@ -129,7 +118,6 @@ fun MainScreen(
     onNavigateToTripHistory: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAuditLog: () -> Unit,
-    onSignOut: () -> Unit,
     viewModel: MainViewModel = hiltViewModel(),
 ) {
     if (session == null) return
@@ -281,7 +269,7 @@ fun MainScreen(
                     onNavigateToWorkflowMonitor = onNavigateToWorkflowMonitor,
                     onNavigateToAuditLog = onNavigateToAuditLog,
                     onNavigateToRouting = onNavigateToRouting,
-                    onSignOut = { viewModel.signOut(onSignOut) },
+                    onNavigateToProfile = onNavigateToProfile,
                     onNavigateToRollCall = onNavigateToRollCall,
                     onNavigateToGradeEntry = onNavigateToGradeEntry,
                 )
