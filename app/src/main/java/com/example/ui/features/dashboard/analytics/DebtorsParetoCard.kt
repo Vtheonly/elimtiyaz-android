@@ -31,6 +31,7 @@ import com.example.ui.designsystem.components.data.ElParetoChart
 import com.example.ui.designsystem.components.data.ElParetoPoint
 import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.designsystem.overlays.ElInfoTip
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 
 /**
@@ -124,13 +125,15 @@ internal fun DebtorsParetoCard(
                         if (debtor?.parentPhone?.isNotBlank() == true) {
                             Spacer(Modifier.width(4.dp))
                             val dialContext = androidx.compose.ui.platform.LocalContext.current
+                            val dialToast = LocalElToast.current
                             // T-460 H2 (issue #3 F-10): the raw M3 IconButton →
                             // the DS ElIconButton (explicit contentDescription
-                            // preserved — the audit's A-4 rule).
+                            // preserved — the audit's A-4 rule); F-18: the dial
+                            // errors go through the DS toast layer.
                             ElIconButton(
                                 icon = Icons.Default.Call,
                                 onClick = {
-                                    com.example.ui.util.PhoneUtils.dial(dialContext, debtor.parentPhone)
+                                    com.example.ui.util.PhoneUtils.dial(dialContext, debtor.parentPhone, dialToast)
                                 },
                                 contentDescription = "Appeler ${datum.name}",
                                 tint = ElChartPalette.primary,

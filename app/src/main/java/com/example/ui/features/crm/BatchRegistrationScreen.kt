@@ -1,6 +1,5 @@
 package com.example.ui.features.crm
 
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -54,6 +53,7 @@ import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.foundation.elMoneyFormat
 import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.util.PhoneUtils
 
@@ -101,6 +101,7 @@ fun BatchRegistrationScreen(
     viewModel: BatchRegistrationViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    val toast = LocalElToast.current
     val clipboardManager = LocalClipboardManager.current
     val c = ElTheme.colors
 
@@ -263,13 +264,14 @@ fun BatchRegistrationScreen(
                     whatsappPhone = parentWhatsapp.ifBlank { parentPhone },
                     onCopyCode = {
                         clipboardManager.setText(AnnotatedString(activationCode!!))
-                        Toast.makeText(context, "Code copié dans le presse-papier !", Toast.LENGTH_SHORT).show()
+                        toast.showSuccess("Code copié dans le presse-papier !")
                     },
                     onShareWhatsApp = {
                         PhoneUtils.openWhatsApp(
                             context,
                             parentWhatsapp.ifBlank { parentPhone },
                             activationShareMessage(parentFirstName.trim(), activationCode!!),
+                            toast,
                         )
                     },
                     onNewRegistration = {

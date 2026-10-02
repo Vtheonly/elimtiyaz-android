@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -52,6 +51,7 @@ import com.example.ui.designsystem.components.display.ElAlertSeverity
 import com.example.ui.designsystem.components.card.ElCardVariant
 import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.navigation.LocalSession
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import java.io.File
 
@@ -65,6 +65,7 @@ fun ProofScannerScreen(
     val uploadedPath by viewModel.uploadedPath.collectAsState()
     val error by viewModel.error.collectAsState()
     val context = LocalContext.current
+    val toast = LocalElToast.current
     val session = LocalSession.current
 
     var photoFile by remember { mutableStateOf<File?>(null) }
@@ -98,10 +99,10 @@ fun ProofScannerScreen(
                 photoUri = uri
                 cameraLauncher.launch(uri)
             } catch (e: Exception) {
-                Toast.makeText(context, "Erreur caméra : ${e.message}", Toast.LENGTH_LONG).show()
+                toast.showError("Erreur caméra : ${e.message}")
             }
         } else {
-            Toast.makeText(context, "Permission caméra nécessaire pour prendre une photo", Toast.LENGTH_SHORT).show()
+            toast.showWarning("Permission caméra nécessaire pour prendre une photo")
         }
     }
 
@@ -218,7 +219,7 @@ fun ProofScannerScreen(
                             photoUri = uri
                             cameraLauncher.launch(uri)
                         } catch (e: Exception) {
-                            Toast.makeText(context, "Erreur caméra : ${e.message}", Toast.LENGTH_LONG).show()
+                            toast.showError("Erreur caméra : ${e.message}")
                         }
                     } else {
                         cameraPermissionLauncher.launch(Manifest.permission.CAMERA)

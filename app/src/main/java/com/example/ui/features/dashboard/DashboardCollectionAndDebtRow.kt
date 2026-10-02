@@ -41,6 +41,7 @@ import com.example.ui.designsystem.components.data.ElDonutSegment
 import com.example.ui.designsystem.components.data.ElProgressRing
 import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.util.PhoneUtils
 
@@ -62,6 +63,7 @@ internal fun DashboardCollectionAndDebtRow(
     onNavigateToDebtDashboard: () -> Unit,
 ) {
     val context = LocalContext.current
+    val toast = LocalElToast.current
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         // ── Synthèse Décisionnelle IA ──
@@ -339,7 +341,7 @@ internal fun DashboardCollectionAndDebtRow(
                                 if (debtor.parentPhone.isNotBlank()) {
                                     ElIconButton(
                                         icon = Icons.Default.Call,
-                                        onClick = { PhoneUtils.dial(context, debtor.parentPhone) },
+                                        onClick = { PhoneUtils.dial(context, debtor.parentPhone, toast) },
                                         contentDescription = "Appeler",
                                         tint = ElTheme.colors.success,
                                         background = androidx.compose.ui.graphics.Color.Transparent,

@@ -49,6 +49,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 
 /**
@@ -190,6 +191,7 @@ fun ExpenseSubmitScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val toast = LocalElToast.current
 
     ElScaffold(
         topBar = {
@@ -315,13 +317,11 @@ fun ExpenseSubmitScreen(
                 text = if (isSubmitting) "Soumission…" else "Soumettre la dépense",
                 onClick = {
                     viewModel.submit { requestCode ->
-                        // A Toast survives the pop — a snackbar on THIS scaffold
-                        // would be destroyed by the navigation.
-                        android.widget.Toast.makeText(
-                            context,
-                            "Dépense $requestCode soumise pour approbation",
-                            android.widget.Toast.LENGTH_LONG,
-                        ).show()
+                        // T-460 H2 (F-18): the app-root ElToastHost renders this
+                        // ABOVE the nav host, so the toast survives the pop —
+                        // the same lifetime property the platform toast had
+                        // (a screen-scoped snackbar would be destroyed).
+                        toast.showSuccess("Dépense $requestCode soumise pour approbation", durationMs = 4000)
                         onBack()
                     }
                 },

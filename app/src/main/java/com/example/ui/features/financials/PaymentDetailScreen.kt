@@ -62,6 +62,7 @@ import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.designsystem.foundation.elMoneyFormat
 import com.example.ui.designsystem.overlays.ElDialogShell
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
@@ -261,6 +262,7 @@ fun PaymentDetailScreen(
     val installmentLabel by viewModel.installmentLabel.collectAsState()
     val pdfFile by viewModel.pdfFile.collectAsState()
     val context = LocalContext.current
+    val toast = LocalElToast.current
     val c = ElTheme.colors
 
     // Trigger load once on first composition
@@ -284,11 +286,7 @@ fun PaymentDetailScreen(
             }
             context.startActivity(Intent.createChooser(shareIntent, "Partager le reçu"))
         } catch (e: Exception) {
-            android.widget.Toast.makeText(
-                context,
-                "Impossible de partager le PDF.",
-                android.widget.Toast.LENGTH_SHORT,
-            ).show()
+            toast.showError("Impossible de partager le PDF.")
         }
         viewModel.consumePdf()
     }

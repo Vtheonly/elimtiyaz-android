@@ -23,6 +23,7 @@ import com.example.ui.designsystem.components.display.ElAlertBanner
 import com.example.ui.designsystem.components.display.ElAlertSeverity
 import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.util.PhoneUtils
 
@@ -44,6 +45,7 @@ internal fun DashboardAlertsSection(
     onNavigateToDebtDashboard: () -> Unit,
 ) {
     val context = LocalContext.current
+    val toast = LocalElToast.current
     val c = ElTheme.colors
 
     error?.let { msg ->
@@ -96,7 +98,7 @@ internal fun DashboardAlertsSection(
                     if (!alert.phone.isNullOrBlank()) {
                         ElButton(
                             text = "Appeler",
-                            onClick = { PhoneUtils.dial(context, alert.phone) },
+                            onClick = { PhoneUtils.dial(context, alert.phone, toast) },
                             variant = ElButtonVariant.GHOST,
                             size = ElButtonSize.SMALL,
                             icon = Icons.Default.Call,

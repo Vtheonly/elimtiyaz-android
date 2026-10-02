@@ -67,6 +67,7 @@ import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.designsystem.overlays.ElDialogShell
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.util.PhoneUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -228,6 +229,7 @@ fun PersonnelDetailScreen(
 ) {
     val c = ElTheme.colors
     val context = LocalContext.current
+    val toast = LocalElToast.current
     val personnel by viewModel.personnel.collectAsState()
     val recentEntries by viewModel.recentEntries.collectAsState()
     val hoursLogged by viewModel.hoursLoggedThisWeek.collectAsState()
@@ -269,7 +271,7 @@ fun PersonnelDetailScreen(
                         ElIconButton(
                             icon = Icons.Default.Call,
                             onClick = {
-                                personnel?.phone?.let { PhoneUtils.dial(context, it) }
+                                personnel?.phone?.let { PhoneUtils.dial(context, it, toast) }
                             },
                             contentDescription = "Appeler",
                             tint = c.primary,

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Text
 import com.example.ui.designsystem.overlays.ElDialogShell
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -98,6 +99,7 @@ fun EmployeeDirectoryScreen(
     val message by viewModel.message.collectAsState()
     val busy by viewModel.busy.collectAsState()
     val context = LocalContext.current
+    val toast = LocalElToast.current
     val c = ElTheme.colors
 
     var selectedCategoryTab by remember { mutableIntStateOf(0) }
@@ -151,6 +153,7 @@ fun EmployeeDirectoryScreen(
                             staff = staff,
                             onClick = { onNavigateToPersonnelDetail(staff.id) },
                             context = context,
+                            toast = toast,
                         )
                     }
                     item {
@@ -193,6 +196,7 @@ private fun EmployeeCard(
     staff: Personnel,
     onClick: () -> Unit,
     context: android.content.Context,
+    toast: com.example.ui.designsystem.overlays.ElToastHostState,
 ) {
     ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD, onClick = onClick) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -235,7 +239,7 @@ private fun EmployeeCard(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ElButton(
                     text = "Appeler",
-                    onClick = { PhoneUtils.dial(context, staff.phone) },
+                    onClick = { PhoneUtils.dial(context, staff.phone, toast) },
                     variant = ElButtonVariant.SECONDARY,
                     icon = Icons.Default.Phone,
                     modifier = Modifier.weight(1f),

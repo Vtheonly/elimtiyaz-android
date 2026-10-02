@@ -75,6 +75,7 @@ import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.display.ElChip
 import com.example.ui.designsystem.components.feedback.ElLinearProgress
 import com.example.ui.designsystem.components.display.ElChipVariant
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.designsystem.components.display.ElAlertSeverity
 import com.example.ui.designsystem.components.display.ElAvatar
@@ -126,6 +127,7 @@ fun StudentDetailScreen(
     val bulletinShareRequest by viewModel.bulletinShareRequest.collectAsState()
     val context = LocalContext.current
     val c = ElTheme.colors
+    val toast = LocalElToast.current
 
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Profil & Famille", "Notes & Bulletins", "Présences & Retards", "Finances & Échéances", "Historique")
@@ -255,7 +257,7 @@ fun StudentDetailScreen(
                                                 .height(38.dp)
                                                 .clip(com.example.ui.designsystem.theme.ElShapes.small)
                                                 .background(c.success)
-                                                .clickable { PhoneUtils.dial(context, p.phone) },
+                                                .clickable { PhoneUtils.dial(context, p.phone, toast) },
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -270,7 +272,7 @@ fun StudentDetailScreen(
                                                 .height(38.dp)
                                                 .clip(com.example.ui.designsystem.theme.ElShapes.small)
                                                 .background(c.success)
-                                                .clickable { PhoneUtils.openWhatsApp(context, p.whatsapp ?: p.phone) },
+                                                .clickable { PhoneUtils.openWhatsApp(context, p.whatsapp ?: p.phone, toast = toast) },
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
