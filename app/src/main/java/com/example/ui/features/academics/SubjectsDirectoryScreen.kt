@@ -49,6 +49,7 @@ import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagSize
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.input.ElSearchBar
 import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.nav.ElTopBar
@@ -87,6 +88,12 @@ class SubjectsDirectoryViewModel @Inject constructor(
 
     val subjects: StateFlow<List<Subject>> = subjectRepository.observe()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    /** T-460 pass J (issue #3 F-13): the text search — parity with the Student/Parents directories. */
+    private val _query = MutableStateFlow("")
+    val query: StateFlow<String> = _query.asStateFlow()
+
+    fun setQuery(q: String) { _query.value = q }
 
     private val _levelFilter = MutableStateFlow<String?>(null)
     val levelFilter: StateFlow<String?> = _levelFilter.asStateFlow()
@@ -209,12 +216,48 @@ class SubjectsDirectoryViewModel @Inject constructor(
     }
 }
 
+/**
+ * T-460 pass J (issue #3 F-13): the subjects filter — level × domain × text
+ * search. Pure so the §05.01 domain-split + search behaviour is unit-tested
+ * without composition.
+ *
+ * Level rule (the T-fix preserved): subjects scoped "all" apply to every
+ * level; domain rule (Vault §05.01): "scolarite" = formal academics,
+ * "extracurricular" = clubs & therapy.
+ */
+internal fun filterSubjects(
+    subjects: List<Subject>,
+    level: String?,
+    domain: String?,
+    query: String,
+): List<Subject> {
+    val q = query.trim()
+    return subjects
+        .let { list -> if (level == null) list else list.filter { it.level == "all" || it.level == level } }
+        .let { list ->
+            when (domain) {
+                null -> list
+                "scolarite" -> list.filter { !it.isExtracurricular }
+                else -> list.filter { it.isExtracurricular }
+            }
+        }
+        .let { list ->
+            if (q.isBlank()) list
+            else list.filter {
+                it.name.contains(q, ignoreCase = true) ||
+                    it.code.contains(q, ignoreCase = true) ||
+                    it.nameAr?.contains(q, ignoreCase = true) == true
+            }
+        }
+}
+
 @Composable
 fun SubjectsDirectoryScreen(
     onBack: () -> Unit,
     viewModel: SubjectsDirectoryViewModel = hiltViewModel(),
 ) {
     val subjects by viewModel.subjects.collectAsState()
+    val query by viewModel.query.collectAsState()
     val levelFilter by viewModel.levelFilter.collectAsState()
     val domainFilter by viewModel.domainFilter.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -227,15 +270,9 @@ fun SubjectsDirectoryScreen(
 
     // FIX (broken level filter): subjects scoped "all" apply to every level —
     // the previous strict equality filter showed an empty list under each chip.
-    val filtered = subjects
-        .let { list -> if (levelFilter == null) list else list.filter { it.level == "all" || it.level == levelFilter } }
-        .let { list ->
-            when (domainFilter) {
-                null -> list
-                "scolarite" -> list.filter { !it.isExtracurricular }
-                else -> list.filter { it.isExtracurricular }
-            }
-        }
+    // T-460 pass J (F-13): the filter is now the pure, unit-tested function
+    // (level × domain × the NEW text search).
+    val filtered = filterSubjects(subjects, levelFilter, domainFilter, query)
 
     val c = ElTheme.colors
 
@@ -283,6 +320,17 @@ fun SubjectsDirectoryScreen(
                 ElChip(text = "Clubs & Thérapie", variant = ElChipVariant.FILTER, selected = domainFilter == "extracurricular", onClick = { viewModel.onDomainFilter("extracurricular") })
             }
 
+            // T-460 pass J (issue #3 F-13): text-search parity (name, code,
+            // Arabic name) — the Student/Parents directories' search language.
+            ElSearchBar(
+                query = query,
+                onQueryChange = viewModel::setQuery,
+                placeholder = "Nom, code matière…",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+            )
+
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
                 ElChip(text = "Tous", variant = ElChipVariant.FILTER, selected = levelFilter == null, onClick = { viewModel.onLevelFilter(null) })
                 ElChip(text = "Primaire", variant = ElChipVariant.FILTER, selected = levelFilter == "primaire", onClick = { viewModel.onLevelFilter("primaire") })
@@ -298,7 +346,11 @@ fun SubjectsDirectoryScreen(
                         // everything.
                         ElEmptyState(
                             title = "Aucune matière trouvée",
-                            subtitle = "Aucune matière ne correspond aux critères sélectionnés.",
+                            subtitle = if (query.isBlank()) {
+                                "Aucune matière ne correspond aux critères sélectionnés."
+                            } else {
+                                "Aucune matière ne correspond à « $query »."
+                            },
                         )
                     }
                 }

@@ -37,6 +37,12 @@ class ClassesDirectoryViewModel @Inject constructor(
     val classes: StateFlow<List<AcademicClass>> = classRepository.observe()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    /** T-460 pass J (issue #3 F-13): the text search — parity with the Student/Parents directories. */
+    private val _query = MutableStateFlow("")
+    val query: StateFlow<String> = _query.asStateFlow()
+
+    fun setQuery(q: String) { _query.value = q }
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 

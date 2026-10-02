@@ -31,6 +31,12 @@ class EmployeeDirectoryViewModel @Inject constructor(
     val personnel: StateFlow<List<Personnel>> = personnelRepository.observe()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    /** T-460 pass J (issue #3 F-13): the text search — parity with the Student/Parents directories. */
+    private val _query = MutableStateFlow("")
+    val query: StateFlow<String> = _query.asStateFlow()
+
+    fun setQuery(q: String) { _query.value = q }
+
     /** Departments for the create-employee form (optional assignment). */
     val departments: StateFlow<List<Department>> = departmentRepository.observe()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())

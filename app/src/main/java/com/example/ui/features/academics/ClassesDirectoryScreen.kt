@@ -42,6 +42,7 @@ import com.example.ui.designsystem.components.display.ElSectionHeader
 import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.input.ElSearchBar
 import com.example.ui.designsystem.theme.ElTheme
 
 /**
@@ -54,6 +55,21 @@ import com.example.ui.designsystem.theme.ElTheme
  * QUEUE, never blind batch promotion), its busy gating, the permission
  * double-check, and the class-detail navigation.
  */
+/**
+ * T-460 pass J (issue #3 F-13): the classes filter — text search over the
+ * class name, the homeroom teacher and the room. Pure so the parity
+ * behaviour is unit-testable without composition.
+ */
+internal fun filterClasses(classes: List<AcademicClass>, query: String): List<AcademicClass> {
+    val q = query.trim()
+    if (q.isBlank()) return classes
+    return classes.filter {
+        it.name.contains(q, ignoreCase = true) ||
+            it.homeroomTeacherName?.contains(q, ignoreCase = true) == true ||
+            it.room?.contains(q, ignoreCase = true) == true
+    }
+}
+
 @Composable
 fun ClassesDirectoryScreen(
     session: Session,
@@ -64,6 +80,7 @@ fun ClassesDirectoryScreen(
 ) {
     val c = ElTheme.colors
     val classes by viewModel.classes.collectAsState()
+    val query by viewModel.query.collectAsState()
     val error by viewModel.error.collectAsState()
     val message by viewModel.message.collectAsState()
     val busy by viewModel.busy.collectAsState()
@@ -99,6 +116,17 @@ fun ClassesDirectoryScreen(
             )
         }
 
+        // T-460 pass J (issue #3 F-13): text-search parity with the
+        // Student/Parents directories (class name, teacher, room).
+        ElSearchBar(
+            query = query,
+            onQueryChange = viewModel::setQuery,
+            placeholder = "Classe, professeur, salle…",
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        val filteredClasses = filterClasses(classes, query)
+
         if (classes.isEmpty()) {
             ElEmptyState(
                 icon = Icons.Default.Class,
@@ -107,8 +135,16 @@ fun ClassesDirectoryScreen(
             )
             return@Column
         }
+        if (filteredClasses.isEmpty()) {
+            ElEmptyState(
+                icon = Icons.Default.Class,
+                title = "Aucune classe trouvée",
+                subtitle = "Aucune classe ne correspond à « $query ».",
+            )
+            return@Column
+        }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
-            items(classes) { klass ->
+            items(filteredClasses) { klass ->
                 val fillRate = if (klass.capacity > 0) (klass.enrolledCount.toFloat() / klass.capacity * 100).toInt() else 0
                 ElCard(
                     modifier = Modifier.fillMaxWidth(),

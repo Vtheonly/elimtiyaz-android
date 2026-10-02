@@ -56,6 +56,7 @@ import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.button.ElFab
 import com.example.ui.designsystem.components.tabs.ElScrollableTabRow
 import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.input.ElSearchBar
 import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.util.PhoneUtils
 import kotlinx.datetime.Clock
@@ -86,6 +87,30 @@ private val STAFF_ROLE_OPTIONS: List<Pair<String, String>> = listOf(
     "worker" to "Services",
 )
 
+/**
+ * T-460 pass J (issue #3 F-13): the directory filter — category tab × text
+ * search. Pure function so the parity behaviour is unit-testable without
+ * composition (the Student/Parents directories' search contract).
+ */
+internal fun filterPersonnel(
+    personnel: List<Personnel>,
+    category: String?,
+    query: String,
+): List<Personnel> {
+    val q = query.trim()
+    return personnel
+        .let { list -> if (category == null || category == "all") list else list.filter { it.staffCategory == category } }
+        .let { list ->
+            if (q.isBlank()) list
+            else list.filter {
+                it.fullName.contains(q, ignoreCase = true) ||
+                    it.position.contains(q, ignoreCase = true) ||
+                    it.phone.contains(q, ignoreCase = true) ||
+                    it.email?.contains(q, ignoreCase = true) == true
+            }
+        }
+}
+
 @Composable
 fun EmployeeDirectoryScreen(
     session: Session,
@@ -93,6 +118,7 @@ fun EmployeeDirectoryScreen(
     viewModel: EmployeeDirectoryViewModel = hiltViewModel(),
 ) {
     val personnel by viewModel.personnel.collectAsState()
+    val query by viewModel.query.collectAsState()
     val departments by viewModel.departments.collectAsState()
     val error by viewModel.error.collectAsState()
     val message by viewModel.message.collectAsState()
@@ -111,9 +137,8 @@ fun EmployeeDirectoryScreen(
     val tabLabels = remember(rawCategories) {
         rawCategories.map { if (it == "all") "Tous" else roleDisplayLabel(it) }
     }
-    val filteredStaff = remember(selectedCategoryTab, personnel) {
-        if (selectedCategoryTab == 0) personnel
-        else personnel.filter { it.staffCategory == rawCategories[selectedCategoryTab] }
+    val filteredStaff = remember(selectedCategoryTab, personnel, query) {
+        filterPersonnel(personnel, rawCategories.getOrNull(selectedCategoryTab), query)
     }
 
     val canManage = session.can(Permission.MANAGE_PERSONNEL) || viewModel.canManage
@@ -139,11 +164,20 @@ fun EmployeeDirectoryScreen(
                 )
             }
 
+            // T-460 pass J (issue #3 F-13): text-search parity with the
+            // Student/Parents directories (name, position, phone, email).
+            ElSearchBar(
+                query = query,
+                onQueryChange = viewModel::setQuery,
+                placeholder = "Nom, fonction, téléphone…",
+                modifier = Modifier.fillMaxWidth(),
+            )
+
             if (filteredStaff.isEmpty()) {
                 ElEmptyState(
                     icon = Icons.Default.Phone,
                     title = "Aucun personnel",
-                    subtitle = "Aucun employé dans cette catégorie.",
+                    subtitle = if (query.isBlank()) "Aucun employé dans cette catégorie." else "Aucun employé ne correspond à « $query ».",
                 )
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
