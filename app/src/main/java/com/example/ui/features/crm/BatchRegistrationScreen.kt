@@ -248,10 +248,16 @@ fun BatchRegistrationScreen(
                 )
             }
         },
-    ) {
+    ) { padding ->
+        // The ElScaffold inner padding MUST be consumed here: it insets the body
+        // past the ElTopBar. Without it the scroll container is laid out from y=0
+        // and the stepper + first card render UNDERNEATH the title bar (the
+        // canonical idiom — cf. ParentDetailScreen.kt:147-153; this screen and
+        // CounterPaymentScreen.kt were the only two callers discarding it).
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
             if (isSuccess) {
