@@ -17,10 +17,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.UploadFile
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -44,6 +41,7 @@ import com.example.domain.repository.ExpenseRepository
 import com.example.domain.repository.PersonnelRepository
 import com.example.session.SessionManager
 import com.example.ui.designsystem.components.button.ElButton
+import com.example.ui.designsystem.components.button.ElButtonSize
 import com.example.ui.designsystem.components.button.ElButtonVariant
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.display.ElAlertBanner
@@ -54,10 +52,12 @@ import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.feedback.ElEmptyState
 import com.example.ui.designsystem.components.feedback.ElLoadingBlock
+import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.designsystem.foundation.elMoneyFormat
 import com.example.ui.designsystem.foundation.elMoneyParse
+import com.example.ui.designsystem.overlays.ElDialogShell
 import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -217,6 +217,7 @@ fun ExpenseApprovalScreen(
     onNavigateToProofScanner: (() -> Unit)? = null,
     viewModel: ExpenseApprovalViewModel = hiltViewModel(),
 ) {
+    val c = ElTheme.colors
     val expenses by viewModel.expenses.collectAsState()
     val detailExpense by viewModel.detailExpense.collectAsState()
     val submitterName by viewModel.submitterName.collectAsState()
@@ -307,35 +308,54 @@ fun ExpenseApprovalScreen(
     // ── Reject dialog (mandatory reason, ≥3 chars — refund-dialog parity) ──
     rejectTarget?.let { exp ->
         var reason by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { rejectTarget = null },
-            title = { Text("Rejeter la dépense ${exp.requestCode}") },
-            text = {
-                Column {
-                    Text("${exp.title} — ${elMoneyFormat(exp.amount)}", style = ElTheme.typography.bodySmall)
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = reason,
-                        onValueChange = { reason = it },
-                        label = { Text("Motif du rejet *") },
-                        supportingText = { Text("Minimum 3 caractères") },
-                        modifier = Modifier.fillMaxWidth(),
+        // T-460 H2 (issue #3 F-10): the raw AlertDialog → the DS dialog shell
+        // (ElDialogShell + ElTextField + ElButton — the GradeEntry/EmployeeDirectory
+        // dialog language). Every user-facing string preserved.
+        ElDialogShell(onDismissRequest = { rejectTarget = null }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    "Rejeter la dépense ${exp.requestCode}",
+                    style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = c.textPrimary,
+                )
+                Text(
+                    "${exp.title} — ${elMoneyFormat(exp.amount)}",
+                    style = ElTheme.typography.bodySmall,
+                    color = c.textSecondary,
+                )
+                ElTextField(
+                    value = reason,
+                    onValueChange = { reason = it },
+                    label = "Motif du rejet *",
+                    helperText = "Minimum 3 caractères",
+                    singleLine = false,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ElButton(
+                        text = "Annuler",
+                        onClick = { rejectTarget = null },
+                        variant = ElButtonVariant.GHOST,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ElButton(
+                        text = "Rejeter",
+                        onClick = {
+                            viewModel.reject(exp, reason)
+                            rejectTarget = null
+                        },
+                        enabled = reason.trim().length >= 3,
+                        variant = ElButtonVariant.DANGER,
+                        modifier = Modifier.weight(1f),
                     )
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.reject(exp, reason)
-                        rejectTarget = null
-                    },
-                    enabled = reason.trim().length >= 3,
-                ) { Text("Rejeter") }
-            },
-            dismissButton = {
-                TextButton(onClick = { rejectTarget = null }) { Text("Annuler") }
-            },
-        )
+            }
+        }
     }
 
     // ── Settle-proof dialog (final amount + proof path) ─────────────────
@@ -345,61 +365,73 @@ fun ExpenseApprovalScreen(
         var finalAmount by remember { mutableStateOf((exp.amount / 100).toString()) }
         var proofPath by remember { mutableStateOf("") }
         var settleError by remember { mutableStateOf<String?>(null) }
-        AlertDialog(
-            onDismissRequest = { settleTarget = null },
-            title = { Text("Téléverser le justificatif") },
-            text = {
-                Column {
-                    Text(
-                        "${exp.title} — ${exp.requestCode} • Décaissée : ${elMoneyFormat(exp.amount)}",
-                        style = ElTheme.typography.bodySmall,
+        // T-460 H2 (issue #3 F-10): the raw AlertDialog → the DS dialog shell.
+        ElDialogShell(onDismissRequest = { settleTarget = null }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    "Téléverser le justificatif",
+                    style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = c.textPrimary,
+                )
+                Text(
+                    "${exp.title} — ${exp.requestCode} • Décaissée : ${elMoneyFormat(exp.amount)}",
+                    style = ElTheme.typography.bodySmall,
+                    color = c.textSecondary,
+                )
+                ElTextField(
+                    value = finalAmount,
+                    onValueChange = { finalAmount = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' || ch == ' ' } },
+                    label = "Montant final dépensé (DZD) *",
+                    isError = settleError != null,
+                    errorText = settleError,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                ElTextField(
+                    value = proofPath,
+                    onValueChange = { proofPath = it; settleError = null },
+                    label = "Chemin du justificatif *",
+                    isError = settleError != null,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (onNavigateToProofScanner != null) {
+                    ElButton(
+                        text = "Scanner un justificatif",
+                        onClick = onNavigateToProofScanner,
+                        variant = ElButtonVariant.GHOST,
+                        icon = Icons.Default.UploadFile,
                     )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = finalAmount,
-                        onValueChange = { finalAmount = it.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' || ch == ' ' } },
-                        label = { Text("Montant final dépensé (DZD) *") },
-                        isError = settleError != null,
-                        supportingText = { settleError?.let { Text(it) } },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = proofPath,
-                        onValueChange = { proofPath = it; settleError = null },
-                        label = { Text("Chemin du justificatif *") },
-                        isError = settleError != null,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (onNavigateToProofScanner != null) {
-                        Spacer(Modifier.height(4.dp))
-                        TextButton(onClick = onNavigateToProofScanner) {
-                            androidx.compose.material3.Icon(Icons.Default.UploadFile, contentDescription = null)
-                            Spacer(Modifier.height(4.dp))
-                            Text("Scanner un justificatif")
-                        }
-                    }
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val cents = elMoneyParse(finalAmount)
-                        when {
-                            cents <= 0L -> settleError = "Le montant final doit être supérieur à 0"
-                            proofPath.isBlank() -> settleError = "Le justificatif est obligatoire avant clôture"
-                            else -> {
-                                viewModel.settleProof(exp, proofPath, cents)
-                                settleTarget = null
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ElButton(
+                        text = "Annuler",
+                        onClick = { settleTarget = null },
+                        variant = ElButtonVariant.GHOST,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ElButton(
+                        text = "Clôturer",
+                        onClick = {
+                            val cents = elMoneyParse(finalAmount)
+                            when {
+                                cents <= 0L -> settleError = "Le montant final doit être supérieur à 0"
+                                proofPath.isBlank() -> settleError = "Le justificatif est obligatoire avant clôture"
+                                else -> {
+                                    viewModel.settleProof(exp, proofPath, cents)
+                                    settleTarget = null
+                                }
                             }
-                        }
-                    },
-                ) { Text("Clôturer") }
-            },
-            dismissButton = {
-                TextButton(onClick = { settleTarget = null }) { Text("Annuler") }
-            },
-        )
+                        },
+                        variant = ElButtonVariant.PRIMARY,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -655,11 +687,11 @@ private fun ExpenseCard(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (expense.status) {
                     "submitted" -> {
-                        TextButton(onClick = onApprove) { Text("Approuver") }
-                        TextButton(onClick = onReject) { Text("Rejeter") }
+                        ElButton(text = "Approuver", onClick = onApprove, variant = ElButtonVariant.TONAL, size = ElButtonSize.SMALL)
+                        ElButton(text = "Rejeter", onClick = onReject, variant = ElButtonVariant.DANGER, size = ElButtonSize.SMALL)
                     }
                     "approved" -> {
-                        TextButton(onClick = onDisburse) { Text("Décaisser") }
+                        ElButton(text = "Décaisser", onClick = onDisburse, variant = ElButtonVariant.PRIMARY, size = ElButtonSize.SMALL)
                     }
                 }
             }

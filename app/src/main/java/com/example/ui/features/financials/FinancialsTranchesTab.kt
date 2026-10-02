@@ -19,10 +19,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +50,7 @@ import com.example.ui.designsystem.components.feedback.ElEmptyState
 import com.example.ui.designsystem.components.feedback.ElLinearProgress
 import com.example.ui.designsystem.components.input.ElSearchBar
 import com.example.ui.designsystem.foundation.elMoneyFormat
+import com.example.ui.designsystem.overlays.ElDialogShell
 import com.example.ui.designsystem.theme.ElTheme
 
 /**
@@ -362,29 +361,46 @@ internal fun TranchesTab(
     }
 
     markPaidTarget?.let { inst ->
-        AlertDialog(
-            onDismissRequest = { markPaidTarget = null },
-            title = { Text("Valider la tranche comme payée ?") },
-            text = {
+        // T-460 H2 (issue #3 F-10): the raw AlertDialog → the DS dialog shell.
+        // The grand-livre warning text and the busy gate preserved verbatim.
+        ElDialogShell(onDismissRequest = { markPaidTarget = null }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    "Valider la tranche comme payée ?",
+                    style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = c.textPrimary,
+                )
                 Text(
                     "${inst.label} — ${elMoneyFormat(inst.remaining)}\n" +
                         "L'écriture sera enregistrée dans le grand livre et ventilée sur cette tranche. Cette action ne peut pas être annulée ici.",
                     style = ElTheme.typography.bodySmall,
+                    color = c.textSecondary,
                 )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onMarkPaid(inst.id)
-                        markPaidTarget = null
-                    },
-                    enabled = !busy,
-                ) { Text("Valider") }
-            },
-            dismissButton = {
-                TextButton(onClick = { markPaidTarget = null }) { Text("Annuler") }
-            },
-        )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ElButton(
+                        text = "Annuler",
+                        onClick = { markPaidTarget = null },
+                        variant = ElButtonVariant.GHOST,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ElButton(
+                        text = "Valider",
+                        onClick = {
+                            onMarkPaid(inst.id)
+                            markPaidTarget = null
+                        },
+                        enabled = !busy,
+                        variant = ElButtonVariant.PRIMARY,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
     }
 }
 

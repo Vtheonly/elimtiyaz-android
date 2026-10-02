@@ -21,9 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.School
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,11 +45,13 @@ import com.example.infrastructure.supabase.SupabaseClientProvider
 import com.example.infrastructure.sync.PullSyncRepository
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.card.ElCardSize
+import com.example.ui.designsystem.components.button.ElIconButton
 import com.example.ui.designsystem.components.display.ElAvatar
 import com.example.ui.designsystem.components.display.ElAvatarSize
 import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.feedback.ElSpinner
 import com.example.ui.designsystem.components.input.ElSearchBar
 import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -187,22 +187,23 @@ fun StudentRosterScreen(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (isSyncing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
+                        // T-460 H2 (issue #3 F-10): the raw M3 spinner → the DS
+                        // ElSpinner (themed track + stroke).
+                        ElSpinner(
+                            size = 18,
+                            strokeWidth = 2,
                             color = c.primary,
                         )
                     } else if (isConfigured) {
-                        IconButton(
+                        ElIconButton(
+                            icon = Icons.Default.Refresh,
                             onClick = { viewModel.syncFromCloud() },
-                            modifier = Modifier.size(36.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Actualiser",
-                                tint = c.primary,
-                            )
-                        }
+                            contentDescription = "Actualiser",
+                            tint = c.primary,
+                            background = androidx.compose.ui.graphics.Color.Transparent,
+                            size = 36,
+                            iconSize = 20,
+                        )
                     }
                 }
             }

@@ -17,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -35,6 +34,7 @@ import com.example.domain.model.DebtSummary
 import com.example.ui.designsystem.components.button.ElButton
 import com.example.ui.designsystem.components.button.ElButtonSize
 import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.button.ElIconButton
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.data.ElDonutChart
 import com.example.ui.designsystem.components.data.ElDonutSegment
@@ -337,17 +337,15 @@ internal fun DashboardCollectionAndDebtRow(
                                     modifier = Modifier.padding(end = 4.dp),
                                 )
                                 if (debtor.parentPhone.isNotBlank()) {
-                                    IconButton(
+                                    ElIconButton(
+                                        icon = Icons.Default.Call,
                                         onClick = { PhoneUtils.dial(context, debtor.parentPhone) },
-                                        modifier = Modifier.size(28.dp),
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Call,
-                                            contentDescription = "Appeler",
-                                            tint = ElTheme.colors.success,
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                    }
+                                        contentDescription = "Appeler",
+                                        tint = ElTheme.colors.success,
+                                        background = androidx.compose.ui.graphics.Color.Transparent,
+                                        size = 32,
+                                        iconSize = 16,
+                                    )
                                 }
                             }
                         }

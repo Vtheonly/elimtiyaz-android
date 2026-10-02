@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.Class
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -34,6 +33,7 @@ import com.example.core.Session
 import com.example.domain.model.AcademicClass
 import com.example.ui.designsystem.components.button.ElButton
 import com.example.ui.designsystem.components.button.ElButtonVariant
+import com.example.ui.designsystem.components.button.ElIconButton
 import com.example.ui.designsystem.components.card.ElCard
 import com.example.ui.designsystem.components.card.ElCardSize
 import com.example.ui.designsystem.components.display.ElAlertBanner
@@ -154,16 +154,14 @@ fun ClassesDirectoryScreen(
                         // running batch promotion without first reviewing
                         // the queue.
                         if (canPromote) {
-                            IconButton(
+                            ElIconButton(
+                                icon = Icons.Default.TrendingUp,
                                 onClick = { onNavigateToPromotionReview(klass.id) },
                                 enabled = !busy,
-                            ) {
-                                Icon(
-                                    Icons.Default.TrendingUp,
-                                    contentDescription = "File de promotion — ${klass.name}",
-                                    tint = c.primary,
-                                )
-                            }
+                                contentDescription = "File de promotion — ${klass.name}",
+                                tint = c.primary,
+                                background = androidx.compose.ui.graphics.Color.Transparent,
+                            )
                         }
                     }
                 }

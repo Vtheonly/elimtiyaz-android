@@ -27,11 +27,9 @@ import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -67,6 +65,7 @@ import com.example.ui.designsystem.components.input.ElDropdown
 import com.example.ui.designsystem.components.input.ElDropdownOption
 import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.overlays.ElDialogShell
 import com.example.ui.designsystem.theme.ElPillShape
 import com.example.ui.designsystem.theme.ElTheme
 import java.time.Instant
@@ -496,29 +495,41 @@ fun RollCallScreen(
         }
         val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialEpochMillis)
 
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        val date = Instant.ofEpochMilli(millis)
-                            .atZone(ZoneId.of("UTC"))
-                            .toLocalDate()
-                            .toString()
-                        viewModel.setDate(date, selectedClassId)
-                    }
-                    showDatePicker = false
-                }) {
-                    Text("OK", color = c.primary)
+        // T-460 H2 (issue #3 F-10): the raw M3 DatePickerDialog → the DS dialog
+        // shell (the ElDatePicker component's internal language: ElDialogShell +
+        // the M3 DatePicker + DS buttons). The UTC wire format and the
+        // viewModel.setDate contract preserved verbatim.
+        ElDialogShell(onDismissRequest = { showDatePicker = false }) {
+            Column(modifier = Modifier.padding(vertical = 16.dp)) {
+                DatePicker(state = datePickerState)
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                ) {
+                    ElButton(
+                        text = "Annuler",
+                        onClick = { showDatePicker = false },
+                        variant = ElButtonVariant.GHOST,
+                    )
+                    ElButton(
+                        text = "OK",
+                        onClick = {
+                            datePickerState.selectedDateMillis?.let { millis ->
+                                val date = Instant.ofEpochMilli(millis)
+                                    .atZone(ZoneId.of("UTC"))
+                                    .toLocalDate()
+                                    .toString()
+                                viewModel.setDate(date, selectedClassId)
+                            }
+                            showDatePicker = false
+                        },
+                        variant = ElButtonVariant.PRIMARY,
+                    )
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Annuler")
-                }
-            },
-        ) {
-            DatePicker(state = datePickerState)
+            }
         }
     }
 }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,11 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -60,8 +58,10 @@ import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagSize
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.designsystem.foundation.elMoneyFormat
+import com.example.ui.designsystem.overlays.ElDialogShell
 import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
@@ -440,40 +440,57 @@ fun PaymentDetailScreen(
     }
 
     // Refund confirmation dialog with mandatory reason.
+    // T-460 H2 (issue #3 F-10): the raw AlertDialog → the DS dialog shell
+    // (ElDialogShell + ElTextField + ElButton). The extourne warning text and
+    // the ≥3-char reason gate preserved verbatim.
     if (showRefundDialog && payment != null) {
-        AlertDialog(
-            onDismissRequest = { showRefundDialog = false },
-            title = { Text("Rembourser le reçu ${payment!!.receiptNumber}") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "Montant : ${elMoneyFormat(payment!!.amount)}\n" +
-                            "Le remboursement annule l'effet du paiement (écriture d'extourne) et ne peut pas être défait.",
-                        style = ElTheme.typography.bodySmall,
+        ElDialogShell(onDismissRequest = { showRefundDialog = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    "Rembourser le reçu ${payment!!.receiptNumber}",
+                    style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = c.textPrimary,
+                )
+                Text(
+                    "Montant : ${elMoneyFormat(payment!!.amount)}\n" +
+                        "Le remboursement annule l'effet du paiement (écriture d'extourne) et ne peut pas être défait.",
+                    style = ElTheme.typography.bodySmall,
+                    color = c.textSecondary,
+                )
+                ElTextField(
+                    value = refundReason,
+                    onValueChange = { refundReason = it },
+                    label = "Motif du remboursement *",
+                    helperText = "Minimum 3 caractères",
+                    singleLine = false,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ElButton(
+                        text = "Annuler",
+                        onClick = { showRefundDialog = false },
+                        variant = ElButtonVariant.GHOST,
+                        modifier = Modifier.weight(1f),
                     )
-                    OutlinedTextField(
-                        value = refundReason,
-                        onValueChange = { refundReason = it },
-                        label = { Text("Motif du remboursement *") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
+                    ElButton(
+                        text = "Confirmer",
+                        onClick = {
+                            viewModel.refund(paymentId, refundReason.trim())
+                            showRefundDialog = false
+                            refundReason = ""
+                        },
+                        enabled = !busy && refundReason.trim().length >= 3,
+                        variant = ElButtonVariant.DANGER,
+                        modifier = Modifier.weight(1f),
                     )
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.refund(paymentId, refundReason.trim())
-                        showRefundDialog = false
-                        refundReason = ""
-                    },
-                    enabled = !busy && refundReason.trim().length >= 3,
-                ) { Text("Confirmer") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRefundDialog = false }) { Text("Annuler") }
-            },
-        )
+            }
+        }
     }
 }
 
