@@ -136,7 +136,7 @@ fun TripHistoryScreen(
 
     selected?.let { trip ->
         ElDialogShell(onDismissRequest = { viewModel.select(null) }) {
-            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     "Tournée du ${trip.startedAt.take(10)}",
                     style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),

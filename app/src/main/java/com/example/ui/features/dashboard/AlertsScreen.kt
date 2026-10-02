@@ -180,7 +180,7 @@ fun AlertsScreen(
             // Filter chips row
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 typeFilters.take(6).forEach { (code, label) ->
                     ElChip(

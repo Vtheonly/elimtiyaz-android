@@ -136,14 +136,14 @@ private fun ChannelRow(channel: ChatChannel, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
             .clickable { onClick() },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Channel avatar: first letter of the name in a circle
         Box(
             modifier = Modifier
-                .size(42.dp)
+                .size(44.dp)
                 .clip(CircleShape)
                 .background(c.primary),
             contentAlignment = Alignment.Center,

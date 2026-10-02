@@ -36,7 +36,7 @@ internal fun DiagnosticsSection(
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ElSectionHeader(title = "Diagnostics")
         ElCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = if (online) Icons.Default.Cloud else Icons.Default.CloudOff,
@@ -44,7 +44,7 @@ internal fun DiagnosticsSection(
                         tint = if (online) ElTheme.colors.primary else ElTheme.colors.danger,
                         modifier = Modifier.size(20.dp),
                     )
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(12.dp))
                     Text(
                         text = if (online) "En ligne" else "Hors ligne",
                         style = ElTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),

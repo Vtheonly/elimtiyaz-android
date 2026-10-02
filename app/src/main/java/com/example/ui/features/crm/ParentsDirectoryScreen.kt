@@ -116,15 +116,15 @@ fun ParentsDirectoryScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 10.dp),
+                .padding(bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Icon(
                 Icons.Default.FamilyRestroom,
                 contentDescription = null,
                 tint = ElTheme.colors.primary,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(24.dp),
             )
             Text(
                 "${parents.size} ${if (parents.size > 1) "familles enregistrées" else "famille enregistrée"}",
@@ -141,7 +141,7 @@ fun ParentsDirectoryScreen(
             placeholder = "Nom, prénom, téléphone, code…",
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 10.dp),
+                .padding(bottom = 12.dp),
         )
 
         error?.let { err ->
@@ -159,7 +159,7 @@ fun ParentsDirectoryScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(parents, key = { it.id }) { parent ->
                     ParentCard(
@@ -207,7 +207,7 @@ private fun ParentCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(8.dp))
                     parent.relationship?.let { relationship ->
                         ElTag(text = relationship.replaceFirstChar { it.uppercase() }, tone = ElTagTone.INFO)
                     }
@@ -231,7 +231,7 @@ private fun ParentCard(
                 tint = c.success,
                 onClick = onCall,
             )
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(8.dp))
             QuickActionCircle(
                 icon = Icons.Default.Forum,
                 contentDescription = "Message WhatsApp à ${parent.fullName}",
@@ -253,11 +253,11 @@ private fun QuickActionCircle(
 ) {
     Box(
         modifier = Modifier
-            .size(38.dp)
+            .size(40.dp)
             .pressClickable(onClick = onClick)
             .background(background, androidx.compose.foundation.shape.CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = contentDescription, tint = tint, modifier = Modifier.size(19.dp))
+        Icon(icon, contentDescription = contentDescription, tint = tint, modifier = Modifier.size(20.dp))
     }
 }

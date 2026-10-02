@@ -53,7 +53,7 @@ internal fun DemographicsCard(
     }
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ElSectionHeader(
                 title = "Démographie",
                 subtitle = "$totalStudents élèves actifs",
@@ -67,7 +67,7 @@ internal fun DemographicsCard(
                         color = c.textSecondary,
                         style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                     )
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(8.dp))
                     Box(contentAlignment = Alignment.Center) {
                         ElDonutChart(
                             segments = demographics.gender.mapIndexed { i, g ->
@@ -77,7 +77,7 @@ internal fun DemographicsCard(
                                     color = ElChartPalette.genderCycle[i % ElChartPalette.genderCycle.size],
                                 )
                             },
-                            size = 130.dp,
+                            size = 132.dp,
                             centerValue = "$totalStudents",
                             centerLabel = "élèves",
                         )

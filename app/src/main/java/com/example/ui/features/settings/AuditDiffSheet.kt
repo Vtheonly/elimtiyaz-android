@@ -205,8 +205,8 @@ private fun ActorAttributionBlock(
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
             .background(c.surfaceVariant.copy(alpha = 0.08f))
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             "OPÉRATEUR",
@@ -215,7 +215,7 @@ private fun ActorAttributionBlock(
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Icon(
                 Icons.Default.Person,
@@ -246,7 +246,7 @@ private fun ActorAttributionBlock(
                     Icons.Default.Shield,
                     contentDescription = null,
                     tint = c.primary,
-                    modifier = Modifier.width(14.dp).height(14.dp),
+                    modifier = Modifier.width(16.dp).height(16.dp),
                 )
                 Spacer(Modifier.width(ElTheme.spacing.xs))
                 ElTag(
@@ -372,7 +372,7 @@ private fun TableHeaderText(text: String, modifier: Modifier = Modifier, color: 
             letterSpacing = 0.4.sp,
         ),
         color = color,
-        modifier = modifier.padding(horizontal = 10.dp),
+        modifier = modifier.padding(horizontal = 12.dp),
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
@@ -396,14 +396,14 @@ fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .testTag("audit_diff_row_${row.path}")
             .background(accent.copy(alpha = 0.04f))
-            .padding(vertical = 6.dp),
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.Top,
     ) {
         // Column 1 — Champ (short label primary, full dotted path caption).
         Column(
             modifier = Modifier
                 .weight(0.30f)
-                .padding(horizontal = 10.dp),
+                .padding(horizontal = 12.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
@@ -430,7 +430,7 @@ fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .weight(0.35f)
-                .padding(horizontal = 6.dp),
+                .padding(horizontal = 8.dp),
             contentAlignment = Alignment.TopStart,
         ) {
             if (row.kind != FieldDiffKind.ADDED) {
@@ -454,7 +454,7 @@ fun DiffFieldRow(row: DiffRow, modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .weight(0.35f)
-                .padding(horizontal = 6.dp),
+                .padding(horizontal = 8.dp),
             contentAlignment = Alignment.TopStart,
         ) {
             if (row.kind != FieldDiffKind.REMOVED) {
@@ -491,7 +491,7 @@ private fun ValueChip(
         modifier = modifier
             .clip(RoundedCornerShape(4.dp))
             .background(color.copy(alpha = 0.10f))
-            .padding(horizontal = 6.dp, vertical = 3.dp),
+            .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
         Text(
             text,

@@ -39,7 +39,7 @@ internal fun DashboardApprovalsRow(
     onNavigateToFinancials: () -> Unit,
     onNavigateToDebtDashboard: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ElSectionHeader(
             title = "Files d'Attente & Approbations",
             subtitle = "Opérations administratives et compensations en attente",
@@ -62,9 +62,9 @@ internal fun DashboardApprovalsRow(
                                 imageVector = Icons.Default.Payment,
                                 contentDescription = null,
                                 tint = ElTheme.colors.info,
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(16.dp),
                             )
-                            Spacer(Modifier.size(6.dp))
+                            Spacer(Modifier.size(8.dp))
                             Text(
                                 text = "Chèques",
                                 style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -89,7 +89,7 @@ internal fun DashboardApprovalsRow(
                         color = ElTheme.colors.textSecondary,
                     )
 
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(12.dp))
                     ElButton(
                         text = "Voir chèques",
                         onClick = onNavigateToFinancials,
@@ -113,9 +113,9 @@ internal fun DashboardApprovalsRow(
                                 imageVector = Icons.Default.ReceiptLong,
                                 contentDescription = null,
                                 tint = ElTheme.colors.warning,
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(16.dp),
                             )
-                            Spacer(Modifier.size(6.dp))
+                            Spacer(Modifier.size(8.dp))
                             Text(
                                 text = "Dépenses",
                                 style = ElTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -140,7 +140,7 @@ internal fun DashboardApprovalsRow(
                         color = ElTheme.colors.textSecondary,
                     )
 
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(12.dp))
                     ElButton(
                         text = "Examiner",
                         onClick = onNavigateToFinancials,

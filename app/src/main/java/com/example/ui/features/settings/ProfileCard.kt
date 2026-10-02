@@ -34,7 +34,7 @@ internal fun ProfileCard(session: Session?) {
                 initials = session.displayName.take(2).uppercase(),
                 size = ElAvatarSize.L,
             )
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = session.displayName,
@@ -46,7 +46,7 @@ internal fun ProfileCard(session: Session?) {
                     style = ElTheme.typography.bodySmall,
                     color = c.textSecondary,
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 ElTag(
                     text = roleLabel(session.role),
                     tone = roleTone(session.role),

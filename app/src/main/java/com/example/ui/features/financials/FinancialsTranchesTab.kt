@@ -110,7 +110,7 @@ internal fun TranchesTab(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         // PARITY-003 — the global T1/T2/T3 collection-health meters (the
         // desktop installment-schedule-tab twin; engine-derived values).
@@ -158,7 +158,7 @@ internal fun TranchesTab(
                     ) {
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             ElAvatar(initials = p.fullName, size = ElAvatarSize.S)
-                            Spacer(Modifier.width(10.dp))
+                            Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     p.fullName,
@@ -190,7 +190,7 @@ internal fun TranchesTab(
                         contentDescription = null,
                         tint = c.primary,
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         "Retour à la liste des familles",
                         style = ElTheme.typography.bodyMedium,
@@ -205,7 +205,7 @@ internal fun TranchesTab(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(14.dp),
+                            .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Row(
@@ -262,7 +262,7 @@ internal fun TranchesTab(
                             color = if (remainingDebt > 0) c.danger else c.success,
                         )
 
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(8.dp))
                         ElButton(
                             text = "Encaisser un paiement pour cette famille",
                             onClick = { onNavigateToCounter(selectedParent.id, null) },
@@ -303,7 +303,7 @@ internal fun TranchesTab(
                     ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.COMPACT) {
                         Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -368,7 +368,7 @@ internal fun TranchesTab(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
                     "Valider la tranche comme payée ?",

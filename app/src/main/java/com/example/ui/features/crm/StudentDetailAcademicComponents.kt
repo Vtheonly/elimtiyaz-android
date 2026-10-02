@@ -162,7 +162,7 @@ internal fun SubjectGradeCard(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.weight(1f),
                 ) {
                     Text(
@@ -182,8 +182,8 @@ internal fun SubjectGradeCard(
                 )
             }
 
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MarkPill("D1", devoir1)
                 MarkPill("D2", devoir2)
                 MarkPill("Ex ×2", examen)
@@ -198,14 +198,14 @@ internal fun SubjectGradeCard(
             if (average != null) {
                 Spacer(Modifier.height(8.dp))
                 ElLinearProgress(progress = (average / 20.0).toFloat())
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
                     if (passing) "Acquis (≥ $passingGrade/20)" else "À renforcer (< $passingGrade/20)",
                     style = ElTheme.typography.labelSmall,
                     color = avgColor,
                 )
             } else {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
                     "Moyenne à paraître — les 3 notes doivent être saisies (formule (D1 + D2 + 2×Ex) / 4)",
                     style = ElTheme.typography.labelSmall,
@@ -255,7 +255,7 @@ internal fun AcademicHistoryTab(
 
     if (history.isEmpty()) {
         ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Historique académique", style = ElTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                 Text(
                     "Aucun historique pour cet élève — les performances par trimestre apparaîtront ici au fil des années, avec le détail des bulletins et les décisions de promotion.",
@@ -269,11 +269,11 @@ internal fun AcademicHistoryTab(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
             ElCard(modifier = Modifier.fillMaxWidth(), size = ElCardSize.STANDARD) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Parcours complet — ${history.size} année(s)", style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
                     Text(
                         "Historique permanent en lecture seule : les années clôturées ne peuvent pas être modifiées (toute correction passe par une nouvelle entrée journalisée).",
@@ -310,7 +310,7 @@ private fun AcademicYearCard(
             .fillMaxWidth()
             .clickable { expanded = !expanded },
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -344,7 +344,7 @@ private fun AcademicYearCard(
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 year.termGpas.forEach { (term, gpa) ->
                     val tColor = when {
                         gpa == null -> c.textMuted
@@ -355,7 +355,7 @@ private fun AcademicYearCard(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
                             .background(tColor.copy(alpha = 0.10f))
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
                     ) {
                         Text(
                             "$term ${gpa?.let { "%.2f".format(it) } ?: "—"}",

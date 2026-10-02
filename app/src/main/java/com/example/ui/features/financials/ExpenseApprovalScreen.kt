@@ -244,7 +244,7 @@ fun ExpenseApprovalScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             error?.let {
                 ElAlertBanner(
@@ -316,7 +316,7 @@ fun ExpenseApprovalScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
                     "Rejeter la dépense ${exp.requestCode}",
@@ -371,7 +371,7 @@ fun ExpenseApprovalScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
                     "Téléverser le justificatif",
@@ -460,7 +460,7 @@ private fun ExpenseDetailView(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -588,7 +588,7 @@ private fun ExpenseTimeline(expense: Expense) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             ElSectionHeader(title = "Cycle de vie")
             stages.forEachIndexed { idx, (label, at, by) ->

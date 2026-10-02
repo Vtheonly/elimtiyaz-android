@@ -246,7 +246,7 @@ fun CounterPaymentScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Dismissible error banner — visible on ALL steps (T-321).
             error?.let {
@@ -264,7 +264,7 @@ fun CounterPaymentScreen(
                 val p = selectedParent!!
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Spacer(Modifier.height(16.dp))
@@ -293,7 +293,7 @@ fun CounterPaymentScreen(
                                 .fillMaxWidth()
                                 .padding(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
                                 "NUMÉRO DE REÇU",
@@ -459,7 +459,7 @@ fun CounterPaymentScreen(
                                         Icons.Default.Group,
                                         contentDescription = null,
                                         tint = ElTheme.colors.warning,
-                                        modifier = Modifier.size(22.dp),
+                                        modifier = Modifier.size(24.dp),
                                     )
                                 }
                                 Spacer(Modifier.width(12.dp))
@@ -516,7 +516,7 @@ fun CounterPaymentScreen(
                 ElCard(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         ElSectionHeader(title = "Montant à encaisser")
 
@@ -560,7 +560,7 @@ fun CounterPaymentScreen(
                         )
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             listOf(5_000L, 10_000L, 20_000L, 50_000L, 100_000L).forEach { preset ->
                                 ElChip(
@@ -585,7 +585,7 @@ fun CounterPaymentScreen(
                 ElCard(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text(
                             "Mode de règlement",
@@ -646,7 +646,7 @@ fun CounterPaymentScreen(
                         )
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             listOf(
                                 PaymentCategory.TUITION to "Scolarité",
@@ -782,7 +782,7 @@ private fun BeneficiaryRecapCard(
     ElCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -859,7 +859,7 @@ private fun AllocationPreviewCard(
                             .fillMaxWidth()
                             .clip(MaterialTheme.shapes.small)
                             .background(c.surfaceVariant)
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

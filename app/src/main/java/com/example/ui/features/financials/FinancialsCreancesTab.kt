@@ -58,17 +58,17 @@ internal fun CreancesTab(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = ElTheme.spacing.lg, vertical = ElTheme.spacing.md),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricMiniCard("Créances totales", "${(outstandingDebt / 100).formatDzd()} DZD", c.primary, Modifier.weight(1f))
                 MetricMiniCard("En retard", "${(totalOverdue / 100).formatDzd()} DZD", c.danger, Modifier.weight(1f))
             }
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
                     null to "Toutes",
                     "0_30" to "0-30j",

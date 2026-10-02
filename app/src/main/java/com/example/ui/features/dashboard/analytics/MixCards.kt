@@ -60,7 +60,7 @@ internal fun MethodMixCard(
 
     ElCard(modifier = modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -126,7 +126,7 @@ internal fun CategoryMixCard(
     var byAmount by remember { mutableStateOf(true) }
 
     ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ElSectionHeader(
                 title = "Postes d'Encaissement",
                 subtitle = "Classement par montant",
@@ -134,7 +134,7 @@ internal fun CategoryMixCard(
                     // The Montant / Nb op. metric toggle (desktop convention)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         MetricToggleLabel("Montant", byAmount) { byAmount = true }
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(8.dp))
                         MetricToggleLabel("Nb op.", !byAmount) { byAmount = false }
                     }
                 },
@@ -151,7 +151,7 @@ internal fun CategoryMixCard(
                     },
                 )
             }
-            ElHorizontalBarChart(items = items, rowHeight = 26.dp)
+            ElHorizontalBarChart(items = items, rowHeight = 28.dp)
         }
     }
 }

@@ -44,7 +44,7 @@ internal fun DashboardAttendanceChart(
     onNavigateToRollCall: (String) -> Unit,
     onNavigateToAcademics: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ElSectionHeader(
             title = "Vie Scolaire & Assiduité",
             subtitle = "Pointage quotidien et tendance hebdomadaire",
@@ -76,7 +76,7 @@ internal fun DashboardAttendanceChart(
                     )
                 }
 
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
 
                 if (classStatuses.isEmpty()) {
                     Text(
@@ -91,7 +91,7 @@ internal fun DashboardAttendanceChart(
                                 .fillMaxWidth()
                                 .clip(ElTheme.shapes.small)
                                 .clickable { onNavigateToRollCall(classStatus.classId) }
-                                .padding(vertical = 5.dp, horizontal = 4.dp),
+                                .padding(vertical = 4.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
@@ -150,12 +150,12 @@ internal fun DashboardAttendanceChart(
                     }
                 }
 
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(16.dp))
                 androidx.compose.material3.HorizontalDivider(
                     color = ElTheme.colors.outlineVariant,
                     thickness = 1.dp,
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
 
                 Text(
                     text = "Taux de présence sur 7 jours (%.0f%% aujourd'hui)".format(attendanceRateToday),
@@ -167,7 +167,7 @@ internal fun DashboardAttendanceChart(
                 if (attendanceTrend.isNotEmpty()) {
                     ElLineChart(
                         points = attendanceTrend,
-                        height = 130.dp,
+                        height = 132.dp,
                         lineColor = ElTheme.colors.info,
                         gradientFill = true,
                     )

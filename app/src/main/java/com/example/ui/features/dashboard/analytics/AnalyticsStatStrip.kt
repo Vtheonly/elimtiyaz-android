@@ -120,7 +120,7 @@ private fun StatCard(
         variant = com.example.ui.designsystem.components.card.ElCardVariant.OUTLINED,
         elevation = null,
     ) {
-        Column(modifier = Modifier.padding(10.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = title,

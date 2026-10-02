@@ -150,21 +150,21 @@ fun StudentRosterScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 10.dp),
+                .padding(bottom = 12.dp),
             shape = RoundedCornerShape(12.dp),
             color = c.surfaceVariant.copy(alpha = 0.5f),
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(10.dp)
+                            .size(12.dp)
                             .clip(CircleShape)
                             .background(
                                 if (isConfigured) c.primary
@@ -178,7 +178,7 @@ fun StudentRosterScreen(
                         tint = ElTheme.colors.primary,
                         modifier = Modifier.size(20.dp),
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         text = "${students.size} élève${if (students.size > 1) "s" else ""}",
                         style = ElTheme.typography.titleMedium,
@@ -216,7 +216,7 @@ fun StudentRosterScreen(
             placeholder = "Nom, prénom, matricule…",
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 10.dp),
+                .padding(bottom = 12.dp),
         )
 
         if (students.isEmpty()) {
@@ -230,7 +230,7 @@ fun StudentRosterScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(students, key = { it.id }) { student ->
                     ElCard(

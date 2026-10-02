@@ -50,7 +50,7 @@ internal fun DashboardNotificationsSection(
     recentPayments: List<Payment>,
     onNavigateToFinancials: () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ElSectionHeader(
             title = "Dernières Opérations & Journal",
             subtitle = "Encaissements récents et alertes opérationnelles",
@@ -79,7 +79,7 @@ internal fun DashboardNotificationsSection(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 5.dp),
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
@@ -149,7 +149,7 @@ internal fun DashboardNotificationsSection(
                                     .size(32.dp)
                                     .clip(CircleShape)
                                     .background(bg)
-                                    .padding(6.dp),
+                                    .padding(8.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
@@ -161,7 +161,7 @@ internal fun DashboardNotificationsSection(
                                     },
                                     contentDescription = null,
                                     tint = fg,
-                                    modifier = Modifier.size(18.dp),
+                                    modifier = Modifier.size(16.dp),
                                 )
                             }
                             Spacer(Modifier.size(8.dp))

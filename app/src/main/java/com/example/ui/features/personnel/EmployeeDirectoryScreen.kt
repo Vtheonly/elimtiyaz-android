@@ -119,7 +119,7 @@ fun EmployeeDirectoryScreen(
     val canManage = session.can(Permission.MANAGE_PERSONNEL) || viewModel.canManage
 
     Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ElSectionHeader(title = "Registre du Personnel (${personnel.size})")
 
             message?.let {
@@ -206,7 +206,7 @@ private fun EmployeeCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ElAvatar(initials = staff.fullName, size = ElAvatarSize.M)
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(12.dp))
                     Column {
                         Text(
                             staff.fullName,
@@ -230,7 +230,7 @@ private fun EmployeeCard(
                 style = ElTheme.typography.bodySmall,
                 color = ElTheme.colors.textSecondary,
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ElButton(
@@ -303,7 +303,7 @@ private fun CreateEmployeeDialog(
                 Text("Rôle *", style = ElTheme.typography.labelMedium, color = ElTheme.colors.textPrimary)
                 androidx.compose.foundation.layout.FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     STAFF_ROLE_OPTIONS.forEach { (code, label) ->
                         ElChip(
@@ -322,7 +322,7 @@ private fun CreateEmployeeDialog(
                     Text("Département", style = ElTheme.typography.labelMedium, color = ElTheme.colors.textPrimary)
                     androidx.compose.foundation.layout.FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         ElChip(
                             text = "Aucun",

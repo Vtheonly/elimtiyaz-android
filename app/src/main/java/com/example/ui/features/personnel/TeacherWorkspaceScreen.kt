@@ -83,7 +83,7 @@ fun TeacherWorkspaceScreen(
                 ) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -95,7 +95,7 @@ fun TeacherWorkspaceScreen(
                                         Icons.Default.School,
                                         contentDescription = null,
                                         tint = c.primary,
-                                        modifier = Modifier.padding(end = 6.dp),
+                                        modifier = Modifier.padding(end = 8.dp),
                                     )
                                     Text(
                                         cls.name,

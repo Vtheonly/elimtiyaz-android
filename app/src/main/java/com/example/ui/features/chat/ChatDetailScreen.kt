@@ -115,7 +115,7 @@ fun ChatDetailScreen(
                         horizontal = 12.dp,
                         vertical = 8.dp,
                     ),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(state.messages, key = { it.id }) { message ->
                         MessageBubble(
@@ -154,7 +154,7 @@ fun ChatDetailScreen(
                     )
                     Spacer(Modifier.width(8.dp))
                     if (state.sending) {
-                        ElSpinner(size = 22, strokeWidth = 2, modifier = Modifier.width(22.dp))
+                        ElSpinner(size = 22, strokeWidth = 2, modifier = Modifier.width(24.dp))
                     } else {
                         ElIconButton(
                             icon = Icons.AutoMirrored.Filled.Send,

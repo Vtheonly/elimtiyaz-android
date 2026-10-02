@@ -136,7 +136,7 @@ internal fun AdjustAccountDialog(
                 .verticalScroll(rememberScrollState())
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
                 "Ajustement de compte",
@@ -166,7 +166,7 @@ internal fun AdjustAccountDialog(
             Text("Motif *", style = ElTheme.typography.labelMedium)
             androidx.compose.foundation.layout.FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 ADJUSTMENT_MOTIFS.forEach { m ->
                     ElChip(text = m, variant = ElChipVariant.FILTER, selected = motif == m, onClick = { motif = m })
@@ -175,7 +175,7 @@ internal fun AdjustAccountDialog(
             Text("Catégorie (débits uniquement)", style = ElTheme.typography.labelMedium)
             androidx.compose.foundation.layout.FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 ADJUSTMENT_CATEGORIES.forEach { (code, label) ->
                     ElChip(text = label, variant = ElChipVariant.FILTER, selected = category == code, onClick = { category = code })

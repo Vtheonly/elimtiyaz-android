@@ -188,7 +188,7 @@ fun RoutingScreen(
             }
 
             // Shift filter
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(RoutingShift.Morning, RoutingShift.Afternoon, RoutingShift.Both).forEach { shift ->
                     ElChip(
                         text = shift.displayFr,
@@ -266,7 +266,7 @@ private fun VehicleCard(
         size = ElCardSize.STANDARD,
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 androidx.compose.material3.Icon(Icons.Default.LocalShipping, contentDescription = null, tint = c.primary)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(vehicle.plate, style = ElTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold), color = c.textPrimary)
@@ -280,7 +280,7 @@ private fun VehicleCard(
                 Text("Distance : %.2f km".format(route.totalDistanceKm), style = ElTheme.typography.bodySmall, color = c.textPrimary)
                 Text("Durée : %.0f min".format(route.totalDurationMin), style = ElTheme.typography.bodySmall, color = c.textPrimary)
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ElButton(
                     text = if (optimised == null) "Optimiser" else "Re-optimiser",
