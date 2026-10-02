@@ -182,6 +182,11 @@ tasks.withType<Test>().matching { it.name == "testReleaseUnitTest" }.configureEa
     excludeTestsMatching("com.example.ui.designsystem.overlays.ElToastHostTest")
     excludeTestsMatching("com.example.ui.features.financials.ParentYearHistorySectionTest")
     excludeTestsMatching("com.example.ui.features.settings.AuditDiffSheetTest")
+    // T-462 (134th session): same ARCH-012 class — createComposeRule under
+    // the suffixed .bxmzlx applicationId (the 4th-recurrence prevention
+    // rule: the exclusion lands in the SAME commit as the test).
+    excludeTestsMatching("com.example.ui.features.financials.TrancheWaveCardsT462Test")
+    excludeTestsMatching("com.example.ui.features.financials.TrancheWaveCardsScreenshotT462Test")
   }
 }
 

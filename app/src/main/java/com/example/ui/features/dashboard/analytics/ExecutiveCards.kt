@@ -1,6 +1,7 @@
 package com.example.ui.features.dashboard.analytics
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.core.formatDzd
 import com.example.domain.model.ExecCallListEntryItem
 import com.example.domain.model.ExecConcentrationSnapshot
@@ -200,7 +202,10 @@ fun WaveVelocityCard(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
                                 text = "${(totalPending / 100).formatDzd()} DA en cours",
-                                color = ElChartPalette.info,
+                                // T-462 (UI-327): the semantic layer's info —
+                                // the dark-softened Sky400, not the chart
+                                // palette's saturated #0EA5E9.
+                                color = c.info,
                                 style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                             )
                             ElInfoTip(tip = "waveVelocity.pending", size = 11)
@@ -209,7 +214,8 @@ fun WaveVelocityCard(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
                             text = "${(totalRemaining / 100).formatDzd()} DA restant",
-                            color = ElChartPalette.danger,
+                            // T-462 (UI-327): the semantic danger (Rose400).
+                            color = c.danger,
                             style = ElTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                         )
                         ElInfoTip(tip = "waveVelocity.remaining", size = 11)
@@ -259,7 +265,7 @@ fun WaveVelocityCard(
                                         (range?.let { " · échéance $it" } ?: "") +
                                         (if (g.remainingTotal == 0L && g.installmentCount > 0) " · soldé" else ""),
                                     style = ElTheme.typography.labelSmall,
-                                    color = if (g.remainingTotal > 0L) ElChartPalette.danger else ElChartPalette.success,
+                                    color = if (g.remainingTotal > 0L) c.danger else c.success,
                                 )
                             }
                             val pct = if (g.dueTotal > 0L) com.example.core.execSharePct(g.paidTotal, g.dueTotal) else 0
@@ -301,7 +307,7 @@ fun WaveVelocityCard(
                                         (auxDue?.let { " · échéance $it" } ?: "") +
                                         (if (w.phase == "overdue" && w.remainingTotal > 0L) " · en retard" else ""),
                                     style = ElTheme.typography.labelSmall,
-                                    color = if (w.phase == "overdue" && w.remainingTotal > 0L) ElChartPalette.danger else c.textSecondary,
+                                    color = if (w.phase == "overdue" && w.remainingTotal > 0L) c.danger else c.textSecondary,
                                 )
                             }
                             Text(
@@ -392,14 +398,21 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
                                 }
                             } else "",
                         style = ElTheme.textStyles.badge.copy(fontWeight = FontWeight.SemiBold),
-                        color = if (isOverdue && !isComplete) ElChartPalette.danger else c.textSecondary,
+                        // T-462 (UI-327): the semantic layer's danger (the
+                        // dark-softened Rose400), never the chart palette's
+                        // saturated #EF4444 as bare text.
+                        color = if (isOverdue && !isComplete) c.danger else c.textSecondary,
                     )
                 }
             }
             ElTag(text = statusText, tone = statusTone)
         }
 
-        // The big rate + the dossiers count + the meter
+        // The big rate + the dossiers count + the meter.
+        // T-462 (UI-327): the rate is DISPLAY-GRADE (titleLarge ExtraBold —
+        // 22sp with a clear baseline row) instead of bodyLarge(16sp).Black:
+        // it leads the card by size and weight, not by shouting hue; the
+        // dossiers count stays the supporting figure on the same baseline.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -407,7 +420,7 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
         ) {
             Text(
                 text = "$collectedPct%",
-                style = ElTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Black),
+                style = ElTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
                 color = c.textPrimary,
             )
             Text(
@@ -416,44 +429,47 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
                 color = c.textSecondary,
             )
         }
+        // T-462 (UI-327): the meter consumes the DS ElLinearProgress (the
+        // animated, rounded-cap component the Finance Tranches strip
+        // already uses) — the hand-rolled Box/Box pair is retired. The
+        // fill resolves through the THEME's semantic layer (the
+        // dark-softened 400-grade hues) with a subtle two-stop gradient;
+        // the status badge above carries the verdict, the bar reads as
+        // progress. The in-progress state keeps the desktop's brand blue
+        // (ElChartPalette.primary — the one palette hue that is a BRAND,
+        // not a status).
         val meterColor = when {
-            isComplete -> ElChartPalette.success
-            isOverdue -> ElChartPalette.danger
+            isComplete -> c.success
+            isOverdue -> c.danger
             else -> ElChartPalette.primary
         }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(ElTheme.spacing.sm)
-                .clip(RoundedCornerShape(50))
-                .background(c.surfaceVariant),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(collectedPct.coerceIn(0, 100) / 100f)
-                    .height(ElTheme.spacing.sm)
-                    .clip(RoundedCornerShape(50))
-                    .background(meterColor),
-            )
-        }
+        ElLinearProgress(
+            progress = collectedPct.coerceIn(0, 100) / 100f,
+            gradient = listOf(meterColor.copy(alpha = 0.65f), meterColor),
+            trackColor = c.surfaceVariant,
+            height = 6,
+        )
 
         // The 2×3 metric grid — the mandate's Total Due = Paid + Pending +
-        // Remaining identity verifiable at a glance.
+        // Remaining identity verifiable at a glance. T-462 (UI-327): every
+        // metric renders in its own soft tile (the desktop twin's
+        // rounded-lg bg-surface-panel/60 + border-border/40 treatment) and
+        // every status value resolves through the semantic layer.
         Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
             PooledMetric("FACTURÉ", "${(dueTotal / 100).formatDzd()} DA", c.textPrimary, Modifier.weight(1f))
-            PooledMetric("ENCAISSÉ", "${(paidTotal / 100).formatDzd()} DA", ElChartPalette.success, Modifier.weight(1f))
+            PooledMetric("ENCAISSÉ", "${(paidTotal / 100).formatDzd()} DA", c.success, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
             PooledMetric(
                 "EN COURS",
                 "${(pendingTotal / 100).formatDzd()} DA",
-                if (pendingTotal > 0L) ElChartPalette.info else c.textSecondary,
+                if (pendingTotal > 0L) c.info else c.textSecondary,
                 Modifier.weight(1f),
             )
             PooledMetric(
                 "RESTE DÛ",
                 "${(remainingTotal / 100).formatDzd()} DA",
-                if (remainingTotal > 0L) ElChartPalette.danger else c.textSecondary,
+                if (remainingTotal > 0L) c.danger else c.textSecondary,
                 Modifier.weight(1f),
             )
         }
@@ -464,7 +480,7 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
             val familiesLabel = if (isOverdue) "FAMILLES EN RETARD" else if (anyUnsettledFuture) "FAMILLES À ÉCHOIR" else "FAMILLES NON SOLDÉES"
             val familiesValue = if (isOverdue) overdueDebtorFamilyCount else debtorFamilyCount
             val familiesColor = if (familiesValue > 0) {
-                if (isOverdue) ElChartPalette.danger else ElChartPalette.warning
+                if (isOverdue) c.danger else c.warning
             } else c.textSecondary
             PooledMetric(familiesLabel, "$familiesValue / $familyCount", familiesColor, Modifier.weight(1f))
             PooledMetric("CATÉGORIES", "${w?.perCategory?.size ?: 0}", c.textPrimary, Modifier.weight(1f))
@@ -482,6 +498,10 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
 
         // The per-category breakdown chips (the audit trail that no revenue
         // category is silently excluded from the main analysis).
+        // T-462 (UI-327): the chips share the metric tiles' container
+        // language (soft tint + hairline border) and the remaining value
+        // resolves through the semantic danger — the Scolarité / Transport
+        // breakdown reads as one clean strip, not floating red text.
         val perCategory = w?.perCategory ?: emptyList()
         if (perCategory.isNotEmpty()) {
             Row(
@@ -493,9 +513,14 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(c.surfaceVariant.copy(alpha = 0.5f))
-                            .padding(horizontal = ElTheme.spacing.sm, vertical = 3.dp),
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(c.surfaceVariant.copy(alpha = 0.4f))
+                            .border(
+                                width = 1.dp,
+                                color = c.outlineVariant.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(8.dp),
+                            )
+                            .padding(horizontal = ElTheme.spacing.sm, vertical = ElTheme.spacing.xs),
                     ) {
                         Text(
                             text = cat.categoryLabel,
@@ -507,7 +532,7 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
                         Text(
                             text = "$catPct%" + if (cat.remainingTotal > 0L) " · ${(cat.remainingTotal / 100).formatDzd()}" else "",
                             style = ElTheme.textStyles.chartMicro.copy(fontWeight = FontWeight.SemiBold),
-                            color = if (cat.remainingTotal > 0L) ElChartPalette.danger else c.textPrimary,
+                            color = if (cat.remainingTotal > 0L) c.danger else c.textPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -525,11 +550,30 @@ private fun PooledMetric(
     valueColor: Color,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier) {
+    val c = ElTheme.colors
+    // T-462 (UI-327): the desktop twin's metric TILE — a soft tinted
+    // container with a hairline border (rounded-lg bg-surface-panel/60
+    // border-border/40 p-2) instead of bare floating columns. The numbers
+    // gain their own breathing room, so the grid reads as six clean cells
+    // and the key figures stand out instead of feeling crammed.
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(c.surfaceVariant.copy(alpha = 0.4f))
+            .border(
+                width = 1.dp,
+                color = c.outlineVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(10.dp),
+            )
+            .padding(
+                horizontal = ElTheme.spacing.sm,
+                vertical = ElTheme.spacing.sm,
+            ),
+    ) {
         Text(
             text = label,
-            style = ElTheme.textStyles.chartMicro,
-            color = ElTheme.colors.textMuted,
+            style = ElTheme.textStyles.chartMicro.copy(letterSpacing = 0.8.sp),
+            color = c.textMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

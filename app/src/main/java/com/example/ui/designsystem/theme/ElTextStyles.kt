@@ -3,7 +3,6 @@ package com.example.ui.designsystem.theme
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
@@ -14,43 +13,47 @@ import androidx.compose.ui.unit.sp
  * These cover use cases the M3 scale doesn't: numeric displays for amounts,
  * overlines for eyebrows, captions, action labels, and centered stat blocks.
  *
+ * T-462 (UI-327): the LATIN backbone is [ElInter] (the owner's modern
+ * sans-serif mandate); scripts Inter misses fall through per-glyph to the
+ * system fonts, unchanged.
+ *
  * Access via [ElTheme.textStyles].
  */
 @Immutable
 data class ElTextStyles(
     /** Numeric display for amounts, balances, KPIs. */
     val numeric: TextStyle = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.Black,
+        fontFamily = ElInter, fontWeight = FontWeight.Black,
         fontSize = 32.sp, lineHeight = 36.sp, letterSpacing = (-0.5).sp,
     ),
     /** Large numeric — for hero KPIs. */
     val numericHero: TextStyle = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.Black,
+        fontFamily = ElInter, fontWeight = FontWeight.Black,
         fontSize = 48.sp, lineHeight = 52.sp, letterSpacing = (-1.0).sp,
     ),
     /** Small numeric — for inline figures. */
     val numericSmall: TextStyle = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold,
+        fontFamily = ElInter, fontWeight = FontWeight.Bold,
         fontSize = 14.sp, lineHeight = 18.sp, letterSpacing = 0.sp,
     ),
     /** Overline / eyebrow — above headlines. */
     val overline: TextStyle = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold,
+        fontFamily = ElInter, fontWeight = FontWeight.Bold,
         fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 1.5.sp,
     ),
     /** Caption — for image captions, footnotes. */
     val caption: TextStyle = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium,
+        fontFamily = ElInter, fontWeight = FontWeight.Medium,
         fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.4.sp,
     ),
     /** Action — for buttons, links, CTAs. */
     val action: TextStyle = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold,
+        fontFamily = ElInter, fontWeight = FontWeight.Bold,
         fontSize = 14.sp, lineHeight = 18.sp, letterSpacing = 0.25.sp,
     ),
     /** Counter / badge text. */
     val badge: TextStyle = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.Bold,
+        fontFamily = ElInter, fontWeight = FontWeight.Bold,
         fontSize = 10.sp, lineHeight = 14.sp, letterSpacing = 0.5.sp,
     ),
     /**
@@ -64,12 +67,12 @@ data class ElTextStyles(
      * labelSmall (11sp) would overflow the wave cards' tight rows.
      */
     val chartMicro: TextStyle = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium,
+        fontFamily = ElInter, fontWeight = FontWeight.Medium,
         fontSize = 9.sp, lineHeight = 12.sp, letterSpacing = 0.3.sp,
     ),
     /** Centered numeric — for stat blocks. */
     val statCentered: TextStyle = TextStyle(
-        fontFamily = FontFamily.Default, fontWeight = FontWeight.Black,
+        fontFamily = ElInter, fontWeight = FontWeight.Black,
         fontSize = 28.sp, lineHeight = 32.sp, letterSpacing = (-0.5).sp,
         textAlign = TextAlign.Center,
     ),
