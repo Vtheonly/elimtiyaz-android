@@ -706,6 +706,10 @@ data class ChatMessageEntity(
     // (the T-310 pattern: stringify on write, parse on read — a malformed
     // row degrades to "unread", never crashes the chat screen).
     val readByJson: String,
+    // T-464 / MEDIA-300 (schema v19): the attachments jsonb array, stored
+    // as the server's compact JSON text (the same stringify/parse pattern —
+    // a malformed row degrades to "no attachments", never a crash).
+    val attachmentsJson: String = "[]",
     val deletedAt: String? = null,
     val editedAt: String? = null,
     val parentMessageId: String? = null,
@@ -723,6 +727,21 @@ data class ChatMessageEntity(
                 }.getOrNull()
             }
         }.getOrDefault(emptyList())
+        val attachments = runCatching {
+            val arr = Json.parseToJsonElement(attachmentsJson.ifBlank { "[]" }).jsonArray
+            arr.mapNotNull { el ->
+                runCatching {
+                    val obj = el.jsonObject
+                    com.example.domain.model.ChatAttachment(
+                        fileName = obj["file_name"]?.jsonPrimitive?.content
+                            ?: obj["storage_path"]?.jsonPrimitive?.content?.substringAfterLast('/') ?: return@mapNotNull null,
+                        storagePath = obj["storage_path"]?.jsonPrimitive?.content ?: return@mapNotNull null,
+                        mimeType = obj["mime_type"]?.jsonPrimitive?.content,
+                        sizeBytes = obj["size_bytes"]?.jsonPrimitive?.content?.toLongOrNull(),
+                    )
+                }.getOrNull()
+            }
+        }.getOrDefault(emptyList())
         return com.example.domain.model.ChatMessage(
             id = id,
             tenantId = tenantId,
@@ -731,6 +750,7 @@ data class ChatMessageEntity(
             body = body,
             sentAt = sentAt,
             readBy = receipts,
+            attachments = attachments,
             deletedAt = deletedAt,
             editedAt = editedAt,
             parentMessageId = parentMessageId,
@@ -749,6 +769,18 @@ data class ChatMessageEntity(
                     )
                 }
             }
+            val attachmentsJson = buildJsonArray {
+                m.attachments.forEach { a ->
+                    add(
+                        buildJsonObject {
+                            put("file_name", a.fileName)
+                            put("storage_path", a.storagePath)
+                            put("mime_type", a.mimeType ?: "application/octet-stream")
+                            put("size_bytes", a.sizeBytes ?: 0L)
+                        },
+                    )
+                }
+            }.toString()
             return ChatMessageEntity(
                 id = m.id,
                 tenantId = m.tenantId,
@@ -757,6 +789,7 @@ data class ChatMessageEntity(
                 body = m.body,
                 sentAt = m.sentAt,
                 readByJson = json.toString(),
+                attachmentsJson = attachmentsJson,
                 deletedAt = m.deletedAt,
                 editedAt = m.editedAt,
                 parentMessageId = m.parentMessageId,

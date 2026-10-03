@@ -72,6 +72,9 @@ data class ChatMessageDto(
     @SerialName("body") val body: String,
     @SerialName("sent_at") val sentAt: String,
     @SerialName("read_by") val readBy: JsonElement? = null,
+    // T-464 / MEDIA-300: the attachments jsonb array — parsed leniently (a
+    // malformed entry degrades to a skipped attachment, never a crash).
+    @SerialName("attachments") val attachments: JsonElement? = null,
     @SerialName("deleted_at") val deletedAt: String? = null,
     @SerialName("edited_at") val editedAt: String? = null,
     @SerialName("parent_message_id") val parentMessageId: String? = null,
@@ -89,10 +92,28 @@ data class ChatMessageDto(
         body = body,
         sentAt = sentAt,
         readBy = parseReadBy(readBy),
+        attachments = parseAttachments(attachments),
         deletedAt = deletedAt,
         editedAt = editedAt,
         parentMessageId = parentMessageId,
     )
+
+/** T-464 / MEDIA-300: the attachments jsonb array → typed attachments. */
+private fun parseAttachments(element: JsonElement?): List<com.example.domain.model.ChatAttachment> {
+    val array = runCatching { element?.jsonArray }.getOrNull() ?: return emptyList()
+    return array.mapNotNull { el ->
+        runCatching {
+            val obj = el.jsonObject
+            val storagePath = (obj["storage_path"] as? JsonPrimitive)?.content ?: return@mapNotNull null
+            com.example.domain.model.ChatAttachment(
+                fileName = (obj["file_name"] as? JsonPrimitive)?.content ?: storagePath.substringAfterLast('/'),
+                storagePath = storagePath,
+                mimeType = (obj["mime_type"] as? JsonPrimitive)?.content,
+                sizeBytes = (obj["size_bytes"] as? JsonPrimitive)?.content?.toLongOrNull(),
+            )
+        }.getOrNull()
+    }
+}
 
 private fun parseReadBy(element: JsonElement?): List<ChatMessage.ReadReceipt> {
     val array = runCatching { element?.jsonArray }.getOrNull() ?: return emptyList()
@@ -180,6 +201,7 @@ class SupabaseChatRepository @Inject constructor(
         channelId: String,
         authorProfileId: String,
         body: String,
+        attachments: List<com.example.domain.model.ChatAttachment>,
     ): Result<ChatMessage> = try {
         // guardSyncPush: a REJECTED insert must throw (CROSS-200) — never
         // report a failed send as successful.
@@ -190,7 +212,19 @@ class SupabaseChatRepository @Inject constructor(
                 put("channel_id", channelId)
                 put("author_id", authorProfileId)
                 put("body", body)
-                put("attachments", buildJsonArray { })
+                // T-464 / MEDIA-300: the attachments metadata rides the
+                // insert (the caller uploaded the bytes FIRST — the
+                // StorageRepository contract; a failed upload aborts).
+                put("attachments", buildJsonArray {
+                    attachments.forEach { a ->
+                        add(buildJsonObject {
+                            put("file_name", a.fileName)
+                            put("storage_path", a.storagePath)
+                            put("mime_type", a.mimeType ?: "application/octet-stream")
+                            put("size_bytes", a.sizeBytes ?: 0L)
+                        })
+                    }
+                })
                 put("read_by", buildJsonArray {
                     add(buildJsonObject {
                         put("user_id", authorProfileId)

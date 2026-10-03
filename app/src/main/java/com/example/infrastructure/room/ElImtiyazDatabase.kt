@@ -54,7 +54,7 @@ import androidx.room.RoomDatabase
         ChatChannelEntity::class,
         ChatMessageEntity::class,
     ],
-    version = 18,
+    version = 19,
     // T-046-gap (session 18): schemas are exported from now on (ksp arg
     // room.schemaLocation → app/schemas/) so MigrationTestHelper upgrade
     // tests can pin every future schema bump. 12.json was backfilled from
@@ -570,6 +570,21 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
             override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE `chat_channels` ADD COLUMN `scope` TEXT NOT NULL DEFAULT 'internal'"
+                )
+            }
+        }
+
+        /**
+         * T-464 / MEDIA-300 (135th session, 2026-10-03) — v18 → v19: the
+         * chat_messages READ cache gains the `attachmentsJson` column (the
+         * server's attachments jsonb array, stringify-on-write/parse-on-read
+         * — the T-310 pattern). Purely additive; cached rows read as "no
+         * attachments" until the next online refresh rewrites them.
+         */
+        val MIGRATION_18_19 = object : androidx.room.migration.Migration(18, 19) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE `chat_messages` ADD COLUMN `attachmentsJson` TEXT NOT NULL DEFAULT '[]'"
                 )
             }
         }

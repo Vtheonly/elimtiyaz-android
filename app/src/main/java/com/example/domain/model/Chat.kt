@@ -66,6 +66,10 @@ enum class ChatChannelScope(val wire: String) {
  * website's MessagesView appends the reader's own entry when the channel
  * is open (REALTIME-101; hub migration 0051 authorizes channel members to
  * append their own entry).
+ *
+ * `attachments` is the jsonb array [{file_name, storage_path, mime_type,
+ * size_bytes}] (migration 0010; the lifecycle completed by T-464/MEDIA-300
+ * — hub migration 0136's member-scoped chat-attachments policies).
  */
 @Serializable
 data class ChatMessage(
@@ -76,6 +80,7 @@ data class ChatMessage(
     val body: String,
     val sentAt: String,
     val readBy: List<ReadReceipt> = emptyList(),
+    val attachments: List<ChatAttachment> = emptyList(),
     val deletedAt: String? = null,
     val editedAt: String? = null,
     val parentMessageId: String? = null,
@@ -88,4 +93,35 @@ data class ChatMessage(
 
     /** True when [userId] has an entry in the read-receipt array. */
     fun isReadBy(userId: String): Boolean = readBy.any { it.userId == userId }
+}
+
+/**
+ * T-464 / MEDIA-300 — one chat attachment (the `chat_messages.attachments`
+ * jsonb entry). `storagePath` is the vaulted object path
+ * ({tenant}/{channel}/{timestamp}-{name} in the private `chat-attachments`
+ * bucket, migration 0018 + 0136's member-scoped policies); rendering goes
+ * through fresh SIGNED URLs (never public URLs — vault §12.07).
+ */
+@Serializable
+data class ChatAttachment(
+    val fileName: String,
+    val storagePath: String,
+    val mimeType: String? = null,
+    val sizeBytes: Long? = null,
+) {
+    val isImage: Boolean get() = mimeType?.startsWith("image/") == true
+}
+
+/** The chat-attachments bucket's enforced limits (migration 0018). */
+object ChatAttachmentLimits {
+    const val MAX_BYTES: Long = 10L * 1024 * 1024
+    val ALLOWED_MIME_TYPES: List<String> = listOf(
+        "image/jpeg", "image/png", "image/webp",
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "text/plain",
+    )
+
+    fun isAllowed(sizeBytes: Long, mimeType: String?): Boolean =
+        sizeBytes in 1..MAX_BYTES && mimeType != null && mimeType in ALLOWED_MIME_TYPES
 }
