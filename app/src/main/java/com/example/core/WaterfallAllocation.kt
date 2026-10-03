@@ -134,6 +134,14 @@ data class RevertAllocationResult(
     val reversalAmount: Long,
 )
 
+/**
+ * ADR-033 (T-473 / PARITY-010, hub 2026-10-04; ported to the REAL Kotlin
+ * engine by T-476): the zero-paid FUTURE-due branch returns "unpaid" (was
+ * "pending") — aligned with the desktop engine, the SQL RPC
+ * revert_payment_allocation (0034), and the outstanding-debt views' status
+ * set. "pending" stays reserved for UNCLEARED-FUNDS semantics (payment
+ * bank clearance / pending_clearance).
+ */
 fun reevaluateInstallmentStatus(
     amountPaid: Long,
     amountDue: Long,
@@ -143,7 +151,7 @@ fun reevaluateInstallmentStatus(
     if (amountPaid >= amountDue && amountDue > 0L) return "paid"
     if (amountPaid > 0L) return "partial"
     val dueMs = parseIsoInstantSafe(dueDate).toEpochMilli()
-    return if (dueMs in 1 until nowEpochMs) "overdue" else "pending"
+    return if (dueMs in 1 until nowEpochMs) "overdue" else "unpaid"
 }
 
 fun revertPaymentAllocation(

@@ -101,7 +101,8 @@ class WaterfallAllocationTest {
         assertEquals(1, result.reverts.size)
         assertEquals("ins-t3", result.reverts[0].installmentId)
         assertEquals(0L, result.reverts[0].newAmountPaid)
-        assertEquals("pending", result.reverts[0].newStatus) // or "overdue" depending on dueDate
+        // ADR-033 (T-476 port): zero-paid FUTURE-due → "unpaid" (was "pending").
+        assertEquals("unpaid", result.reverts[0].newStatus)
         assertTrue(result.reverts[0].reopened)
     }
 
