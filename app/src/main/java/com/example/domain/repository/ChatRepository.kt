@@ -1,6 +1,7 @@
 package com.example.domain.repository
 
 import com.example.core.Result
+import com.example.domain.model.ChatAttachment
 import com.example.domain.model.ChatChannel
 import com.example.domain.model.ChatMessage
 
@@ -59,10 +60,20 @@ interface ChatRepository {
     /**
      * Send a message to [channelId] (online only — failures surface as
      * Result.Err; the caller decides UX). Mirrors the website's insert:
-     * own read-receipt pre-seeded, attachments empty (v1 has no
-     * attachments UI).
+     * own read-receipt pre-seeded.
+     *
+     * T-464 / MEDIA-300: [attachments] rides the insert (the jsonb array
+     * of {file_name, storage_path, mime_type, size_bytes}); the CALLER
+     * uploads the bytes to the chat-attachments bucket FIRST (the
+     * StorageRepository) and passes the returned storage paths — a failed
+     * upload must abort the send, never reference a missing file.
      */
-    suspend fun send(channelId: String, authorProfileId: String, body: String): Result<ChatMessage>
+    suspend fun send(
+        channelId: String,
+        authorProfileId: String,
+        body: String,
+        attachments: List<ChatAttachment> = emptyList(),
+    ): Result<ChatMessage>
 
     /**
      * Append the caller's own read receipt to [messages] (the 0051

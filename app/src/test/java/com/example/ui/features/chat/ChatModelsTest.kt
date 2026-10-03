@@ -1,5 +1,6 @@
 package com.example.ui.features.chat
 
+import com.example.domain.model.ChatAttachmentLimits
 import com.example.domain.model.ChatChannel
 import com.example.domain.model.ChatChannelScope
 import com.example.domain.model.ChatMessage
@@ -114,6 +115,82 @@ class ChatModelsTest {
         // The two surfaces NEVER mix: the partition is exact.
         assertTrue(internalList.none { it.isPortal })
         assertTrue(portalList.all { it.isPortal })
+    }
+
+    // ── T-464 / MEDIA-300: the attachments lifecycle (read side) ─────────────
+
+    @Test
+    fun `T464 - a message row with attachments maps to typed ChatAttachments`() {
+        val row = """
+            {
+              "id": "m-1", "tenant_id": "t1", "channel_id": "ch-1",
+              "author_id": "u1", "body": "Voici le relevé",
+              "sent_at": "2026-10-03T10:00:00Z",
+              "read_by": [],
+              "attachments": [
+                {"file_name": "releve.pdf", "storage_path": "t1/ch-1/123-releve.pdf",
+                 "mime_type": "application/pdf", "size_bytes": 204800},
+                {"file_name": "photo.jpg", "storage_path": "t1/ch-1/456-photo.jpg",
+                 "mime_type": "image/jpeg", "size_bytes": 51200}
+              ],
+              "deleted_at": null, "edited_at": null, "parent_message_id": null
+            }
+        """.trimIndent()
+        val domain = json.decodeFromString(ChatMessageDto.serializer(), row).toDomain()
+        assertEquals(2, domain.attachments.size)
+        val pdf = domain.attachments[0]
+        assertEquals("releve.pdf", pdf.fileName)
+        assertEquals("t1/ch-1/123-releve.pdf", pdf.storagePath)
+        assertEquals("application/pdf", pdf.mimeType)
+        assertEquals(204800L, pdf.sizeBytes)
+        assertFalse(pdf.isImage)
+        val img = domain.attachments[1]
+        assertTrue(img.isImage)
+    }
+
+    @Test
+    fun `T464 - a malformed attachments entry degrades to skipped, never crashes`() {
+        val row = """
+            {
+              "id": "m-2", "tenant_id": "t1", "channel_id": "ch-1",
+              "author_id": "u1", "body": "x",
+              "sent_at": "2026-10-03T10:00:00Z",
+              "read_by": null,
+              "attachments": [{"mime_type": "image/png"}, "garbage", null],
+              "deleted_at": null, "edited_at": null, "parent_message_id": null
+            }
+        """.trimIndent()
+        val domain = json.decodeFromString(ChatMessageDto.serializer(), row).toDomain()
+        // Every entry is unparseable (no storage_path / not an object) — the
+        // message still maps, with zero attachments.
+        assertEquals(0, domain.attachments.size)
+    }
+
+    @Test
+    fun `T464 - a pre-T464 row without attachments maps to the empty list`() {
+        val row = """
+            {
+              "id": "m-3", "tenant_id": "t1", "channel_id": "ch-1",
+              "author_id": "u1", "body": "texte seul",
+              "sent_at": "2026-10-03T10:00:00Z",
+              "read_by": [],
+              "deleted_at": null, "edited_at": null, "parent_message_id": null
+            }
+        """.trimIndent()
+        val domain = json.decodeFromString(ChatMessageDto.serializer(), row).toDomain()
+        assertEquals(0, domain.attachments.size)
+    }
+
+    @Test
+    fun `T464 - the attachment limits gate the client-side validation`() {
+        assertTrue(ChatAttachmentLimits.isAllowed(1024, "application/pdf"))
+        assertTrue(ChatAttachmentLimits.isAllowed(10L * 1024 * 1024, "image/jpeg"))
+        // Over the bucket ceiling.
+        assertFalse(ChatAttachmentLimits.isAllowed(10L * 1024 * 1024 + 1, "image/jpeg"))
+        // Wrong type (the bucket rejects executables).
+        assertFalse(ChatAttachmentLimits.isAllowed(1024, "application/x-msdownload"))
+        // Unknown / null type.
+        assertFalse(ChatAttachmentLimits.isAllowed(1024, null))
     }
 
     @Test

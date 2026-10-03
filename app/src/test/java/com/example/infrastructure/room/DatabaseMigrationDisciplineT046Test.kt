@@ -60,9 +60,10 @@ class DatabaseMigrationDisciplineT046Test {
      * version without its migration registered in [buildDb] +
      * DatabaseModule fails loud tests, never silently).
      */
-    // T-463 / CHAT-300 (135th session): 18 — the chat_channels scope column
-    // (the two chat systems separated in the read cache; MIGRATION_17_18).
-    private val compiledVersion = 18
+    // T-464 / MEDIA-300 (135th session): 19 — the chat_messages
+    // attachmentsJson column (the attachments read cache;
+    // MIGRATION_18_19, on top of T-463's v18 scope column).
+    private val compiledVersion = 19
 
     @Before
     fun setUp() {
@@ -95,6 +96,7 @@ class DatabaseMigrationDisciplineT046Test {
             ElImtiyazDatabase.MIGRATION_15_16,
             ElImtiyazDatabase.MIGRATION_16_17,
             ElImtiyazDatabase.MIGRATION_17_18,
+            ElImtiyazDatabase.MIGRATION_18_19,
         )
         .allowMainThreadQueries()
         .build()

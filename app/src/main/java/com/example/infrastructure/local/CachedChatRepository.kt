@@ -1,6 +1,7 @@
 package com.example.infrastructure.local
 
 import com.example.core.Result
+import com.example.domain.model.ChatAttachment
 import com.example.domain.model.ChatChannel
 import com.example.domain.model.ChatMessage
 import com.example.domain.repository.ChatRepository
@@ -87,8 +88,9 @@ class CachedChatRepository(
         channelId: String,
         authorProfileId: String,
         body: String,
+        attachments: List<ChatAttachment>,
     ): Result<ChatMessage> {
-        val sent = remote.send(channelId, authorProfileId, body)
+        val sent = remote.send(channelId, authorProfileId, body, attachments)
         if (sent is Result.Ok) {
             // Write-through: the local view updates without a re-fetch
             // (the ChatDetail optimistic append also keeps its copy).

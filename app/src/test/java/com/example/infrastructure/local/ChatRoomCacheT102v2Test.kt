@@ -190,7 +190,12 @@ class ChatRoomCacheT102v2Test {
         override suspend fun channels(profileId: String) = channelsResult
         override suspend fun messages(channelId: String, limit: Int) = messagesResult
         override suspend fun unreadCount(profileId: String, window: Int) = unreadCountResult
-        override suspend fun send(channelId: String, authorProfileId: String, body: String) = sendResult
+        override suspend fun send(
+            channelId: String,
+            authorProfileId: String,
+            body: String,
+            attachments: List<com.example.domain.model.ChatAttachment>,
+        ) = sendResult
         override suspend fun markRead(messages: List<ChatMessage>, profileId: String) = markReadResult
     }
 }
