@@ -287,11 +287,15 @@ class CrossPlatformScenarioRunner {
         )
         assertEquals(1, revert.reverts.size)
         assertEquals(0L, revert.reverts[0].newAmountPaid)
-        // CANONICAL-FINANCIAL-LOGIC.md §7.3 — `reevaluateInstallmentStatus`
-        // returns "pending" (not "unpaid") for the post-revert state when
-        // amountPaid=0 and the due date is in the future. The "unpaid"
-        // status is reserved for initial installment creation.
-        assertEquals("pending", revert.reverts[0].newStatus)
+        // ADR-033 (hub T-473 / PARITY-010, ported by T-476) —
+        // `reevaluateInstallmentStatus` returns "unpaid" for the post-revert
+        // state when amountPaid=0 and the due date is in the future: the
+        // tranche is back to its no-payment-activity state (payment.ts's
+        // documented meaning of "unpaid"), matching the SQL RPC (0034), the
+        // installments default (0007), create_manual_debt (0137), and the
+        // outstanding-debt views' status set. The legacy §7.3 note this pin
+        // previously cited is gone; ADR-033 supersedes it.
+        assertEquals("unpaid", revert.reverts[0].newStatus)
 
         val balance = LedgerEngine.computeAccountBalance(entries, accountId, now)
         // Balance = 10M (charge) - 10M (payment) + 10M (reversal) = 10M
