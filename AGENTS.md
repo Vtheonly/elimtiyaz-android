@@ -377,11 +377,62 @@ The Supabase API gateway applies the project's **max-rows setting (1 000)** to
   a doc comment containing the literal text `0-999/*` (the Content-Range
   header) opened a nested comment that swallowed the rest of the file. Never
   write a bare `/*` inside a comment; rephrase (e.g. "rows 0-999").
-- **The cursor nuance (registered):** the parents/students server cursors
-  are EXCLUSIVE (`updated_at > p_since`), not inclusive as the T-493 test
-  models — boundary timestamp ties can skip tied rows (the tie-guard covers
-  the uniform-page case; the live data is near-unique: 998 distinct stamps
-  in the first 1 000).
+- **The cursor nuance (CLOSED by §8.3 / T-497, 2026-10-05):** the
+  parents/students server cursors were EXCLUSIVE (`updated_at > p_since`),
+  not inclusive as the T-493 test models — boundary timestamp ties could
+  skip tied rows (the tie-guard covered only the uniform-page case; the
+  live data held 4 student tie pairs + a 2 198-row frozen payments group).
+  The composite (updated_at, id) keyset (migration 0143) is the closure.
+
+### 8.3 A sync cursor must be a TOTAL ORDER — never a bare timestamp (148th session, 2026-10-05 — T-497 / SYNC-304)
+
+The four `pull_*_for_sync` RPCs paginated on NON-UNIQUE cursors, and every
+failure mode was live-capable on the owner's actual data (pinned by the
+session's opening read-only forensics through the Management-API SQL
+endpoint):
+
+- **The straddle skip (EXCLUSIVE cursors — parents/students):** a tie group
+  straddling a page boundary loses every tied row after the boundary
+  FOREVER — and Postgres guarantees no stable order WITHIN a tie group, so
+  successive pages were not even guaranteed disjoint. Live: 4 student tie
+  pairs (8 rows).
+- **The uniform-group stuck (INCLUSIVE cursors — payments/ledger):** a tie
+  group larger than the page can never advance — the T-420 tie-guard stops
+  honestly but PARTIAL forever. Live: ALL 2 198 payments shared ONE frozen
+  bulk-backfill timestamp; the ledger carried 1 111 tie groups.
+- **The NULL cursor (the ledger):** the RPC never returned the cursor
+  column the drain read (the table had NO `updated_at` at all — that is why
+  0037 keyed it on the business date `COALESCE(at, entry_date, created_at)`)
+  — `cursorOf` yielded null on every row and the drain's null-branch
+  returned after ONE page, SILENTLY: a single-page truncation the moment
+  the stream exceeds a page. **A DTO comment claiming "the RPC orders by
+  it" is a claim, not a contract — the live `pg_proc` pin is the truth.**
+
+**The rule:** a paginated drain's cursor must be a TOTAL ORDER over the
+drained set — a unique column (the plain-table `id` keyset) or a composite
+(`(sort_key, id)` — migration 0143's `p_since` + `p_after_id` pair). No
+client-side loop can page correctly over a non-unique cursor: inclusive
+re-fetches forever, exclusive skips. The NULL branch of 0143 preserves each
+function's pre-migration semantics, so an older APK keeps working against
+the migrated backend (pinned live, V5 of the t497 runner) — signature
+changes on shared RPCs ALWAYS carry the old call shape as the default-null
+branch (§15.32's DROP-first rule for the overload itself).
+
+**The companion lesson (T-496, same session):** a source-scan test that
+READS a build file at runtime (`ReleaseExclusionGuardT496Test` reads
+`build.gradle.kts`) MUST declare that file as a test-task input
+(`inputs.file(layout.projectDirectory.file("build.gradle.kts"))`) —
+otherwise an edit to the scanned file leaves the task UP-TO-DATE and the
+guard passes VACUOUSLY (proven live: the tampered exclusion passed green in
+16s before the input declaration, failed correctly in 9s after). A guard
+that does not re-run is not a guard.
+
+**The pins:** `PullKeysetT497Test` 5/5 (the straddle, the uniform-group,
+the call-shape, the NULL-cursor honest stop, the wiring scans — against a
+fake server implementing the 0143 contract exactly) + the hub's
+`scripts/t497-live-verification.py` (27/0 live: the straddle proof on the
+live tie pair, the uniform-group proof inside the frozen 2 198-row
+backfill, the installed-APK compatibility).
 
 ## 9. Forbidden in this repository
 
