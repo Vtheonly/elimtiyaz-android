@@ -196,6 +196,7 @@ tasks.withType<Test>().matching { it.name == "testReleaseUnitTest" }.configureEa
     // T-489 (UI-330): the dashboard overview structure suite (createComposeRule
     // under the suffixed applicationId — the §15.86 same-commit rule).
     excludeTestsMatching("com.example.ui.features.dashboard.DashboardOverviewStructureT489Test")
+    excludeTestsMatching("com.example.ui.features.dashboard.DashboardCollectionSummaryScreenshotT489Test")
   }
 }
 
