@@ -9,6 +9,7 @@ import com.example.infrastructure.supabase.AuditLogDto
 import com.example.infrastructure.supabase.ClassDto
 import com.example.infrastructure.supabase.DepartmentDto
 import com.example.infrastructure.supabase.HomeworkDto
+import com.example.infrastructure.supabase.ExpenseTicketDto
 import com.example.infrastructure.supabase.InstallmentDto
 import com.example.infrastructure.supabase.LedgerEntryDto
 import com.example.infrastructure.supabase.NotificationDto
@@ -477,6 +478,38 @@ class PullSyncRepository @Inject constructor(
     }
 
     /**
+     * T-492 (SYNC-302): pull the canonical `expense_tickets` rows (migration
+     * 0008 + 0056) — desktop-submitted expenses become visible on Android
+     * (the Dépenses tab was permanently empty against the live project:
+     * the table was never in the pull list). The `expense_categories(code)`
+     * embed resolves the category FK; the DTO mapper is the desktop
+     * T-093/DRIFT-013 translation layer (status/category/urgency/payee).
+     * Sync-301 discipline: the id-keyset drain, never a bare limit.
+     */
+    suspend fun pullExpenses(): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            val dtoList = drainByCursor(
+                fetchPage = { cursor ->
+                    provider.postgrest.from("expense_tickets")
+                        .select(io.github.jan.supabase.postgrest.query.Columns.raw("*, expense_categories(code)")) {
+                            limit(TABLE_PULL_PAGE_SIZE.toLong())
+                            order("id", Order.ASCENDING)
+                            if (cursor != null) filter { gt("id", cursor) }
+                        }
+                        .decodeList<ExpenseTicketDto>()
+                },
+                cursorOf = { it.id },
+                pageSize = TABLE_PULL_PAGE_SIZE,
+            )
+            db.expenseDao().upsertAll(dtoList.map { it.toEntity() })
+            Log.i("PullSync", "Pulled ${dtoList.size} expense tickets")
+            Result.Ok(dtoList.size)
+        } catch (e: Exception) {
+            Result.Err(com.example.core.Errors.fromException(e))
+        }
+    }
+
+    /**
      * T-039 / NOTIF-105: the pull now (a) FILTERS by the signed-in user and
      * their CURRENT role set — resolved fresh via the canonical
      * `current_user_roles()` RPC (migration 0053), the same function the
@@ -744,7 +777,10 @@ class PullSyncRepository @Inject constructor(
         val hwk = (pullHomework() as? Result.Ok)?.value ?: 0
         val att = (pullAttendance() as? Result.Ok)?.value ?: 0
         val asm = (pullAssessments() as? Result.Ok)?.value ?: 0
-        val total = p + s + pay + led + cls + sub + ins + per + dep + notif + wfr + hwk + att + asm
+        // T-492 (SYNC-302): the canonical expense tickets — the Dépenses tab
+        // reads the same rows the desktop's approval queue does.
+        val exp = (pullExpenses() as? Result.Ok)?.value ?: 0
+        val total = p + s + pay + led + cls + sub + ins + per + dep + notif + wfr + hwk + att + asm + exp
 
         Log.i("PullSync", "=== PULL COMPLETE: Total $total records synchronized ===")
         return Result.Ok(total)

@@ -114,9 +114,11 @@ class SyncErrorSurfacingTest {
         )
         val pushCount = Regex("""NetworkTimeouts\.guardSyncPush\(""").findAll(dispatcherSrc).count()
         assertEquals(
-            "expected all 8 push paths (homework, parent, student, payment, " +
-                "ledger_entry, installment, grade, attendance) on guardSyncPush",
-            8, pushCount,
+            "expected all 12 push paths (homework, parent, student, payment, " +
+                "ledger_entry, installment, grade, attendance + T-492's expense " +
+                "quartet: category resolve, ticket-number check, the create " +
+                "upsert, the transition update) on guardSyncPush",
+            12, pushCount,
         )
     }
 

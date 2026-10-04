@@ -426,6 +426,32 @@ data class ExpenseTicketDto(
     @SerialName("receipt_path") val receiptPath: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
+    // ── T-492 (SYNC-302): the full canonical contract (migration 0008 +
+    // 0056) — the desktop's SupabaseExpenseRepository (T-093/DRIFT-013)
+    // is the reference; every column its mapTicketRow reads is decoded
+    // here so the two clients agree on the same rows. ──
+    @SerialName("payee") val payee: String? = null,
+    @SerialName("approved_at") val approvedAt: String? = null,
+    @SerialName("approval_note") val approvalNote: String? = null,
+    @SerialName("rejected_reason") val rejectedReason: String? = null,
+    @SerialName("disbursed_at") val disbursedAt: String? = null,
+    @SerialName("settled_at") val settledAt: String? = null,
+    @SerialName("receipt_uploaded_by") val receiptUploadedBy: String? = null,
+    @SerialName("receipt_uploaded_at") val receiptUploadedAt: String? = null,
+    @SerialName("anomaly_score") val anomalyScore: Double? = null,
+    // jsonb → JsonElement (the T-310 rule: NEVER String — PostgREST returns
+    // parsed JSON; a String field decodes fine while NULL then throws on
+    // the first non-null row, failing the whole decodeList).
+    @SerialName("anomaly_flags_json") val anomalyFlagsJson: kotlinx.serialization.json.JsonElement? = null,
+    // The `*, expense_categories(code)` embed (the WorkflowRunDto pattern —
+    // the pull needs the category CODE, the table stores the category UUID).
+    @SerialName("expense_categories") val expenseCategories: ExpenseCategoryRefDto? = null,
+)
+
+/** The `expense_categories(code)` embed shape (T-492). */
+@Serializable
+data class ExpenseCategoryRefDto(
+    @SerialName("code") val code: String? = null,
 )
 
 @Serializable

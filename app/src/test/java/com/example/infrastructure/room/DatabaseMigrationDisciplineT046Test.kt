@@ -63,7 +63,9 @@ class DatabaseMigrationDisciplineT046Test {
     // T-464 / MEDIA-300 (135th session): 19 — the chat_messages
     // attachmentsJson column (the attachments read cache;
     // MIGRATION_18_19, on top of T-463's v18 scope column).
-    private val compiledVersion = 19
+    // T-492 / SYNC-302 (146th session): 20 — the expenses proof-uploader
+    // attribution + anomaly note (MIGRATION_19_20).
+    private val compiledVersion = 20
 
     @Before
     fun setUp() {
@@ -97,6 +99,7 @@ class DatabaseMigrationDisciplineT046Test {
             ElImtiyazDatabase.MIGRATION_16_17,
             ElImtiyazDatabase.MIGRATION_17_18,
             ElImtiyazDatabase.MIGRATION_18_19,
+            ElImtiyazDatabase.MIGRATION_19_20,
         )
         .allowMainThreadQueries()
         .build()

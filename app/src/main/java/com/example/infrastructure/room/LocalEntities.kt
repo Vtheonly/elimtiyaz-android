@@ -380,6 +380,15 @@ data class ExpenseEntity(
     // entity. The local Room schema now matches the Supabase schema
     // (which has had `final_spent_amount` since migration 0028).
     val finalSpentAmount: Long? = null,
+    // T-492 (SYNC-302): the server's proof-uploader attribution + the
+    // anomaly note — the columns `expense_tickets` has carried since 0008
+    // (receipt_uploaded_by / receipt_uploaded_at / anomaly_flags_json).
+    // Without them every PULLED settled ticket rendered a 3-of-4 timeline
+    // (stage 4 "Justificatif téléversé" read unchecked) and the anomaly
+    // banner lost its explanation text. Room v19 → v20.
+    val proofUploadedBy: String? = null,
+    val proofUploadedAt: String? = null,
+    val anomalyNote: String? = null,
 )
 
 // ─── Personnel ───────────────────────────────────────────────────────────────

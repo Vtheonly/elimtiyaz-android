@@ -97,12 +97,155 @@ class SyncQueueDispatcher @Inject constructor(
             // `attendance_records` on the canonical key (migration 0041) so
             // the portal's Absence Justification feature sees every record.
             "attendance" -> pushAttendance(entry, payload)
-            // Other entity kinds (expense, audit_log, notification,
-            // calendar_event) are currently local-only. The shared schema
-            // migration 0027 supports them via direct table upserts, but
-            // those flows are out of scope for this iteration.
+            // T-492 (SYNC-302): the expense pipeline — submit/approve/
+            // reject/disburse/settle reach the canonical `expense_tickets`
+            // table (migration 0008 + 0056), the same rows the desktop's
+            // approval queue reads. Was a documented no-op ("out of scope
+            // for this iteration" — the 0027 era) since the feature's
+            // local-only port.
+            "expense" -> pushExpense(entry, payload)
+            // Other entity kinds (audit_log, notification, calendar_event)
+            // remain local-only (the OFFLINE-400 residual (d) — personnel and
+            // workflows alongside them).
             else -> {
                 // No-op — the SyncService will mark the entry as "synced".
+            }
+        }
+    }
+
+    // ── T-492 (SYNC-302): the expense_tickets push ────────────────────────
+    //
+    // The desktop's SupabaseExpenseRepository (T-093/DRIFT-013) is the
+    // canonical translation layer — this port reuses its exact mappings
+    // (SharedDtoMappers' expenseStatusToDb / expenseCategoryToDb) so both
+    // clients write the same vocabulary.
+    //
+    //  - CREATE pushes the full row (upsert on the `id` PK — idempotent
+    //    re-push; the "exp-" local prefix is stripped so re-pushes land on
+    //    the same server row, the homework convention). The server's
+    //    NOT NULL `justification` carries the submitter's description text
+    //    (the desktop's header note 4); the ticket number is collision-
+    //    checked against the server table with regeneration (the desktop's
+    //    generateTicketNumber — the pull reconciles the local copy via the
+    //    unique requestCode index).
+    //  - UPDATE pushes ONLY the workflow transition columns (status,
+    //    approver, disbursement, proof, final amount, updated_at) — the
+    //    desktop's transition() shape — never the full row, so an approval
+    //    on Android of a desktop-submitted ticket can NEVER rewrite the
+    //    originator's title/category/amount (and the lossy category
+    //    round-trip it→other→… stays write-free).
+    private suspend fun pushExpense(entry: SyncQueueEntity, p: JsonObject) {
+        val rawId = p.str("id") ?: return
+        val id = rawId.removePrefix("exp-")
+        val tenantId = entry.tenantId.ifBlank { p.str("tenantId") ?: return }
+        val domainStatus = p.str("status") ?: "submitted"
+        val dbStatus = com.example.infrastructure.supabase.expenseStatusToDb(domainStatus)
+
+        if (entry.operation == "create") {
+            // Resolve the category FK (the desktop's categoryIdFor — a
+            // missing row THROWS so the queue entry stays pending with
+            // lastError, never a silent "synced": the 0023 seed owns the fix).
+            val dbCategory = com.example.infrastructure.supabase.expenseCategoryToDb(
+                p.str("category") ?: "other",
+            )
+            val categoryRows = NetworkTimeouts.guardSyncPush("sync.pushExpenseCategory", timeoutMs = 5_000L) {
+                supabaseProvider.postgrest.from("expense_categories").select {
+                    limit(2)
+                    filter {
+                        eq("tenant_id", tenantId)
+                        eq("code", dbCategory)
+                    }
+                }.decodeList<com.example.infrastructure.supabase.ExpenseCategoryDto>()
+            } ?: emptyList()
+            val categoryId = categoryRows.firstOrNull()?.id
+                ?: throw IllegalStateException(
+                    "expense_categories: no row for code '$dbCategory' (tenant $tenantId) — run the migration 0023 seed",
+                )
+
+            // The ticket number — collision-checked against the SERVER table
+            // with regeneration (the desktop's generateTicketNumber; the
+            // local Room check ran at submit time, but a concurrent device
+            // may have taken the code since).
+            var ticketNumber = p.str("requestCode") ?: return
+            NetworkTimeouts.guardSyncPush("sync.pushExpenseTicketCheck", timeoutMs = 5_000L) {
+                val taken = supabaseProvider.postgrest.from("expense_tickets").select {
+                    limit(1)
+                    filter {
+                        eq("tenant_id", tenantId)
+                        eq("ticket_number", ticketNumber)
+                        neq("id", id)
+                    }
+                }.decodeList<JsonObject>()
+                if (taken.isNotEmpty()) {
+                    ticketNumber = "EXP-${java.time.LocalDate.now().year}-" + List(6) {
+                        "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[kotlin.random.Random.nextInt(36)]
+                    }.joinToString("")
+                }
+            }
+
+            // Domain centimes → the server's NUMERIC DZD (the pushPayment convention).
+            val amountCentimes = p.str("amount")?.toLongOrNull() ?: return
+            val description = p.str("description") ?: ""
+            val row = buildJsonObject {
+                put("id", id)
+                put("tenant_id", tenantId)
+                put("ticket_number", ticketNumber)
+                put("title", p.str("title") ?: "Dépense")
+                put("description", description)
+                // 0008: justification NOT NULL — the submitter's text (the
+                // desktop's header note 4: description, title as fallback).
+                put("justification", description.ifBlank { p.str("title") ?: "Dépense" })
+                put("category_id", categoryId)
+                put("requested_amount", amountCentimes / 100.0)
+                p.str("finalSpentAmount")?.toLongOrNull()?.takeIf { it > 0 }?.let { put("final_spent_amount", it / 100.0) }
+                put("urgency", p.str("urgency") ?: "medium")
+                put("status", dbStatus)
+                put("submitted_by", p.str("submittedBy"))
+                put("submitted_at", p.str("submittedAt") ?: "")
+                put("payee", p.str("payee") ?: "") // 0056
+            }
+            NetworkTimeouts.guardSyncPush("sync.pushExpense", timeoutMs = 8_000L) {
+                supabaseProvider.postgrest.from("expense_tickets").upsert(row)
+            }
+        } else {
+            // The transition-only UPDATE (the desktop's transition() shape) —
+            // ONLY the workflow columns, never the originator's
+            // title/category/amount.
+            val approvedBy = p.str("approvedBy")
+            val approvedAt = p.str("approvedAt")
+            val notes = p.str("notes")
+            val disbursedAt = p.str("disbursedAt")
+            val settledAt = p.str("settledAt")
+            val proofUrl = p.str("proofUrl")
+            val finalAmount = p.str("finalSpentAmount")?.toLongOrNull()?.takeIf { it > 0 }
+            val actorId = p.str("actorId")
+            NetworkTimeouts.guardSyncPush("sync.pushExpenseTransition", timeoutMs = 8_000L) {
+                supabaseProvider.postgrest.from("expense_tickets").update(
+                    {
+                        set("status", dbStatus)
+                        approvedBy?.let { set("approved_by", it) }
+                        approvedAt?.let { set("approved_at", it) }
+                        if (domainStatus == "rejected") {
+                            set("rejected_reason", notes ?: "")
+                            set("approval_note", notes ?: "")
+                        } else {
+                            notes?.let { set("approval_note", it) }
+                        }
+                        disbursedAt?.let { set("disbursed_at", it) }
+                        settledAt?.let {
+                            set("settled_at", it)
+                            actorId?.let { who -> set("settled_by", who) }
+                            // T-492: the local settleProof stamps the uploader
+                            // (the entity's proofUploadedBy) — forward it.
+                            actorId?.let { who -> set("receipt_uploaded_by", who) }
+                            set("receipt_uploaded_at", it)
+                        }
+                        proofUrl?.let { set("receipt_path", it) }
+                        finalAmount?.let { set("final_spent_amount", it / 100.0) }
+                    },
+                ) {
+                    filter { eq("id", id) }
+                }
             }
         }
     }

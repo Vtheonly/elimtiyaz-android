@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -46,8 +48,11 @@ import com.example.ui.designsystem.foundation.elMoneyParse
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
@@ -64,6 +69,18 @@ import com.example.ui.designsystem.theme.ElTheme
  * T-322 fix: the amount is parsed with [elMoneyParse] (EXACT centimes) — the
  * previous `toDouble() * 100` rounded 15.07 DZD to 1506¢ (a financial
  * correctness bug). canSubmit uses the same parser.
+ *
+ * T-492 (UI-331) — DESKTOP-PARITY VALIDATION + THE HONEST DISABLED STATE.
+ * The owner's report: "The expenses section does not work (button grayed
+ * out)" — their screenshot showed every VISIBLE field filled while the
+ * required Titre sat scrolled OUT of the viewport and the disabled button
+ * said nothing. The desktop modal validates with per-field zod messages
+ * ("Titre requis (min. 3 caractères)" / "Montant supérieur à 0 requis" /
+ * "Bénéficiaire requis") — this ViewModel now mirrors those exact rules and
+ * exposes per-field error state so the screen can render them, plus the
+ * missing-field list for the under-button helper (the button is never
+ * silently disabled anymore: it stays tappable and an invalid tap surfaces
+ * the errors).
  */
 @HiltViewModel
 class ExpenseSubmitViewModel @Inject constructor(
@@ -95,6 +112,36 @@ class ExpenseSubmitViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    /** T-492 (UI-331): per-field errors render only after a submit attempt — the fields stay calm while typing. */
+    private val _validationAttempted = MutableStateFlow(false)
+    val validationAttempted: StateFlow<Boolean> = _validationAttempted.asStateFlow()
+
+    /**
+     * T-492 (UI-331) — THE STALE-ENABLED-STATE FIX. The original screen read
+     * `viewModel.canSubmit` (a plain getter) inside the BUTTON's recompose
+     * scope — a scope that reads NO field state, so it NEVER invalidated on
+     * typing: the button computed `enabled=false` at first composition and
+     * STAYED disabled no matter what the user typed (the owner's "button
+     * grayed out" — unreachable-by-typing). Every UI-affecting derivation
+     * now flows through StateFlow so the recomposition is driven by
+     * snapshot state: the missing-field list below (the helper line), the
+     * per-field errors (rendered after the attempt flag flips a tracked
+     * state), and the button's enabled = !isSubmitting (a tracked state).
+     */
+    val missingFields: StateFlow<List<String>> = combine(_title, _amount, _payee) { t, a, p ->
+        buildList {
+            if (t.trim().length < 3) add("Titre")
+            if (elMoneyParse(a) <= 0L) add("Montant")
+            if (p.trim().length < 2) add("Bénéficiaire")
+        }
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.Lazily,
+        // The honest empty-form initial (the first combine emission lands
+        // the moment the screen collects).
+        listOf("Titre", "Montant", "Bénéficiaire"),
+    )
+
     fun titleChanged(v: String) { _title.value = v }
     fun descriptionChanged(v: String) { _description.value = v }
     fun amountChanged(v: String) { _amount.value = v.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' || ch == ' ' } }
@@ -102,15 +149,37 @@ class ExpenseSubmitViewModel @Inject constructor(
     fun payeeChanged(v: String) { _payee.value = v }
     fun urgencyChanged(v: String) { _urgency.value = v }
 
-    val canSubmit: Boolean
-        get() = _title.value.isNotBlank() &&
-                _payee.value.isNotBlank() &&
-                elMoneyParse(_amount.value) > 0L &&
-                !_isSubmitting.value
+    // ── T-492: the desktop's zod rules, verbatim ──────────────────────
+    //   title: z.string().min(3, "Titre requis (min. 3 caractères)")
+    //   amount: z.number().min(1, "Montant supérieur à 0 requis")
+    //   payee: z.string().min(2, "Bénéficiaire requis")
+    // ─────────────────────────────────────────────────────────────────
+    // The per-field error getters (used by the screen's errorText params —
+    // read inside the FIELD scopes, which DO invalidate on typing — and by
+    // the tests). The button's own scope consumes the state-driven
+    // missingFields flow above, never these untracked getters.
 
+    val titleError: String?
+        get() = if (_title.value.trim().length < 3) "Titre requis (min. 3 caractères)" else null
+
+    val amountError: String?
+        get() = if (elMoneyParse(_amount.value) <= 0L) "Montant supérieur à 0 requis" else null
+
+    val payeeError: String?
+        get() = if (_payee.value.trim().length < 2) "Bénéficiaire requis" else null
+
+    val canSubmit: Boolean
+        get() = titleError == null && amountError == null && payeeError == null && !_isSubmitting.value
+
+    /**
+     * T-492 (UI-331): the button's click handler — NEVER a silent no-op. An
+     * invalid tap marks the attempt (the fields render their errors, the
+     * banner names them) and returns; a valid tap submits.
+     */
     fun submit(onSuccess: (String) -> Unit) {
         if (!canSubmit) {
-            _error.value = "Veuillez remplir tous les champs obligatoires."
+            _validationAttempted.value = true
+            _error.value = "Champs obligatoires manquants : ${missingFields.value.joinToString(", ")}"
             return
         }
         viewModelScope.launch {
@@ -175,6 +244,7 @@ object ExpenseCategoryOptions {
     fun codeFor(label: String): String = LabelToCode[label] ?: Other
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun ExpenseSubmitScreen(
     onBack: () -> Unit,
@@ -188,10 +258,49 @@ fun ExpenseSubmitScreen(
     val urgency by viewModel.urgency.collectAsState()
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val error by viewModel.error.collectAsState()
+    // T-492 (UI-331): the validation state — collected as State so the
+    // error rendering recomposes when an invalid tap flips the flag.
+    val validationAttempted by viewModel.validationAttempted.collectAsState()
+    // T-492 (UI-331): THE STALE-ENABLED-STATE FIX — the missing-field list
+    // is a STATE FLOW collected here (the button's scope), so the helper
+    // line recomposes on every keystroke. The original screen read the
+    // untracked `viewModel.canSubmit` getter in this scope — it never
+    // invalidated on typing and the disabled button was unreachable.
+    val missingFields by viewModel.missingFields.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val toast = LocalElToast.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // T-492 (UI-331): bringIntoView — an invalid tap scrolls the FIRST
+    // offending field into the viewport (the owner's trap: Titre sat
+    // scrolled out while the button said nothing).
+    val titleBringIntoView = remember { BringIntoViewRequester() }
+    val amountBringIntoView = remember { BringIntoViewRequester() }
+    val payeeBringIntoView = remember { BringIntoViewRequester() }
+
+    val onAttemptSubmit: () -> Unit = {
+        val beforeAttempt = !viewModel.canSubmit
+        viewModel.submit { requestCode ->
+            // T-460 H2 (F-18): the app-root ElToastHost renders this
+            // ABOVE the nav host, so the toast survives the pop — the
+            // same lifetime property the platform toast had
+            // (a screen-scoped snackbar would be destroyed).
+            toast.showSuccess("Dépense $requestCode soumise pour approbation", durationMs = 4000)
+            onBack()
+        }
+        // The failed-attempt scroll: the FIRST missing field comes into
+        // view (BringIntoViewRequester — same-frame after the state flip).
+        if (beforeAttempt && missingFields.isNotEmpty()) {
+            scope.launch {
+                when (missingFields.firstOrNull()) {
+                    "Titre" -> titleBringIntoView.bringIntoView()
+                    "Montant" -> amountBringIntoView.bringIntoView()
+                    "Bénéficiaire" -> payeeBringIntoView.bringIntoView()
+                }
+            }
+        }
+    }
 
     ElScaffold(
         topBar = {
@@ -234,7 +343,11 @@ fun ExpenseSubmitScreen(
                         onValueChange = viewModel::titleChanged,
                         label = "Titre *",
                         placeholder = "Ex : Achat de fournitures pédagogiques",
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .bringIntoViewRequester(titleBringIntoView),
+                        isError = validationAttempted && viewModel.titleError != null,
+                        errorText = if (validationAttempted) viewModel.titleError else null,
                     )
 
                     ElTextField(
@@ -252,7 +365,11 @@ fun ExpenseSubmitScreen(
                         label = "Montant (DZD) *",
                         placeholder = "Ex : 12500,50",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .bringIntoViewRequester(amountBringIntoView),
+                        isError = validationAttempted && viewModel.amountError != null,
+                        errorText = if (validationAttempted) viewModel.amountError else null,
                     )
 
                     ElDropdown(
@@ -270,7 +387,11 @@ fun ExpenseSubmitScreen(
                         onValueChange = viewModel::payeeChanged,
                         label = "Bénéficiaire *",
                         placeholder = "Ex : Librairie En-Nour",
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .bringIntoViewRequester(payeeBringIntoView),
+                        isError = validationAttempted && viewModel.payeeError != null,
+                        errorText = if (validationAttempted) viewModel.payeeError else null,
                     )
 
                     ElDropdown(
@@ -313,24 +434,28 @@ fun ExpenseSubmitScreen(
 
             Spacer(Modifier.height(ElTheme.spacing.sm))
 
+            // T-492 (UI-331): the button is NEVER silently disabled — it
+            // stays tappable whenever it is not submitting; an invalid tap
+            // surfaces the per-field errors + the banner + the scroll to
+            // the first offender. The helper line under it names the
+            // missing fields AT ALL TIMES (the owner filled every VISIBLE
+            // field and the grey button said nothing — never again).
             ElButton(
                 text = if (isSubmitting) "Soumission…" else "Soumettre la dépense",
-                onClick = {
-                    viewModel.submit { requestCode ->
-                        // T-460 H2 (F-18): the app-root ElToastHost renders this
-                        // ABOVE the nav host, so the toast survives the pop —
-                        // the same lifetime property the platform toast had
-                        // (a screen-scoped snackbar would be destroyed).
-                        toast.showSuccess("Dépense $requestCode soumise pour approbation", durationMs = 4000)
-                        onBack()
-                    }
-                },
+                onClick = onAttemptSubmit,
                 variant = ElButtonVariant.PRIMARY,
-                enabled = !isSubmitting && viewModel.canSubmit,
+                enabled = !isSubmitting,
                 loading = isSubmitting,
                 icon = Icons.AutoMirrored.Filled.Send,
                 fullWidth = true,
             )
+            if (!isSubmitting && missingFields.isNotEmpty()) {
+                Text(
+                    "Champs obligatoires manquants : ${missingFields.joinToString(", ")}",
+                    style = ElTheme.typography.labelSmall,
+                    color = ElTheme.colors.warning,
+                )
+            }
 
             Spacer(Modifier.height(ElTheme.spacing.xl))
         }

@@ -183,6 +183,13 @@ tasks.withType<Test>().matching { it.name == "testReleaseUnitTest" }.configureEa
     // (4 red release tests, invisible to testDebugUnitTest-only sessions).
     excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT463Test")
     excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT464Test")
+    // T-492 (SYNC-302): the v19→v20 expenses migration suite (same class —
+    // the debug-scoped Room schema assets are unreachable on release; the
+    // §15.86 same-commit rule).
+    excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT492Test")
+    // T-492 (UI-331): the expense submit-form suite (createComposeRule under
+    // the suffixed applicationId — the §15.86 same-commit rule).
+    excludeTestsMatching("com.example.ui.features.financials.ExpenseSubmitT492Test")
     excludeTestsMatching("com.example.ui.designsystem.ElScrollableTabRowTest")
     excludeTestsMatching("com.example.ui.designsystem.overlays.ElInfoTipTest")
     excludeTestsMatching("com.example.ui.designsystem.overlays.ElToastHostTest")
