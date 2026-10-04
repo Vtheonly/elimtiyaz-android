@@ -127,6 +127,18 @@ the generated `BuildConfig` fields come from the ROOT-level files only.
   MigrationTestHelper test MUST be added to the release exclusion list in the
   SAME commit that introduces it, or the full gate rots silently (sessions
   quoting only `testDebugUnitTest` never see it).
+  **FIFTH recurrence (145th session, 2026-10-04, T-491/TEST-504):**
+  T-463/T-464's MigrationTestHelper suites (the 133rd session's chat-cache
+  Room v17→v18→v19 work) landed WITHOUT their entries — the full gate was
+  red on main for 11 sessions while every "709/0" quote was
+  testDebugUnitTest only. The recurrence PATTERN: the rule gets followed for
+  the test class the session is LOOKING at and missed for the SIBLING class
+  landing in the same window — prose rules without mechanical guards rot.
+  The durable fix (registered owner-gated in hub TEST-504): a source-scan
+  unit test that parses `app/build.gradle.kts` and asserts every
+  MigrationTestHelper/createComposeRule class under `app/src/test` appears
+  in the exclusion list. Until it exists: when you land ANY new test class,
+  grep the exclusion block for your class name BEFORE committing.
 
 - **The T-456/T-457 test-writing lessons (128th session, 2026-10-02):**
   (1) `NumberFormat(Locale.FRANCE)` groups with **U+202F (NARROW NO-BREAK
