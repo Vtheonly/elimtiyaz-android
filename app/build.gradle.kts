@@ -218,6 +218,12 @@ tasks.withType<Test>().configureEach {
   System.getenv("SUPABASE_URL")?.let { systemProperty("supabase.url", it) }
   System.getenv("SUPABASE_SERVICE_KEY")?.let { systemProperty("supabase.service.key", it) }
   System.getenv("SUPABASE_ACCESS_TOKEN")?.let { systemProperty("supabase.access.token", it) }
+  // T-496 (TEST-504): the source-scan guards (ReleaseExclusionGuardT496Test
+  // and the T-492 §15.86 pin) READ this file at RUNTIME — without this input
+  // declaration an edit to the exclusion list leaves the test task UP-TO-DATE
+  // and the guard silently never re-runs (proven live this session: the
+  // RED-side probe passed vacuously). The gradle file is a test input.
+  inputs.file(layout.projectDirectory.file("build.gradle.kts"))
 }
 
 // T-046-gap: Room schema export location (companion to exportSchema=true on
