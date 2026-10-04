@@ -54,6 +54,10 @@ interface ParentDao {
 
     @Query("SELECT COUNT(*) FROM parents")
     suspend fun count(): Int
+
+    /** T-494 (DATA-059): evict the demo-seeded families after a successful pull (exact ids). */
+    @Query("DELETE FROM parents WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
 }
 
 // ─── Student DAO ─────────────────────────────────────────────────────────────
@@ -113,6 +117,10 @@ interface StudentDao {
 
     @Query("DELETE FROM students WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    /** T-494 (DATA-059): evict the demo-seeded students after a successful pull (exact ids). */
+    @Query("DELETE FROM students WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
 }
 
 // ─── Class DAO ───────────────────────────────────────────────────────────────
@@ -215,6 +223,14 @@ interface AttendanceDao {
 
     @Query("SELECT COUNT(*) FROM attendance WHERE studentId = :studentId AND status = 'absent_unexcused' AND date >= :sinceDate")
     suspend fun countUnexcusedAbsences(studentId: String, sinceDate: String): Int
+
+    /** T-494 (DATA-059): evict the demo-seeded attendance rows — the seeder's unique `att-seed-` infix (local roll calls are `att-<UUID>`, pulled rows are UUIDs). */
+    @Query("DELETE FROM attendance WHERE id LIKE 'att-seed-%'")
+    suspend fun deleteSeeded()
+
+    /** T-494 test support: direct row access. */
+    @Query("SELECT * FROM attendance WHERE id = :id")
+    suspend fun getById(id: String): AttendanceEntity?
 }
 
 // ─── Assessment DAO ──────────────────────────────────────────────────────────
@@ -257,6 +273,14 @@ interface AssessmentDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: AssessmentEntity)
+
+    /** T-494 (DATA-059): evict the demo-seeded grades — the seeder's id shape is asm-<studentId>-sub-<name>-t<term>; the `-sub-` infix can NEVER appear in a UUID (s/u are not hex) so this pattern cannot touch a local `asm-<UUID>` grade or a pulled UUID row. */
+    @Query("DELETE FROM assessments WHERE id LIKE 'asm-%-sub-%'")
+    suspend fun deleteSeeded()
+
+    /** T-494 test support: direct row access. */
+    @Query("SELECT * FROM assessments WHERE id = :id")
+    suspend fun getById(id: String): AssessmentEntity?
 }
 
 // ─── Homework DAO ────────────────────────────────────────────────────────────
@@ -324,6 +348,10 @@ interface PaymentDao {
 
     @Update
     suspend fun update(row: PaymentEntity)
+
+    /** T-494 (DATA-059): evict the demo-seeded payment + its family rows after a successful pull (real local ids are pay-<UUID>, real pulled ids are UUIDs). */
+    @Query("DELETE FROM payments WHERE parentId IN (:parentIds) OR id IN (:extraIds)")
+    suspend fun deleteDemoRows(parentIds: List<String>, extraIds: List<String>)
 }
 
 // ─── Installment DAO ─────────────────────────────────────────────────────────
@@ -371,6 +399,10 @@ interface InstallmentDao {
 
     @Update
     suspend fun update(row: InstallmentEntity)
+
+    /** T-494 (DATA-059): evict the demo-seeded installments after a successful pull — scoped by the demo PARENT ids (the seeder's ins-stu-* pattern is ALSO used by batchRegister for REAL students, so the parent scope is the only safe discriminator). */
+    @Query("DELETE FROM installments WHERE parentId IN (:parentIds)")
+    suspend fun deleteByParentIds(parentIds: List<String>)
 }
 
 // ─── Ledger DAO ──────────────────────────────────────────────────────────────
@@ -400,6 +432,10 @@ interface LedgerEntryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<LedgerEntryEntity>)
+
+    /** T-494 (DATA-059): evict the demo-seeded ledger rows after a successful pull — scoped by the demo PARENT ids (covers the led-par-…, led-pay-001 and led-credit-… shapes without touching a real row; real local ids come from generateEntryId, real pulled ids are UUIDs). */
+    @Query("DELETE FROM ledger_entries WHERE parentId IN (:parentIds) OR id IN (:extraIds)")
+    suspend fun deleteDemoRows(parentIds: List<String>, extraIds: List<String>)
 }
 
 // ─── Expense DAO ─────────────────────────────────────────────────────────────
@@ -457,6 +493,10 @@ interface PersonnelDao {
     @Query("SELECT COUNT(*) FROM personnel WHERE status = 'active'")
     fun observeActiveCount(): Flow<Int>
 
+    /** T-494 (DATA-059): evict the demo-seeded workers after a successful pull (exact ids — never a pattern that could match a server UUID row). */
+    @Query("DELETE FROM personnel WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: PersonnelEntity)
 
@@ -476,6 +516,10 @@ interface DepartmentDao {
 
     @Query("SELECT * FROM departments WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): DepartmentEntity?
+
+    /** T-494 (DATA-059): evict the demo-seeded departments after a successful pull (exact ids). */
+    @Query("DELETE FROM departments WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<DepartmentEntity>)
@@ -616,6 +660,10 @@ interface VehicleDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: VehicleEntity)
+
+    /** T-494 (DATA-059): evict the demo-seeded vehicles (exact ids). */
+    @Query("DELETE FROM vehicles WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
 }
 
 @Dao
@@ -634,6 +682,10 @@ interface RoutingStopDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: RoutingStopEntity)
+
+    /** T-494 (DATA-059): evict the demo-seeded routing stops (exact ids). */
+    @Query("DELETE FROM routing_stops WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
 }
 
 @Dao
@@ -664,6 +716,22 @@ interface ReleveEntryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<ReleveEntryEntity>)
+
+    /** T-494 (DATA-059): evict the demo-seeded timesheet rows (scoped by the demo PERSONNEL ids — the rel-t* rows belong to the seeded teachers). */
+    @Query("DELETE FROM releve_entries WHERE personnelId IN (:personnelIds)")
+    suspend fun deleteByPersonnelIds(personnelIds: List<String>)
+
+    /** T-492/T-494: backfill the denormalized name from the personnel table (pulled rows carry only the id). */
+    @Query("UPDATE releve_entries SET personnelName = COALESCE((SELECT firstName || ' ' || lastName FROM personnel WHERE personnel.id = releve_entries.personnelId), personnelName) WHERE personnelName = ''")
+    suspend fun backfillPersonnelNames()
+
+    /** T-494 test/eject support: direct row access. */
+    @Query("SELECT * FROM releve_entries WHERE id = :id")
+    suspend fun getById(id: String): ReleveEntryEntity?
+
+    /** T-494 test support. */
+    @Query("SELECT COUNT(*) FROM releve_entries")
+    suspend fun countAll(): Int
 }
 
 @Dao

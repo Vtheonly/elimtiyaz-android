@@ -612,3 +612,23 @@ fun ExpenseTicketDto.toEntity(): com.example.infrastructure.room.ExpenseEntity =
                     ?.joinToString("\n")
             },
     )
+
+/**
+ * T-494 (DATA-059): convert a canonical [ReleveEntryDto] (0009) to the Room
+ * [ReleveEntryEntity]. The denormalized `personnelName` backfills from the
+ * personnel table after the upsert (PullSyncRepository calls
+ * `backfillPersonnelNames` — the pulled row carries only the id).
+ */
+fun ReleveEntryDto.toEntity(): com.example.infrastructure.room.ReleveEntryEntity =
+    com.example.infrastructure.room.ReleveEntryEntity(
+        id = id,
+        tenantId = tenantId ?: "",
+        personnelId = personnelId,
+        personnelName = "", // backfilled from the personnel table post-upsert
+        date = (clockInAt.ifBlank { recordedAt ?: createdAt ?: "" }).take(10),
+        activityType = activityType,
+        description = description ?: "",
+        durationMinutes = durationMinutes ?: 0,
+        recordedBy = recordedBy ?: "system",
+        recordedAt = recordedAt ?: createdAt ?: "",
+    )

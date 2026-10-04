@@ -27,6 +27,17 @@ import kotlinx.coroutines.flow.first
  *
  * The seeder is idempotent — it checks whether data already exists before
  * inserting, so it is safe to call on every app launch.
+ *
+ * T-494 (DATA-059) — THE DEMO POSTURE SPLIT: the demo content (mock
+ * personnel/departments, demo families with their ledger/installments/
+ * payment, routing vehicles/stops, timesheet entries, the academic history)
+ * now seeds ONLY in the demo-sandbox posture (unconfigured AND debug — the
+ * exact T-002/SEC-101 policy the demo session follows). A CONFIGURED
+ * production build seeds ONLY the real catalogs (pricing, subjects, classes
+ * — Android's local sources of truth; no pricing pull exists). Previously
+ * every fresh install — including the owner's configured device — got 5
+ * mock workers + 3 demo families + mock timesheets that the upsert-only
+ * pulls never evicted (the Personnel section showed fabricated staff).
  */
 @Singleton
 class DatabaseSeeder @Inject constructor(
@@ -36,24 +47,40 @@ class DatabaseSeeder @Inject constructor(
     private val academicYear = "2026-2027"
     private val startYear = 2026
 
-    /** Seed the database if it is empty. Safe to call on every launch. */
-    suspend fun seedIfEmpty() {
+    /**
+     * Seed the database if it is empty. Safe to call on every launch.
+     *
+     * @param demoAllowed the demo-sandbox posture (unconfigured AND debug by
+     *        default — [com.example.infrastructure.local.AuthEnvironment]);
+     *        false on every configured build, where only the REAL catalogs
+     *        (pricing/subjects/classes) seed.
+     */
+    suspend fun seedIfEmpty(
+        demoAllowed: Boolean = com.example.infrastructure.local.AuthEnvironment.fromBuildConfig().isDemoFallbackAllowed(),
+    ) {
         val freshInstall = db.pricingConfigDao().getActive() == null
         if (freshInstall) {
+            // The real catalogs — Android's local sources of truth.
             seedPricing()
             seedSubjects()
             seedClasses()
-            seedPersonnel()
-            seedDemoFamilies()
-            seedRouting()
-            seedReleveEntries()
+            if (demoAllowed) {
+                // T-494 (DATA-059): demo content — demo-sandbox builds ONLY.
+                seedPersonnel()
+                seedDemoFamilies()
+                seedRouting()
+                seedReleveEntries()
+            }
         }
-        // Academics history — idempotent on their own tables so EXISTING
-        // installs (which already have the pricing/family seed) also get a
-        // realistic notes/attendance history. Each sub-seed no-ops when its
+        // Academic history — demo-sandbox builds ONLY (T-494): these seed
+        // fabricated grades/attendance for whatever students are in Room,
+        // INCLUDING pulled REAL students — on a configured build that is
+        // fabricated data for real people. Each sub-seed no-ops when its
         // table already holds rows.
-        seedAssessments()
-        seedAttendanceHistory()
+        if (demoAllowed) {
+            seedAssessments()
+            seedAttendanceHistory()
+        }
     }
 
     // ─── Pricing config + grade-level tuition + transport + discounts ───────
@@ -764,4 +791,45 @@ class DatabaseSeeder @Inject constructor(
         }
         if (rows.isNotEmpty()) db.attendanceDao().upsertAll(rows)
     }
+}
+
+/**
+ * T-494 (DATA-059) — the demo-seeded ID vocabulary, in ONE place, shared by
+ * the seeder (the writer) and the pull layer's eviction (the cleaner).
+ *
+ * SAFETY RULE: every id here is an EXACT seeded id (or a parent/personnel
+ * SCOPED delete) — never a bare pattern that could match a real row. The
+ * dangerous-looking LIKEs live in the DAOs with the proof inline:
+ *  - assessments: `asm-%-sub-%` — the `-sub-` infix cannot appear in a UUID
+ *    (s/u are not hex digits), so a local `asm-<UUID>` grade or a pulled
+ *    UUID row can never match;
+ *  - attendance: `att-seed-%` — the seeder's unique infix (local roll calls
+ *    are `att-<UUID>`).
+ * The installments/ledger/payments deletions scope by the demo PARENT ids
+ * because the seeder's `ins-stu-*` shape is ALSO produced by
+ * batchRegister for REAL students (LocalStudentRepository) — an id-pattern
+ * delete there would destroy real registrations.
+ */
+object DemoSeedIds {
+    /** The 5 mock workers. */
+    val PERSONNEL = listOf("per-admin", "per-teacher1", "per-teacher2", "per-finance", "per-driver1")
+
+    /** The 3 mock departments. */
+    val DEPARTMENTS = listOf("dep-admin", "dep-acad", "dep-finance")
+
+    /** The 3 demo families. */
+    val PARENTS = listOf("par-001", "par-002", "par-003")
+
+    /** The 6 demo students. */
+    val STUDENTS = listOf("stu-001", "stu-002", "stu-003", "stu-004", "stu-005", "stu-006")
+
+    /** The demo payment + credit rows (scoped ids, not parent-scoped). */
+    val EXTRA_LEDGER_IDS = listOf("led-pay-001", "led-credit-par-001")
+    val EXTRA_PAYMENT_IDS = listOf("pay-001")
+
+    /** The 2 demo vehicles. */
+    val VEHICLES = listOf("veh-001", "veh-002")
+
+    /** The 6 demo routing stops. */
+    val ROUTING_STOPS = listOf("stp-001", "stp-002", "stp-003", "stp-004", "stp-005", "stp-006")
 }

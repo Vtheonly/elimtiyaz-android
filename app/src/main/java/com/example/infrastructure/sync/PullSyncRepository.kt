@@ -16,6 +16,7 @@ import com.example.infrastructure.supabase.NotificationDto
 import com.example.infrastructure.supabase.ParentDto
 import com.example.infrastructure.supabase.PaymentDto
 import com.example.infrastructure.supabase.PersonnelDto
+import com.example.infrastructure.supabase.ReleveEntryDto
 import com.example.infrastructure.supabase.StudentDto
 import com.example.infrastructure.supabase.SubjectDto
 import com.example.infrastructure.supabase.SupabaseClientProvider
@@ -510,6 +511,38 @@ class PullSyncRepository @Inject constructor(
     }
 
     /**
+     * T-494 (DATA-059): pull the canonical `releve_entries` rows (migration
+     * 0009) — the personnel section's Activité tab reads the REAL server
+     * timesheets instead of the demo seeder's mock rows (the desktop's
+     * SupabaseReleveRepository is the reference, T-481). The denormalized
+     * personnelName backfills from the personnel table after the upsert.
+     * Sync-301 discipline: the id-keyset drain.
+     */
+    suspend fun pullReleveEntries(): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            val dtoList = drainByCursor(
+                fetchPage = { cursor ->
+                    provider.postgrest.from("releve_entries").select {
+                        limit(TABLE_PULL_PAGE_SIZE.toLong())
+                        order("id", Order.ASCENDING)
+                        if (cursor != null) filter { gt("id", cursor) }
+                    }.decodeList<ReleveEntryDto>()
+                },
+                cursorOf = { it.id },
+                pageSize = TABLE_PULL_PAGE_SIZE,
+            )
+            db.releveEntryDao().upsertAll(dtoList.map { it.toEntity() })
+            // The pulled rows carry only the personnel id — resolve the
+            // display name from the personnel table (one statement).
+            db.releveEntryDao().backfillPersonnelNames()
+            Log.i("PullSync", "Pulled ${dtoList.size} releve entries")
+            Result.Ok(dtoList.size)
+        } catch (e: Exception) {
+            Result.Err(com.example.core.Errors.fromException(e))
+        }
+    }
+
+    /**
      * T-039 / NOTIF-105: the pull now (a) FILTERS by the signed-in user and
      * their CURRENT role set — resolved fresh via the canonical
      * `current_user_roles()` RPC (migration 0053), the same function the
@@ -780,10 +813,64 @@ class PullSyncRepository @Inject constructor(
         // T-492 (SYNC-302): the canonical expense tickets — the Dépenses tab
         // reads the same rows the desktop's approval queue does.
         val exp = (pullExpenses() as? Result.Ok)?.value ?: 0
-        val total = p + s + pay + led + cls + sub + ins + per + dep + notif + wfr + hwk + att + asm + exp
+        // T-494 (DATA-059): the canonical timesheets — the Activité tab reads
+        // the real server rows.
+        val rel = (pullReleveEntries() as? Result.Ok)?.value ?: 0
+
+        // T-494 (DATA-059): evict the DEMO-seeded rows on CONFIGURED builds —
+        // the server's truth is the only content that belongs on a production
+        // device. The gate is the CONFIGURED POSTURE, not the individual pull
+        // outcomes: the pulls swallow their errors to Ok(0) (the documented
+        // contract), so per-cluster gating is not expressible against them —
+        // and on a configured build the mock rows are pollution whether the
+        // device is currently online (server truth wins) or offline (they
+        // must not display as real staff either way). The UNCONFIGURED
+        // demo-sandbox build NEVER evicts — its demo rows ARE its content
+        // (the seeder just created them). Idempotent by construction.
+        if (com.example.infrastructure.supabase.NetworkTimeouts.isSupabaseConfigured) {
+            runCatching { evictDemoRowsAfterPull() }
+        }
+
+        val total = p + s + pay + led + cls + sub + ins + per + dep + notif + wfr + hwk + att + asm + exp + rel
 
         Log.i("PullSync", "=== PULL COMPLETE: Total $total records synchronized ===")
         return Result.Ok(total)
+    }
+
+    /**
+     * T-494 (DATA-059): the demo-row eviction — EXACT seeded ids / parent-
+     * scoped deletes only (the [com.example.infrastructure.room.DemoSeedIds]
+     * vocabulary; the safety rules live there and on the DAO queries).
+     *
+     * NOTE: this runs after EVERY successful pullAll cycle — idempotent by
+     * construction (deleting absent ids is a no-op), and self-healing: a
+     * device that seeded demo rows under the OLD seeder converges on its
+     * next online cycle.
+     */
+    internal suspend fun evictDemoRowsAfterPull() {
+        // The personnel cluster: mock workers, their departments, their
+        // timesheets.
+        db.personnelDao().deleteByIds(com.example.infrastructure.room.DemoSeedIds.PERSONNEL)
+        db.departmentDao().deleteByIds(com.example.infrastructure.room.DemoSeedIds.DEPARTMENTS)
+        db.releveEntryDao().deleteByPersonnelIds(com.example.infrastructure.room.DemoSeedIds.PERSONNEL)
+
+        // The demo-family cluster: parents, students, their ledger/
+        // installments/payments, and the routing demo (the stops reference
+        // the demo students).
+        val demoParents = com.example.infrastructure.room.DemoSeedIds.PARENTS
+        db.parentDao().deleteByIds(demoParents)
+        db.studentDao().deleteByIds(com.example.infrastructure.room.DemoSeedIds.STUDENTS)
+        db.ledgerEntryDao().deleteDemoRows(demoParents, com.example.infrastructure.room.DemoSeedIds.EXTRA_LEDGER_IDS)
+        db.installmentDao().deleteByParentIds(demoParents)
+        db.paymentDao().deleteDemoRows(demoParents, com.example.infrastructure.room.DemoSeedIds.EXTRA_PAYMENT_IDS)
+        db.vehicleDao().deleteByIds(com.example.infrastructure.room.DemoSeedIds.VEHICLES)
+        db.routingStopDao().deleteByIds(com.example.infrastructure.room.DemoSeedIds.ROUTING_STOPS)
+
+        // The academic-history cluster: the seeded grades/attendance (the
+        // patterns are UUID-impossible — the proofs live on the DAOs).
+        db.assessmentDao().deleteSeeded()
+        db.attendanceDao().deleteSeeded()
+        Log.i("PullSync", "DATA-059: demo-seeded rows evicted (personnel/departments/releve/families/routing/academics)")
     }
 
     companion object {
