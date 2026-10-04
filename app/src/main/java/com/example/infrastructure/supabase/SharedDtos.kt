@@ -333,6 +333,10 @@ data class LedgerEntryDto(
     @SerialName("actor_name") val actorName: String? = null,
     @SerialName("at") val at: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
+    // SYNC-301 (T-493): the p_since cursor column — the RPC orders by it,
+    // the drain loop advances on it (was absent → the cursor could never
+    // advance → pagination impossible).
+    @SerialName("updated_at") val updatedAt: String? = null,
     // CANONICAL-FINANCIAL-LOGIC.md §7.5 + §8.4 — pull-side metadata.
     // The Supabase `ledger_entries.metadata` JSONB column is parsed as a
     // raw JsonElement to preserve any field the server stores; the entity
