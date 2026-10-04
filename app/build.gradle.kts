@@ -177,6 +177,12 @@ tasks.withType<Test>().matching { it.name == "testReleaseUnitTest" }.configureEa
     // T-102 chat v2 (133rd session): same class — the debug-scoped Room
     // schema assets are unreachable on release (the sourceSets rule below).
     excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT102v2Test")
+    // T-491 (TEST-504): the 5th ARCH-012 recurrence — T-463/T-464's
+    // MigrationTestHelper suites (133rd session) landed WITHOUT the release
+    // exclusion entries; the FULL ./gradlew test gate was red on main since
+    // (4 red release tests, invisible to testDebugUnitTest-only sessions).
+    excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT463Test")
+    excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT464Test")
     excludeTestsMatching("com.example.ui.designsystem.ElScrollableTabRowTest")
     excludeTestsMatching("com.example.ui.designsystem.overlays.ElInfoTipTest")
     excludeTestsMatching("com.example.ui.designsystem.overlays.ElToastHostTest")
