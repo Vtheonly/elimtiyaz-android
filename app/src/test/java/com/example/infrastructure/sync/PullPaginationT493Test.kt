@@ -88,7 +88,7 @@ class PullPaginationT493Test {
         val source = (1..5_963).map { Row("row-$it", null) }
         var fetches = 0
         val drained = repo.drainByCursor(
-            fetchPage = { cursor ->
+            fetchPage = { cursor: String? ->
                 fetches++
                 val afterIndex = cursor?.let { it.removePrefix("row-").toInt() } ?: 0
                 source.filter { it.id.removePrefix("row-").toInt() > afterIndex }.take(1_000)
@@ -105,7 +105,7 @@ class PullPaginationT493Test {
     fun `a 2500-row source drains fully via 3 pages`() = runTest {
         val source = (1..2_500).map { Row("r-$it", null) }
         val drained = repo.drainByCursor(
-            fetchPage = { cursor ->
+            fetchPage = { cursor: String? ->
                 val after = cursor?.let { it.removePrefix("r-").toInt() } ?: 0
                 source.filter { it.id.removePrefix("r-").toInt() > after }.take(1_000)
             },
@@ -121,7 +121,7 @@ class PullPaginationT493Test {
     fun `a short page ends the drain with one fetch`() = runTest {
         var fetches = 0
         val drained = repo.drainByCursor(
-            fetchPage = { cursor ->
+            fetchPage = { cursor: String? ->
                 fetches++
                 if (cursor == null) listOf(Row("a", null), Row("b", null)) else emptyList()
             },
@@ -138,7 +138,7 @@ class PullPaginationT493Test {
         // page must be requested before the drain ends.
         var fetches = 0
         val drained = repo.drainByCursor(
-            fetchPage = { cursor ->
+            fetchPage = { cursor: String? ->
                 fetches++
                 if (cursor == null) (1..1_000).map { Row("x-$it", null) } else emptyList()
             },
@@ -160,7 +160,7 @@ class PullPaginationT493Test {
         val source = (1..5_963).map { Row("t-$it", "2026-09-30T23:00:40Z") }
         var fetches = 0
         val drained = repo.drainByCursor(
-            fetchPage = { cursor ->
+            fetchPage = { cursor: String? ->
                 fetches++
                 // The server shape: updated_at >= cursor (inclusive!) LIMIT page.
                 val since = cursor ?: "1970-01-01T00:00:00Z"
@@ -179,7 +179,7 @@ class PullPaginationT493Test {
         // Distinct updated_at values: the cursor advances normally.
         val source = (1..2_500).map { Row("u-$it", "2026-09-30T23:00:%04dZ".format(it)) }
         val drained = repo.drainByCursor(
-            fetchPage = { cursor ->
+            fetchPage = { cursor: String? ->
                 val since = cursor ?: "1970-01-01T00:00:00Z"
                 source.filter { (it.updatedAt ?: "") >= since }.take(1_000)
             },
@@ -200,7 +200,7 @@ class PullPaginationT493Test {
     fun `the page cap bounds the drain`() = runTest {
         var fetches = 0
         val drained = repo.drainByCursor(
-            fetchPage = { cursor ->
+            fetchPage = { cursor: String? ->
                 fetches++
                 // A full single-row page whose cursor ADVANCES every fetch —
                 // only the page cap can end this drain.
@@ -219,7 +219,7 @@ class PullPaginationT493Test {
     @Test
     fun `an empty source returns an empty drain`() = runTest {
         val drained = repo.drainByCursor(
-            fetchPage = { emptyList<Row>() },
+            fetchPage = { _: String? -> emptyList<Row>() },
             cursorOf = { it.id },
             pageSize = 1_000,
         )
@@ -232,7 +232,7 @@ class PullPaginationT493Test {
         // drift) — the drain must not NPE or loop; it keeps the page.
         var fetches = 0
         val drained = repo.drainByCursor(
-            fetchPage = { cursor ->
+            fetchPage = { cursor: String? ->
                 fetches++
                 if (cursor == null) (1..1_000).map { Row("n-$it", null) } else emptyList()
             },
