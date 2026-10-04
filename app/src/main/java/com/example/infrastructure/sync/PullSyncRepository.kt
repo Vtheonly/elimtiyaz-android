@@ -143,18 +143,25 @@ class PullSyncRepository @Inject constructor(
             var fetched = false
             try {
                 // SYNC-301 (T-493): the RPC drains page-by-page on the
-                // inclusive p_since cursor (was a single p_limit=2000 call —
+                // p_since cursor (was a single p_limit=2000 call —
                 // truncated at the live census's scale).
+                // T-495 (SYNC-303): pull_parents_for_sync RETURNS TABLE(...)
+                // — a row-typed RPC the gateway SLICES at its max-rows
+                // setting (1 000, verified live: Content-Range rows 0-999).
+                // p_limit 5 000 came back as a 1 000-row page the drain
+                // mistook for a completed short page. The page size must
+                // be ≤ the slice so a full page stays FULL.
                 val dtoList = drainByCursor(
                     fetchPage = { cursor ->
                         val params = buildJsonObject {
                             put("p_tenant_id", tenantId)
                             put("p_since", cursor ?: sinceIso ?: "1970-01-01T00:00:00Z")
-                            put("p_limit", RPC_PULL_PAGE_SIZE)
+                            put("p_limit", ROW_TYPED_RPC_PAGE_SIZE)
                         }
                         provider.postgrest.rpc("pull_parents_for_sync", params).decodeList<ParentDto>()
                     },
                     cursorOf = { it.updatedAt },
+                    pageSize = ROW_TYPED_RPC_PAGE_SIZE,
                 )
                 // T-039: batch upsert (single Room round-trip, was O(N)).
                 db.parentDao().upsertAll(dtoList.map { it.toEntity() })
@@ -205,16 +212,26 @@ class PullSyncRepository @Inject constructor(
             var fetched = false
             try {
                 // SYNC-301 (T-493): p_since cursor drain (was p_limit=2000).
+                // T-495 (SYNC-303): pull_students_for_sync RETURNS TABLE(...)
+                // — row-typed, so the gateway slices the response at its
+                // max-rows setting (1 000; verified live: p_limit 5 000 →
+                // exactly 1 000 rows, Content-Range rows 0-999, while the
+                // jsonb-returning payments/ledger RPCs pass through whole
+                // at 2 198 / 3 342). The live census holds 1 137 students
+                // — the old page size silently delivered only the first
+                // 1 000. Page size ≤ the slice; the drain then completes
+                // (proven live: 1 137 rows in 2 pages, all distinct ids).
                 val dtoList = drainByCursor(
                     fetchPage = { cursor ->
                         val params = buildJsonObject {
                             put("p_tenant_id", tenantId)
                             put("p_since", cursor ?: sinceIso ?: "1970-01-01T00:00:00Z")
-                            put("p_limit", RPC_PULL_PAGE_SIZE)
+                            put("p_limit", ROW_TYPED_RPC_PAGE_SIZE)
                         }
                         provider.postgrest.rpc("pull_students_for_sync", params).decodeList<StudentDto>()
                     },
                     cursorOf = { it.updatedAt },
+                    pageSize = ROW_TYPED_RPC_PAGE_SIZE,
                 )
                 // T-039: batch upsert (single Room round-trip).
                 db.studentDao().upsertAll(dtoList.map { it.toEntity() })
@@ -886,11 +903,29 @@ class PullSyncRepository @Inject constructor(
 
         /**
          * SYNC-301 (T-493): the `pull_*_for_sync` RPC page size. A single
-         * 5 000-row page covers every current live RPC table (parents 741 /
-         * students 1 137 / payments 2 198 / ledger 3 342); the p_since
-         * cursor loop + the tie-guard handle anything larger.
+         * 5 000-row page covers every current live RPC table (payments 2 198 /
+         * ledger 3 342); the p_since cursor loop + the tie-guard handle
+         * anything larger. ONLY for the jsonb-returning RPCs — see
+         * [ROW_TYPED_RPC_PAGE_SIZE] for the row-typed pair.
          */
         const val RPC_PULL_PAGE_SIZE: Int = 5_000
+
+        /**
+         * T-495 (SYNC-303): the page size for the ROW-TYPED sync RPCs
+         * (`pull_parents_for_sync` / `pull_students_for_sync` — both
+         * `RETURNS TABLE(...)`). The Supabase API gateway applies its
+         * max-rows setting (1 000 on this project) to row-typed RPC
+         * responses — slicing them with `Content-Range: rows 0-999` — while
+         * jsonb-returning RPCs (`pull_payments_for_sync` /
+         * `pull_ledger_entries_for_sync`) pass through whole. A p_limit
+         * above the slice came back as a SHORT page the drain mistook for
+         * a completed pull (verified live: students p_limit 5 000 → exactly
+         * 1 000 of 1 137 rows, silently truncated). The page size must be
+         * ≤ the slice so a full page stays FULL and the cursor keeps
+         * advancing — the same discipline the plain-table paths already
+         * follow against the same gateway setting.
+         */
+        const val ROW_TYPED_RPC_PAGE_SIZE: Int = 1_000
 
         /**
          * SYNC-301 (T-493): the drain loop's hard page cap — an infinite-loop

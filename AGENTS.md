@@ -350,6 +350,39 @@ the generated `BuildConfig` fields come from the ROOT-level files only.
   (133rd session): every call now routes through NetworkTimeouts (reads via
   `guard`, sends/receipts via `guardSyncPush`).
 
+### 8.2 The gateway max-rows slice on row-typed RPCs (147th session, 2026-10-05 — T-495 / SYNC-303)
+
+The Supabase API gateway applies the project's **max-rows setting (1 000)** to
+**row-typed RPC responses** (`RETURNS TABLE(...)`), slicing them with a
+`Content-Range` header **whatever the function's own `p_limit` says** — while
+**jsonb-returning functions** (`pull_payments_for_sync` /
+`pull_ledger_entries_for_sync`) pass through whole (verified live at 2 198 /
+3 342 rows in one response; the row-typed pair returns exactly 1 000 with
+`Content-Range: rows 0-999`).
+
+- **The trap:** `drainByCursor` treats a short page as a COMPLETED drain. A
+  page size above the slice (T-493's 5 000) made the first sliced 1 000-row
+  response read as "short page → done" — the device held 1 000 of the live
+  1 137 students, silently truncated (found live by T-495's census leg, the
+  same defect class as the original "tranches are incorrect" report).
+- **The rule:** any paginated read whose response is ROW-TYPED must page at
+  ≤ the gateway slice — `ROW_TYPED_RPC_PAGE_SIZE = 1_000` for the
+  parents/students pair; the plain-table paths already respect the same
+  setting by construction (client `limit(1000)` == the slice — which is
+  exactly why only the row-typed RPC pair truncated).
+- **The pins:** `PullPaginationT495Test` (the config contract + the
+  regression guard + the source scans) and the pinned discovery check in the
+  hub's `scripts/t495-live-verification.py`.
+- **The Kotlin comment trap (same session):** Kotlin block comments NEST —
+  a doc comment containing the literal text `0-999/*` (the Content-Range
+  header) opened a nested comment that swallowed the rest of the file. Never
+  write a bare `/*` inside a comment; rephrase (e.g. "rows 0-999").
+- **The cursor nuance (registered):** the parents/students server cursors
+  are EXCLUSIVE (`updated_at > p_since`), not inclusive as the T-493 test
+  models — boundary timestamp ties can skip tied rows (the tie-guard covers
+  the uniform-page case; the live data is near-unique: 998 distinct stamps
+  in the first 1 000).
+
 ## 9. Forbidden in this repository
 
 - Rewiring `RepositoryModule` bindings toward Supabase repositories before ADR-005 is Accepted.
