@@ -30,7 +30,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.core.Session
-import com.example.domain.model.CategoryRevenueItem
 import com.example.domain.model.DashboardKpi
 import com.example.ui.designsystem.components.button.ElIconButton
 import com.example.ui.designsystem.components.tabs.ElTabRow
@@ -191,11 +190,14 @@ fun DashboardHubScreen(
                     unreadMessages = unreadMessages,
                 )
 
-                // 3. Financial Flux — the wave staircase hero (T-340: the
-                // smooth spline REMOVED per the owner's kill list)
-                DashboardRevenueChart(
-                    currentKpi = currentKpi,
+                // 3. T-489 (UI-330) — the ONE compact financial block. The
+                // full-detail analytics block this replaces (the mini stat
+                // tiles + the WaveVelocityCard hero + the category-repartition
+                // list) lives on the Analytique tab, ONE tap away — every
+                // relocated surface stays available.
+                DashboardCollectionSummaryCard(
                     executive = currentKpi.executive,
+                    onOpenAnalytics = { selectedViewTab = 1 },
                 )
 
                 // 3b. PARITY-003 — the Algerian school-week operating rhythm
@@ -220,14 +222,19 @@ fun DashboardHubScreen(
                     onNavigateToDebtDashboard = onNavigateToDebtDashboard,
                 )
 
-                // 6. Activity & Notifications Feed
+                // 6. Activity & Notifications Feed — T-489 (UI-330): the
+                // COMPACT feed (2 single-line payments + the unread summary
+                // row); the full lists live one tap away (Finance journal /
+                // Alerts inbox).
                 DashboardNotificationsSection(
                     notifications = notifications,
                     recentPayments = recentPayments,
                     onNavigateToFinancials = onNavigateToFinancials,
+                    onNavigateToAlerts = onNavigateToAlerts,
                 )
 
                 // 7. System alerts placed politely at bottom of overview
+                // (T-489: the 2 most urgent + "Voir tout" into the inbox)
                 DashboardAlertsSection(
                     error = error,
                     alerts = operationalAlerts,
@@ -236,6 +243,7 @@ fun DashboardHubScreen(
                     onNavigateToExpenseDetail = onNavigateToExpenseDetail,
                     onNavigateToFinancials = onNavigateToFinancials,
                     onNavigateToDebtDashboard = onNavigateToDebtDashboard,
+                    onNavigateToAlerts = onNavigateToAlerts,
                 )
             } else {
                 // ════════════════════════════════════════════════════════════

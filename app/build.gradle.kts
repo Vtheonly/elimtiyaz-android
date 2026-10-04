@@ -187,6 +187,9 @@ tasks.withType<Test>().matching { it.name == "testReleaseUnitTest" }.configureEa
     // rule: the exclusion lands in the SAME commit as the test).
     excludeTestsMatching("com.example.ui.features.financials.TrancheWaveCardsT462Test")
     excludeTestsMatching("com.example.ui.features.financials.TrancheWaveCardsScreenshotT462Test")
+    // T-489 (UI-330): the dashboard overview structure suite (createComposeRule
+    // under the suffixed applicationId — the §15.86 same-commit rule).
+    excludeTestsMatching("com.example.ui.features.dashboard.DashboardOverviewStructureT489Test")
   }
 }
 

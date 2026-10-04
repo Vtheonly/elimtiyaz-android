@@ -33,6 +33,10 @@ import com.example.ui.util.PhoneUtils
  * language for both surfaces. The type mapping and the per-type navigation
  * actions are preserved verbatim; the call action and the "Consulter"
  * action live in the row's trailing slot.
+ *
+ * T-489 (UI-330): the overview compacts to the 2 MOST URGENT rows + a
+ * "Voir tout" quick access to the Alerts inbox when more exist — the
+ * first page keeps the actionable reminders without the full stack.
  */
 @Composable
 internal fun DashboardAlertsSection(
@@ -43,6 +47,7 @@ internal fun DashboardAlertsSection(
     onNavigateToExpenseDetail: (String) -> Unit,
     onNavigateToFinancials: () -> Unit,
     onNavigateToDebtDashboard: () -> Unit,
+    onNavigateToAlerts: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val toast = LocalElToast.current
@@ -62,9 +67,23 @@ internal fun DashboardAlertsSection(
         ElSectionHeader(
             title = "Rappels & Notifications de gestion",
             subtitle = "${alerts.size} notification${if (alerts.size > 1) "s" else ""}",
+            trailing = if (alerts.size > 2) {
+                {
+                    ElButton(
+                        text = "Voir tout",
+                        onClick = onNavigateToAlerts,
+                        variant = ElButtonVariant.GHOST,
+                        size = ElButtonSize.SMALL,
+                    )
+                }
+            } else {
+                null
+            },
         )
 
-        alerts.take(3).forEach { alert ->
+        // T-489 (UI-330): the TWO most urgent rows on the overview — the
+        // full actionable list lives in the Alerts inbox ("Voir tout").
+        alerts.take(2).forEach { alert ->
             val (icon, tint, tone) = when (alert.type) {
                 "overdue_debt" -> Triple(Icons.Default.Notifications, c.primaryAccent, ElTagTone.WARNING)
                 "pending_expense" -> Triple(Icons.Default.ReceiptLong, c.primary, ElTagTone.INFO)

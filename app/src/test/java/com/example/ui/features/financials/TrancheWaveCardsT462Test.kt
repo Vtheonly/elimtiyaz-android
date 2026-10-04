@@ -340,7 +340,7 @@ class TrancheWaveCardsT462Test {
         val exec = source("src/main/java/com/example/ui/features/dashboard/analytics/ExecutiveCards.kt")
         assertTrue(
             "PooledMetric must render the tile (tinted background + hairline border)",
-            Regex("private fun PooledMetric[\\s\\S]*?background\\(c\\.surfaceVariant\\.copy\\(alpha = 0\\.4f\\)\\)[\\s\\S]*?border\\(")
+            Regex("(private|internal) fun PooledMetric[\\s\\S]*?background\\(c\\.surfaceVariant\\.copy\\(alpha = 0\\.4f\\)\\)[\\s\\S]*?border\\(")
                 .containsMatchIn(exec),
         )
         val strip = source("src/main/java/com/example/ui/features/financials/TrancheWaveCard.kt")

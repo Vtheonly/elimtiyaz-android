@@ -80,7 +80,12 @@ import com.example.ui.designsystem.theme.ElTheme
  * "T1 · Inscription + 1er versement (Sept)" subtitle contradicted the
  * billing model (the desktop's own STATS-401 finding).
  */
-private val WAVE_TITLES_FR: Map<Int, Pair<String, String>> = mapOf(
+/**
+ * T-489 (UI-330): INTERNAL (was private) — shared by the Analytique tab's
+ * PooledWaveMeter and the Overview tab's compact
+ * DashboardCollectionSummaryCard (ONE wave-title map, no fork).
+ */
+internal val WAVE_TITLES_FR: Map<Int, Pair<String, String>> = mapOf(
     1 to ("Tranche 1 (T1)" to "Toutes catégories — 1er versement (Sept)"),
     2 to ("Tranche 2 (T2)" to "Toutes catégories — mi-parcours (Déc)"),
     3 to ("Tranche 3 (T3)" to "Toutes catégories — clôture (Mars)"),
@@ -115,7 +120,8 @@ private fun formatDueDateRangeFr(dueDateMinIso: String?, dueDateMaxIso: String?)
 }
 
 /** The desktop's daysBetweenFloor over the pooled rows' ISO dates. */
-private fun waveDaysLate(dueDateIso: String?, nowEpochMs: Long): Long =
+/** T-489 (UI-330): INTERNAL (was private) — reused by the compact overview card. */
+internal fun waveDaysLate(dueDateIso: String?, nowEpochMs: Long): Long =
     if (dueDateIso == null) 0L else com.example.core.execDaysBetweenFloor(dueDateIso, nowEpochMs)
 
 /** The non-wave group labels (the desktop's label derivation). */
@@ -543,8 +549,13 @@ private fun PooledWaveMeter(w: ExecPooledWaveItem?, nowEpochMs: Long) {
     }
 }
 
+/**
+ * T-489 (UI-330): INTERNAL (was private) — the metric TILE (UI-327's soft
+ * container language) is shared by the pooled meters AND the Overview tab's
+ * compact collection summary (one tile language across surfaces).
+ */
 @Composable
-private fun PooledMetric(
+internal fun PooledMetric(
     label: String,
     value: String,
     valueColor: Color,
