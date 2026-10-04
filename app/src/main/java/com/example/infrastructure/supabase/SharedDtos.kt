@@ -393,6 +393,9 @@ data class ReleveEntryDto(
     @SerialName("clock_out_at") val clockOutAt: String? = null,
     @SerialName("duration_minutes") val durationMinutes: Int? = null,
     @SerialName("recorded_by") val recordedBy: String? = null,
+    // T-494 (DATA-059): the entity's recordedAt column + the date fallback
+    // when clock_in_at is somehow absent.
+    @SerialName("recorded_at") val recordedAt: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
 )
 
