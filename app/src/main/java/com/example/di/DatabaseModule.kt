@@ -126,6 +126,10 @@ object DatabaseModule {
                 // T-464 / MEDIA-300 (135th session): chat_messages
                 // .attachmentsJson — the attachments read cache (v19).
                 ElImtiyazDatabase.MIGRATION_18_19,
+                // T-492 / SYNC-302: expenses.proofUploadedBy/proofUploadedAt/
+                // anomalyNote — the server's proof attribution + anomaly
+                // note for the pulled expense_tickets rows (v20).
+                ElImtiyazDatabase.MIGRATION_19_20,
             )
             // T-046 / ARCH-004: NO destructive fallback. A missing migration
             // now fails LOUDLY (IllegalStateException) instead of wiping the

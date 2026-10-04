@@ -421,8 +421,15 @@ interface ExpenseDao {
     @Query("SELECT COUNT(*) FROM expenses WHERE status = 'submitted'")
     fun observePendingCount(): Flow<Int>
 
+    /** T-492 (SYNC-302): the ticket-number collision check (the desktop's generateTicketNumber convention). */
+    @Query("SELECT COUNT(*) FROM expenses WHERE requestCode = :requestCode")
+    suspend fun countByRequestCode(requestCode: String): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: ExpenseEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(rows: List<ExpenseEntity>)
 
     @Update
     suspend fun update(row: ExpenseEntity)

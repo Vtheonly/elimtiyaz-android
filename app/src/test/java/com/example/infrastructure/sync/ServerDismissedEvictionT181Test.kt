@@ -78,7 +78,9 @@ class ServerDismissedEvictionT181Test {
         // (135th session): version 19 (chat_messages.attachmentsJson —
         // MIGRATION_18_19); the T-181 dismissedAt migration (13→14) stays
         // registered in the chain.
-        assertTrue("the database version must be bumped to 19", dbSrc().contains("version = 19,"))
+        // T-492 (146th session): version 20 (the expenses proof attribution +
+        // anomaly note — MIGRATION_19_20).
+        assertTrue("the database version must be bumped to 20", dbSrc().contains("version = 20,"))
         val migration = Regex("MIGRATION_13_14[\\s\\S]*?\\n        \\}")
             .find(dbSrc())?.value ?: error("MIGRATION_13_14 not found")
         assertTrue(

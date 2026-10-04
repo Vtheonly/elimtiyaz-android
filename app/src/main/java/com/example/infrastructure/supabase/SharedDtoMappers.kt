@@ -492,3 +492,123 @@ private fun AuditLogDto.effectiveAuditSnapshots(): Pair<String?, String?> {
         null to raw.toString()
     }
 }
+
+// ─── T-492 (SYNC-302) — the expense_tickets pull mapper ─────────────────────
+//
+// The desktop's SupabaseExpenseRepository (T-093/DRIFT-013) is the canonical
+// translation layer; these two maps are its verbatim port so both clients
+// agree on the same rows. Documented divergences (DRIFT-013): the DB status
+// vocabulary differs from the domain's, and the DB category is an FK to
+// expense_categories while the domain carries stable codes.
+
+/** DB `expense_tickets.status` → the domain status (the desktop's STATUS_FROM_DB). */
+fun expenseStatusFromDb(dbStatus: String): String = when (dbStatus) {
+    "draft" -> "draft"
+    "pending_approval" -> "submitted"
+    "approved_funds_released" -> "approved"
+    "rejected" -> "rejected"
+    "disbursed" -> "disbursed"
+    "settled_and_closed" -> "settled"
+    else -> "draft"
+}
+
+/** The domain status → DB `expense_tickets.status` (the desktop's STATUS_TO_DB). */
+fun expenseStatusToDb(domainStatus: String): String = when (domainStatus) {
+    "draft" -> "draft"
+    "submitted" -> "pending_approval"
+    "approved" -> "approved_funds_released"
+    "rejected" -> "rejected"
+    "disbursed" -> "disbursed"
+    "settled" -> "settled_and_closed"
+    else -> "draft"
+}
+
+/** DB `expense_categories.code` → the domain category (the desktop's CATEGORY_FROM_DB, lossy buckets documented). */
+fun expenseCategoryFromDb(code: String?): String = when (code) {
+    "maintenance" -> "maintenance"
+    "office_supplies" -> "supplies"
+    "educational_material" -> "supplies" // lossy — closest domain bucket
+    "utilities" -> "utilities"
+    "transport" -> "transport"
+    "it" -> "other" // lossy — no IT bucket in the domain
+    "facilities" -> "rent"
+    "medical" -> "other" // lossy — no medical bucket in the domain
+    "other", null -> "other"
+    else -> "other"
+}
+
+/** The domain category → DB `expense_categories.code` (the desktop's CATEGORY_TO_DB). */
+fun expenseCategoryToDb(domainCategory: String): String = when (domainCategory) {
+    "utilities" -> "utilities"
+    "supplies" -> "office_supplies"
+    "maintenance" -> "maintenance"
+    "transport" -> "transport"
+    // No DB equivalent — the closest neutral bucket is `other`.
+    "event" -> "other"
+    // No DB equivalent — payroll is not an expense_categories code.
+    "salary" -> "other"
+    // No DB equivalent.
+    "tax" -> "other"
+    // `facilities` ("Locaux") is the DB bucket covering premises costs.
+    "rent" -> "facilities"
+    else -> "other"
+}
+
+/**
+ * Convert an [ExpenseTicketDto] (the canonical `expense_tickets` row, with
+ * the `expense_categories(code)` embed) to the Room [ExpenseEntity].
+ *
+ * Money: the server column is NUMERIC DZD; the entity stores Long CENTIMES
+ * (the PaymentDto.toEntity `* 100` convention).
+ */
+fun ExpenseTicketDto.toEntity(): com.example.infrastructure.room.ExpenseEntity =
+    com.example.infrastructure.room.ExpenseEntity(
+        id = id,
+        tenantId = tenantId ?: "",
+        requestCode = ticketNumber,
+        title = title,
+        description = description,
+        amount = (requestedAmount * 100).toLong(),
+        category = expenseCategoryFromDb(expenseCategories?.code),
+        payee = payee ?: "",
+        status = expenseStatusFromDb(status),
+        submittedBy = submittedBy,
+        // The server row carries no display name; the entity's column stays
+        // populated for LOCAL rows and empty for pulled ones (the detail
+        // view falls back to submittedBy — the desktop's mapTicketRow does
+        // the same: no name column exists server-side).
+        submittedByName = "",
+        submittedAt = submittedAt ?: createdAt ?: "",
+        approvedBy = approvedBy,
+        approvedAt = approvedAt,
+        disbursedAt = disbursedAt,
+        settledAt = settledAt,
+        proofUrl = receiptPath,
+        urgency = if (urgency == "critical") "high" else urgency,
+        anomalyScore = anomalyScore ?: 0.0,
+        // The desktop maps approval_note ?? rejected_reason into the domain's
+        // approvalNote — the entity's `notes` column IS that field.
+        notes = approvalNote ?: rejectedReason,
+        createdAt = createdAt ?: "",
+        updatedAt = updatedAt ?: "",
+        finalSpentAmount = finalSpentAmount?.let { (it * 100).toLong() },
+        proofUploadedBy = receiptUploadedBy,
+        proofUploadedAt = receiptUploadedAt ?: settledAt,
+        // anomaly_flags_json: string[] or {explanation}[] → the joined note
+        // text (the desktop's mapTicketRow derivation, verbatim).
+        anomalyNote = anomalyFlagsJson
+            ?.let { el ->
+                (el as? kotlinx.serialization.json.JsonArray)
+                    ?.mapNotNull { f ->
+                        when (f) {
+                            is kotlinx.serialization.json.JsonPrimitive -> f.content
+                            is kotlinx.serialization.json.JsonObject ->
+                                (f["explanation"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+                                    ?: f.toString()
+                            else -> null
+                        }
+                    }
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.joinToString("\n")
+            },
+    )

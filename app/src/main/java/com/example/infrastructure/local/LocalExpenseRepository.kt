@@ -130,7 +130,67 @@ class LocalExpenseRepository @Inject constructor(
     private val auditContext: AuditContext,
     private val expenseDao: ExpenseDao,
     private val auditDao: AuditLogDao,
+    // T-492 (SYNC-302) — the sync push seam (the LocalPaymentRepository
+    // pattern): every successful Room write enqueues the same operation so
+    // the SyncQueueDispatcher can push it to the canonical expense_tickets
+    // table. Previously the expenses feature was 100% local-only — an
+    // Android submission never reached the server, the desktop, or any
+    // other device.
+    private val syncSupport: com.example.infrastructure.sync.SyncSupport? = null,
 ) : ExpenseRepository {
+
+    /** Serialize an entity for the sync queue payload (the payment repo's convention). */
+    private fun syncJson(builder: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit): String =
+        kotlinx.serialization.json.buildJsonObject(builder).toString()
+
+    /**
+     * T-492 (SYNC-302): the ticket-number convention — the DESKTOP's
+     * generateTicketNumber (EXP-&lt;year&gt;-&lt;6 base36&gt;, collision-checked ×5),
+     * NOT the previous `countPending()+1` sequence (which violated the §5
+     * identity rule AND collided the moment the pull brought server rows
+     * into the count). The push re-checks the server table before insert
+     * (SyncQueueDispatcher.pushExpense); the local check here keeps
+     * offline-created tickets distinct from the rows already in Room.
+     */
+    private suspend fun generateTicketNumber(): String {
+        val year = java.time.LocalDate.now().year
+        repeat(5) {
+            val candidate = "EXP-$year-" + List(6) {
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[kotlin.random.Random.nextInt(36)]
+            }.joinToString("")
+            if (expenseDao.countByRequestCode(candidate) == 0) return candidate
+        }
+        // Practically unreachable — 36^6 space with 5 retries (the desktop's
+        // own fallback shape).
+        return "EXP-$year-" + java.lang.Long.toString(System.currentTimeMillis(), 36).uppercase().take(6)
+    }
+
+    /** T-492 (SYNC-302): enqueue a Room-written expense for the server push. */
+    private suspend fun enqueueExpense(entity: ExpenseEntity, operation: String, actorId: String, actorName: String) {
+        syncSupport?.enqueueOnly(
+            entity = "expense",
+            operation = operation,
+            payload = syncJson {
+                put("id", entity.id); put("tenantId", entity.tenantId)
+                put("requestCode", entity.requestCode)
+                put("title", entity.title); put("description", entity.description)
+                put("amount", entity.amount); put("category", entity.category)
+                put("payee", entity.payee); put("status", entity.status)
+                put("submittedBy", entity.submittedBy)
+                put("submittedAt", entity.submittedAt)
+                put("approvedBy", entity.approvedBy ?: "")
+                put("approvedAt", entity.approvedAt ?: "")
+                put("disbursedAt", entity.disbursedAt ?: "")
+                put("settledAt", entity.settledAt ?: "")
+                put("proofUrl", entity.proofUrl ?: "")
+                put("urgency", entity.urgency)
+                put("notes", entity.notes ?: "")
+                put("finalSpentAmount", entity.finalSpentAmount ?: 0L)
+                put("actorId", actorId); put("actorName", actorName)
+            },
+            sourceScreen = "expense_repository",
+        )
+    }
 
     override fun observe(): Flow<List<Expense>> =
         expenseDao.observeAll().map { rows -> rows.map { LocalMappers.run { it.toDomain() } } }
@@ -143,11 +203,12 @@ class LocalExpenseRepository @Inject constructor(
 
     override suspend fun submit(input: SubmitExpenseInput, actorId: String, actorName: String): Result<Expense> {
         val now = Instant.now().toString()
-        val year = LocalDate.now().year
-        val seq = (expenseDao.countPending() + 1).toString().padStart(3, '0')
+        // T-492: a bare UUID server id (the homework push convention — the
+        // "exp-" prefix is stripped at push time, so re-pushes land on the
+        // same server row).
         val entity = ExpenseEntity(
             id = "exp-${UUID.randomUUID()}", tenantId = auditContext.tenantId(),
-            requestCode = "EXP-$year-$seq", title = input.title, description = input.description,
+            requestCode = generateTicketNumber(), title = input.title, description = input.description,
             amount = input.amount, category = input.category, payee = input.payee,
             status = "submitted", submittedBy = actorId, submittedByName = actorName,
             submittedAt = now, approvedBy = null, approvedAt = null,
@@ -157,6 +218,7 @@ class LocalExpenseRepository @Inject constructor(
         )
         expenseDao.upsert(entity)
         auditDao.upsert(auditContext.auditLog("expense.submit", "expense", entity.id, actorId, actorName))
+        enqueueExpense(entity, "create", actorId, actorName)
         return Result.Ok(LocalMappers.run { entity.toDomain() })
     }
 
@@ -170,9 +232,10 @@ class LocalExpenseRepository @Inject constructor(
                 "Un demandeur ne peut pas approuver sa propre dépense (règle d'auto-approbation)",
             ))
         }
-        val updated = existing.copy(status = "approved", approvedBy = actorId, approvedAt = Instant.now().toString(), notes = note)
+        val updated = existing.copy(status = "approved", approvedBy = actorId, approvedAt = Instant.now().toString(), notes = note, updatedAt = Instant.now().toString())
         expenseDao.update(updated)
         auditDao.upsert(auditContext.auditLog("expense.approve", "expense", id, actorId, actorName))
+        enqueueExpense(updated, "update", actorId, actorName)
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 
@@ -184,17 +247,19 @@ class LocalExpenseRepository @Inject constructor(
                 "Un demandeur ne peut pas rejeter sa propre dépense (règle d'auto-approbation)",
             ))
         }
-        val updated = existing.copy(status = "rejected", approvedBy = actorId, approvedAt = Instant.now().toString(), notes = reason)
+        val updated = existing.copy(status = "rejected", approvedBy = actorId, approvedAt = Instant.now().toString(), notes = reason, updatedAt = Instant.now().toString())
         expenseDao.update(updated)
         auditDao.upsert(auditContext.auditLog("expense.reject", "expense", id, actorId, actorName))
+        enqueueExpense(updated, "update", actorId, actorName)
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 
     override suspend fun disburse(id: String, actorId: String, actorName: String): Result<Expense> {
         val existing = expenseDao.getById(id) ?: return Result.Err(Errors.notFound("Expense $id not found"))
-        val updated = existing.copy(status = "disbursed", disbursedAt = Instant.now().toString())
+        val updated = existing.copy(status = "disbursed", disbursedAt = Instant.now().toString(), updatedAt = Instant.now().toString())
         expenseDao.update(updated)
         auditDao.upsert(auditContext.auditLog("expense.disburse", "expense", id, actorId, actorName))
+        enqueueExpense(updated, "update", actorId, actorName)
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 
@@ -206,14 +271,22 @@ class LocalExpenseRepository @Inject constructor(
         // the final amount confirmed by the proof scan is persisted and
         // surfaces in the domain object so the desktop's expense report
         // can show "Requested: 5,000 DZD — Actual: 4,820 DZD".
+        val now = Instant.now().toString()
         val updated = existing.copy(
             status = "settled",
             proofUrl = proofPath,
-            settledAt = Instant.now().toString(),
+            settledAt = now,
             finalSpentAmount = finalAmount,
+            // T-492 (SYNC-302): the proof attribution (the server's
+            // receipt_uploaded_by / receipt_uploaded_at) — the 4th timeline
+            // stage finally renders for locally-settled tickets too.
+            proofUploadedBy = actorId,
+            proofUploadedAt = now,
+            updatedAt = now,
         )
         expenseDao.update(updated)
         auditDao.upsert(auditContext.auditLog("expense.settle", "expense", id, actorId, actorName))
+        enqueueExpense(updated, "update", actorId, actorName)
         return Result.Ok(LocalMappers.run { updated.toDomain() })
     }
 }

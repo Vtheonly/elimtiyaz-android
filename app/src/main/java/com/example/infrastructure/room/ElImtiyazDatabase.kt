@@ -54,7 +54,7 @@ import androidx.room.RoomDatabase
         ChatChannelEntity::class,
         ChatMessageEntity::class,
     ],
-    version = 19,
+    version = 20,
     // T-046-gap (session 18): schemas are exported from now on (ksp arg
     // room.schemaLocation → app/schemas/) so MigrationTestHelper upgrade
     // tests can pin every future schema bump. 12.json was backfilled from
@@ -585,6 +585,29 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
             override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE `chat_messages` ADD COLUMN `attachmentsJson` TEXT NOT NULL DEFAULT '[]'"
+                )
+            }
+        }
+
+        /**
+         * T-492 (SYNC-302): the expenses table gains the server's
+         * proof-uploader attribution + the anomaly note — the columns
+         * `expense_tickets` has carried since migration 0008
+         * (receipt_uploaded_by / receipt_uploaded_at /
+         * anomaly_flags_json). Nullable, no backfill: pre-existing local
+         * rows read as "no uploader / no note" (the honest pre-pull
+         * state); the expense_tickets PULL populates them.
+         */
+        val MIGRATION_19_20 = object : androidx.room.migration.Migration(19, 20) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE `expenses` ADD COLUMN `proofUploadedBy` TEXT"
+                )
+                database.execSQL(
+                    "ALTER TABLE `expenses` ADD COLUMN `proofUploadedAt` TEXT"
+                )
+                database.execSQL(
+                    "ALTER TABLE `expenses` ADD COLUMN `anomalyNote` TEXT"
                 )
             }
         }
