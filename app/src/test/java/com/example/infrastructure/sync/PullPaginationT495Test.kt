@@ -124,7 +124,7 @@ class PullPaginationT495Test {
         val source = (1..1_137).map { "2026-09-27T23:14:%06d".format(it) }
         var fetches = 0
         val drained = repo.drainByCursor(
-            fetchPage = { cursor ->
+            fetchPage = { cursor: String? ->
                 fetches++
                 // The gateway-sliced row-typed RPC: whatever p_limit says,
                 // at most 1 000 rows leave the gateway, strictly after the
@@ -148,7 +148,7 @@ class PullPaginationT495Test {
         // the exact silent truncation the owner's backend exhibited.
         val source = (1..1_137).map { "2026-09-27T23:14:%06d".format(it) }
         val drainedAtOldConfig = repo.drainByCursor(
-            fetchPage = { cursor ->
+            fetchPage = { cursor: String? ->
                 source.filter { it > (cursor ?: "") }.take(1_000) // the slice
             },
             cursorOf = { it },

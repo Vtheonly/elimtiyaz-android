@@ -69,35 +69,51 @@ class PullSyncRepository @Inject constructor(
     //    be skipped between pages (a plain `offset` pagination would both
     //    repeat and skip under concurrent writes).
     //
-    //  - The `pull_*_for_sync` RPCs paginate on the `p_since` INCLUSIVE
-    //    cursor (server-side `updated_at >= p_since ORDER BY updated_at ASC
-    //    LIMIT p_limit`). Inclusive means boundary rows re-fetch on the next
-    //    page — harmless, the Room upsert is idempotent — BUT a table whose
-    //    rows share one bulk-import timestamp larger than a page can NEVER
-    //    advance the cursor (the same first N rows return forever). The
-    //    tie-guard stops pagination and logs honestly when the cursor fails
-    //    to advance; the RPC page size (5 000) covers every current live
-    //    table (parents 741 / students 1 137 / payments 2 198 / ledger
-    //    3 342) in ONE page, so the guard is a future-proofing edge, not the
-    //    common path.
+    //  - The `pull_*_for_sync` RPCs paginate on the COMPOSITE keyset cursor
+    //    `(updated_at, id) > (p_since, p_after_id)` — migration 0143's
+    //    contract (SYNC-304 / T-497). A timestamp alone is NOT a total
+    //    order: the 148th session's live pins found the parents/students
+    //    cursors EXCLUSIVE (a tie group straddling a page boundary is
+    //    SILENTLY SKIPPED — 8 live students sit in exactly such tie pairs),
+    //    the payments table frozen at ONE bulk-backfill timestamp shared by
+    //    all 2 198 rows (an inclusive cursor over it re-fetches forever
+    //    once the group exceeds a page), and the ledger keyed on the
+    //    BUSINESS date with 1 111 tie groups — without even returning the
+    //    cursor column the old client read (the Android cursor was NULL on
+    //    every row). The (sort_key, id) pair is unique, so every full page
+    //    advances strictly: no skips, no repeats, no stuck pages. The
+    //    `p_after_id` parameter is OPTIONAL server-side (DEFAULT NULL) and
+    //    the NULL branch preserves each function's pre-0143 semantics, so
+    //    an older APK keeps working against the migrated backend.
+    /**
+     * SYNC-304 (T-497): the composite RPC keyset cursor — (updated_at, id).
+     * A timestamp alone cannot order a drain (bulk imports write whole
+     * groups at one instant): exclusive cursors SKIP the tied rows after a
+     * page boundary, inclusive cursors re-fetch them forever. The
+     * (sort_key, id) pair is unique — the server contract is migration
+     * 0143's `p_since` + `p_after_id` pair.
+     */
+    data class SyncKeyset(val since: String, val afterId: String)
+
     /**
      * The generic keyset drain: fetches pages until a short page (or the
-     * tie-guard / page cap) ends the loop. [fetchPage] receives the previous
+     * guards / page cap) ends the loop. [fetchPage] receives the previous
      * page's cursor (null for the first page) and returns the decoded rows;
      * [cursorOf] extracts the next cursor from a row (the PRIMARY KEY for
-     * plain tables, `updated_at` for the RPC path).
+     * plain tables, the composite [SyncKeyset] for the RPC path).
      *
      * Pure suspend loop — no Supabase types — so the pagination CONTRACT is
-     * unit-testable without a network (PullPaginationT493Test).
+     * unit-testable without a network (PullPaginationT493Test,
+     * PullKeysetT497Test).
      */
-    internal suspend fun <T : Any> drainByCursor(
-        fetchPage: suspend (cursor: String?) -> List<T>,
-        cursorOf: (T) -> String?,
+    internal suspend fun <T : Any, C : Any> drainByCursor(
+        fetchPage: suspend (cursor: C?) -> List<T>,
+        cursorOf: (T) -> C?,
         pageSize: Int = RPC_PULL_PAGE_SIZE,
         maxPages: Int = MAX_PULL_PAGES,
     ): List<T> {
         val all = mutableListOf<T>()
-        var cursor: String? = null
+        var cursor: C? = null
         var pages = 0
         while (pages < maxPages) {
             val page = fetchPage(cursor)
@@ -106,22 +122,24 @@ class PullSyncRepository @Inject constructor(
             if (page.size < pageSize) return all
             val firstCursor = cursorOf(page.first())
             val next = cursorOf(page.last())
-            // Tie-guard (RPC path): a FULL MULTI-ROW page whose rows all share
-            // one cursor value (first == last) is a bulk-timestamp tie at
-            // least as large as the page — an INCLUSIVE `>=` cursor would
-            // re-fetch the same rows forever. (The size>1 condition keeps
-            // single-row pages — where first==last trivially — advancing.)
-            // Stop honestly instead (the next full pull retries; the Room
-            // upsert is idempotent either way).
+            // Defensive guards (structurally dead under UNIQUE cursors —
+            // the id keyset on tables, the composite (updated_at, id)
+            // keyset on the RPCs since T-497 — but cheap and honest if a
+            // cursor ever regresses to a non-unique column: a FULL
+            // MULTI-ROW page whose rows all share one cursor value
+            // (first == last) can never advance. The size>1 condition keeps
+            // single-row pages — where first==last trivially — moving.)
             val uniformTie = page.size > 1 && firstCursor != null && firstCursor == next
             if (next == null || next == cursor || uniformTie) {
-                if (next == cursor || uniformTie) {
-                    Log.w(
-                        "PullSync",
-                        "drainByCursor: cursor stuck at $next after ${all.size} rows — " +
-                            "bulk-timestamp tie at least as large as the page ($pageSize); stopping (partial pull)",
-                    )
-                }
+                // T-497 (SYNC-304): the NULL cursor used to return SILENTLY —
+                // the old ledger path's single-page truncation. Every stop
+                // on this branch is a partial pull and says so.
+                Log.w(
+                    "PullSync",
+                    "drainByCursor: cursor " +
+                        (if (next == null) "NULL (the row carries no cursor column)" else "stuck at $next") +
+                        " after ${all.size} rows — stopping (partial pull)",
+                )
                 return all
             }
             cursor = next
@@ -152,15 +170,20 @@ class PullSyncRepository @Inject constructor(
                 // mistook for a completed short page. The page size must
                 // be ≤ the slice so a full page stays FULL.
                 val dtoList = drainByCursor(
-                    fetchPage = { cursor ->
+                    fetchPage = { cursor: SyncKeyset? ->
                         val params = buildJsonObject {
                             put("p_tenant_id", tenantId)
-                            put("p_since", cursor ?: sinceIso ?: "1970-01-01T00:00:00Z")
+                            put("p_since", cursor?.since ?: sinceIso ?: "1970-01-01T00:00:00Z")
+                            // SYNC-304 (T-497): the composite keyset's id leg —
+                            // absent on the first page (the 1970 epoch sweeps
+                            // everything); every subsequent page carries it so
+                            // a bulk-timestamp tie group can never straddle-skip.
+                            cursor?.afterId?.let { put("p_after_id", it) }
                             put("p_limit", ROW_TYPED_RPC_PAGE_SIZE)
                         }
                         provider.postgrest.rpc("pull_parents_for_sync", params).decodeList<ParentDto>()
                     },
-                    cursorOf = { it.updatedAt },
+                    cursorOf = { row -> row.updatedAt?.let { SyncKeyset(it, row.id) } },
                     pageSize = ROW_TYPED_RPC_PAGE_SIZE,
                 )
                 // T-039: batch upsert (single Room round-trip, was O(N)).
@@ -177,7 +200,7 @@ class PullSyncRepository @Inject constructor(
                     // SYNC-301: the fallback paginates on the id keyset (was
                     // an arbitrary first-2000 select).
                     val dtoList = drainByCursor(
-                        fetchPage = { cursor ->
+                        fetchPage = { cursor: String? ->
                             provider.postgrest.from("parents").select {
                                 limit(TABLE_PULL_PAGE_SIZE.toLong())
                                 order("id", Order.ASCENDING)
@@ -222,15 +245,19 @@ class PullSyncRepository @Inject constructor(
                 // 1 000. Page size ≤ the slice; the drain then completes
                 // (proven live: 1 137 rows in 2 pages, all distinct ids).
                 val dtoList = drainByCursor(
-                    fetchPage = { cursor ->
+                    fetchPage = { cursor: SyncKeyset? ->
                         val params = buildJsonObject {
                             put("p_tenant_id", tenantId)
-                            put("p_since", cursor ?: sinceIso ?: "1970-01-01T00:00:00Z")
+                            put("p_since", cursor?.since ?: sinceIso ?: "1970-01-01T00:00:00Z")
+                            // SYNC-304 (T-497): the composite keyset's id leg —
+                            // the live 1 137-row census drains in 2 pages; the
+                            // 4 live tie pairs can no longer straddle-skip.
+                            cursor?.afterId?.let { put("p_after_id", it) }
                             put("p_limit", ROW_TYPED_RPC_PAGE_SIZE)
                         }
                         provider.postgrest.rpc("pull_students_for_sync", params).decodeList<StudentDto>()
                     },
-                    cursorOf = { it.updatedAt },
+                    cursorOf = { row -> row.updatedAt?.let { SyncKeyset(it, row.id) } },
                     pageSize = ROW_TYPED_RPC_PAGE_SIZE,
                 )
                 // T-039: batch upsert (single Room round-trip).
@@ -246,7 +273,7 @@ class PullSyncRepository @Inject constructor(
                 try {
                     // SYNC-301: id-keyset drain (was limit(2000)).
                     val dtoList = drainByCursor(
-                        fetchPage = { cursor ->
+                        fetchPage = { cursor: String? ->
                             provider.postgrest.from("students").select {
                                 limit(TABLE_PULL_PAGE_SIZE.toLong())
                                 order("id", Order.ASCENDING)
@@ -286,15 +313,20 @@ class PullSyncRepository @Inject constructor(
                 // the live census holds 2 198 payments; the cap silently
                 // dropped 198 of them from every on-device statistic).
                 val dtoList = drainByCursor(
-                    fetchPage = { cursor ->
+                    fetchPage = { cursor: SyncKeyset? ->
                         val params = buildJsonObject {
                             put("p_tenant_id", tenantId)
-                            put("p_since", cursor ?: sinceIso ?: "1970-01-01T00:00:00Z")
+                            put("p_since", cursor?.since ?: sinceIso ?: "1970-01-01T00:00:00Z")
+                            // SYNC-304 (T-497): the composite keyset — the live
+                            // table's 2 198 rows share ONE frozen backfill
+                            // timestamp; the (updated_at, id) pair pages through
+                            // it where a timestamp cursor would stick.
+                            cursor?.afterId?.let { put("p_after_id", it) }
                             put("p_limit", RPC_PULL_PAGE_SIZE)
                         }
                         provider.postgrest.rpc("pull_payments_for_sync", params).decodeList<PaymentDto>()
                     },
-                    cursorOf = { it.updatedAt },
+                    cursorOf = { row -> row.updatedAt?.let { SyncKeyset(it, row.id) } },
                 )
                 // T-039: batch upsert.
                 db.paymentDao().upsertAll(dtoList.map { it.toEntity() })
@@ -303,7 +335,7 @@ class PullSyncRepository @Inject constructor(
                 try {
                     // SYNC-301: id-keyset drain (was limit(2000)).
                     val dtoList = drainByCursor(
-                        fetchPage = { cursor ->
+                        fetchPage = { cursor: String? ->
                             provider.postgrest.from("payments").select {
                                 limit(TABLE_PULL_PAGE_SIZE.toLong())
                                 order("id", Order.ASCENDING)
@@ -336,15 +368,23 @@ class PullSyncRepository @Inject constructor(
                 // SYNC-301 (T-493): p_since cursor drain (was p_limit=2000 —
                 // the live census holds 3 342 ledger rows).
                 val dtoList = drainByCursor(
-                    fetchPage = { cursor ->
+                    fetchPage = { cursor: SyncKeyset? ->
                         val params = buildJsonObject {
                             put("p_tenant_id", tenantId)
-                            put("p_since", cursor ?: sinceIso ?: "1970-01-01T00:00:00Z")
+                            put("p_since", cursor?.since ?: sinceIso ?: "1970-01-01T00:00:00Z")
+                            // SYNC-304 (T-497): the composite keyset. NOTE the
+                            // cursor column: migration 0143 re-keyed the ledger
+                            // RPC on updated_at (the table NEVER had the column
+                            // — it is 0143 that adds it, with the
+                            // touch_updated_at() trigger) and RETURNS it, so
+                            // the drain's cursor is not permanently NULL for
+                            // the first time.
+                            cursor?.afterId?.let { put("p_after_id", it) }
                             put("p_limit", RPC_PULL_PAGE_SIZE)
                         }
                         provider.postgrest.rpc("pull_ledger_entries_for_sync", params).decodeList<LedgerEntryDto>()
                     },
-                    cursorOf = { it.updatedAt },
+                    cursorOf = { row -> row.updatedAt?.let { SyncKeyset(it, row.id) } },
                 )
                 // T-039: batch upsert.
                 db.ledgerEntryDao().upsertAll(dtoList.map { it.toEntity() })
@@ -353,7 +393,7 @@ class PullSyncRepository @Inject constructor(
                 try {
                     // SYNC-301: id-keyset drain (was limit(2000)).
                     val dtoList = drainByCursor(
-                        fetchPage = { cursor ->
+                        fetchPage = { cursor: String? ->
                             provider.postgrest.from("ledger_entries").select {
                                 limit(TABLE_PULL_PAGE_SIZE.toLong())
                                 order("id", Order.ASCENDING)
@@ -379,7 +419,7 @@ class PullSyncRepository @Inject constructor(
         try {
             // SYNC-301 (T-493): id-keyset drain (was limit(2000)).
             val dtoList = drainByCursor(
-                fetchPage = { cursor ->
+                fetchPage = { cursor: String? ->
                     provider.postgrest.from("classes").select {
                         limit(TABLE_PULL_PAGE_SIZE.toLong())
                         order("id", Order.ASCENDING)
@@ -402,7 +442,7 @@ class PullSyncRepository @Inject constructor(
         try {
             // SYNC-301 (T-493): id-keyset drain (was limit(2000)).
             val dtoList = drainByCursor(
-                fetchPage = { cursor ->
+                fetchPage = { cursor: String? ->
                     provider.postgrest.from("subjects").select {
                         limit(TABLE_PULL_PAGE_SIZE.toLong())
                         order("id", Order.ASCENDING)
@@ -430,7 +470,7 @@ class PullSyncRepository @Inject constructor(
             // was computed on a subset (the owner: "The tranches are
             // incorrect"). At 1 000 rows/page this drains in 6 pages.
             val dtoList = drainByCursor(
-                fetchPage = { cursor ->
+                fetchPage = { cursor: String? ->
                     provider.postgrest.from("installments").select {
                         limit(TABLE_PULL_PAGE_SIZE.toLong())
                         order("id", Order.ASCENDING)
@@ -453,7 +493,7 @@ class PullSyncRepository @Inject constructor(
         try {
             // SYNC-301 (T-493): id-keyset drain (was limit(2000)).
             val dtoList = drainByCursor(
-                fetchPage = { cursor ->
+                fetchPage = { cursor: String? ->
                     provider.postgrest.from("personnel").select {
                         limit(TABLE_PULL_PAGE_SIZE.toLong())
                         order("id", Order.ASCENDING)
@@ -476,7 +516,7 @@ class PullSyncRepository @Inject constructor(
         try {
             // SYNC-301 (T-493): id-keyset drain (was limit(2000)).
             val dtoList = drainByCursor(
-                fetchPage = { cursor ->
+                fetchPage = { cursor: String? ->
                     provider.postgrest.from("departments").select {
                         limit(TABLE_PULL_PAGE_SIZE.toLong())
                         order("id", Order.ASCENDING)
@@ -507,7 +547,7 @@ class PullSyncRepository @Inject constructor(
     suspend fun pullExpenses(): Result<Int> = withContext(Dispatchers.IO) {
         try {
             val dtoList = drainByCursor(
-                fetchPage = { cursor ->
+                fetchPage = { cursor: String? ->
                     provider.postgrest.from("expense_tickets")
                         .select(io.github.jan.supabase.postgrest.query.Columns.raw("*, expense_categories(code)")) {
                             limit(TABLE_PULL_PAGE_SIZE.toLong())
@@ -538,7 +578,7 @@ class PullSyncRepository @Inject constructor(
     suspend fun pullReleveEntries(): Result<Int> = withContext(Dispatchers.IO) {
         try {
             val dtoList = drainByCursor(
-                fetchPage = { cursor ->
+                fetchPage = { cursor: String? ->
                     provider.postgrest.from("releve_entries").select {
                         limit(TABLE_PULL_PAGE_SIZE.toLong())
                         order("id", Order.ASCENDING)
@@ -666,7 +706,7 @@ class PullSyncRepository @Inject constructor(
         try {
             // SYNC-301 (T-493): id-keyset drain (was limit(2000)).
             val dtoList = drainByCursor(
-                fetchPage = { cursor ->
+                fetchPage = { cursor: String? ->
                     provider.postgrest.from("homework").select {
                         limit(TABLE_PULL_PAGE_SIZE.toLong())
                         order("id", Order.ASCENDING)
@@ -698,7 +738,7 @@ class PullSyncRepository @Inject constructor(
             // SYNC-301 (T-493): id-keyset drain (was limit(2000) — a full
             // school year of per-student daily records far exceeds 2 000).
             val dtoList = drainByCursor(
-                fetchPage = { cursor ->
+                fetchPage = { cursor: String? ->
                     provider.postgrest.from("attendance_records").select {
                         limit(TABLE_PULL_PAGE_SIZE.toLong())
                         order("id", Order.ASCENDING)
@@ -724,7 +764,7 @@ class PullSyncRepository @Inject constructor(
         try {
             // SYNC-301 (T-493): id-keyset drain (was limit(2000)).
             val dtoList = drainByCursor(
-                fetchPage = { cursor ->
+                fetchPage = { cursor: String? ->
                     provider.postgrest.from("assessments").select {
                         limit(TABLE_PULL_PAGE_SIZE.toLong())
                         order("id", Order.ASCENDING)

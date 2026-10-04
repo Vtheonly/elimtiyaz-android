@@ -333,9 +333,14 @@ data class LedgerEntryDto(
     @SerialName("actor_name") val actorName: String? = null,
     @SerialName("at") val at: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
-    // SYNC-301 (T-493): the p_since cursor column — the RPC orders by it,
-    // the drain loop advances on it (was absent → the cursor could never
-    // advance → pagination impossible).
+    // SYNC-301 (T-493) + SYNC-304 (T-497): the p_since cursor column. The
+    // T-493 comment claimed "the RPC orders by it" — that was NEVER true
+    // before migration 0143: the ledger table had NO updated_at column at
+    // all (the RPC ordered on the business date COALESCE(at, entry_date,
+    // created_at) and never returned this field — the drain's cursor was
+    // NULL on every row). 0143 adds the column (DEFAULT now() + the
+    // touch_updated_at() trigger), re-keys the RPC on it, and RETURNS it —
+    // the composite (updated_at, id) keyset's first leg.
     @SerialName("updated_at") val updatedAt: String? = null,
     // CANONICAL-FINANCIAL-LOGIC.md §7.5 + §8.4 — pull-side metadata.
     // The Supabase `ledger_entries.metadata` JSONB column is parsed as a
