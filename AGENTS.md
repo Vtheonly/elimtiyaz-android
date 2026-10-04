@@ -154,6 +154,22 @@ the generated `BuildConfig` fields come from the ROOT-level files only.
   prior-years edge (no years with charges) — prefer `filterIndexed` when
   porting a TS filter-with-index.
 
+- **T-492 (146th session) — THE STALE-UNTRACKED-GETTER recomposition trap (UI-331):** reading a
+  PLAIN ViewModel getter (`canSubmit`, `missingFields` — anything computing over
+  `MutableStateFlow.value` without a State read) inside a NARROW recompose scope that reads no
+  field state yields a UI FROZEN AT ITS FIRST COMPOSITION: the scope never invalidates on
+  typing, so the expression keeps its stale value forever. The owner's "expenses section does
+  not work (button grayed out)" was exactly this — the submit button read `canSubmit` in the
+  button's scope, computed `enabled=false` once, and NO amount of typing could ever enable it
+  (the T-492 suite's red-first run proved the mechanism: the same untracked read kept the
+  helper line stale too). RULE: every UI-affecting derivation must flow through COLLECTED
+  STATE — `val x by vm.derivation.collectAsState()` where the VM exposes
+  `combine(…).stateIn(...)` — never through a plain getter read at the call site of a
+  narrow scope. The per-field error getters may stay plain (they are read inside the FIELD
+  scopes, which do invalidate on typing), but anything in the BUTTON/footer/header scopes
+  must be state. Pinned by `ExpenseSubmitT492Test` (the owner's exact scenario) +
+  `ExpenseSyncWiringT492Test`'s source pins.
+
 - **T-284/T-285 (44th session, PARITY-002) — the dashboard-statistics mirror discipline:**
   every derived statistic (descriptive stats, bins, mixes, Pareto, aging census, funnel,
   collection rate, attendance) lives in `core/StatisticsEngine.kt` — the verbatim Kotlin mirror
