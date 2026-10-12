@@ -64,6 +64,9 @@ log "Project: $PROJECT"
 log "Expected package: $EXPECTED_PACKAGE"
 
 command -v waydroid >/dev/null 2>&1 || die "waydroid was not found in PATH."
+command -v sudo >/dev/null 2>&1 || die "sudo was not found; this Waydroid setup requires privileged shell access."
+log "Checking sudo access for Android package-manager verification..."
+sudo -v || die "Administrator privileges are required to query Android through waydroid shell."
 [[ -d "$PROJECT" ]] || die "Project directory does not exist: $PROJECT"
 
 if (( BUILD )); then
@@ -116,7 +119,7 @@ fi
 # launcher-visible apps and is not the authoritative installed-package check.
 package_installed() {
   local packages
-  packages="$(timeout 15 waydroid shell pm list packages 2>>"$LOG_FILE" || true)"
+  packages="$(timeout 15 sudo waydroid shell pm list packages 2>>"$LOG_FILE" || true)"
   grep -Fqx "package:$EXPECTED_PACKAGE" <<<"$packages"
 }
 
@@ -129,7 +132,7 @@ if package_installed; then
   log "Removing existing package..."
   if ! waydroid app remove "$EXPECTED_PACKAGE" >>"$LOG_FILE" 2>&1; then
     log "Waydroid app remove failed; trying Android package manager uninstall..."
-    waydroid shell pm uninstall "$EXPECTED_PACKAGE" 2>&1 | tee -a "$LOG_FILE" || die "Could not uninstall the existing package."
+    sudo waydroid shell pm uninstall "$EXPECTED_PACKAGE" 2>&1 | tee -a "$LOG_FILE" || die "Could not uninstall the existing package."
   fi
 else
   log "No existing installation detected for $EXPECTED_PACKAGE."
@@ -158,7 +161,7 @@ if (( ! installed )); then
 fi
 
 log "Verified installed package:"
-waydroid shell pm path "$EXPECTED_PACKAGE" 2>&1 | tee -a "$LOG_FILE" || true
+sudo waydroid shell pm path "$EXPECTED_PACKAGE" 2>&1 | tee -a "$LOG_FILE" || true
 
 if (( LAUNCH )); then
   log "Launching $EXPECTED_PACKAGE..."
