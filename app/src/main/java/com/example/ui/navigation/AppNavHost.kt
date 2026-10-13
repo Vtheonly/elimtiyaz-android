@@ -224,9 +224,23 @@ fun AppNavHost() {
                 }
             }
 
-            composable<Routes.ProofScanner> {
+            composable<Routes.ProofScanner> { backStackEntry ->
                 rbacGate(navController, Routes.ProofScanner::class) {
-                    ProofScannerScreen(onBack = { navController.popBackStack() })
+                    // T-521 (WORKFORCE-518d): the scanned path returns to the
+                    // calling settle dialog through the savedStateHandle (the
+                    // standard nav-result contract) — the manual re-typing is
+                    // gone.
+                    val route: Routes.ProofScanner = backStackEntry.toRoute()
+                    ProofScannerScreen(
+                        expenseId = route.expenseId,
+                        onBack = { navController.popBackStack() },
+                        onProofCaptured = { path ->
+                            navController.previousBackStackEntry
+                                ?.savedStateHandle
+                                ?.set("t521_scanned_proof_path", path)
+                            navController.popBackStack()
+                        },
+                    )
                 }
             }
 
@@ -251,10 +265,22 @@ fun AppNavHost() {
             composable<Routes.ExpenseDetail> { backStackEntry ->
                 rbacGate(navController, Routes.ExpenseDetail::class) {
                     val route: Routes.ExpenseDetail = backStackEntry.toRoute()
+                    // T-521 (WORKFORCE-518d): the scanner's result — the
+                    // uploaded path lands here after popBackStack, the settle
+                    // dialog auto-fills.
+                    val scannedPath by backStackEntry.savedStateHandle
+                        .getStateFlow("t521_scanned_proof_path", "")
+                        .collectAsState()
                     ExpenseApprovalScreen(
                         expenseId = route.expenseId,
                         onBack = { navController.popBackStack() },
-                        onNavigateToProofScanner = { navController.navigate(Routes.ProofScanner) },
+                        onNavigateToProofScanner = { expenseId ->
+                            navController.navigate(Routes.ProofScanner(expenseId))
+                        },
+                        scannedProofPath = scannedPath,
+                        onScannedProofConsumed = {
+                            backStackEntry.savedStateHandle["t521_scanned_proof_path"] = ""
+                        },
                     )
                 }
             }

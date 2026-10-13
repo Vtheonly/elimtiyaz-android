@@ -68,6 +68,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -129,16 +130,30 @@ class ExpenseApprovalViewModel @Inject constructor(
     private suspend fun resolveUserName(userId: String): String? =
         personnelRepository.observeByUserId(userId).firstOrNull()?.fullName
 
-    // ── UI permission getters (server still enforces — defense in depth) ──
-    val canApprove: Boolean
-        get() = sessionManager.current()?.can(Permission.APPROVE_EXPENSE) == true ||
-            sessionManager.current()?.role == Role.SUPER_ADMIN
-    val canDisburse: Boolean
-        get() = sessionManager.current()?.can(Permission.DISBURSE_EXPENSE) == true ||
-            sessionManager.current()?.role == Role.SUPER_ADMIN
-    val canSettleProof: Boolean
-        get() = sessionManager.current()?.can(Permission.SETTLE_EXPENSE_PROOF) == true ||
-            sessionManager.current()?.role == Role.SUPER_ADMIN
+    // ── UI permission gates (server still enforces — defense in depth) ──
+    // T-521 (issue #29 / WORKFORCE-519a — the T-492 class): these were PLAIN
+    // GETTERS reading sessionManager.current() imperatively — the composable
+    // never subscribed to the session flow, so whenever the detail composed
+    // against a not-yet-restored session the buttons rendered DISABLED (the
+    // "approve does not work" report). The gates are now COLLECTED STATE
+    // derived from the session flow (combine().stateIn() — the T-492 fix
+    // pattern): every session emission re-derives them and recomposition
+    // picks the change up.
+    val canApprove: StateFlow<Boolean> = sessionManager.state
+        .map { s ->
+            s?.can(Permission.APPROVE_EXPENSE) == true || s?.role == Role.SUPER_ADMIN
+        }
+        .stateIn(viewModelScope, SharingStarted.Lazily, false)
+    val canDisburse: StateFlow<Boolean> = sessionManager.state
+        .map { s ->
+            s?.can(Permission.DISBURSE_EXPENSE) == true || s?.role == Role.SUPER_ADMIN
+        }
+        .stateIn(viewModelScope, SharingStarted.Lazily, false)
+    val canSettleProof: StateFlow<Boolean> = sessionManager.state
+        .map { s ->
+            s?.can(Permission.SETTLE_EXPENSE_PROOF) == true || s?.role == Role.SUPER_ADMIN
+        }
+        .stateIn(viewModelScope, SharingStarted.Lazily, false)
 
     fun approve(expense: Expense, note: String) {
         // No-self-approval (defense in depth — the DB trigger is the source of truth)
@@ -214,7 +229,13 @@ internal fun expenseStatusLabel(status: String): Pair<String, ElTagTone> = when 
 fun ExpenseApprovalScreen(
     expenseId: String?,
     onBack: () -> Unit,
-    onNavigateToProofScanner: (() -> Unit)? = null,
+    /** T-521 (WORKFORCE-518d): now carries the EXPENSE id — the scanner
+     *  uploads under the expense entity in the expense-receipts bucket. */
+    onNavigateToProofScanner: ((String?) -> Unit)? = null,
+    /** T-521: the scanner's returned path (the nav result) — auto-fills the
+     *  settle dialog's proof field (the manual re-typing loop is closed). */
+    scannedProofPath: String = "",
+    onScannedProofConsumed: () -> Unit = {},
     viewModel: ExpenseApprovalViewModel = hiltViewModel(),
 ) {
     val c = ElTheme.colors
@@ -272,9 +293,9 @@ fun ExpenseApprovalScreen(
                     ExpenseDetailView(
                         expense = exp,
                         submitterName = submitterName,
-                        canApprove = viewModel.canApprove,
-                        canDisburse = viewModel.canDisburse,
-                        canSettleProof = viewModel.canSettleProof,
+                        canApprove = viewModel.canApprove.collectAsState().value,
+                        canDisburse = viewModel.canDisburse.collectAsState().value,
+                        canSettleProof = viewModel.canSettleProof.collectAsState().value,
                         onApprove = { viewModel.approve(exp, "Approuvé") },
                         onReject = { rejectTarget = exp },
                         onDisburse = { viewModel.disburse(exp) },
@@ -365,6 +386,15 @@ fun ExpenseApprovalScreen(
         var finalAmount by remember { mutableStateOf((exp.amount / 100).toString()) }
         var proofPath by remember { mutableStateOf("") }
         var settleError by remember { mutableStateOf<String?>(null) }
+        // T-521 (WORKFORCE-518d): the scanner's result auto-fills the proof
+        // path — the manual re-typing loop is closed. The remember block
+        // re-runs when the dialog re-composes with a fresh scanned path.
+        androidx.compose.runtime.LaunchedEffect(scannedProofPath) {
+            if (scannedProofPath.isNotBlank()) {
+                proofPath = scannedProofPath
+                onScannedProofConsumed()
+            }
+        }
         // T-460 H2 (issue #3 F-10): the raw AlertDialog → the DS dialog shell.
         ElDialogShell(onDismissRequest = { settleTarget = null }) {
             Column(
@@ -401,7 +431,10 @@ fun ExpenseApprovalScreen(
                 if (onNavigateToProofScanner != null) {
                     ElButton(
                         text = "Scanner un justificatif",
-                        onClick = onNavigateToProofScanner,
+                        // T-521: the scanner now receives the expense id — the
+                        // upload targets the expense-receipts bucket under the
+                        // expense entity, and the path returns automatically.
+                        onClick = { onNavigateToProofScanner(exp.id) },
                         variant = ElButtonVariant.GHOST,
                         icon = Icons.Default.UploadFile,
                     )
@@ -450,7 +483,7 @@ private fun ExpenseDetailView(
     onReject: () -> Unit,
     onDisburse: () -> Unit,
     onSettleProof: () -> Unit,
-    onNavigateToProofScanner: (() -> Unit)?,
+    onNavigateToProofScanner: ((String?) -> Unit)?,
 ) {
     val c = ElTheme.colors
     LazyColumn(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {

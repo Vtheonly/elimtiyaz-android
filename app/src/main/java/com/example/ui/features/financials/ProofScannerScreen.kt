@@ -51,13 +51,28 @@ import com.example.ui.designsystem.components.display.ElAlertSeverity
 import com.example.ui.designsystem.components.card.ElCardVariant
 import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.navigation.LocalSession
+import com.example.domain.repository.StorageBuckets
 import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import java.io.File
 
+/**
+ * T-521 (issue #29 / WORKFORCE-518d): the scanner's EXPENSE mode. When
+ * launched with an `expenseId` (from an expense settle dialog):
+ *   - the bytes upload to the canonical `expense-receipts` bucket (NOT the
+ *     payments bucket) under the expense id — the `<tenant>/<expense>/<file>`
+ *     path canon, the same path shape the desktop's attachments read;
+ *   - the success card gains the "Utiliser ce justificatif" action that
+ *     RETURNS the uploaded path to the calling settle dialog through the
+ *     nav-result (`onProofCaptured`) — the manual path re-typing is dead.
+ * Launched without an expenseId (the payments flow), the behaviour is
+ * unchanged.
+ */
 @Composable
 fun ProofScannerScreen(
     onBack: () -> Unit,
+    expenseId: String? = null,
+    onProofCaptured: ((String) -> Unit)? = null,
     viewModel: ProofScannerViewModel = hiltViewModel(),
 ) {
     val c = ElTheme.colors
@@ -121,8 +136,18 @@ fun ProofScannerScreen(
 
     androidx.compose.runtime.LaunchedEffect(pendingBitmap) {
         val bmp = pendingBitmap ?: return@LaunchedEffect
-        val entityId = session?.userId ?: "guichet"
-        viewModel.uploadProof(bmp, entityId)
+        if (expenseId != null) {
+            // T-521: the EXPENSE mode — the canonical bucket + the expense as
+            // the entity (the path the desktop's attachments gallery reads).
+            viewModel.uploadProof(
+                bitmap = bmp,
+                entityId = expenseId,
+                bucket = StorageBuckets.EXPENSE_RECEIPTS,
+            )
+        } else {
+            val entityId = session?.userId ?: "guichet"
+            viewModel.uploadProof(bmp, entityId)
+        }
     }
 
     Column(
@@ -198,6 +223,17 @@ fun ProofScannerScreen(
                         } else {
                             Text("Envoyée au coffre Supabase Storage : $path", style = ElTheme.typography.bodySmall, color = c.textPrimary)
                             Text("Chemin d'accès canonique (établissement/entité/fichier).", style = ElTheme.typography.labelSmall, color = c.textSecondary)
+                        }
+                        if (expenseId != null && onProofCaptured != null && !path.startsWith("file://")) {
+                            Spacer(Modifier.height(ElTheme.spacing.md))
+                            // T-521: the loop closure — return the path to the
+                            // settle dialog (no manual re-typing).
+                            ElButton(
+                                text = "Utiliser ce justificatif",
+                                onClick = { onProofCaptured(path) },
+                                fullWidth = true,
+                                icon = Icons.Default.Image,
+                            )
                         }
                     }
                 }

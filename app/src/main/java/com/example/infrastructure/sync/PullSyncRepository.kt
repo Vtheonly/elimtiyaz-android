@@ -27,7 +27,9 @@ import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.postgrest.query.filter.FilterOperator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -559,8 +561,30 @@ class PullSyncRepository @Inject constructor(
                 cursorOf = { it.id },
                 pageSize = TABLE_PULL_PAGE_SIZE,
             )
-            db.expenseDao().upsertAll(dtoList.map { it.toEntity() })
-            Log.i("PullSync", "Pulled ${dtoList.size} expense tickets")
+            // T-521 (issue #29 / WORKFORCE-519b): the PENDING-PUSH PROTECTION.
+            // A locally-decided expense whose transition push is still queued
+            // (a server-rejected or not-yet-attempted transition) must NOT be
+            // overwritten by this pull — the old unconditional upsertAll
+            // silently REVERTED the local decision on the next drain (the
+            // "approve works, then reverts after reopening" defect). The
+            // queue stays the authority for those rows until the push lands
+            // (or permanently fails, after which the next pull — with the
+            // entry no longer pending — reconciles the row to the server).
+            val pendingExpenseKeys = db.syncQueueDao().listPending()
+                .filter { it.entity == "expense" }
+                .mapNotNull { entry ->
+                    runCatching {
+                        val id = Json.parseToJsonElement(entry.payload)
+                            .jsonObject["id"]?.toString()?.trim('"')
+                        id
+                    }.getOrNull()
+                }
+                .flatMap { id -> listOf(id, id.removePrefix("exp-")) }
+                .toSet()
+            val rows = dtoList.map { it.toEntity() }
+            val skipped = rows.count { it.id in pendingExpenseKeys }
+            db.expenseDao().upsertAll(rows.filter { it.id !in pendingExpenseKeys })
+            Log.i("PullSync", "Pulled ${dtoList.size} expense tickets ($skipped kept local — pending transitions)")
             Result.Ok(dtoList.size)
         } catch (e: Exception) {
             Result.Err(com.example.core.Errors.fromException(e))

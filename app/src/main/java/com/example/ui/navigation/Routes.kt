@@ -47,7 +47,14 @@ object Routes {
         val studentId: String? = null,
     ) : Route
     @Serializable object ExpenseSubmit : Route
-    @Serializable object ProofScanner : Route
+    /**
+     * T-521 (issue #29 / WORKFORCE-518d): the scanner route carries the
+     * EXPENSE context — launched from an expense settle, it uploads to the
+     * canonical expense-receipts bucket under the expense id (the
+     * <tenant>/<expense>/<file> canon) and RETURNS its path to the caller
+     * (the savedStateHandle result — the manual re-typing loop is dead).
+     */
+    @Serializable data class ProofScanner(val expenseId: String? = null) : Route
     @Serializable object DebtDashboard : Route
     @Serializable object InstallmentSchedule : Route
 

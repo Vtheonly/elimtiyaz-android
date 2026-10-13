@@ -165,6 +165,11 @@ object LocalMappers {
         metadata = parseMetadataJson(metadataJson),
     )
 
+    // T-521 (issue #29 / WORKFORCE-519c): the mapping repair — the v20
+    // migration added proofUploadedBy/proofUploadedAt/anomalyNote for exactly
+    // this read path, but the mapper never populated them, so the detail
+    // timeline's 4th stage ("Justificatif téléversé") could never render as
+    // reached (contradicting the T-492 comments that claimed it did).
     fun ExpenseEntity.toDomain() = Expense(
         id = id, tenantId = tenantId, requestCode = requestCode, title = title,
         description = description, amount = amount, category = category,
@@ -173,6 +178,9 @@ object LocalMappers {
         approvalNote = notes, disbursedBy = null, disbursedAt = disbursedAt,
         proofUrl = proofUrl, anomalyScore = anomalyScore,
         finalSpentAmount = finalSpentAmount,
+        proofUploadedBy = proofUploadedBy,
+        proofUploadedAt = proofUploadedAt,
+        anomalyNote = anomalyNote,
     )
 
     fun PersonnelEntity.toDomain() = Personnel(
