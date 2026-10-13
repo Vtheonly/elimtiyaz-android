@@ -14,8 +14,11 @@ import com.example.core.LedgerEntry
 import com.example.core.LedgerEntryType
 import com.example.core.ParentBillingBreakdown
 import com.example.core.PaymentStatus
+import com.example.core.PaymentSumRow
 import com.example.core.classifyAdjustmentHistory
 import com.example.core.parentBillingBreakdown
+import com.example.core.sumFutureRecordedPaidPayments
+import com.example.core.sumPaidPaymentsAsOf
 import com.example.domain.model.Installment
 import com.example.domain.model.Parent
 import com.example.domain.model.Payment
@@ -203,9 +206,19 @@ class ParentDetailViewModel @Inject constructor(
             _classifiedAdjustments.value = emptyList()
             return
         }
-        val clearedPaid = payments
-            .filter { it.status == PaymentStatus.PAID }
-            .sumOf { it.amount }
+        // T-520 / BUSINESS-111 (T-517 mirror): the AS-OF split at the
+        // ViewModel seam — `clearedPaid` applies the canonical ledger
+        // replay's OWN date cutoff (collectedAt ≤ now, status-strict,
+        // missing-date-conservative) so the breakdown's coverage figure can
+        // never disagree with the as-of summary displayed beside it (the
+        // desktop's 441 000 vs 1 310 000 / 100 % NACEF contradiction).
+        // Future-recorded PAID payments (the T-502/DATA-062 import bucket
+        // anchors: 2V → Dec 15, v3 → Mar 15) ride along as their OWN
+        // surfaced term — never counted as collected-to-date (§15.95a).
+        val now = java.time.Instant.now()
+        val sumRows = payments.map { PaymentSumRow(it.status, it.collectedAt, it.amount) }
+        val clearedPaid = sumPaidPaymentsAsOf(sumRows, now)
+        val futureRecordedPaid = sumFutureRecordedPaidPayments(sumRows, now)
         val pendingPaid = payments
             .filter { it.status == PaymentStatus.PENDING }
             .sumOf { it.amount }
@@ -252,6 +265,7 @@ class ParentDetailViewModel @Inject constructor(
             fallbackTotalDue = _summary.value?.totalCharged ?: 0L,
             adjustments = adjustments,
             pendingPaidTotal = pendingPaid,
+            futureRecordedPaidTotal = futureRecordedPaid,
             serverOutstanding = _summary.value?.totalOutstanding,
         )
         _classifiedAdjustments.value = classifyAdjustmentHistory(adjustments)

@@ -1,5 +1,7 @@
 package com.example.core
 
+import java.time.Instant
+
 /**
  * Billing Breakdown — Kotlin mirror of the desktop canonical engine
  * `src/domain/calc/payment/billing-breakdown.ts` (T-164 / T-167).
@@ -103,8 +105,13 @@ data class ServiceTotalNode(
 data class ParentBillingBreakdown(
     val academicYear: String,
     val totalBilled: Long,
-    /** Cleared payments only (status == paid), matching sumPaidPayments. */
+    /** As-of cleared payments (status == paid AND collectedAt ≤ now) —
+     *  T-517 mirror: balance-consistent with the canonical as-of replay. */
     val totalClearedPaid: Long,
+    /** Cleared payments recorded against FUTURE periods (T-517 mirror:
+     *  surfaced, never counted as collected-to-date — the T-502 import
+     *  bucket anchors). */
+    val totalFutureRecordedPaid: Long = 0L,
     val hasSyntheticTranches: Boolean,
     val byChild: List<ChildBillingBreakdown>,
     val byService: List<ServiceTotalNode>,
@@ -122,6 +129,15 @@ data class ParentBillingBreakdown(
  *   grossBilled − adjustmentsCredit + adjustmentsDebit = netDue
  *   netDue − clearedPaid − pendingPaid               = derivedRemaining
  *   derivedRemaining + bridge                        = serverOutstanding
+ *
+ * T-517 / BUSINESS-111 (Kotlin mirror, T-520): `clearedPaid` is AS-OF
+ * (collected at or before the evaluation instant — the same cutoff as the
+ * canonical ledger replay feeding `serverOutstanding`), and
+ * `futureRecordedPaid` carries the FUTURE-period split so surfaces can
+ * display it as its own labelled line. `futureRecordedPaid` is NOT part of
+ * the equation above: it is money the books mark received whose recorded
+ * period has not yet arrived — surfacing it keeps the arithmetic auditable
+ * (§15.95a) while the balance stays as-of honest.
  */
 data class BillingReconciliation(
     val grossBilled: Long,
@@ -129,7 +145,11 @@ data class BillingReconciliation(
     val adjustmentsDebit: Long,
     val adjustmentsCount: Int,
     val netDue: Long,
+    /** As-of cleared payments (`sumPaidPaymentsAsOf`) — T-517 mirror. */
     val clearedPaid: Long,
+    /** Cleared payments recorded against future periods — surfaced, never
+     *  counted as collected-to-date (T-517 mirror). */
+    val futureRecordedPaid: Long = 0L,
     val pendingPaid: Long,
     val derivedRemaining: Long,
     val serverOutstanding: Long?,
@@ -276,13 +296,77 @@ data class BillingInstallmentRow(
     val status: String,
 )
 
+/* ============================================================ */
+/*  T-520 / BUSINESS-111 — the as-of sums pair (T-517 mirror)    */
+/* ============================================================ */
+
+/**
+ * Minimal payment projection for the billing sums — the caller maps the
+ * domain `Payment` onto it (core never imports domain.model; the
+ * `Reconcile.CrossCheckInputs` precedent). `collectedAt` blank or
+ * unparseable = "date unknown" (conservatively counted as COLLECTED —
+ * see `sumPaidPaymentsAsOf`).
+ */
+data class PaymentSumRow(
+    val status: PaymentStatus,
+    val collectedAt: String,
+    val amount: Long,
+)
+
+/**
+ * Σ amount over status=PAID, ALL dates — the "books total". Kept for the
+ * revenue-analytics consumers that intentionally attribute money to its
+ * recorded period (the desktop `sumPaidPayments` semantics, unchanged by
+ * T-517). NEVER show this figure beside an as-of balance.
+ */
+fun sumPaidPayments(payments: List<PaymentSumRow>): Long =
+    payments.filter { it.status == PaymentStatus.PAID }.sumOf { it.amount }
+
+/**
+ * T-517 / BUSINESS-111 (Kotlin mirror, T-520) — Σ amount over status=PAID
+ * payments whose `collectedAt` is at or before `now` (or unknown — blank /
+ * unparseable dates count as COLLECTED, the pre-T-517 behavior: the defect
+ * class is precisely "explicitly dated in the future", never "date
+ * unknown"). Applies the canonical ledger replay's OWN date cutoff
+ * (`parseIsoInstantSafe(at) <= now`, the `LedgerEngine.computeAccountBalance`
+ * predicate) so a payments-derived total can never disagree with the as-of
+ * balance displayed beside it (BUSINESS-111: the NACEF modal's 441 000
+ * "Payé" vs 1 310 000 / 100 % coverage contradiction — the T-502/DATA-062
+ * import remediation anchored 735 corpus-wide payments to future tranche
+ * periods and the all-dates sum counted them while the replay did not).
+ */
+fun sumPaidPaymentsAsOf(payments: List<PaymentSumRow>, now: Instant): Long =
+    payments
+        .filter { it.status == PaymentStatus.PAID }
+        .filter { parseIsoInstantSafe(it.collectedAt) <= now }
+        .sumOf { it.amount }
+
+/**
+ * T-517 / BUSINESS-111 (Kotlin mirror, T-520) — Σ amount over status=PAID
+ * payments whose `collectedAt` is STRICTLY after `now`. The future-recorded
+ * class: money the books mark received but dated to a future period (the
+ * T-502 import bucket anchors). NEVER counted as collected-to-date;
+ * surfaced as its own labelled line so the divergence to the as-of balance
+ * stays visible and auditable (§15.95a: surface the arithmetic, never
+ * rewrite the date). Partitions `sumPaidPayments` exactly:
+ *   sumPaidPayments(p) === sumPaidPaymentsAsOf(p, now)
+ *                          + sumFutureRecordedPaidPayments(p, now)
+ */
+fun sumFutureRecordedPaidPayments(payments: List<PaymentSumRow>, now: Instant): Long =
+    payments
+        .filter { it.status == PaymentStatus.PAID }
+        .filter { parseIsoInstantSafe(it.collectedAt) > now && it.collectedAt.isNotBlank() }
+        .sumOf { it.amount }
+
 /**
  * Compute the full parent billing breakdown view model.
  *
  * @param ledgerEntries the family's ledger entries (charge rows are filtered
  *   internally).
  * @param installments the family's REAL installment rows.
- * @param clearedPaidTotal Σ cleared payments (status == paid), family-level.
+ * @param clearedPaidTotal Σ AS-OF cleared payments (status == paid AND
+ *   collectedAt ≤ now — feed me `sumPaidPaymentsAsOf`, T-517/T-520),
+ *   family-level.
  * @param children the family's children (minimal descriptors).
  * @param fallbackTotalDue profile-level total due, used only when the ledger
  *   has no charge rows.
@@ -290,6 +374,9 @@ data class BillingInstallmentRow(
  * @param adjustments T-168: the family's account adjustments feeding the
  *   reconciliation (signed centimes).
  * @param pendingPaidTotal T-168: Σ uncleared cheques / transfers.
+ * @param futureRecordedPaidTotal T-517/T-520: Σ cleared payments recorded
+ *   against FUTURE periods (`sumFutureRecordedPaidPayments`) — surfaced as
+ *   its own labelled line, NEVER counted as collected-to-date.
  * @param serverOutstanding T-168: server-replayed balance for the bridge line.
  */
 fun parentBillingBreakdown(
@@ -301,6 +388,7 @@ fun parentBillingBreakdown(
     academicYearOverride: String? = null,
     adjustments: List<BillingAdjustment> = emptyList(),
     pendingPaidTotal: Long = 0L,
+    futureRecordedPaidTotal: Long = 0L,
     serverOutstanding: Long? = null,
 ): ParentBillingBreakdown {
     val chargeEntries = ledgerEntries.filter { it.type == LedgerEntryType.CHARGE }
@@ -505,6 +593,9 @@ fun parentBillingBreakdown(
         else adjustmentsDebit += a.amount
     }
     val netDue = totalBilled + adjustmentsDebit - adjustmentsCredit
+    // T-517/T-520: `clearedPaidTotal` is AS-OF (the caller feeds
+    // `sumPaidPaymentsAsOf`); `futureRecordedPaidTotal` rides along as its
+    // own surfaced term and NEVER enters the equation.
     val derivedRemaining = netDue - clearedPaidTotal - pendingPaidTotal
     val bridge = serverOutstanding?.let { it - derivedRemaining } ?: 0L
     val reconciliation = BillingReconciliation(
@@ -514,6 +605,7 @@ fun parentBillingBreakdown(
         adjustmentsCount = adjustments.size,
         netDue = netDue,
         clearedPaid = clearedPaidTotal,
+        futureRecordedPaid = futureRecordedPaidTotal,
         pendingPaid = pendingPaidTotal,
         derivedRemaining = derivedRemaining,
         serverOutstanding = serverOutstanding,
@@ -525,6 +617,7 @@ fun parentBillingBreakdown(
         academicYear = academicYear,
         totalBilled = totalBilled,
         totalClearedPaid = clearedPaidTotal,
+        totalFutureRecordedPaid = futureRecordedPaidTotal,
         hasSyntheticTranches = byChild.any { it.isSyntheticSchedule },
         byChild = byChild,
         byService = byService,

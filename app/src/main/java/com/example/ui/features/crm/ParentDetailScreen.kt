@@ -481,6 +481,21 @@ fun ParentDetailScreen(
                                 if (recon.pendingPaid > 0L) {
                                     ReconLine("− En attente (chèque/virement)", -recon.pendingPaid, c.warning)
                                 }
+                                // T-520 / BUSINESS-111 (T-517 mirror): the
+                                // future-recorded class in the every-dinar-
+                                // explained footer — NOT subtracted (it is not
+                                // collected-to-date), displayed as its own
+                                // informational row so the reader can reconcile
+                                // the installments' paid state (which the
+                                // server-side waterfall filled using these
+                                // records) with the as-of figures above.
+                                if (recon.futureRecordedPaid > 0L) {
+                                    ReconLine(
+                                        "⊕ Encaissements enregistrés à échéance future (non encaissés à ce jour — ancre de période d'import)",
+                                        recon.futureRecordedPaid,
+                                        c.warning,
+                                    )
+                                }
                                 ReconLine("= Reste net (dérivé)", recon.derivedRemaining)
                                 if (recon.hasBridge) {
                                     ReconLine("± Pont — autres écritures", recon.bridge, c.warning)

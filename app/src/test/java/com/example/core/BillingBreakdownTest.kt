@@ -440,4 +440,378 @@ fun `t168 - never pairs same-sign entries and skips zero amounts`() {
     assertNull(byId.getValue("adj-z").pairedWithId)
     assertEquals(listOf("adj-a", "adj-b", "adj-c", "adj-z"), classified.map { it.id })
 }
+
+/* ============================================================ */
+/*  T-520 / BUSINESS-111 — the as-of pair (T-517 Kotlin mirror)  */
+/*                                                                */
+/*  Pins the SAME contract as the desktop suite                   */
+/*  src/tests/domain/payment/t-517-billing-asof-recon.test.ts:    */
+/*  the billing sums apply the canonical ledger replay's OWN      */
+/*  date cutoff, and payments recorded against FUTURE periods     */
+/*  (the T-502/DATA-062 import bucket anchors: 2V → Dec 15,       */
+/*  v3 → Mar 15) are split into `futureRecordedPaid` — surfaced,  */
+/*  never counted as collected-to-date. The scenarios mirror the  */
+/*  owner's issue report (A–I); the reference fixture is the LIVE */
+/*  NACEF family shape (docs/recovery/t-517-live-verification.md):*/
+/*  four children, per-child Devis 365 000 / 345 000 / 290 000    */
+/*  / 310 000, per-child payments V2 (Sept 15, past) + T1 (Sept   */
+/*  15, past, transport) + V2_ALT (Dec 15, future) + V3 (Mar 15,  */
+/*  future), evaluation date 2026-10-13.                          */
+/* ============================================================ */
+
+private val t520Now: java.time.Instant = java.time.Instant.parse("2026-10-13T12:00:00Z")
+
+/** DZD → centimes (the engine's unit). */
+private fun dzd(d: Long) = d * 100L
+
+private data class T520Child(
+    val id: String,
+    val first: String,
+    val devis: Long, // DZD
+    val v2: Long,    // DZD — Sept 15 bucket (past at t520Now)
+    val v3: Long,    // DZD — Mar 15 bucket (future at t520Now)
+)
+
+private val t520Children = listOf(
+    T520Child("stu-sai", "SAIFISSLEM", 365_000, 100_000, 145_000),
+    T520Child("stu-hab", "HABIBELLAH", 345_000, 92_000, 133_000),
+    T520Child("stu-elm", "ELMOATSEM", 310_000, 99_000, 91_000),
+    T520Child("stu-hib", "HIBERHMAN", 290_000, 70_000, 100_000),
+)
+
+/** T1 transport versement per child (20 000 DZD, Sept 15 — past). */
+private val T520_T1_TRANSPORT = 20_000L
+
+/** V2_ALT per child (100 000 DZD, Dec 15 2026 — FUTURE at t520Now). */
+private val T520_V2_ALT = 100_000L
+
+private val t520NetDue = t520Children.sumOf { it.devis }                     // 1 310 000
+private val t520PastPaid = t520Children.sumOf { it.v2 } + 4 * T520_T1_TRANSPORT // 441 000
+private val t520FuturePaid = 4 * T520_V2_ALT + t520Children.sumOf { it.v3 }     // 869 000
+
+private val t520Kids = t520Children.map { BillingChildInfo(it.id, it.first, "2026-2027") }
+
+/** The 16 NACEF-shaped payment rows (4 buckets × 4 children). */
+private fun t520PaymentRows(): List<PaymentSumRow> = buildList {
+    for (c in t520Children) {
+        add(PaymentSumRow(PaymentStatus.PAID, "2026-09-15T00:00:00Z", dzd(c.v2)))
+        add(PaymentSumRow(PaymentStatus.PAID, "2026-09-15T00:00:00Z", dzd(T520_T1_TRANSPORT)))
+        add(PaymentSumRow(PaymentStatus.PAID, "2026-12-15T00:00:00Z", dzd(T520_V2_ALT)))
+        add(PaymentSumRow(PaymentStatus.PAID, "2027-03-15T00:00:00Z", dzd(c.v3)))
+    }
+}
+
+private fun t520Charge(studentId: String, amountDzd: Long, category: PaymentCategory = PaymentCategory.TUITION): LedgerEntry =
+    LedgerEntry(
+        id = "t520-devis-$studentId",
+        tenantId = "tenant-1",
+        accountId = "parent:p-1:category:${category.name.lowercase()}:student:$studentId",
+        parentId = "p-1",
+        studentId = studentId,
+        category = category,
+        amount = dzd(amountDzd),
+        type = LedgerEntryType.CHARGE,
+        sourceType = LedgerSourceType.BULK_IMPORT,
+        sourceId = "run-t520",
+        method = null,
+        receiptNumber = null,
+        paymentStatus = null,
+        reversesId = null,
+        description = "Devis annuel (import Excel run run-t520)",
+        actorId = "system",
+        actorName = "System",
+        at = "2026-09-15T00:00:00Z",
+        metadata = emptyMap(),
+    )
+
+private fun t520Charges(): List<LedgerEntry> = t520Children.map { t520Charge(it.id, it.devis) }
+
+/**
+ * The ViewModel seam pattern (ParentDetailViewModel.recomputeBilling):
+ * split at the sums, feed the breakdown the AS-OF figure + the
+ * future-recorded term.
+ */
+private fun t520Breakdown(
+    rows: List<PaymentSumRow>,
+    charges: List<LedgerEntry> = t520Charges(),
+    kids: List<BillingChildInfo> = t520Kids,
+    now: java.time.Instant = t520Now,
+    installments: List<BillingInstallmentRow> = emptyList(),
+    adjustments: List<BillingAdjustment> = emptyList(),
+    serverOutstanding: Long? = null,
+): ParentBillingBreakdown {
+    val cleared = sumPaidPaymentsAsOf(rows, now)
+    val future = sumFutureRecordedPaidPayments(rows, now)
+    return parentBillingBreakdown(
+        ledgerEntries = charges,
+        installments = installments,
+        clearedPaidTotal = cleared,
+        children = kids,
+        academicYearOverride = "2026-2027",
+        adjustments = adjustments,
+        futureRecordedPaidTotal = future,
+        serverOutstanding = serverOutstanding,
+    )
+}
+
+// ─── The sums pair — the partition invariant (scenario E) ────────────
+
+@Test
+fun `t520 - partitions sumPaidPayments exactly asOf plus futureRecorded equals total (scenario E)`() {
+    val rows = t520PaymentRows()
+    val total = sumPaidPayments(rows)
+    val asOf = sumPaidPaymentsAsOf(rows, t520Now)
+    val future = sumFutureRecordedPaidPayments(rows, t520Now)
+    assertEquals(dzd(441_000), asOf) // 441 000 DZD
+    assertEquals(dzd(869_000), future) // 869 000 DZD
+    assertEquals(dzd(1_310_000), total)
+    assertEquals(total, asOf + future) // no dinar created or lost
+}
+
+@Test
+fun `t520 - is status-strict pending and refunded never enter either side`() {
+    val rows = listOf(
+        PaymentSumRow(PaymentStatus.PAID, "2026-09-15T00:00:00Z", dzd(50_000)),
+        PaymentSumRow(PaymentStatus.PENDING, "2026-09-15T00:00:00Z", dzd(30_000)),
+        PaymentSumRow(PaymentStatus.REFUNDED, "2027-01-01T00:00:00Z", dzd(20_000)),
+    )
+    assertEquals(dzd(50_000), sumPaidPaymentsAsOf(rows, t520Now))
+    assertEquals(0L, sumFutureRecordedPaidPayments(rows, t520Now))
+}
+
+@Test
+fun `t520 - is conservative on missing dates blank or unparseable collectedAt counts as collected`() {
+    val rows = listOf(
+        PaymentSumRow(PaymentStatus.PAID, "", dzd(70_000)),
+        PaymentSumRow(PaymentStatus.PAID, "not-a-date", dzd(10_000)),
+    )
+    assertEquals(dzd(80_000), sumPaidPaymentsAsOf(rows, t520Now))
+    assertEquals(0L, sumFutureRecordedPaidPayments(rows, t520Now))
+}
+
+@Test
+fun `t520 - treats a payment collected exactly AT the evaluation instant as collected`() {
+    val rows = listOf(
+        PaymentSumRow(PaymentStatus.PAID, "2026-10-13T12:00:00Z", dzd(10_000)), // == NOW
+        PaymentSumRow(PaymentStatus.PAID, "2026-10-13T12:00:01Z", dzd(5_000)),  // 1s later
+    )
+    assertEquals(dzd(10_000), sumPaidPaymentsAsOf(rows, t520Now)) // inclusive
+    assertEquals(dzd(5_000), sumFutureRecordedPaidPayments(rows, t520Now))
+}
+
+// ─── The reconciliation — scenarios A / B / C / C2 / D / F / H ────────
+
+@Test
+fun `t520 - scenario A fully paid invoice all payments past-dated 100 pct coverage 0 remaining no bridge`() {
+    val rows = t520Children.map {
+        PaymentSumRow(PaymentStatus.PAID, "2026-09-20T00:00:00Z", dzd(it.devis))
+    }
+    val bd = t520Breakdown(rows, serverOutstanding = 0L)
+    val r = bd.reconciliation
+    assertEquals(dzd(t520NetDue), r.netDue)
+    assertEquals(dzd(t520NetDue), r.clearedPaid)
+    assertEquals(0L, r.futureRecordedPaid)
+    assertEquals(0L, r.derivedRemaining)
+    assertEquals(0L, r.bridge)
+    assertFalse(r.hasBridge)
+}
+
+@Test
+fun `t520 - scenario B partially paid 441000 of 1310000 no future rows coverage 34 pct never 100`() {
+    val pastOnly = t520PaymentRows().filter {
+        java.time.Instant.parse(it.collectedAt) <= t520Now
+    }
+    val bd = t520Breakdown(pastOnly, serverOutstanding = dzd(t520NetDue - t520PastPaid))
+    val r = bd.reconciliation
+    assertEquals(dzd(441_000), r.clearedPaid)
+    assertEquals(dzd(869_000), r.derivedRemaining)
+    assertEquals(0L, r.bridge)
+    val pct = kotlin.math.min(100, Math.round(r.clearedPaid * 100.0 / r.netDue).toInt())
+    assertEquals(34, pct) // ≈ 33,66 % — the coverage must NOT show 100 %
+    org.junit.Assert.assertTrue(pct < 100)
+}
+
+@Test
+fun `t520 - scenario C the NACEF case future-dated payments excluded from cleared and surfaced bridge collapses to 0`() {
+    val bd = t520Breakdown(t520PaymentRows(), serverOutstanding = dzd(869_000))
+    val r = bd.reconciliation
+    // BEFORE the T-517/T-520 mirror: clearedPaid was 1 310 000 (100 %
+    // coverage) beside a 441 000 as-of summary and an unexplained
+    // +869 000 bridge.
+    assertEquals(dzd(441_000), r.clearedPaid)
+    assertEquals(dzd(869_000), r.futureRecordedPaid)
+    assertEquals(dzd(1_310_000), r.netDue)
+    assertEquals(dzd(869_000), r.derivedRemaining)
+    assertEquals(0L, r.bridge) // the mystery bridge is GONE
+    assertFalse(r.hasBridge)
+    // The coverage percentage agrees with the summary figures.
+    val pct = kotlin.math.min(100, Math.round(r.clearedPaid * 100.0 / r.netDue).toInt())
+    assertEquals(34, pct)
+    // The partition still explains every recorded dinar.
+    assertEquals(dzd(1_310_000), r.clearedPaid + r.futureRecordedPaid)
+}
+
+@Test
+fun `t520 - scenario C2 advancing now past Dec 15 moves V2ALT into cleared deterministically`() {
+    val later = java.time.Instant.parse("2026-12-31T12:00:00Z")
+    val bd = t520Breakdown(t520PaymentRows(), now = later)
+    val expectedCleared = dzd(t520PastPaid + 4 * T520_V2_ALT) // 841 000 DZD
+    assertEquals(expectedCleared, bd.reconciliation.clearedPaid)
+    // Only the March anchors remain future: Σ v3 = 469 000 DZD.
+    assertEquals(dzd(t520Children.sumOf { it.v3 }), bd.reconciliation.futureRecordedPaid)
+}
+
+@Test
+fun `t520 - scenario D a scheduled installment not collected is never money received`() {
+    val kids = listOf(BillingChildInfo("stu-1", "Sara BENALI", "3AP"))
+    val charges = listOf(t520Charge("stu-1", 300_000))
+    val rows = listOf(PaymentSumRow(PaymentStatus.PAID, "2026-09-16T00:00:00Z", dzd(120_000)))
+
+    // (a) REAL unpaid rows are authoritative (the server-side waterfall
+    // state renders verbatim — never re-allocated client-side); the
+    // reconciliation still counts ONLY the cleared payment as received.
+    val realRows = listOf(
+        BillingInstallmentRow("ins-t1", "stu-1", PaymentCategory.TUITION, "Tranche 1 — Scolarité", dzd(120_000), 0L, 0L, "2026-09-15", "unpaid"),
+        BillingInstallmentRow("ins-t2", "stu-1", PaymentCategory.TUITION, "Tranche 2 — Scolarité", dzd(90_000), 0L, 0L, "2026-12-15", "unpaid"),
+        BillingInstallmentRow("ins-t3", "stu-1", PaymentCategory.TUITION, "Tranche 3 — Scolarité", dzd(90_000), 0L, 0L, "2027-03-15", "unpaid"),
+    )
+    val withRealRows = t520Breakdown(rows, charges = charges, kids = kids, installments = realRows)
+    assertEquals(dzd(120_000), withRealRows.reconciliation.clearedPaid) // money received
+    assertEquals(0L, withRealRows.reconciliation.futureRecordedPaid)
+    assertEquals(dzd(180_000), withRealRows.reconciliation.derivedRemaining)
+    assertEquals(dzd(300_000), withRealRows.byChild[0].tranchesRemaining) // the rows' own state, verbatim
+    assertFalse(withRealRows.byChild[0].isSyntheticSchedule)
+
+    // (b) The SYNTHETIC path (no physical rows): the display waterfall
+    // fills only the official tranches with the CLEARED payment — the two
+    // future-due tranches are obligations, never money received.
+    val synthetic = t520Breakdown(rows, charges = charges, kids = kids)
+    assertEquals(dzd(120_000), synthetic.reconciliation.clearedPaid)
+    assertTrue(synthetic.byChild[0].isSyntheticSchedule)
+    assertEquals(dzd(180_000), synthetic.byChild[0].tranchesRemaining) // 300k − 120k cleared
+    val t1 = synthetic.byChild[0].tranches[0]
+    assertEquals(dzd(120_000), t1.amountPaid) // the cleared money landed on T1
+    assertEquals(0L, t1.remaining)
+    assertTrue(synthetic.byChild[0].tranches.drop(1).all { it.amountPaid == 0L })
+}
+
+@Test
+fun `t520 - scenario F four-child family per-child charges reconcile with the family aggregate`() {
+    val rows = t520PaymentRows()
+    val bd = t520Breakdown(rows)
+    // Per-child billed totals match the Devis exactly (no family-level
+    // duplication, no per-child multiplication of family rows).
+    assertEquals(t520Children.map { dzd(it.devis) }, bd.byChild.map { it.billedTotal })
+    assertEquals(dzd(t520NetDue), bd.totalBilled)
+    assertEquals(dzd(t520PastPaid), bd.totalClearedPaid)
+    assertEquals(dzd(t520FuturePaid), bd.totalFutureRecordedPaid)
+    // The per-child payments (each child's four buckets) each appear once.
+    assertEquals(16, rows.size)
+    assertEquals(dzd(t520NetDue), bd.reconciliation.clearedPaid + bd.reconciliation.futureRecordedPaid)
+}
+
+@Test
+fun `t520 - scenario H adjustments coexist with the as-of cutoff netDue adjusts clearedPaid stays as-of`() {
+    val kids = listOf(BillingChildInfo("stu-1", "Sara BENALI", "3AP"))
+    val charges = listOf(t520Charge("stu-1", 300_000))
+    val adjustments = listOf(
+        BillingAdjustment("adj-1", dzd(-30_000), "Remise fratrie", "2026-09-02T10:00:00Z", "usr-admin"),
+    )
+    val rows = listOf(
+        PaymentSumRow(PaymentStatus.PAID, "2026-09-20T00:00:00Z", dzd(100_000)),
+        PaymentSumRow(PaymentStatus.PAID, "2027-01-05T00:00:00Z", dzd(170_000)), // future
+    )
+    val bd = t520Breakdown(rows, charges = charges, kids = kids, adjustments = adjustments)
+    assertEquals(dzd(270_000), bd.reconciliation.netDue)
+    assertEquals(dzd(100_000), bd.reconciliation.clearedPaid)
+    assertEquals(dzd(170_000), bd.reconciliation.futureRecordedPaid)
+    assertEquals(dzd(170_000), bd.reconciliation.derivedRemaining)
+}
+
+// ─── Scenarios G + I — the canonical engine agreement ─────────────────
+
+/** The NACEF ledger: 4 tuition charges + payment entries mirroring the
+ *  payments (past entries Sept 15; the 8 future entries carry the same
+ *  future anchors the T-502 remediation wrote). */
+private fun t520Ledger(): List<LedgerEntry> = buildList {
+    addAll(t520Charges())
+    for (c in t520Children) {
+        fun payEntry(suffix: String, category: PaymentCategory, amountDzd: Long, at: String) = LedgerEntry(
+            id = "t520-${c.id}-$suffix",
+            tenantId = "tenant-1",
+            accountId = "parent:p-1:category:${category.name.lowercase()}:student:${c.id}",
+            parentId = "p-1",
+            studentId = c.id,
+            category = category,
+            amount = -dzd(amountDzd),
+            type = LedgerEntryType.PAYMENT,
+            sourceType = LedgerSourceType.BULK_IMPORT,
+            sourceId = "run-t520",
+            method = PaymentMethod.CASH,
+            receiptNumber = "IMP-${c.id}-$suffix",
+            paymentStatus = PaymentStatus.PAID,
+            reversesId = null,
+            description = "Versement (import Excel run run-t520)",
+            actorId = "system",
+            actorName = "System",
+            at = at,
+            metadata = emptyMap(),
+        )
+        add(payEntry("V2", PaymentCategory.TUITION, c.v2, "2026-09-15T00:00:00Z"))
+        add(payEntry("T1", PaymentCategory.TRANSPORT, T520_T1_TRANSPORT, "2026-09-15T00:00:00Z"))
+        add(payEntry("V2_ALT", PaymentCategory.TUITION, T520_V2_ALT, "2026-12-15T00:00:00Z"))
+        add(payEntry("V3", PaymentCategory.TUITION, c.v3, "2027-03-15T00:00:00Z"))
+    }
+}
+
+@Test
+fun `t520 - scenario I recon clearedPaid equals the replay paid and derivedRemaining equals its outstanding`() {
+    val entries = t520Ledger()
+    val summary = LedgerEngine.computeParentSummary(
+        entries, "p-1", "Famille NACEF",
+        LedgerEngine.buildOverdueDueDateMap(entries),
+        t520Now,
+    )
+    // The canonical as-of replay: future-dated payment entries excluded.
+    assertEquals(dzd(869_000), summary.totalOutstanding)
+    assertEquals(dzd(441_000), summary.totalPaid)
+
+    val bd = t520Breakdown(
+        t520PaymentRows(),
+        charges = entries, // the breakdown filters CHARGE rows internally
+        serverOutstanding = summary.totalOutstanding,
+    )
+    val r = bd.reconciliation
+    // THE CONSISTENCY CONTRACT (the surface's two paths agree):
+    assertEquals(summary.totalPaid, r.clearedPaid)                 // 441 000 === 441 000
+    assertEquals(summary.totalOutstanding, r.derivedRemaining)    // 869 000 === 869 000
+    assertEquals(0L, r.bridge)
+    assertFalse(r.hasBridge)
+}
+
+@Test
+fun `t520 - scenario G the overdue-vs-outstanding offset is the stranded transport credit`() {
+    val entries = t520Ledger()
+    // The stranded-credit shape: the four per-child transport accounts
+    // hold the T1 versements with NO transport charges (the Devis is a
+    // single tuition-category charge that includes the transport
+    // component).
+    val summary = LedgerEngine.computeParentSummary(
+        entries, "p-1", "Famille NACEF",
+        LedgerEngine.buildOverdueDueDateMap(entries),
+        t520Now,
+    )
+    // Four tuition accounts positive (Σ 949 000 overdue) + four transport
+    // accounts at −20 000 each (−80 000) → net 869 000 outstanding.
+    val positiveAccounts = summary.accounts.filter { it.balance > 0L }
+    val creditAccounts = summary.accounts.filter { it.balance < 0L }
+    assertEquals(4, positiveAccounts.size)
+    assertEquals(4, creditAccounts.size)
+    assertEquals(dzd(949_000), summary.totalOverdue)
+    assertEquals(dzd(869_000), summary.totalOutstanding)
+    assertEquals(dzd(80_000), summary.totalOverdue - summary.totalOutstanding)
+    // The 80 000 is exactly the stranded transport credit — the amount
+    // the modal's T-517 note explains inline (« avances non affectées »).
+    assertEquals(dzd(80_000), creditAccounts.sumOf { kotlin.math.abs(it.balance) })
+}
 }
