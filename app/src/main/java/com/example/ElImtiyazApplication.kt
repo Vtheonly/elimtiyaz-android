@@ -97,9 +97,7 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
         prewarmSupabaseClient()
         startOnlineDetector()
         schedulePeriodicSync()
-        observeRoleForFcmTopic()
-        fetchAndRegisterFcmTokenOnStartup()
-        observeSessionForFcmToken()
+        initFcmIfAvailable()
         triggerInitialSupabasePull()
         startRealtimeSubscriptions()
     }
@@ -203,6 +201,43 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
     }
 
     /**
+     * Check if Google Play Services is available and operational on this device.
+     * In environments without Google Play Services (e.g. Waydroid, AOSP emulators,
+     * or non-GMS devices), attempting FCM token generation or topic subscription
+     * results in a hard failure exception ("FCM Registration failed!").
+     */
+    private fun isGooglePlayServicesAvailable(): Boolean {
+        if (com.google.firebase.FirebaseApp.getApps(this).isEmpty()) return false
+        return try {
+            val availability = com.google.android.gms.common.GoogleApiAvailability.getInstance()
+            val resultCode = availability.isGooglePlayServicesAvailable(this)
+            resultCode == com.google.android.gms.common.ConnectionResult.SUCCESS
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    /**
+     * Initialize FCM only when Google Play Services is available.
+     * Prevents "FCM Registration failed!" hard failures on Waydroid or emulator runs.
+     */
+    private fun initFcmIfAvailable() {
+        if (!isGooglePlayServicesAvailable()) {
+            android.util.Log.i(
+                "ElImtiyazApp",
+                "Google Play Services non disponible — FCM ignoré (environnement sans GMS / Waydroid)",
+            )
+            return
+        }
+        runCatching {
+            FirebaseMessaging.getInstance().isAutoInitEnabled = true
+        }
+        observeRoleForFcmTopic()
+        fetchAndRegisterFcmTokenOnStartup()
+        observeSessionForFcmToken()
+    }
+
+    /**
      * Observe [SessionManager.state] and subscribe/unsubscribe FCM topics
      * for the active role. When the session changes:
      *   - Unsubscribe from the previous role topic (if any).
@@ -225,7 +260,7 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
 
     /** Swap the FCM role topic subscription — unsubscribes the old, subscribes the new. */
     private fun handleRoleTopic(role: Role?) {
-        if (com.google.firebase.FirebaseApp.getApps(this).isEmpty()) return
+        if (!isGooglePlayServicesAvailable()) return
         val previous = subscribedRoleTopic
         if (previous != null && previous != role?.let { roleTopic(it) }) {
             runCatching { FirebaseMessaging.getInstance().unsubscribeFromTopic(previous) }
