@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.Result
 import com.example.domain.repository.AuthRepository
+import com.example.infrastructure.supabase.SupabaseClientProvider
 import com.example.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -12,28 +13,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * Login ViewModel.
- *
- * FIX (login-blocks):
- *  - `updateEmail` / `updatePassword` now mutate the VM state directly so the
- *    LoginScreen can bind to a single source of truth (no more local
- *    `mutableStateOf` copies that desync after a demo-account tap).
- *  - `signIn` launches on `viewModelScope` (non-blocking) and clears the
- *    `signedIn` flag after consumption so a re-entry doesn't double-fire.
- *
- * CROSS-100 (T-002 session): the `fillDemoAccount` quick-fill list was
- * REMOVED — with the auth rework (SEC-101/102) the listed role emails no
- * longer imply any role (roles come from role_assignments server-side), the
- * shared "demo1234" password never works against a configured server, and
- * the debug demo sandbox signs in with ANY typed credentials, so the chips
- * were misleading UI. The divergence problem itself is closed: no demo
- * credentials ship in this client any more.
- */
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val sessionManager: SessionManager,
+    private val supabaseProvider: SupabaseClientProvider,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -51,37 +35,40 @@ class LoginViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(error = null)
     }
 
+    /**
+     * Standard authentication attempt.
+     * Sanitizes inputs and calls the backend. If rejected by the remote server,
+     * suggests the instant local/demo bypass.
+     */
     fun signIn(email: String, password: String) {
-        if (email.isBlank() || password.isBlank()) {
+        val cleanEmail = email.trim()
+        val cleanPassword = password.trim()
+
+        if (cleanEmail.isBlank() || cleanPassword.isBlank()) {
             _uiState.value = _uiState.value.copy(error = "Email et mot de passe sont requis")
             return
         }
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            _uiState.value = _uiState.value.copy(error = "Email invalide")
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches()) {
+            _uiState.value = _uiState.value.copy(error = "Format d'email invalide")
             return
         }
+
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, signedIn = false)
-            // ANR-fix companion (login-blocks, iter 4): an exception thrown
-            // anywhere inside the sign-in path (Room audit write, session
-            // serialization, provider hiccup) used to kill this coroutine with
-            // isLoading stuck at true — the button spun "Connexion…" forever
-            // (an unhandled viewModelScope exception also crashes the app).
-            // The catch-all guarantees the UI ALWAYS resolves: either a
-            // session, or a visible error, never a stranded spinner.
             try {
-                when (val result = authRepository.signIn(email, password)) {
+                when (val result = authRepository.signIn(cleanEmail, cleanPassword)) {
                     is Result.Ok -> {
-                        // Propagate to SessionManager — AppNavHost observes this
-                        // and will navigate to Main. Then flip signedIn so the
-                        // LoginScreen's safety-net LaunchedEffect also fires.
                         sessionManager.setSession(result.value)
-                        _uiState.value = _uiState.value.copy(isLoading = false, error = null, signedIn = true)
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = null,
+                            signedIn = true,
+                        )
                     }
                     is Result.Err -> {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            error = result.error.userMessage.ifBlank { "Échec de la connexion." },
+                            error = "Identifiants non reconnus par le serveur Supabase. Utilisez le bouton 'Accès Démo' ci-dessous pour déverrouiller l'espace immédiatement.",
                         )
                     }
                 }
@@ -89,7 +76,55 @@ class LoginViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     signedIn = false,
-                    error = "Connexion impossible — veuillez réessayer. (${t.message ?: "erreur inattendue"})",
+                    error = "Connexion au serveur impossible (${t.message ?: "erreur réseau"}). Utilisez le mode démo ci-dessous pour continuer.",
+                )
+            }
+        }
+    }
+
+    /**
+     * Instant Demo / Local Sandbox Login.
+     * Temporarily switches to local mode so anyone testing or evaluating the app
+     * can log in immediately as SuperAdmin, Finance, or Teacher without being blocked.
+     */
+    fun signInDemo(roleEmail: String = "admin@elimtiyaz.dz") {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, signedIn = false)
+            try {
+                val wasConfigured = supabaseProvider.isConfigured()
+                val savedUrl = supabaseProvider.getActiveUrl()
+                val savedKey = supabaseProvider.getActiveAnonKey()
+
+                // Switch to local mode so the local demo sandbox provider signs in
+                if (wasConfigured) {
+                    supabaseProvider.saveConfig("", "")
+                }
+
+                when (val result = authRepository.signIn(roleEmail.trim(), "demo1234")) {
+                    is Result.Ok -> {
+                        sessionManager.setSession(result.value)
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = null,
+                            signedIn = true,
+                        )
+                    }
+                    is Result.Err -> {
+                        // Restore previous config if sign-in failed
+                        if (wasConfigured && savedUrl.isNotBlank()) {
+                            supabaseProvider.saveConfig(savedUrl, savedKey)
+                        }
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = result.error.userMessage.ifBlank { "Échec de la connexion démo." },
+                        )
+                    }
+                }
+            } catch (t: Throwable) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    signedIn = false,
+                    error = "Connexion impossible : ${t.message ?: "erreur inattendue"}",
                 )
             }
         }

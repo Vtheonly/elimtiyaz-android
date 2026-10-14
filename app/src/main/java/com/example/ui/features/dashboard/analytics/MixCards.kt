@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,22 +26,22 @@ import androidx.compose.ui.unit.dp
 import com.example.core.formatDzd
 import com.example.domain.model.CategoryRevenueItem
 import com.example.domain.model.MethodMixItem
-import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElExpandableCard
 import com.example.ui.designsystem.components.data.ElChartPalette
 import com.example.ui.designsystem.components.data.ElDonutChart
 import com.example.ui.designsystem.components.data.ElDonutSegment
 import com.example.ui.designsystem.components.data.ElHorizontalBarChart
 import com.example.ui.designsystem.components.data.ElHorizontalBarItem
-import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagTone
+import com.example.ui.designsystem.overlays.ElInfoTip
 import com.example.ui.designsystem.theme.ElTheme
 
 /**
- * MethodMixCard — inventory #5 (PARITY-003).
+ * MethodMixCard — Payment Method Breakdown.
  *
- * The native twin of the desktop's `mix-cards.tsx` MethodMixCard: the
- * payment-method DONUT (cash primary / check gold / transfer cyan,
- * fallback slate) with the total encaissé at the center. Values from the
- * engine's deriveMethodMix — count, amount, and the Math.round'd percent.
+ * Shows headline volume/method in collapsed state, expanding to the donut chart
+ * and transaction table.
  */
 @Composable
 internal fun MethodMixCard(
@@ -51,6 +54,8 @@ internal fun MethodMixCard(
         return
     }
     val total = methodMix.sumOf { it.amount }
+    val dominantMethod = methodMix.maxByOrNull { it.amount }
+
     fun colorFor(method: String) = when (method) {
         "cash" -> ElChartPalette.primary
         "check" -> ElChartPalette.gold
@@ -58,30 +63,40 @@ internal fun MethodMixCard(
         else -> ElChartPalette.slate
     }
 
-    ElCard(modifier = modifier.fillMaxWidth()) {
+    ElExpandableCard(
+        title = "Modes de Paiement",
+        subtitle = "Encaissé par méthode",
+        primaryFigure = compactDzd(total / 100) + " DA",
+        primaryFigureColor = c.primary,
+        icon = Icons.Default.Payment,
+        headerBadge = {
+            dominantMethod?.let {
+                ElTag(text = "${it.label} ${it.percent}%", tone = ElTagTone.INFO)
+            }
+        },
+        headerTrailing = { ElInfoTip(tip = "methodMix.card") },
+        modifier = modifier,
+    ) {
         Column(
-            modifier = Modifier.padding(ElTheme.spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ElSectionHeader(title = "Mode de Paiement", subtitle = "Encaissé par méthode")
             Box(contentAlignment = Alignment.Center) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ElDonutChart(
-                        segments = methodMix.map {
-                            ElDonutSegment(
-                                label = "${it.label} ${it.percent}%",
-                                value = it.amount.toFloat(),
-                                color = colorFor(it.method),
-                            )
-                        },
-                        size = 140.dp,
-                        centerValue = compactDzd(total / 100) + " DA",
-                        centerLabel = "total encaissé",
-                    )
-                }
+                ElDonutChart(
+                    segments = methodMix.map {
+                        ElDonutSegment(
+                            label = "${it.label} ${it.percent}%",
+                            value = it.amount.toFloat(),
+                            color = colorFor(it.method),
+                        )
+                    },
+                    size = 140.dp,
+                    centerValue = compactDzd(total / 100) + " DA",
+                    centerLabel = "total encaissé",
+                )
             }
-            // Full per-method table (the desktop tooltip rows)
+
             Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                 methodMix.forEach { m ->
                     Row(
@@ -106,12 +121,7 @@ internal fun MethodMixCard(
 }
 
 /**
- * CategoryMixCard — inventory #6 (PARITY-003).
- *
- * The native twin of the desktop's `mix-cards.tsx` CategoryMixCard: the
- * RANKED horizontal bars (the categoryCycle colors) with the
- * Montant / Nb opérations metric toggle. Values from the engine's
- * deriveCategoryMix (desc by amount, "Autres (N)" tail merge).
+ * CategoryMixCard — Revenue by billing category.
  */
 @Composable
 internal fun CategoryMixCard(
@@ -124,21 +134,40 @@ internal fun CategoryMixCard(
         return
     }
     var byAmount by remember { mutableStateOf(true) }
+    val topCategory = categoryBreakdown.firstOrNull()
 
-    ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
-            ElSectionHeader(
-                title = "Postes d'Encaissement",
-                subtitle = "Classement par montant",
-                trailing = {
-                    // The Montant / Nb op. metric toggle (desktop convention)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        MetricToggleLabel("Montant", byAmount) { byAmount = true }
-                        Spacer(Modifier.width(ElTheme.spacing.sm))
-                        MetricToggleLabel("Nb op.", !byAmount) { byAmount = false }
-                    }
-                },
-            )
+    ElExpandableCard(
+        title = "Postes d'Encaissement",
+        subtitle = "Classement par catégorie de frais",
+        primaryFigure = "${categoryBreakdown.size} postes",
+        primaryFigureColor = c.primary,
+        icon = Icons.Default.Category,
+        headerBadge = {
+            topCategory?.let {
+                ElTag(text = "Top: ${it.label}", tone = ElTagTone.INFO)
+            }
+        },
+        headerTrailing = { ElInfoTip(tip = "categoryMix.card") },
+        modifier = modifier,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Classement des flux",
+                    style = ElTheme.typography.labelSmall,
+                    color = c.textSecondary,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    MetricToggleLabel("Montant", byAmount) { byAmount = true }
+                    Spacer(Modifier.width(ElTheme.spacing.sm))
+                    MetricToggleLabel("Nb op.", !byAmount) { byAmount = false }
+                }
+            }
+
             val items = categoryBreakdown.mapIndexed { i, cat ->
                 ElHorizontalBarItem(
                     label = cat.label,

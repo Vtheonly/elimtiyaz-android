@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,31 +18,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.core.formatDzd
 import com.example.domain.model.DebtAgingBucketItem
-import com.example.ui.designsystem.components.card.ElCard
+import com.example.ui.designsystem.components.card.ElExpandableCard
 import com.example.ui.designsystem.components.data.ElChartPalette
 import com.example.ui.designsystem.components.data.ElRatioSegment
 import com.example.ui.designsystem.components.data.ElStackedRatioBar
-import com.example.ui.designsystem.components.display.ElSectionHeader
+import com.example.ui.designsystem.components.display.ElTag
+import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.overlays.ElInfoTip
 import com.example.ui.designsystem.theme.ElTheme
 
-// ============================================================================
-// T-340 (STATS-400) — CollectionHeatmapCard REMOVED per the owner's kill
-// list (the weekday×month collection heatmap: passive e-commerce vanity).
-// The desktop's collection-heatmap-card.tsx was deleted the same way
-// (T-339). The collection CADENCE survives as the weekly operating rhythm
-// (WeeklyOperatingRhythmCard — real data, not on the kill list); the
-// collection URGENCY lives in DebtTriageCard (ExecutiveCards.kt).
-// ============================================================================
-
 /**
- * AgingCompositionCard — inventory #9 (PARITY-003).
+ * AgingCompositionCard — Aging breakdown of outstanding debt.
  *
- * The native twin of the desktop's `aging-composition-card.tsx` (T-257):
- * the 100% stacked composition bar (AGING_COLORS: 0–30j success / 31–60j
- * info / 61–90j warning / 91–180j danger / 180+j brown) + the per-bucket
- * stat table (amount, families, share). Values from the engine's
- * deriveAgingComposition — the ONE canonical INV-4 census.
+ * Minimalist by default: shows total debt and debtor count.
+ * Expands to reveal the 100% stacked ratio bar and individual bucket metrics.
  */
 @Composable
 internal fun AgingCompositionCard(
@@ -54,17 +45,32 @@ internal fun AgingCompositionCard(
         return
     }
 
-    ElCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(ElTheme.spacing.lg), verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ElSectionHeader(
-                    title = "Composition de l'Encours",
-                    subtitle = "Répartition 100% par profondeur de retard",
-                    modifier = Modifier.weight(1f),
-                )
-                // T-458: the T-447 explainability glossary (presentation-only).
-                ElInfoTip(tip = "aging.card")
-            }
+    val totalAmount = present.sumOf { it.amount }
+    val totalDebtors = present.sumOf { it.debtorCount }
+    val dominantBucket = present.maxByOrNull { it.amount }
+
+    ElExpandableCard(
+        title = "Composition de l'Encours",
+        subtitle = "Répartition par profondeur de retard",
+        primaryFigure = "${(totalAmount / 100).formatDzd()} DA",
+        primaryFigureColor = if (totalAmount > 0L) c.danger else c.success,
+        icon = Icons.Default.Schedule,
+        headerBadge = {
+            ElTag(
+                text = "$totalDebtors fam.",
+                tone = if (totalDebtors > 0) ElTagTone.DANGER else ElTagTone.SUCCESS,
+            )
+        },
+        headerTrailing = { ElInfoTip(tip = "aging.card") },
+        modifier = modifier,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {
+            Text(
+                text = "Ventilation 100% de la dette par tranche d'échéance",
+                style = ElTheme.typography.bodySmall,
+                color = c.textSecondary,
+            )
+
             ElStackedRatioBar(
                 segments = present.map {
                     ElRatioSegment(
@@ -73,9 +79,11 @@ internal fun AgingCompositionCard(
                         color = ElChartPalette.agingColors[it.bucket] ?: ElChartPalette.slate,
                     )
                 },
-                height = ElTheme.spacing.xl,
+                height = 26.dp,
             )
+
             Spacer(Modifier.height(2.dp))
+
             Column(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                 present.forEach { b ->
                     Row(
