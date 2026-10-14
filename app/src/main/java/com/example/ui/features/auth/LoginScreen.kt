@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,12 +15,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,21 +30,35 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.ui.designsystem.components.button.ElButton
-import com.example.ui.designsystem.components.button.ElButtonVariant
 import com.example.ui.designsystem.components.card.ElCard
-import com.example.ui.designsystem.components.display.ElChip
 import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.theme.ElTheme
 
+/**
+ * Login screen.
+ *
+ * FIX (login-blocks): the email + password fields now bind DIRECTLY to the
+ * ViewModel state (single source of truth). The previous implementation kept
+ * local `mutableStateOf` copies that desynced from the VM after a demo-account
+ * tap, so the user would see one email on screen but the VM would sign in
+ * with a different one (or an empty one). With single-source-of-truth state,
+ * the demo-account button updates the VM, the screen re-renders from the VM,
+ * and the sign-in call uses exactly what's on screen.
+ *
+ * Navigation: this screen does NOT call `onSignedIn` itself. The
+ * [com.example.ui.navigation.AppNavHost] observes `SessionManager.state`
+ * and navigates to Main the moment a session appears. This avoids the
+ * duplicate-navigate race that previously froze the back stack.
+ */
 @Composable
 fun LoginScreen(
     onSignedIn: () -> Unit,
@@ -57,12 +68,18 @@ fun LoginScreen(
     val state by viewModel.uiState.collectAsState()
     val c = ElTheme.colors
 
+    // Defensive fallback: if for any reason the AppNavHost session observer
+    // doesn't fire (e.g. SessionManager was already non-null before this
+    // composable entered composition), still navigate when signedIn flips.
+    // This is a SAFETY NET only — the primary nav trigger lives in AppNavHost.
     LaunchedEffect(state.signedIn) {
         if (state.signedIn) onSignedIn()
     }
 
     var passwordVisible by remember { mutableStateOf(false) }
 
+    // T-460 pass E: DS scaffold (the content lambda applies PaddingValues per
+    // the T-144 contract) + ElTheme tokens (was elDesignTokens/MaterialTheme).
     ElScaffold { innerPadding ->
         Box(
             modifier = Modifier
@@ -110,7 +127,7 @@ fun LoginScreen(
                 ElCard(modifier = Modifier.fillMaxWidth()) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md),
+                        verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.lg),
                     ) {
                         Text(
                             "Connexion",
@@ -118,25 +135,28 @@ fun LoginScreen(
                             color = c.textPrimary,
                         )
 
-                        // Email Field
+                        // Email binds DIRECTLY to VM state (single source of truth)
                         ElTextField(
                             value = state.email,
                             onValueChange = { viewModel.updateEmail(it) },
                             label = "Email",
                             leadingIcon = Icons.Default.Person,
-                            placeholder = "admin@elimtiyaz.dz",
+                            placeholder = "nom@elimtiyaz.dz",
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                             isError = state.error != null,
                             modifier = Modifier.fillMaxWidth(),
                         )
 
-                        // Password Field
+                        // Password binds DIRECTLY to VM state
                         ElTextField(
                             value = state.password,
                             onValueChange = { viewModel.updatePassword(it) },
                             label = "Mot de passe",
                             leadingIcon = Icons.Default.Lock,
+                            // T-460: the DS field's vector trailing-icon slot +
+                            // onTrailingIconClick replace the legacy composable
+                            // lambda toggle (same behaviour, the DS language).
                             trailingIcon = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                             onTrailingIconClick = { passwordVisible = !passwordVisible },
                             singleLine = true,
@@ -146,13 +166,12 @@ fun LoginScreen(
                             modifier = Modifier.fillMaxWidth(),
                         )
 
-                        // Error Banner
                         state.error?.let { err ->
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(ElTheme.shapes.small)
-                                    .background(c.danger.copy(alpha = 0.12f))
+                                    .background(c.danger.copy(alpha = 0.1f))
                                     .padding(ElTheme.spacing.md),
                             ) {
                                 Text(
@@ -163,7 +182,6 @@ fun LoginScreen(
                             }
                         }
 
-                        // Primary Connect Button
                         ElButton(
                             text = if (state.isLoading) "Connexion…" else "Déverrouiller l'espace",
                             onClick = { viewModel.signIn(state.email, state.password) },
@@ -171,72 +189,22 @@ fun LoginScreen(
                             loading = state.isLoading,
                             fullWidth = true,
                         )
-
-                        Spacer(Modifier.height(ElTheme.spacing.xs))
-
-                        // Quick Demo Access Section (Guaranteed Login)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            HorizontalDivider(modifier = Modifier.weight(1f), color = c.outlineVariant)
-                            Text(
-                                "  OU ACCÈS RAPIDE  ",
-                                style = ElTheme.textStyles.chartMicro.copy(letterSpacing = 1.sp),
-                                color = c.textMuted,
-                            )
-                            HorizontalDivider(modifier = Modifier.weight(1f), color = c.outlineVariant)
-                        }
-
-                        ElButton(
-                            text = "Accéder en mode Démo (SuperAdmin)",
-                            onClick = { viewModel.signInDemo("admin@elimtiyaz.dz") },
-                            variant = ElButtonVariant.SECONDARY,
-                            icon = Icons.Default.AccountCircle,
-                            enabled = !state.isLoading,
-                            fullWidth = true,
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs),
-                        ) {
-                            ElChip(
-                                text = "Direction",
-                                onClick = {
-                                    viewModel.updateEmail("admin@elimtiyaz.dz")
-                                    viewModel.updatePassword("demo1234")
-                                    viewModel.signInDemo("admin@elimtiyaz.dz")
-                                },
-                                modifier = Modifier.weight(1f),
-                            )
-                            ElChip(
-                                text = "Finances",
-                                onClick = {
-                                    viewModel.updateEmail("finance@elimtiyaz.dz")
-                                    viewModel.updatePassword("demo1234")
-                                    viewModel.signInDemo("finance@elimtiyaz.dz")
-                                },
-                                modifier = Modifier.weight(1f),
-                            )
-                            ElChip(
-                                text = "Enseignant",
-                                onClick = {
-                                    viewModel.updateEmail("enseignant@elimtiyaz.dz")
-                                    viewModel.updatePassword("demo1234")
-                                    viewModel.signInDemo("enseignant@elimtiyaz.dz")
-                                },
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
                     }
                 }
 
+                // Change password link — an inline text button in the DS
+                // language (press-scale handled by ElButton GHOST).
                 ElButton(
                     text = "Changer le mot de passe",
                     onClick = onChangePassword,
-                    variant = ElButtonVariant.GHOST,
+                    variant = com.example.ui.designsystem.components.button.ElButtonVariant.GHOST,
                 )
+
+                // CROSS-100 (T-002 session): the "Comptes démo" quick-fill
+                // chips were REMOVED — the shared demo password never works
+                // against a configured server, roles no longer derive from
+                // emails (SEC-102), and the debug demo sandbox signs in with
+                // any typed credentials, so the chips were misleading UI.
             }
         }
     }
