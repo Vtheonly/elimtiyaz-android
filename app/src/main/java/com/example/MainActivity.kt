@@ -10,31 +10,52 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import com.example.infrastructure.notifications.EXTRA_DEEPLINK_ROUTE
 import com.example.infrastructure.notifications.EXTRA_DEEPLINK_TYPE
 import com.example.infrastructure.notifications.NOTIFICATION_CLICK_ACTION
 import com.example.infrastructure.notifications.NotificationDeepLink
+import com.example.ui.designsystem.theme.AppThemePreferences
 import com.example.ui.designsystem.theme.ElImtiyazTheme
+import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.designsystem.overlays.ElToastHost
 import com.example.ui.navigation.AppNavHost
 import com.example.ui.permissions.PermissionState
 import com.example.ui.permissions.rememberNotificationPermissionState
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject lateinit var settingsDataStore: DataStore<Preferences>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleNotificationDeepLink(intent)
         setContent {
-            ElImtiyazTheme {
+            // The same persisted key is used by SettingsViewModel. This is the
+            // app-root theme source, so every route and dialog follows the
+            // selected mode immediately and after process restarts.
+            val darkModeFlow = remember(settingsDataStore) {
+                settingsDataStore.data
+                    .map { preferences -> AppThemePreferences.isDarkMode(preferences) }
+                    .distinctUntilChanged()
+            }
+            val darkMode by darkModeFlow.collectAsState(initial = false)
+
+            ElImtiyazTheme(darkTheme = darkMode) {
                 val notificationPerm = rememberNotificationPermissionState(
                     autoRequest = true,
                 )
@@ -61,7 +82,7 @@ class MainActivity : ComponentActivity() {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color(0xFF0F0F14)),
+                            .background(ElTheme.colors.background),
                         contentAlignment = Alignment.Center,
                     ) {
                         Box(

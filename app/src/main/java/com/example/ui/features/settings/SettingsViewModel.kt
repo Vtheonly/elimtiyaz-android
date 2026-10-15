@@ -15,6 +15,7 @@ import com.example.infrastructure.sync.OnlineDetector
 import com.example.infrastructure.sync.SyncService
 import com.example.infrastructure.sync.SyncState
 import com.example.session.SessionManager
+import com.example.ui.designsystem.theme.AppThemePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -46,7 +47,7 @@ class SettingsViewModel @Inject constructor(
     val settings: StateFlow<SettingsState> = dataStore.data
         .map { p ->
             SettingsState(
-                darkMode = p[DARK_MODE_KEY] ?: false,
+                darkMode = AppThemePreferences.isDarkMode(p),
                 notificationsEnabled = p[NOTIFICATIONS_KEY] ?: true,
                 forceOffline = p[FORCE_OFFLINE_KEY] ?: false,
                 language = p[LANGUAGE_KEY] ?: "fr",
@@ -80,7 +81,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     /** Persist the dark-mode toggle. */
-    fun setDarkMode(enabled: Boolean) = editAsync { it[DARK_MODE_KEY] = enabled }
+    fun setDarkMode(enabled: Boolean) = editAsync { it[AppThemePreferences.darkModeKey] = enabled }
 
     /** Persist the notifications-enabled toggle. */
     fun setNotifications(enabled: Boolean) = editAsync { it[NOTIFICATIONS_KEY] = enabled }
@@ -119,7 +120,6 @@ class SettingsViewModel @Inject constructor(
     }
 
     private companion object {
-        val DARK_MODE_KEY = booleanPreferencesKey("dark_mode")
         val NOTIFICATIONS_KEY = booleanPreferencesKey("notifications_enabled")
         val FORCE_OFFLINE_KEY = booleanPreferencesKey("force_offline")
         val LANGUAGE_KEY = stringPreferencesKey("language")

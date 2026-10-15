@@ -42,7 +42,7 @@ internal fun PreferencesSection(
                 ToggleRow(
                     icon = Icons.Default.DarkMode,
                     label = "Mode sombre",
-                    sublabel = "Thème foncé pour les écrans",
+                    sublabel = "Appliqué à tous les écrans de l’application",
                     checked = settings.darkMode,
                     onCheckedChange = onDarkMode,
                 )
