@@ -293,7 +293,9 @@ data class InstallmentDto(
     @SerialName("id") val id: String,
     @SerialName("tenant_id") val tenantId: String? = null,
     @SerialName("parent_id") val parentId: String,
-    @SerialName("student_id") val studentId: String,
+    // Family-level/service/FI installments may have no student assignment.
+    // Match Room/domain nullability so one nullable row cannot abort the full pull.
+    @SerialName("student_id") val studentId: String? = null,
     @SerialName("service_enrollment_id") val serviceEnrollmentId: String? = null,
     @SerialName("invoice_id") val invoiceId: String? = null,
     @SerialName("tranche_number") val trancheNumber: Int = 1,
