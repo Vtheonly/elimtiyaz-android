@@ -852,6 +852,14 @@ class PullSyncRepository @Inject constructor(
     }
 
     suspend fun pullAll(sinceIso: String? = null): Result<Int> = withContext(Dispatchers.IO) {
+        // A pull without an authenticated tenant cannot fetch tenant-scoped
+        // parents/students. Do not enter the dedup gate: otherwise a premature
+        // startup/background attempt can suppress the real post-login pull.
+        if (sessionManager.currentTenantId().isNullOrBlank()) {
+            Log.i("PullSync", "pullAll skipped: waiting for an authenticated tenant session")
+            return@withContext Result.Ok(0)
+        }
+
         // WEAK-010: deduplicated gate — skip when a pull is running or one
         // started within the dedup window (the "single pull per cycle"
         // contract from T-050).
