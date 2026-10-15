@@ -17,6 +17,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
@@ -139,13 +140,46 @@ class ElImtiyazApplication : MultiDexApplication(), Configuration.Provider {
     }
 
     private fun triggerInitialSupabasePull() {
+        // A full pull must run AFTER session restoration: parents/students are
+        // tenant-scoped, so a startup pull while sessionManager.currentTenantId()
+        // is null returns zero rows. Trigger again when a tenant becomes active,
+        // and when connectivity returns, instead of leaving the UI empty until
+        // the 15-minute background worker eventually runs.
         appScope.launch {
-            try {
-                android.util.Log.i("ElImtiyazApp", "Triggering initial Supabase database sync...")
-                pullSyncRepository.pullAll()
-            } catch (e: Exception) {
-                android.util.Log.w("ElImtiyazApp", "Initial sync error: ${e.message}")
-            }
+            kotlinx.coroutines.flow.combine(
+                sessionManager.state
+                    .map { it?.tenantId }
+                    .distinctUntilChanged(),
+                onlineDetector.state
+                    .map { it.online }
+                    .distinctUntilChanged(),
+            ) { tenantId, online -> tenantId to online }
+                .distinctUntilChanged()
+                .filter { (tenantId, online) ->
+                    !tenantId.isNullOrBlank() && online && supabaseClientProvider.isConfigured()
+                }
+                .collect { (tenantId, _) ->
+                    // Ignore a stale emission if the user switched or signed out
+                    // while connectivity was being restored.
+                    if (sessionManager.currentTenantId() != tenantId) return@collect
+                    try {
+                        android.util.Log.i(
+                            "ElImtiyazApp",
+                            "Triggering Supabase database sync for active tenant $tenantId...",
+                        )
+                        val result = pullSyncRepository.pullAll()
+                        android.util.Log.i(
+                            "ElImtiyazApp",
+                            "Initial Supabase sync finished for tenant $tenantId: $result",
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.w(
+                            "ElImtiyazApp",
+                            "Initial sync error for tenant $tenantId: ${e.message}",
+                            e,
+                        )
+                    }
+                }
         }
     }
 
