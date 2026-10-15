@@ -39,6 +39,7 @@ import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagSize
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.feedback.ElEmptyState
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.util.PhoneUtils
 
@@ -51,6 +52,11 @@ internal fun CreancesTab(
 ) {
     val c = ElTheme.colors
     val context = LocalContext.current
+    // T-547 / CALL-523: the call feedback channel (the F-18 pattern — the
+    // two toast-less dial sites made every invalid-number / no-dialer
+    // failure a silent no-op; this tab and the DebtDashboard were the only
+    // ones missing it among the fifteen call sites).
+    val toast = LocalElToast.current
     var bucketFilter by remember { mutableStateOf<String?>(null) }
     val filtered = if (bucketFilter == null) debtors else debtors.filter { it.bucket == bucketFilter }
     val totalOverdue = debtors.sumOf { it.overdueAmount }
@@ -142,7 +148,7 @@ internal fun CreancesTab(
                                 if (debtor.parentPhone.isNotBlank()) {
                                     ElIconButton(
                                         icon = Icons.Default.Call,
-                                        onClick = { PhoneUtils.dial(context, debtor.parentPhone) },
+                                        onClick = { PhoneUtils.dial(context, debtor.parentPhone, toast) },
                                         contentDescription = "Appeler",
                                         tint = c.success,
                                         background = Color.Transparent,

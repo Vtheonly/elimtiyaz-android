@@ -27,7 +27,6 @@ import com.example.ui.designsystem.theme.ElTheme
 fun FinancialsHubScreen(
     session: Session,
     onNavigateToCounterPayment: (parentId: String?, studentId: String?) -> Unit = { _, _ -> },
-    onNavigateToProofScanner: () -> Unit,
     onNavigateToDebtDashboard: () -> Unit,
     onNavigateToInstallmentSchedule: () -> Unit,
     onNavigateToExpenseSubmit: () -> Unit = {},
@@ -51,7 +50,11 @@ fun FinancialsHubScreen(
     val installmentBusy by installmentViewModel.busy.collectAsState()
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    val tabs = listOf("Encaissements", "Tranches", "Créances", "Dépenses", "Journal", "Scanner")
+    // T-545 / WORKFORCE-522: the standalone scanner TAB is REMOVED — the
+    // camera capture now lives inside the attachment workflows (the chat
+    // composer + the expense settle dialog), never as a hub section. Five
+    // tabs remain.
+    val tabs = listOf("Encaissements", "Tranches", "Créances", "Dépenses", "Journal")
 
     BackHandler(enabled = selectedTab != 0) {
         selectedTab = 0
@@ -106,9 +109,6 @@ fun FinancialsHubScreen(
                     )
                     4 -> JournalTab(
                         entries = ledgerEntries,
-                    )
-                    5 -> ProofScannerScreen(
-                        onBack = { selectedTab = 0 },
                     )
                 }
             }

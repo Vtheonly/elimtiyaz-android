@@ -47,14 +47,10 @@ object Routes {
         val studentId: String? = null,
     ) : Route
     @Serializable object ExpenseSubmit : Route
-    /**
-     * T-521 (issue #29 / WORKFORCE-518d): the scanner route carries the
-     * EXPENSE context — launched from an expense settle, it uploads to the
-     * canonical expense-receipts bucket under the expense id (the
-     * <tenant>/<expense>/<file> canon) and RETURNS its path to the caller
-     * (the savedStateHandle result — the manual re-typing loop is dead).
-     */
-    @Serializable data class ProofScanner(val expenseId: String? = null) : Route
+    // T-545 / WORKFORCE-522 (180th→181st session): the standalone
+    // Routes.ProofScanner route REMOVED — the proof capture is now an
+    // in-context option inside the expense settle dialog (the expense id
+    // never crosses a navigation boundary anymore).
     @Serializable object DebtDashboard : Route
     @Serializable object InstallmentSchedule : Route
 
@@ -147,7 +143,9 @@ val RoutePermissions: Map<KClass<out Route>, Permission> = mapOf(
     Routes.ExpenseDetail::class to Permission.VIEW_FINANCIALS,
     Routes.CounterPayment::class to Permission.COLLECT_PAYMENT,
     Routes.ExpenseSubmit::class to Permission.SUBMIT_EXPENSE,
-    Routes.ProofScanner::class to Permission.SETTLE_EXPENSE_PROOF,
+    // T-545: the ProofScanner→SETTLE_EXPENSE_PROOF mapping REMOVED with the
+    // route (the settle dialog's own canSettleProof gate still guards the
+    // capture + the settleProof action itself).
     Routes.DebtDashboard::class to Permission.VIEW_DEBT,
     Routes.InstallmentSchedule::class to Permission.VIEW_FINANCIALS,
 

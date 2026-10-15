@@ -9,12 +9,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.Text
@@ -27,11 +31,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import coil.compose.AsyncImage
 import com.example.core.Permission
 import com.example.core.Result
 import com.example.core.Role
@@ -39,6 +49,7 @@ import com.example.domain.model.Expense
 import com.example.domain.model.Personnel
 import com.example.domain.repository.ExpenseRepository
 import com.example.domain.repository.PersonnelRepository
+import com.example.domain.repository.StorageBuckets
 import com.example.session.SessionManager
 import com.example.ui.designsystem.components.button.ElButton
 import com.example.ui.designsystem.components.button.ElButtonSize
@@ -52,12 +63,14 @@ import com.example.ui.designsystem.components.display.ElTag
 import com.example.ui.designsystem.components.display.ElTagTone
 import com.example.ui.designsystem.components.feedback.ElEmptyState
 import com.example.ui.designsystem.components.feedback.ElLoadingBlock
+import com.example.ui.designsystem.components.feedback.ElSpinner
 import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.designsystem.foundation.elMoneyFormat
 import com.example.ui.designsystem.foundation.elMoneyParse
 import com.example.ui.designsystem.overlays.ElDialogShell
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -71,6 +84,14 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import android.Manifest
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import java.io.File
 
 /**
  * Expense approval + detail ViewModel.
@@ -229,14 +250,12 @@ internal fun expenseStatusLabel(status: String): Pair<String, ElTagTone> = when 
 fun ExpenseApprovalScreen(
     expenseId: String?,
     onBack: () -> Unit,
-    /** T-521 (WORKFORCE-518d): now carries the EXPENSE id — the scanner
-     *  uploads under the expense entity in the expense-receipts bucket. */
-    onNavigateToProofScanner: ((String?) -> Unit)? = null,
-    /** T-521: the scanner's returned path (the nav result) — auto-fills the
-     *  settle dialog's proof field (the manual re-typing loop is closed). */
-    scannedProofPath: String = "",
-    onScannedProofConsumed: () -> Unit = {},
+    /** T-545 / WORKFORCE-522: the proof capture is now IN-CONTEXT — the
+     *  T-521 navigation loop (the standalone scanner route + the nav-result
+     *  path return) is retired; the ONE upload engine (ProofUploadViewModel)
+     *  runs inside the settle dialog itself. */
     viewModel: ExpenseApprovalViewModel = hiltViewModel(),
+    proofUploadViewModel: ProofUploadViewModel = hiltViewModel(),
 ) {
     val c = ElTheme.colors
     val expenses by viewModel.expenses.collectAsState()
@@ -300,7 +319,6 @@ fun ExpenseApprovalScreen(
                         onReject = { rejectTarget = exp },
                         onDisburse = { viewModel.disburse(exp) },
                         onSettleProof = { settleTarget = exp },
-                        onNavigateToProofScanner = onNavigateToProofScanner,
                     )
                 }
             } else {
@@ -386,15 +404,94 @@ fun ExpenseApprovalScreen(
         var finalAmount by remember { mutableStateOf((exp.amount / 100).toString()) }
         var proofPath by remember { mutableStateOf("") }
         var settleError by remember { mutableStateOf<String?>(null) }
-        // T-521 (WORKFORCE-518d): the scanner's result auto-fills the proof
-        // path — the manual re-typing loop is closed. The remember block
-        // re-runs when the dialog re-composes with a fresh scanned path.
-        androidx.compose.runtime.LaunchedEffect(scannedProofPath) {
-            if (scannedProofPath.isNotBlank()) {
-                proofPath = scannedProofPath
-                onScannedProofConsumed()
+
+        // T-545 / WORKFORCE-522 — the IN-CONTEXT capture (the owner's
+        // clarified scope: "simply take a picture and attach it"). The
+        // T-521 navigation loop is REPLACED by Take Photo / Galerie buttons
+        // inside this dialog: capture → preview → the ONE upload engine
+        // (ProofUploadViewModel, the expense-receipts bucket under the
+        // expense id — the T-521 path canon) → the uploaded path auto-fills
+        // the proof field below. The manual path field is preserved.
+        val context = LocalContext.current
+        val toast = LocalElToast.current
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
+        val proofUploading by proofUploadViewModel.isLoading.collectAsState()
+        val proofUploadedPath by proofUploadViewModel.uploadedPath.collectAsState()
+        val proofUploadError by proofUploadViewModel.error.collectAsState()
+        var capturePreview by remember { mutableStateOf<Uri?>(null) }
+
+        // A fresh dialog for a (possibly different) expense starts clean.
+        LaunchedEffect(exp.id) {
+            proofUploadViewModel.reset()
+            capturePreview = null
+        }
+        // T-521 contract preserved: the uploaded path auto-fills the proof
+        // field (the manual re-typing loop stays dead).
+        LaunchedEffect(proofUploadedPath) {
+            proofUploadedPath?.let { proofPath = it }
+        }
+
+        fun launchCameraCapture(file: File): Uri? =
+            runCatching {
+                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            }.onFailure { e -> toast.showError("Erreur caméra : ${e.message}") }
+                .getOrNull()
+
+        fun uploadProofBitmap(bitmap: Bitmap?) {
+            if (bitmap == null) {
+                toast.showError("Impossible de lire l'image capturée")
+                return
+            }
+            // The T-521 path canon: the expense-receipts bucket under the
+            // expense id — the same path shape the desktop's attachments read.
+            scope.launch {
+                proofUploadViewModel.uploadProof(
+                    bitmap = bitmap,
+                    entityId = exp.id,
+                    bucket = StorageBuckets.EXPENSE_RECEIPTS,
+                )
             }
         }
+
+        val cameraLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.TakePicture(),
+        ) { success: Boolean ->
+            if (success) {
+                val path = capturePreview?.path
+                val bitmap = path?.let { BitmapFactory.decodeFile(it) }
+                uploadProofBitmap(bitmap)
+            } else {
+                capturePreview = null
+            }
+        }
+
+        val cameraPermissionLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { granted: Boolean ->
+            if (granted) {
+                val cameraDir = File(context.cacheDir, "camera").apply { mkdirs() }
+                val file = File(cameraDir, "proof_${System.currentTimeMillis()}.jpg")
+                launchCameraCapture(file)?.let { uri ->
+                    capturePreview = uri
+                    cameraLauncher.launch(uri)
+                }
+            } else {
+                toast.showWarning("Permission caméra nécessaire pour prendre une photo")
+            }
+        }
+
+        val galleryLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.GetContent(),
+        ) { uri: Uri? ->
+            if (uri != null) {
+                capturePreview = uri
+                val bitmap = runCatching {
+                    context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+                }.getOrNull()
+                uploadProofBitmap(bitmap)
+            }
+        }
+
         // T-460 H2 (issue #3 F-10): the raw AlertDialog → the DS dialog shell.
         ElDialogShell(onDismissRequest = { settleTarget = null }) {
             Column(
@@ -428,16 +525,82 @@ fun ExpenseApprovalScreen(
                     isError = settleError != null,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (onNavigateToProofScanner != null) {
+                // T-545 / WORKFORCE-522: the Take Photo / Galerie capture —
+                // the attachment options INSIDE the existing settle dialog
+                // (the standalone scanner screen is gone). Capture → preview
+                // below → upload → the path field above auto-fills.
+                Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                     ElButton(
-                        text = "Scanner un justificatif",
-                        // T-521: the scanner now receives the expense id — the
-                        // upload targets the expense-receipts bucket under the
-                        // expense entity, and the path returns automatically.
-                        onClick = { onNavigateToProofScanner(exp.id) },
-                        variant = ElButtonVariant.GHOST,
-                        icon = Icons.Default.UploadFile,
+                        text = "Prendre une photo",
+                        onClick = {
+                            val hasPerm = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+                            if (hasPerm) {
+                                val cameraDir = File(context.cacheDir, "camera").apply { mkdirs() }
+                                val file = File(cameraDir, "proof_${System.currentTimeMillis()}.jpg")
+                                launchCameraCapture(file)?.let { uri ->
+                                    capturePreview = uri
+                                    cameraLauncher.launch(uri)
+                                }
+                            } else {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        variant = ElButtonVariant.SECONDARY,
+                        icon = Icons.Default.CameraAlt,
+                        enabled = !proofUploading,
+                        modifier = Modifier.weight(1f),
                     )
+                    ElButton(
+                        text = "Galerie",
+                        onClick = { galleryLauncher.launch("image/*") },
+                        variant = ElButtonVariant.SECONDARY,
+                        icon = Icons.Default.Image,
+                        enabled = !proofUploading,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                // The capture preview — visible until the dialog closes.
+                capturePreview?.let { uri ->
+                    AsyncImage(
+                        model = uri,
+                        contentDescription = "Aperçu du justificatif capturé",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                            .clip(RoundedCornerShape(10.dp)),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
+                if (proofUploading) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
+                    ) {
+                        ElSpinner(size = 18, strokeWidth = 2)
+                        Text(
+                            "Téléversement du justificatif…",
+                            style = ElTheme.typography.bodySmall,
+                            color = c.textSecondary,
+                        )
+                    }
+                }
+                proofUploadError?.let { err ->
+                    ElAlertBanner(title = "Erreur de téléversement", message = err, severity = ElAlertSeverity.DANGER)
+                }
+                proofUploadedPath?.let { path ->
+                    if (!path.startsWith("file://")) {
+                        Text(
+                            "Justificatif envoyé : $path",
+                            style = ElTheme.typography.labelSmall,
+                            color = c.success,
+                        )
+                    } else {
+                        Text(
+                            "Mode hors-ligne : preuve conservée sur l'appareil, PAS encore sur le serveur.",
+                            style = ElTheme.typography.labelSmall,
+                            color = c.warning,
+                        )
+                    }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm), modifier = Modifier.fillMaxWidth()) {
                     ElButton(
@@ -483,7 +646,6 @@ private fun ExpenseDetailView(
     onReject: () -> Unit,
     onDisburse: () -> Unit,
     onSettleProof: () -> Unit,
-    onNavigateToProofScanner: ((String?) -> Unit)?,
 ) {
     val c = ElTheme.colors
     LazyColumn(verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.md)) {

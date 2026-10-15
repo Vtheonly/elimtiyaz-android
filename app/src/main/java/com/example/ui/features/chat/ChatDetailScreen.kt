@@ -1,5 +1,8 @@
 package com.example.ui.features.chat
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -9,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.Icon
@@ -38,9 +43,12 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.domain.model.ChatAttachment
@@ -55,9 +63,11 @@ import com.example.ui.designsystem.components.feedback.ElSpinner
 import com.example.ui.designsystem.components.input.ElTextField
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.nav.ElTopBar
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import com.example.domain.repository.StorageBuckets
 import com.example.domain.repository.StorageRepository
+import java.io.File
 import java.time.format.DateTimeFormatter
 
 /**
@@ -160,7 +170,72 @@ fun ChatDetailScreen(
                 // T-464 / MEDIA-300: the attachment composer — pick (image/* +
                 // application/pdf via the system picker), validate, upload on
                 // send (a failed upload aborts), render inline on receipt.
+                // T-545 / WORKFORCE-522 (the owner's clarified scope): the
+                // SAME composer gains the Take Photo option — the camera
+                // capture enters the EXISTING pendingAttachments workflow
+                // (no separate screen, no navigation entry): capture → the
+                // file is read into the pending set exactly like a picked
+                // file → the preview strip + chips → upload on send.
                 val context = androidx.compose.ui.platform.LocalContext.current
+                val toast = LocalElToast.current
+
+                // T-545: the last camera capture's preview handle — the strip
+                // renders only while that photo is STILL in the pending set
+                // (a pure derivation: removed or sent → the preview goes too).
+                var capturedPreview by remember { mutableStateOf<Pair<Uri, String>?>(null) }
+                val capturedPreviewUri = capturedPreview?.first
+                val capturedPreviewStillPending = capturedPreview?.second?.let { name ->
+                    state.pendingAttachments.any { it.fileName == name }
+                } == true
+
+                fun launchCameraCapture(file: File): Uri? =
+                    runCatching {
+                        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                    }.onFailure { e ->
+                        toast.showError("Erreur caméra : ${e.message}")
+                    }.getOrNull()
+
+                val cameraLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.TakePicture(),
+                ) { success: Boolean ->
+                    val preview = capturedPreview
+                    if (success && preview != null) {
+                        // Read the captured file NOW into the pending set —
+                        // the same path a picked file takes (validated against
+                        // the 10 Mo / mime limits by the ViewModel).
+                        runCatching {
+                            val file = File(preview.first.path ?: return@runCatching)
+                            if (file.exists()) {
+                                val bytes = file.readBytes()
+                                viewModel.addPendingAttachment(
+                                    preview.second,
+                                    "image/jpeg",
+                                    bytes.size.toLong(),
+                                    bytes,
+                                )
+                            }
+                        }
+                    } else {
+                        capturedPreview = null
+                    }
+                }
+
+                val cameraPermissionLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission(),
+                ) { granted: Boolean ->
+                    if (granted) {
+                        val cameraDir = File(context.cacheDir, "camera").apply { mkdirs() }
+                        val name = "photo_${System.currentTimeMillis()}.jpg"
+                        val file = File(cameraDir, name)
+                        launchCameraCapture(file)?.let { uri ->
+                            capturedPreview = uri to name
+                            cameraLauncher.launch(uri)
+                        }
+                    } else {
+                        toast.showWarning("Permission caméra nécessaire pour prendre une photo")
+                    }
+                }
+
                 val pickFile = rememberLauncherForActivityResult(
                     ActivityResultContracts.GetContent(),
                 ) { uri ->
@@ -188,6 +263,48 @@ fun ChatDetailScreen(
                         .padding(horizontal = ElTheme.spacing.md, vertical = ElTheme.spacing.sm),
                     verticalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs),
                 ) {
+                    // T-545: the Take Photo preview strip — the captured image
+                    // visible (with its size + a remove affordance) while it
+                    // remains pending. Removing it here removes the attachment.
+                    if (capturedPreviewStillPending && capturedPreviewUri != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.sm),
+                        ) {
+                            AsyncImage(
+                                model = capturedPreviewUri,
+                                contentDescription = "Photo à joindre",
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(RoundedCornerShape(10.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Photo capturée — prête à joindre",
+                                    style = ElTheme.typography.labelMedium,
+                                    color = c.textPrimary,
+                                )
+                                Text(
+                                    "Elle sera envoyée avec le message.",
+                                    style = ElTheme.typography.labelSmall,
+                                    color = c.textSecondary,
+                                )
+                            }
+                            ElIconButton(
+                                icon = Icons.Default.Close,
+                                onClick = {
+                                    val name = capturedPreview?.second
+                                    val index = state.pendingAttachments.indexOfFirst { it.fileName == name }
+                                    if (index >= 0) viewModel.removePendingAttachment(index)
+                                    capturedPreview = null
+                                },
+                                contentDescription = "Retirer la photo",
+                                tint = c.textPrimary,
+                                background = androidx.compose.ui.graphics.Color.Transparent,
+                            )
+                        }
+                    }
                     if (state.pendingAttachments.isNotEmpty()) {
                         Row(horizontalArrangement = Arrangement.spacedBy(ElTheme.spacing.xs)) {
                             state.pendingAttachments.forEachIndexed { i, pending ->
@@ -234,6 +351,34 @@ fun ChatDetailScreen(
                             enabled = !state.sending,
                         )
                         Spacer(Modifier.width(ElTheme.spacing.sm))
+                        // T-545 / WORKFORCE-522: the Take Photo option — one
+                        // tap opens the device camera (the runtime permission
+                        // is requested on first use); the capture lands in the
+                        // SAME pending-attachment workflow as a picked file.
+                        ElIconButton(
+                            icon = Icons.Default.CameraAlt,
+                            onClick = {
+                                val hasPerm = ContextCompat.checkSelfPermission(
+                                    context, Manifest.permission.CAMERA,
+                                ) == PackageManager.PERMISSION_GRANTED
+                                if (hasPerm) {
+                                    val cameraDir = File(context.cacheDir, "camera").apply { mkdirs() }
+                                    val name = "photo_${System.currentTimeMillis()}.jpg"
+                                    val file = File(cameraDir, name)
+                                    launchCameraCapture(file)?.let { uri ->
+                                        capturedPreview = uri to name
+                                        cameraLauncher.launch(uri)
+                                    }
+                                } else {
+                                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                }
+                            },
+                            enabled = !state.sending && !state.uploading,
+                            contentDescription = "Prendre une photo et la joindre",
+                            tint = c.textPrimary,
+                            background = androidx.compose.ui.graphics.Color.Transparent,
+                        )
+                        Spacer(Modifier.width(ElTheme.spacing.xs))
                         ElIconButton(
                             icon = Icons.Default.Add,
                             onClick = { pickFile.launch("*/*") },

@@ -60,6 +60,7 @@ import com.example.ui.designsystem.components.feedback.ElEmptyState
 import com.example.ui.designsystem.components.nav.ElScaffold
 import com.example.ui.designsystem.components.nav.ElTopBar
 import com.example.ui.designsystem.overlays.ElBottomSheet
+import com.example.ui.designsystem.overlays.LocalElToast
 import com.example.ui.designsystem.theme.ElTheme
 import com.example.ui.util.PhoneUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -120,6 +121,10 @@ fun DebtDashboardScreen(
     var bucketFilter by remember { mutableStateOf<String?>(null) }
     val filtered = if (bucketFilter == null) debtors else debtors.filter { it.bucket == bucketFilter }
     val context = LocalContext.current
+    // T-547 / CALL-523: the call feedback channel (the F-18 pattern — this
+    // screen was one of the two toast-less dial sites; an invalid number or
+    // a device without any dialer app was a SILENT no-op here).
+    val toast = LocalElToast.current
     // T-456 (INV-20e): the « Par année » drawer's target family (null = closed).
     var yearHistoryTarget by remember { mutableStateOf<DebtSummary?>(null) }
 
@@ -273,7 +278,7 @@ fun DebtDashboardScreen(
                                     if (debtor.parentPhone.isNotBlank()) {
                                         ElIconButton(
                                             icon = Icons.Default.Call,
-                                            onClick = { PhoneUtils.dial(context, debtor.parentPhone) },
+                                            onClick = { PhoneUtils.dial(context, debtor.parentPhone, toast) },
                                             contentDescription = "Appeler",
                                             tint = c.success,
                                             background = Color.Transparent,

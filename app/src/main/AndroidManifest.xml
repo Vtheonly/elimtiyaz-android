@@ -16,6 +16,19 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
+    <!-- T-547 / CALL-523 (the calling audit): the dialer intent is declared
+         for Android 11+ (API 30+) package visibility. A bare startActivity
+         with an implicit intent is exempt from the visibility filter, so the
+         dial() contract worked without this — but the declaration is the
+         documented robust form (any future availability check like
+         resolveActivity needs it) and costs nothing. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+    </queries>
+
     <application
         android:name=".ElImtiyazApplication"
         android:allowBackup="false"

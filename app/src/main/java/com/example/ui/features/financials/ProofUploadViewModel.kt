@@ -1,8 +1,6 @@
 package com.example.ui.features.financials
 
 import android.graphics.Bitmap
-import androidx.compose.foundation.layout.height
-import androidx.compose.material.icons.filled.Image
 import androidx.lifecycle.ViewModel
 import com.example.core.Result
 import com.example.domain.repository.StorageBuckets
@@ -18,8 +16,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
+/**
+ * T-545 / WORKFORCE-522 (renamed from ProofScannerViewModel): the ONE proof
+ * upload engine — kept verbatim (the T-521 contract), now consumed IN-CONTEXT
+ * by the expense settle dialog's Take Photo / gallery capture instead of a
+ * standalone scanner screen. The "scanner" concept is retired; the engine
+ * (camera capture → webp compress → StorageRepository.uploadProof with the
+ * tenant-path canon) is the attachment workflow's upload half.
+ */
 @HiltViewModel
-class ProofScannerViewModel @Inject constructor(
+class ProofUploadViewModel @Inject constructor(
     private val storageRepository: StorageRepository,
     private val sessionManager: SessionManager,
 ) : ViewModel() {

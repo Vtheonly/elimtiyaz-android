@@ -1,6 +1,7 @@
 package com.example.infrastructure.room
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -21,9 +22,12 @@ import java.io.File
  *     PENDING local transition — the old unconditional upsertAll silently
  *     reverted a locally-decided expense when its transition push was
  *     server-rejected (the "approve works, then reverts on reopen" defect).
- *  d. THE SCANNER LOOP (source-scan): the expense-mode scanner uploads to
- *     the expense-receipts bucket under the expense id and RETURNS its path
- *     through the nav result (the manual re-typing loop is dead).
+ *  d. THE PROOF CAPTURE LOOP (source-scan — T-545 / WORKFORCE-522
+ *     evolution of the T-521 contract): the settle dialog captures
+ *     IN-CONTEXT (Take Photo / Galerie — no scanner route, no navigation):
+ *     the ONE upload engine (ProofUploadViewModel) uploads to the
+ *     expense-receipts bucket under the expense id and the uploaded path
+ *     auto-fills the proof field (the manual re-typing loop stays dead).
  */
 class ExpenseApprovalT521Test {
 
@@ -99,32 +103,53 @@ class ExpenseApprovalT521Test {
         assertTrue(src.contains("rows.filter { it.id !in pendingExpenseKeys }"))
     }
 
-    // ─── d. the scanner loop (source-scan) ──────────────────────────────
+    // ─── d. the proof capture loop (source-scan — the T-545 in-context form) ─
 
     @Test
-    fun `the scanner's expense mode targets the expense bucket and returns its path`() {
-        val scanner = repoFile("ui/features/financials/ProofScannerScreen.kt").readText()
+    fun `the settle dialog captures in-context and auto-fills the uploaded path`() {
+        // The ONE upload engine survives the scanner retirement (renamed,
+        // same contract: webp compress → tenant-path canon → Storage upload).
+        val engine = repoFile("ui/features/financials/ProofUploadViewModel.kt").readText()
         assertTrue(
-            "the expense mode must upload to the expense-receipts bucket",
-            scanner.contains("StorageBuckets.EXPENSE_RECEIPTS"),
-        )
-        assertTrue(
-            "the success card must offer the return action",
-            scanner.contains("Utiliser ce justificatif") && scanner.contains("onProofCaptured(path)"),
+            "the upload engine must still exist (renamed from ProofScannerViewModel)",
+            engine.contains("class ProofUploadViewModel"),
         )
 
-        val nav = repoFile("ui/navigation/AppNavHost.kt").readText()
+        // The settle dialog captures IN-CONTEXT: the expense-receipts bucket
+        // under the expense id (the T-521 path canon) with NO navigation.
+        val approval = repoFile("ui/features/financials/ExpenseApprovalScreen.kt").readText()
         assertTrue(
-            "the nav result must flow through the savedStateHandle",
+            "the in-context capture must upload to the expense-receipts bucket",
+            approval.contains("StorageBuckets.EXPENSE_RECEIPTS"),
+        )
+        assertTrue(
+            "the Take Photo option must exist inside the settle dialog",
+            approval.contains("Prendre une photo"),
+        )
+        assertTrue(
+            "the gallery option must exist inside the settle dialog",
+            approval.contains("Galerie"),
+        )
+        assertTrue(
+            "the uploaded path must auto-fill the proof field (no manual re-typing)",
+            approval.contains("proofUploadedPath?.let { proofPath = it }"),
+        )
+
+        // The standalone scanner surface is GONE: no route, no nav-result,
+        // no scanner screen file referenced by navigation.
+        val routes = repoFile("ui/navigation/Routes.kt").readText()
+        assertFalse(
+            "the ProofScanner route must be retired",
+            routes.contains("data class ProofScanner"),
+        )
+        val nav = repoFile("ui/navigation/AppNavHost.kt").readText()
+        assertFalse(
+            "the nav-result loop must be retired (in-context now)",
             nav.contains("t521_scanned_proof_path"),
         )
-        // The scanner route carries the expense context.
-        val routes = repoFile("ui/navigation/Routes.kt").readText()
-        assertTrue(routes.contains("data class ProofScanner(val expenseId: String? = null)"))
-
-        // The settle dialog auto-fills from the scanned path.
-        val approval = repoFile("ui/features/financials/ExpenseApprovalScreen.kt").readText()
-        assertTrue(approval.contains("scannedProofPath.isNotBlank()"))
-        assertTrue(approval.contains("onNavigateToProofScanner(exp.id)"))
+        assertFalse(
+            "the scanner screen must not be referenced by navigation",
+            nav.contains("ProofScannerScreen"),
+        )
     }
 }

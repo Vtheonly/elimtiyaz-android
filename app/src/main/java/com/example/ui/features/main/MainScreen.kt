@@ -93,7 +93,9 @@ fun MainScreen(
     onNavigateToParent: (String) -> Unit,
     onNavigateToBatchRegistration: () -> Unit,
     onNavigateToCounterPayment: (parentId: String?, studentId: String?) -> Unit,
-    onNavigateToProofScanner: () -> Unit,
+    // T-545 / WORKFORCE-522: onNavigateToProofScanner REMOVED — the standalone
+    // scanner route is retired (the capture is in-context inside the settle
+    // dialog); this was the last pre-existing lint error (WrongNavigateRouteType).
     onNavigateToDebtDashboard: () -> Unit,
     onNavigateToInstallmentSchedule: () -> Unit,
     onNavigateToExpenseSubmit: () -> Unit,
@@ -258,7 +260,6 @@ fun MainScreen(
                 "financials" -> FinancialsHubScreen(
                     session = session,
                     onNavigateToCounterPayment = onNavigateToCounterPayment,
-                    onNavigateToProofScanner = onNavigateToProofScanner,
                     onNavigateToDebtDashboard = onNavigateToDebtDashboard,
                     onNavigateToInstallmentSchedule = onNavigateToInstallmentSchedule,
                     onNavigateToExpenseSubmit = onNavigateToExpenseSubmit,

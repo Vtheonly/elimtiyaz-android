@@ -93,7 +93,7 @@ class LocalStorageRepositoryT362Test {
         File("src/main/java/com/example/domain/repository/StorageRepository.kt").readText()
 
     private fun viewModelSource(): String =
-        File("src/main/java/com/example/ui/features/financials/ProofScannerViewModel.kt").readText()
+        File("src/main/java/com/example/ui/features/financials/ProofUploadViewModel.kt").readText()
 
     @Test
     fun `the remote upload path is built through StorageBuckets_objectPath (never tenant-less)`() {
