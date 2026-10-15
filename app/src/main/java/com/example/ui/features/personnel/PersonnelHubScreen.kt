@@ -3,17 +3,8 @@ package com.example.ui.features.personnel
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.LocalShipping
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import com.example.ui.designsystem.components.button.ElButton
-import com.example.ui.designsystem.components.button.ElButtonVariant
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -22,7 +13,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.core.Permission
 import com.example.core.Role
 import com.example.core.Session
 import com.example.ui.designsystem.components.tabs.ElScrollableTabRow
@@ -35,7 +25,9 @@ fun PersonnelHubScreen(
     onNavigateToReleve: (String) -> Unit = {},
     onNavigateToWorkflowMonitor: () -> Unit = {},
     onNavigateToAuditLog: () -> Unit,
-    onNavigateToRouting: () -> Unit = {},
+    // T-541 / OPS-324 (180th session): onNavigateToRouting REMOVED with
+    // the GPS Tournées feature (the "Tournées" tab + DriverRoutingEntry
+    // are gone; the route destination no longer exists).
     onNavigateToProfile: () -> Unit = {},
     onNavigateToRollCall: (String) -> Unit = {},
     onNavigateToGradeEntry: (String) -> Unit = {},
@@ -48,7 +40,8 @@ fun PersonnelHubScreen(
         add("Employés")
         add("Activité")
         add("Audit")
-        if (session.can(Permission.ACCESS_DRIVER_MODE)) add("Tournées")
+        // T-541 / OPS-324: the permission-gated "Tournées" tab REMOVED with
+        // the GPS Tournées feature (ACCESS_DRIVER_MODE no longer exists).
         add("Session")
     }
 
@@ -82,10 +75,8 @@ fun PersonnelHubScreen(
                     "Employés" -> EmployeeDirectoryScreen(session, onNavigateToPersonnelDetail = onNavigateToPersonnelDetail)
                     "Activité" -> ReleveScreen(session, onNavigateToReleve = onNavigateToReleve)
                     "Audit" -> AuditStreamScreen(session, onNavigateToAuditLog = onNavigateToAuditLog)
-                    "Tournées" -> DriverRoutingEntry(
-                        onNavigateToRouting = onNavigateToRouting,
-                        onNavigateToWorkflowMonitor = onNavigateToWorkflowMonitor,
-                    )
+                    // T-541 / OPS-324: the "Tournées" branch (DriverRoutingEntry)
+                    // REMOVED with the GPS Tournées feature.
                     // T-460 pass J (F-11): the session tab is now a redirect
                     // to the single Profile surface (owner decision).
                     "Session" -> SignOutScreen(session, onNavigateToProfile = onNavigateToProfile)
@@ -96,21 +87,6 @@ fun PersonnelHubScreen(
     }
 }
 
-@Composable
-private fun DriverRoutingEntry(onNavigateToRouting: () -> Unit, onNavigateToWorkflowMonitor: () -> Unit) {
-    Column {
-        ElButton(
-            text = "Mode chauffeur — Tournées",
-            onClick = onNavigateToRouting,
-            icon = Icons.Default.LocalShipping,
-            fullWidth = true,
-        )
-        Spacer(Modifier.height(ElTheme.spacing.sm))
-        ElButton(
-            text = "Moniteur de workflows",
-            onClick = onNavigateToWorkflowMonitor,
-            variant = ElButtonVariant.GHOST,
-            fullWidth = true,
-        )
-    }
-}
+// T-541 / OPS-324 (180th session): DriverRoutingEntry (the "Mode chauffeur
+// — Tournées" launch button + the workflows monitor shortcut) REMOVED with
+// the GPS Tournées feature — the routing screens it launched are deleted.

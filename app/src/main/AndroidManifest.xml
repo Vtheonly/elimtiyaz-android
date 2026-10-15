@@ -7,11 +7,11 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
-        tools:ignore="CoarseFinePermission" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- T-541 / OPS-324 (180th session): the location permissions
+         (ACCESS_FINE_LOCATION / ACCESS_COARSE_LOCATION /
+         FOREGROUND_SERVICE / FOREGROUND_SERVICE_LOCATION) REMOVED with the
+         GPS Tournées feature — RoutingForegroundService was their only
+         consumer and it is deleted. -->
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
@@ -64,10 +64,8 @@
             </intent-filter>
         </service>
 
-        <service
-            android:name=".infrastructure.routing.RoutingForegroundService"
-            android:exported="false"
-            android:foregroundServiceType="location" />
+        <!-- T-541 / OPS-324: RoutingForegroundService REMOVED with the GPS
+             Tournées feature (location type + its manifest registration). -->
 
         <provider
             android:name="androidx.startup.InitializationProvider"

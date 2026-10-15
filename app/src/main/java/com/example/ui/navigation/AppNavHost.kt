@@ -39,9 +39,9 @@ import com.example.ui.features.personnel.PersonnelDetailScreen
 import com.example.ui.features.personnel.ReleveScreen
 import com.example.ui.features.personnel.WorkflowMonitorScreen
 import com.example.ui.features.profile.ProfileScreen
-import com.example.ui.features.routing.RoutingMapScreen
-import com.example.ui.features.routing.RoutingScreen
-import com.example.ui.features.routing.TripHistoryScreen
+// T-541 / OPS-324: the routing screen imports (RoutingScreen /
+// RoutingMapScreen / TripHistoryScreen) REMOVED with the GPS Tournées
+// feature — the whole ui.features.routing package is deleted.
 import com.example.ui.features.settings.AuditLogScreen
 import com.example.ui.features.settings.SettingsScreen
 
@@ -139,9 +139,10 @@ fun AppNavHost() {
                             ),
                         )
                     },
-                    onNavigateToRouting = { navController.navigate(Routes.Routing) },
-                    onNavigateToRoutingMap = { id -> navController.navigate(Routes.RoutingMap(id)) },
-                    onNavigateToTripHistory = { navController.navigate(Routes.TripHistory) },
+                    // T-541 / OPS-324: the three routing nav params
+                    // (onNavigateToRouting / onNavigateToRoutingMap /
+                    // onNavigateToTripHistory) REMOVED with the GPS Tournées
+                    // feature — the routes no longer exist.
                     onNavigateToSettings = { navController.navigate(Routes.Settings) },
                     onNavigateToAuditLog = { navController.navigate(Routes.AuditLog) },
                 )
@@ -478,30 +479,10 @@ fun AppNavHost() {
                 }
             }
 
-            composable<Routes.Routing> {
-                rbacGate(navController, Routes.Routing::class) {
-                    RoutingScreen(
-                        onBack = { navController.popBackStack() },
-                        onNavigateToRoutingMap = { id -> navController.navigate(Routes.RoutingMap(id)) },
-                        onNavigateToTripHistory = { navController.navigate(Routes.TripHistory) },
-                    )
-                }
-            }
-
-            composable<Routes.RoutingMap> { backStackEntry ->
-                rbacGate(navController, Routes.RoutingMap::class) {
-                    RoutingMapScreen(
-                        onBack = { navController.popBackStack() },
-                        onTripEnded = { navController.popBackStack() },
-                    )
-                }
-            }
-
-            composable<Routes.TripHistory> {
-                rbacGate(navController, Routes.TripHistory::class) {
-                    TripHistoryScreen(onBack = { navController.popBackStack() })
-                }
-            }
+            // T-541 / OPS-324 (180th session): the Routes.Routing /
+            // Routes.RoutingMap / Routes.TripHistory composables REMOVED
+            // with the GPS Tournées feature (screens deleted, routes deleted,
+            // ACCESS_DRIVER_MODE permission deleted — see Routes.kt).
 
             composable<Routes.Settings> {
                 SettingsScreen(

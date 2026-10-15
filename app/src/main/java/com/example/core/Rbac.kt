@@ -53,7 +53,11 @@ enum class Permission(val code: String) {
     ADJUST_ACCOUNT("adjust_account"), GENERATE_RECEIPT("generate_receipt"), VIEW_DEBT("view_debt"), SEND_REMINDER("send_reminder"),
     SUBMIT_EXPENSE("submit_expense"), APPROVE_EXPENSE("approve_expense"), DISBURSE_EXPENSE("disburse_expense"), SETTLE_EXPENSE_PROOF("settle_expense_proof"),
     VIEW_PERSONNEL("view_personnel"), MANAGE_PERSONNEL("manage_personnel"), VIEW_AUDIT_LOG("view_audit_log"), VIEW_RELEVE("view_releve"),
-    ACCESS_DRIVER_MODE("access_driver_mode"),
+    // T-541 / OPS-324 (180th session): ACCESS_DRIVER_MODE ("access_driver_mode")
+    // REMOVED with the GPS Tournées feature — the exclusively-tournee server
+    // permission is deleted by migration 0157 (hub repo). The DRIVER ROLE
+    // itself stays (live user_profiles may hold it; its remaining grants are
+    // the standard worker set).
     MANAGE_SETTINGS("manage_settings"), MANAGE_TENANTS("manage_tenants"), MANAGE_PRICING("manage_pricing"),
     MANAGE_WORKFLOWS("manage_workflows"), VIEW_WORKFLOW_RUNS("view_workflow_runs"), EXECUTE_WORKFLOW("execute_workflow"),
     MANAGE_BACKUPS("manage_backups"),
@@ -128,7 +132,9 @@ enum class Permission(val code: String) {
                 MANAGE_SUPPLIERS, MANAGE_DELIVERIES, MANAGE_INVENTORY,
             ),
             Role.DRIVER to setOf(
-                ACCESS_DRIVER_MODE, CLOCK_IN_OUT, SUBMIT_REQUESTS,
+                // T-541 / OPS-324: ACCESS_DRIVER_MODE removed with the GPS
+                // Tournées feature — the driver keeps the standard worker set.
+                CLOCK_IN_OUT, SUBMIT_REQUESTS,
                 VIEW_TASKS, UPDATE_TASK_STATUS, USE_CHAT,
             ),
             Role.WAREHOUSE_WORKER to setOf(

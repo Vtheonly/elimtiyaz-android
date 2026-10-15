@@ -30,7 +30,7 @@ import kotlinx.coroutines.flow.first
  *
  * T-494 (DATA-059) — THE DEMO POSTURE SPLIT: the demo content (mock
  * personnel/departments, demo families with their ledger/installments/
- * payment, routing vehicles/stops, timesheet entries, the academic history)
+ * payment, timesheet entries, the academic history)
  * now seeds ONLY in the demo-sandbox posture (unconfigured AND debug — the
  * exact T-002/SEC-101 policy the demo session follows). A CONFIGURED
  * production build seeds ONLY the real catalogs (pricing, subjects, classes
@@ -68,7 +68,6 @@ class DatabaseSeeder @Inject constructor(
                 // T-494 (DATA-059): demo content — demo-sandbox builds ONLY.
                 seedPersonnel()
                 seedDemoFamilies()
-                seedRouting()
                 seedReleveEntries()
             }
         }
@@ -217,7 +216,8 @@ class DatabaseSeeder @Inject constructor(
                 PersonnelEntity("per-teacher1", tenantId, "PER-002", "Aïcha", "Bouhenni", "teacher", "dep-acad", "Pédagogie", "0550 50 67 68", null, "active", "2021-09-01T00:00:00Z", 35, now, now),
                 PersonnelEntity("per-teacher2", tenantId, "PER-003", "Mohamed", "Saidi", "teacher", "dep-acad", "Pédagogie", null, null, "active", "2022-09-01T00:00:00Z", 35, now, now),
                 PersonnelEntity("per-finance", tenantId, "PER-004", "Nadia", "Khelifi", "financial_officer", "dep-finance", "Finance", null, null, "active", "2021-09-01T00:00:00Z", 40, now, now),
-                // Driver for the transport round (driver-mode routing hub).
+                // Transport staff (the deliveries workflow — T-541/OPS-324
+                // removed the GPS Tournées routing hub, NOT the driver role).
                 PersonnelEntity("per-driver1", tenantId, "PER-005", "Rachid", "Chami", "driver", null, "Transport", "0555 40 12 90", null, "active", "2023-01-15T00:00:00Z", 40, now, now),
             )
         )
@@ -522,47 +522,10 @@ class DatabaseSeeder @Inject constructor(
         }
     }
 
-    // ─── Routing: real vehicles + pickup stops (driver-mode hub) ───────────
-    //
-    // The routing feature used to be backed by a stub repository that always
-    // returned empty lists — the screens permanently showed "Aucun véhicule
-    // configuré". These REAL rows (2 vehicles + one stop per transported
-    // student, with plausible Boumerdès-area coordinates) make the Tournées
-    // hub, live map and trip history fully functional.
-
-    private suspend fun seedRouting() {
-        val now = Instant.now().toString()
-
-        db.vehicleDao().upsertAll(
-            listOf(
-                VehicleEntity(
-                    id = "veh-001", tenantId = tenantId, plate = "16-2345-118",
-                    driverId = "per-driver1", driverName = "Rachid Chami",
-                    capacity = 28, hasWheelchairAccess = false,
-                    isActive = true, createdAt = now,
-                ),
-                VehicleEntity(
-                    id = "veh-002", tenantId = tenantId, plate = "16-9812-117",
-                    driverId = null, driverName = null,
-                    capacity = 52, hasWheelchairAccess = true,
-                    isActive = true, createdAt = now,
-                ),
-            ),
-        )
-
-        // One stop per transported student (families with a transport zone).
-        // Coordinates are approximate home points around Boumerdès.
-        db.routingStopDao().upsertAll(
-            listOf(
-                RoutingStopEntity("stp-001", tenantId, "stu-001", "Yacine Benali", "Boumerdès Centre, Cité 200 Logements", 36.7590, 3.4720, "morning", 0, 0.0, true, now),
-                RoutingStopEntity("stp-002", tenantId, "stu-002", "Sara Benali", "Boumerdès Centre, Cité 200 Logements", 36.7590, 3.4720, "morning", 0, 0.0, true, now),
-                RoutingStopEntity("stp-003", tenantId, "stu-003", "Amine Khelifi", "Tidjelabine, Rue des Frères Mokrani", 36.7130, 3.4780, "morning", 0, 0.0, true, now),
-                RoutingStopEntity("stp-004", tenantId, "stu-004", "Lina Saidi", "Boudouaou, Cité El Feth", 36.7320, 3.4100, "morning", 0, 0.0, true, now),
-                RoutingStopEntity("stp-005", tenantId, "stu-005", "Omar Saidi", "Boudouaou, Cité El Feth", 36.7320, 3.4100, "morning", 0, 0.0, true, now),
-                RoutingStopEntity("stp-006", tenantId, "stu-006", "Rania Saidi", "Boudouaou, Cité El Feth", 36.7320, 3.4100, "afternoon", 0, 0.0, true, now),
-            ),
-        )
-    }
+    // ─── Routing ────────────────────────────────────────────────────────────
+    // T-541 / OPS-324 (180th session): seedRouting() REMOVED with the GPS
+    // Tournées feature — the vehicleDao/routingStopDao tables no longer
+    // exist (Room migration v20→v21 drops them).
 
     // ─── Relevé d'activité: real entries for the seeded teachers ───────────
     //
@@ -827,9 +790,8 @@ object DemoSeedIds {
     val EXTRA_LEDGER_IDS = listOf("led-pay-001", "led-credit-par-001")
     val EXTRA_PAYMENT_IDS = listOf("pay-001")
 
-    /** The 2 demo vehicles. */
-    val VEHICLES = listOf("veh-001", "veh-002")
-
-    /** The 6 demo routing stops. */
-    val ROUTING_STOPS = listOf("stp-001", "stp-002", "stp-003", "stp-004", "stp-005", "stp-006")
+    // T-541 / OPS-324 (180th session): VEHICLES / ROUTING_STOPS (the seeded
+    // demo ids of the dropped trip_logs / vehicles / routing_stops tables)
+    // REMOVED with the GPS Tournées feature — the tables no longer exist
+    // (Room migration v20→v21 drops them).
 }

@@ -936,22 +936,21 @@ class PullSyncRepository @Inject constructor(
         db.releveEntryDao().deleteByPersonnelIds(com.example.infrastructure.room.DemoSeedIds.PERSONNEL)
 
         // The demo-family cluster: parents, students, their ledger/
-        // installments/payments, and the routing demo (the stops reference
-        // the demo students).
+        // installments/payments. (T-541/OPS-324: the routing demo rows —
+        // vehicles / routing_stops — are gone WITH the tables: Room
+        // migration v20→v21 dropped them, so there is nothing to evict.)
         val demoParents = com.example.infrastructure.room.DemoSeedIds.PARENTS
         db.parentDao().deleteByIds(demoParents)
         db.studentDao().deleteByIds(com.example.infrastructure.room.DemoSeedIds.STUDENTS)
         db.ledgerEntryDao().deleteDemoRows(demoParents, com.example.infrastructure.room.DemoSeedIds.EXTRA_LEDGER_IDS)
         db.installmentDao().deleteByParentIds(demoParents)
         db.paymentDao().deleteDemoRows(demoParents, com.example.infrastructure.room.DemoSeedIds.EXTRA_PAYMENT_IDS)
-        db.vehicleDao().deleteByIds(com.example.infrastructure.room.DemoSeedIds.VEHICLES)
-        db.routingStopDao().deleteByIds(com.example.infrastructure.room.DemoSeedIds.ROUTING_STOPS)
 
         // The academic-history cluster: the seeded grades/attendance (the
         // patterns are UUID-impossible — the proofs live on the DAOs).
         db.assessmentDao().deleteSeeded()
         db.attendanceDao().deleteSeeded()
-        Log.i("PullSync", "DATA-059: demo-seeded rows evicted (personnel/departments/releve/families/routing/academics)")
+        Log.i("PullSync", "DATA-059: demo-seeded rows evicted (personnel/departments/releve/families/academics)")
     }
 
     companion object {

@@ -80,10 +80,9 @@ object Routes {
     @Serializable object Reports : Route
     @Serializable object Alerts : Route
 
-    // Routing detail routes
-    @Serializable object Routing : Route
-    @Serializable data class RoutingMap(val vehicleId: String) : Route
-    @Serializable object TripHistory : Route
+    // T-541 / OPS-324 (180th session): the Routing / RoutingMap / TripHistory
+    // routes REMOVED with the GPS Tournées feature (the whole driver-routing
+    // subsystem is retired — screens, service, Room tables, permission).
 
     // Chat (T-102-follow-up / ANDR-CHAT-200 — read-side + online sends v1)
     @Serializable object Chat : Route
@@ -169,10 +168,8 @@ val RoutePermissions: Map<KClass<out Route>, Permission> = mapOf(
     Routes.Reports::class to Permission.VIEW_AUDIT_LOG,
     Routes.Alerts::class to Permission.VIEW_PERSONNEL,
 
-    // Routing detail routes
-    Routes.Routing::class to Permission.ACCESS_DRIVER_MODE,
-    Routes.RoutingMap::class to Permission.ACCESS_DRIVER_MODE,
-    Routes.TripHistory::class to Permission.ACCESS_DRIVER_MODE,
+    // T-541 / OPS-324: the routing route-permission mappings REMOVED with
+    // the GPS Tournées feature (ACCESS_DRIVER_MODE no longer exists).
 
     // Settings
     Routes.AuditLog::class to Permission.VIEW_AUDIT_LOG,

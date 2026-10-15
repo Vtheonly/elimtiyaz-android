@@ -203,6 +203,10 @@ tasks.withType<Test>().matching { it.name == "testReleaseUnitTest" }.configureEa
     // T-489 (UI-330): the dashboard overview structure suite (createComposeRule
     // under the suffixed applicationId — the §15.86 same-commit rule).
     excludeTestsMatching("com.example.ui.features.dashboard.DashboardOverviewStructureT489Test")
+    // T-541 (OPS-324, 180th session): the v20→v21 tournee-removal migration
+    // suite (MigrationTestHelper + the debug-scoped Room schema assets are
+    // unreachable on release — the §15.86 same-commit rule).
+    excludeTestsMatching("com.example.infrastructure.room.RoomSchemaUpgradeT541Test")
     excludeTestsMatching("com.example.ui.features.dashboard.DashboardCollectionSummaryScreenshotT489Test")
   }
 }

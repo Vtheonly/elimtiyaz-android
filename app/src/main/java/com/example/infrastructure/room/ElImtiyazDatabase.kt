@@ -44,9 +44,10 @@ import androidx.room.RoomDatabase
         TransportPricingEntity::class,
         NotificationEntity::class,
         AuditLogEntity::class,
-        TripLogEntity::class,
-        VehicleEntity::class,
-        RoutingStopEntity::class,
+        // T-541 / OPS-324 (180th session): TripLogEntity, VehicleEntity and
+        // RoutingStopEntity REMOVED with the GPS Tournées feature —
+        // MIGRATION_20_21 drops the trip_logs / vehicles / routing_stops
+        // tables on upgrade.
         ClassSubjectEntity::class,
         ReleveEntryEntity::class,
         WorkflowRunEntity::class,
@@ -54,7 +55,7 @@ import androidx.room.RoomDatabase
         ChatChannelEntity::class,
         ChatMessageEntity::class,
     ],
-    version = 20,
+    version = 21,
     // T-046-gap (session 18): schemas are exported from now on (ksp arg
     // room.schemaLocation → app/schemas/) so MigrationTestHelper upgrade
     // tests can pin every future schema bump. 12.json was backfilled from
@@ -86,9 +87,8 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
     abstract fun pricingConfigDao(): PricingConfigDao
     abstract fun notificationDao(): NotificationDao
     abstract fun auditLogDao(): AuditLogDao
-    abstract fun tripLogDao(): TripLogDao
-    abstract fun vehicleDao(): VehicleDao
-    abstract fun routingStopDao(): RoutingStopDao
+    // T-541: tripLogDao / vehicleDao / routingStopDao removed with the
+    // Tournées feature (the tables are dropped by MIGRATION_20_21).
     abstract fun classSubjectDao(): ClassSubjectDao
     abstract fun releveEntryDao(): ReleveEntryDao
     abstract fun workflowRunDao(): WorkflowRunDao
@@ -609,6 +609,29 @@ abstract class ElImtiyazDatabase : RoomDatabase() {
                 database.execSQL(
                     "ALTER TABLE `expenses` ADD COLUMN `anomalyNote` TEXT"
                 )
+            }
+        }
+
+        /**
+         * T-541 / OPS-324 (180th session, 2026-10-15) — Room migration
+         * v20 → v21: the GPS Tournées / Tournee-Driver feature is removed
+         * ENTIRELY (the owner's complete-removal mandate), and its three
+         * exclusively-tournee tables go with it. The drop order matters:
+         * trip_logs references vehicles (vehicleId) and routing_stops is
+         * standalone — Room validates the FINAL schema only, so dropping
+         * all three in one migration is safe; SQLite has no FK enforcement
+         * on these legacy tables (they were created WITHOUT foreign keys in
+         * the v8→v9 migration).
+         *
+         * Deliberately NOT dropped: everything else (personnel, tasks,
+         * deliveries, chat, …) — the Driver ROLE and the deliveries
+         * workflow are NOT tournee components and keep their data.
+         */
+        val MIGRATION_20_21 = object : androidx.room.migration.Migration(20, 21) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("DROP TABLE IF EXISTS `trip_logs`")
+                database.execSQL("DROP TABLE IF EXISTS `vehicles`")
+                database.execSQL("DROP TABLE IF EXISTS `routing_stops`")
             }
         }
     }

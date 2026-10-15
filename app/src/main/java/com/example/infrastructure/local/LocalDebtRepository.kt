@@ -59,7 +59,6 @@ import com.example.domain.repository.PricingRepository
 import com.example.domain.repository.PushHomeworkInput
 import com.example.domain.repository.ReleveRepository
 import com.example.domain.repository.RollCallEntry
-import com.example.domain.repository.RoutingRepository
 import com.example.domain.repository.StorageRepository
 import com.example.domain.repository.SubmitExpenseInput
 import com.example.domain.repository.SubjectRepository
@@ -67,9 +66,6 @@ import com.example.domain.repository.UpdateClassInput
 import com.example.domain.repository.UpdatePersonnelInput
 import com.example.domain.repository.UpdateSubjectInput
 import com.example.domain.repository.WorkflowRepository
-import com.example.domain.model.GeoPoint
-import com.example.infrastructure.routing.OsrmClient
-import com.example.infrastructure.routing.TspSolver
 import com.example.infrastructure.room.AcademicClassDao
 import com.example.infrastructure.room.AcademicClassEntity
 import com.example.infrastructure.room.AssessmentDao
@@ -108,12 +104,6 @@ import com.example.infrastructure.room.StudentEntity
 import com.example.infrastructure.room.SubjectDao
 import com.example.infrastructure.room.SubjectEntity
 import com.example.infrastructure.room.TransportPricingEntity
-import com.example.infrastructure.room.TripLogDao
-import com.example.infrastructure.room.TripLogEntity
-import com.example.infrastructure.room.VehicleDao
-import com.example.infrastructure.room.VehicleEntity
-import com.example.infrastructure.room.RoutingStopDao
-import com.example.infrastructure.room.RoutingStopEntity
 import com.example.infrastructure.room.WorkflowRunDao
 import com.example.infrastructure.room.WorkflowRunEntity
 import kotlinx.coroutines.flow.Flow

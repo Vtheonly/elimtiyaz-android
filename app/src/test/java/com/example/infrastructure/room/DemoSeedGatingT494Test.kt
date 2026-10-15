@@ -33,7 +33,8 @@ import org.robolectric.annotation.Config
  *
  *  1. SEED GATING — a configured build (demoAllowed=false) seeds ONLY the
  *     real catalogs (pricing/subjects/classes); the demo content (mock
- *     workers, demo families, routing, timesheets, the academic history)
+ *     workers, demo families, timesheets, the academic history — the GPS
+ *     Tournées routing demo is REMOVED entirely, T-541/OPS-324)
  *     is demo-sandbox-only — the owner's next fresh install never sees a
  *     fabricated worker again;
  *  2. EVICTION SAFETY — after the pull-cycle eviction, every demo row is
@@ -236,9 +237,9 @@ class DemoSeedGatingT494Test {
         assertNull(db.paymentDao().getById("pay-001"))
         assertNull(db.ledgerEntryDao().getById("led-pay-001"))
         assertNull(db.ledgerEntryDao().getById("led-credit-par-001"))
-        assertNull(db.vehicleDao().getById("veh-001"))
-        assertNull(db.vehicleDao().getById("veh-002"))
-        assertEquals(0, db.routingStopDao().getAll().size)
+        // T-541 / OPS-324: the vehicles / routing_stops eviction assertions
+        // REMOVED with the GPS Tournées feature — the tables (and their
+        // DAOs) no longer exist; Room migration v20→v21 drops them.
         // The SEEDED grades are all gone — only the REAL local grade survives.
         assertEquals(1, db.assessmentDao().count())
         // The SEEDED attendance rows are all gone — only the REAL one survives.

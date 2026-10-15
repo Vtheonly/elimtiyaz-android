@@ -1,5 +1,6 @@
 package com.example.infrastructure.sync
 
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -31,8 +32,10 @@ class DemoHygieneWiringT494Test {
         // The catalogs are unconditional.
         assertTrue(s.contains("seedPricing()\n            seedSubjects()\n            seedClasses()"))
         // Every demo seed is inside the demoAllowed branch.
+        // T-541 / OPS-324: seedRouting() REMOVED with the GPS Tournées
+        // feature (its tables are dropped by Room migration v20→v21).
         val gateBlock = s.substringAfter("if (demoAllowed) {").substringBefore("// ─── Pricing")
-        for (seed in listOf("seedPersonnel()", "seedDemoFamilies()", "seedRouting()", "seedReleveEntries()")) {
+        for (seed in listOf("seedPersonnel()", "seedDemoFamilies()", "seedReleveEntries()")) {
             assertTrue("$seed must be demo-only", gateBlock.contains(seed))
         }
         // The academic history is demo-only too (fabricated grades for real
@@ -52,6 +55,9 @@ class DemoHygieneWiringT494Test {
         )
         assertTrue(s.contains("internal suspend fun evictDemoRowsAfterPull()"))
         // Every cluster is evicted through the shared vocabulary.
+        // T-541 / OPS-324: the vehicles / routing_stops eviction lines
+        // REMOVED with the GPS Tournées feature — the tables themselves are
+        // dropped by Room migration v20→v21, so there is nothing to evict.
         for (call in listOf(
             "deleteByIds(com.example.infrastructure.room.DemoSeedIds.PERSONNEL)",
             "deleteByIds(com.example.infrastructure.room.DemoSeedIds.DEPARTMENTS)",
@@ -61,12 +67,15 @@ class DemoHygieneWiringT494Test {
             "deleteDemoRows(demoParents, com.example.infrastructure.room.DemoSeedIds.EXTRA_LEDGER_IDS)",
             "deleteByParentIds(demoParents)",
             "deleteDemoRows(demoParents, com.example.infrastructure.room.DemoSeedIds.EXTRA_PAYMENT_IDS)",
-            "deleteByIds(com.example.infrastructure.room.DemoSeedIds.VEHICLES)",
-            "deleteByIds(com.example.infrastructure.room.DemoSeedIds.ROUTING_STOPS)",
             "deleteSeeded()",
         )) {
             assertTrue("the eviction must call $call", s.contains(call))
         }
+        // …and the retired routing vocabulary is GONE (the census contract).
+        assertFalse("the vehicles eviction must be gone", s.contains("DemoSeedIds.VEHICLES"))
+        assertFalse("the routing-stops eviction must be gone", s.contains("DemoSeedIds.ROUTING_STOPS"))
+        assertFalse("the vehicleDao must be gone", s.contains("db.vehicleDao()"))
+        assertFalse("the routingStopDao must be gone", s.contains("db.routingStopDao()"))
     }
 
     @Test

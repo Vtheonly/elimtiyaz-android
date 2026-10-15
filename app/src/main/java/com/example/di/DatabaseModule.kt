@@ -26,9 +26,6 @@ import com.example.infrastructure.room.PricingConfigDao
 import com.example.infrastructure.room.ReleveEntryDao
 import com.example.infrastructure.room.StudentDao
 import com.example.infrastructure.room.SubjectDao
-import com.example.infrastructure.room.TripLogDao
-import com.example.infrastructure.room.VehicleDao
-import com.example.infrastructure.room.RoutingStopDao
 import com.example.infrastructure.room.WorkflowRunDao
 import dagger.Module
 import dagger.Provides
@@ -130,6 +127,8 @@ object DatabaseModule {
                 // anomalyNote — the server's proof attribution + anomaly
                 // note for the pulled expense_tickets rows (v20).
                 ElImtiyazDatabase.MIGRATION_19_20,
+                // T-541 / OPS-324: drops the tournee tables (v20 → v21).
+                ElImtiyazDatabase.MIGRATION_20_21,
             )
             // T-046 / ARCH-004: NO destructive fallback. A missing migration
             // now fails LOUDLY (IllegalStateException) instead of wiping the
@@ -202,15 +201,6 @@ object DatabaseModule {
 
     @Provides @Singleton
     fun provideAuditLogDao(db: ElImtiyazDatabase): AuditLogDao = db.auditLogDao()
-
-    @Provides @Singleton
-    fun provideTripLogDao(db: ElImtiyazDatabase): TripLogDao = db.tripLogDao()
-
-    @Provides @Singleton
-    fun provideVehicleDao(db: ElImtiyazDatabase): VehicleDao = db.vehicleDao()
-
-    @Provides @Singleton
-    fun provideRoutingStopDao(db: ElImtiyazDatabase): RoutingStopDao = db.routingStopDao()
 
     @Provides @Singleton
     fun provideClassSubjectDao(db: ElImtiyazDatabase): ClassSubjectDao = db.classSubjectDao()

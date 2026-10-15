@@ -629,64 +629,9 @@ interface AuditLogDao {
 
 // ─── Routing / Releve / Workflow DAOs ────────────────────────────────────────
 
-@Dao
-interface TripLogDao {
-    @Query("SELECT * FROM trip_logs ORDER BY date DESC LIMIT 100")
-    fun observeAll(): Flow<List<TripLogEntity>>
+// T-541 / OPS-324: TripLogDao / VehicleDao / RoutingStopDao removed with the
+// GPS Tournées feature (the tables are dropped by Room migration v20→v21).
 
-    @Query("SELECT * FROM trip_logs WHERE driverId = :driverId ORDER BY date DESC LIMIT 50")
-    fun observeByDriver(driverId: String): Flow<List<TripLogEntity>>
-
-    @Query("SELECT * FROM trip_logs WHERE id = :id LIMIT 1")
-    suspend fun getById(id: String): TripLogEntity?
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(row: TripLogEntity)
-}
-
-@Dao
-interface VehicleDao {
-    @Query("SELECT * FROM vehicles WHERE isActive = 1 ORDER BY plate")
-    fun observeAll(): Flow<List<VehicleEntity>>
-
-    @Query("SELECT * FROM vehicles WHERE id = :id LIMIT 1")
-    suspend fun getById(id: String): VehicleEntity?
-
-    @Query("SELECT COUNT(*) FROM vehicles")
-    suspend fun count(): Int
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertAll(rows: List<VehicleEntity>)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(row: VehicleEntity)
-
-    /** T-494 (DATA-059): evict the demo-seeded vehicles (exact ids). */
-    @Query("DELETE FROM vehicles WHERE id IN (:ids)")
-    suspend fun deleteByIds(ids: List<String>)
-}
-
-@Dao
-interface RoutingStopDao {
-    @Query("SELECT * FROM routing_stops WHERE isActive = 1")
-    fun observeAll(): Flow<List<RoutingStopEntity>>
-
-    @Query("SELECT * FROM routing_stops WHERE isActive = 1")
-    suspend fun getAll(): List<RoutingStopEntity>
-
-    @Query("SELECT COUNT(*) FROM routing_stops")
-    suspend fun count(): Int
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertAll(rows: List<RoutingStopEntity>)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(row: RoutingStopEntity)
-
-    /** T-494 (DATA-059): evict the demo-seeded routing stops (exact ids). */
-    @Query("DELETE FROM routing_stops WHERE id IN (:ids)")
-    suspend fun deleteByIds(ids: List<String>)
-}
 
 @Dao
 interface ClassSubjectDao {

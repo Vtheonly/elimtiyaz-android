@@ -65,7 +65,10 @@ class DatabaseMigrationDisciplineT046Test {
     // MIGRATION_18_19, on top of T-463's v18 scope column).
     // T-492 / SYNC-302 (146th session): 20 — the expenses proof-uploader
     // attribution + anomaly note (MIGRATION_19_20).
-    private val compiledVersion = 20
+    // T-541 / OPS-324 (180th session): 21 — the GPS Tournées removal
+    // (MIGRATION_20_21 drops the trip_logs / vehicles / routing_stops
+    // tables — the exclusively-tournee feature is retired entirely).
+    private val compiledVersion = 21
 
     @Before
     fun setUp() {

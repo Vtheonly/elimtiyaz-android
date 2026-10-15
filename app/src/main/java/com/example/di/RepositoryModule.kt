@@ -19,7 +19,6 @@ import com.example.domain.repository.PdfRepository
 import com.example.domain.repository.PersonnelRepository
 import com.example.domain.repository.PricingRepository
 import com.example.domain.repository.ReleveRepository
-import com.example.domain.repository.RoutingRepository
 import com.example.domain.repository.StudentRepository
 import com.example.domain.repository.StorageRepository
 import com.example.domain.repository.SubjectRepository
@@ -42,7 +41,6 @@ import com.example.infrastructure.local.LocalPaymentRepository
 import com.example.infrastructure.local.LocalPersonnelRepository
 import com.example.infrastructure.local.LocalPricingRepository
 import com.example.infrastructure.local.LocalReleveRepository
-import com.example.infrastructure.local.LocalRoutingRepository
 import com.example.infrastructure.local.LocalStorageRepository
 import com.example.infrastructure.local.LocalStudentRepository
 import com.example.infrastructure.local.LocalSubjectRepository
@@ -92,7 +90,6 @@ abstract class RepositoryModule {
     @Binds @Singleton abstract fun bindDebtRepository(impl: LocalDebtRepository): DebtRepository
     @Binds @Singleton abstract fun bindNotificationRepository(impl: LocalNotificationRepository): NotificationRepository
 
-    @Binds @Singleton abstract fun bindRoutingRepository(impl: LocalRoutingRepository): RoutingRepository
     @Binds @Singleton abstract fun bindReleveRepository(impl: LocalReleveRepository): ReleveRepository
     @Binds @Singleton abstract fun bindWorkflowRepository(impl: LocalWorkflowRepository): WorkflowRepository
     @Binds @Singleton abstract fun bindPdfRepository(impl: AndroidPdfRepository): PdfRepository

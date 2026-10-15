@@ -115,9 +115,9 @@ fun MainScreen(
     onNavigateToChat: () -> Unit = {},
     // T-463 / CHAT-300: open a PORTAL conversation (the CRM Portail tab).
     onNavigateToChatDetail: (com.example.domain.model.ChatChannel) -> Unit = {},
-    onNavigateToRouting: () -> Unit,
-    onNavigateToRoutingMap: (String) -> Unit,
-    onNavigateToTripHistory: () -> Unit,
+    // T-541 / OPS-324 (180th session): onNavigateToRouting /
+    // onNavigateToRoutingMap / onNavigateToTripHistory REMOVED with the
+    // GPS Tournées feature — the routing routes no longer exist.
     onNavigateToSettings: () -> Unit,
     onNavigateToAuditLog: () -> Unit,
     viewModel: MainViewModel = hiltViewModel(),
@@ -271,7 +271,6 @@ fun MainScreen(
                     onNavigateToReleve = onNavigateToReleve,
                     onNavigateToWorkflowMonitor = onNavigateToWorkflowMonitor,
                     onNavigateToAuditLog = onNavigateToAuditLog,
-                    onNavigateToRouting = onNavigateToRouting,
                     onNavigateToProfile = onNavigateToProfile,
                     onNavigateToRollCall = onNavigateToRollCall,
                     onNavigateToGradeEntry = onNavigateToGradeEntry,

@@ -80,7 +80,10 @@ class ServerDismissedEvictionT181Test {
         // registered in the chain.
         // T-492 (146th session): version 20 (the expenses proof attribution +
         // anomaly note — MIGRATION_19_20).
-        assertTrue("the database version must be bumped to 20", dbSrc().contains("version = 20,"))
+        // T-541 / OPS-324 (180th session): version 21 (the GPS Tournées
+        // removal — MIGRATION_20_21 drops trip_logs / vehicles /
+        // routing_stops; the dismissedAt migration 13→14 stays registered).
+        assertTrue("the database version must be bumped to 21", dbSrc().contains("version = 21,"))
         val migration = Regex("MIGRATION_13_14[\\s\\S]*?\\n        \\}")
             .find(dbSrc())?.value ?: error("MIGRATION_13_14 not found")
         assertTrue(
